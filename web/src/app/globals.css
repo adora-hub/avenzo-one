@@ -47,4 +47,6 @@ input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft
 .status.grace { background: #fff4dc; color: var(--warning); }
 .status.expired, .status.blocked_by_platform, .status.canceled { background: #fff0ef; color: var(--danger); }
 .empty { border: 1px dashed #c9d1df; border-radius: 18px; padding: 28px; color: var(--muted); }
+.table { display: grid; gap: 1px; margin-top: 14px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.table-row { display: grid; grid-template-columns: 1fr 120px 120px; gap: 12px; padding: 11px 13px; background: #fbfcfe; color: var(--muted); font-size: 12px; word-break: break-word; }
 @media (max-width: 640px) { .topbar, .hero { align-items: flex-start; flex-direction: column; } .auth-card { padding: 26px; } }
