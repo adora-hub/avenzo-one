@@ -18,16 +18,20 @@ export default async function DashboardPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/')
 
-  const { data: subscriptions } = await supabase
+  const [{ data: organizations }, { data: subscriptions }] = await Promise.all([
+    supabase.from('organizations').select('id, name, slug, status, timezone, currency').order('name'),
+    supabase
     .from('organization_subscription_status')
     .select('organization_id, plan_name, access_state, expires_at, days_remaining, hours_remaining, seconds_remaining')
+  ])
 
   return (
     <main className="dashboard">
       <header className="topbar"><div className="brand">AVENZO ONE</div><div className="topbar-actions"><span>{user.email}</span><SignOutButton /></div></header>
       <section className="content">
         <div className="hero"><div><div className="eyebrow">Workspace</div><h1>Subscription ของคุณ</h1><p>เวลาคงเหลือคำนวณจากเวลาจริงของระบบ</p></div></div>
-        {(subscriptions as SubscriptionStatus[] | null)?.length ? <div className="grid">{(subscriptions as SubscriptionStatus[]).map((subscription) => <article className="card" key={subscription.organization_id}><div className={`status ${subscription.access_state}`}>{subscription.access_state}</div><h3>{subscription.plan_name}</h3><div className="meta">หมดอายุ {new Date(subscription.expires_at).toLocaleString('th-TH')}</div><div className="countdown">เหลือเวลา<Countdown expiresAt={subscription.expires_at} initialSeconds={subscription.seconds_remaining} /></div></article>)}</div> : <div className="empty">ยังไม่มี Subscription ที่เชื่อมกับบัญชีนี้</div>}
+        <div className="hero"><div><h2>Organizations</h2><p>พื้นที่ทำงานที่บัญชีนี้เข้าถึงได้</p></div><a className="button" href="/onboarding">สร้าง Organization</a></div>
+        {organizations?.length ? <div className="grid">{organizations.map((organization) => { const subscription = (subscriptions as SubscriptionStatus[] | null)?.find((item) => item.organization_id === organization.id); return <article className="card" key={organization.id}><div className={`status ${organization.status}`}>{organization.status}</div><h3>{organization.name}</h3><div className="meta">/{organization.slug} · {organization.currency}</div>{subscription ? <><div className={`status ${subscription.access_state}`}>{subscription.access_state}</div><div className="countdown">เหลือเวลา<Countdown expiresAt={subscription.expires_at} initialSeconds={subscription.seconds_remaining} /></div></> : <div className="meta">ยังไม่มี Subscription</div>}</article>})}</div> : <div className="empty">ยังไม่มี Organization ในบัญชีนี้ เริ่มต้นด้วยการสร้าง Organization ใหม่</div>}
       </section>
     </main>
   )

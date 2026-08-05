@@ -12,6 +12,7 @@
 - `/auth/callback` — แลก Auth Code เป็น Session
 - `/dashboard` — แสดง Subscription ของ Organization ที่ผู้ใช้เข้าถึงได้
 - `/platform-admin` — แสดง Organization สำหรับ Platform Admin
+- `/onboarding` — สร้าง Organization/Workspace สำหรับบัญชีที่ Login แล้ว
 - Session Refresh ผ่าน `web/src/middleware.ts` และ Supabase SSR cookies
 
 ## Subscription Countdown
