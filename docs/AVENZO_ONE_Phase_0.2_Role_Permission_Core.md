@@ -61,7 +61,7 @@ Migration ที่ Deploy แล้ว:
 - [x] Staff/Viewer ถูกจำกัดด้วย Organization/Branch Scope ผ่าน `has_org_permission`
 - [x] Security Advisor ไม่พบปัญหา RLS ใหม่
 - [ ] End-to-end test ด้วยบัญชี Auth จริง — รอเตรียม Test User ในขั้นถัดไป
-- [ ] Commit และ Push ขึ้น GitHub
+- [x] Commit และ Push ขึ้น GitHub
 
 ## ข้อจำกัดที่ยังไม่รวม
 
