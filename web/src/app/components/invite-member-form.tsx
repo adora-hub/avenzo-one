@@ -13,6 +13,8 @@ export function InviteMemberForm({ organizationId, roles, branches }: { organiza
   const [branchId, setBranchId] = useState('')
   const [message, setMessage] = useState('')
   const [invitationUrl, setInvitationUrl] = useState('')
+  const [invitationEmail, setInvitationEmail] = useState('')
+  const [copied, setCopied] = useState(false)
   const [loading, setLoading] = useState(false)
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -20,6 +22,8 @@ export function InviteMemberForm({ organizationId, roles, branches }: { organiza
     setLoading(true)
     setMessage('')
     setInvitationUrl('')
+    setInvitationEmail(email)
+    setCopied(false)
     try {
       const response = await fetch('/api/invitations/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ organizationId, email, roleCode, branchId: branchId || null }) })
       const result = await response.json() as { message?: string; error?: string; invitationUrl?: string }
@@ -37,5 +41,5 @@ export function InviteMemberForm({ organizationId, roles, branches }: { organiza
     } finally { setLoading(false) }
   }
 
-  return <form className="form" onSubmit={submit}><label>อีเมลสมาชิก<input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} /></label><label>Role<select value={roleCode} onChange={(event) => setRoleCode(event.target.value)}>{roles.map((role) => <option value={role.code} key={role.code}>{role.name} ({role.code})</option>)}</select></label><label>Branch Scope<select value={branchId} onChange={(event) => setBranchId(event.target.value)}><option value="">ทั้ง Organization</option>{branches.map((branch) => <option value={branch.id} key={branch.id}>{branch.code} · {branch.name}</option>)}</select></label>{message && <div className={invitationUrl ? 'countdown' : 'error'}>{message}{invitationUrl && <a href={invitationUrl} style={{ display: 'block', marginTop: 8, color: 'inherit', textDecoration: 'underline' }}>เปิดลิงก์คำเชิญ</a>}</div>}<button className="button" disabled={loading}>{loading ? 'กำลังส่งคำเชิญ…' : 'สร้างและส่งคำเชิญ'}</button></form>
+  return <form className="form" onSubmit={submit}><label>อีเมลสมาชิก<input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} /></label><label>Role<select value={roleCode} onChange={(event) => setRoleCode(event.target.value)}>{roles.map((role) => <option value={role.code} key={role.code}>{role.name} ({role.code})</option>)}</select></label><label>Branch Scope<select value={branchId} onChange={(event) => setBranchId(event.target.value)}><option value="">ทั้ง Organization</option>{branches.map((branch) => <option value={branch.id} key={branch.id}>{branch.code} · {branch.name}</option>)}</select></label>{message && <div className={invitationUrl ? 'countdown' : 'error'}>{message}{invitationUrl && <div style={{ marginTop: 10 }}><div>ลิงก์นี้ใช้กับ: {invitationEmail}</div><input readOnly value={invitationUrl} onFocus={(event) => event.currentTarget.select()} style={{ marginTop: 8 }} /><div style={{ display: 'flex', gap: 8, marginTop: 8 }}><a className="button secondary" href={invitationUrl}>เปิดลิงก์คำเชิญ</a><button className="button secondary" type="button" onClick={async () => { await navigator.clipboard.writeText(invitationUrl); setCopied(true) }}>{copied ? 'คัดลอกแล้ว' : 'คัดลอกลิงก์'}</button></div></div>}</div>}<button className="button" disabled={loading}>{loading ? 'กำลังส่งคำเชิญ…' : 'สร้างและส่งคำเชิญ'}</button></form>
 }
