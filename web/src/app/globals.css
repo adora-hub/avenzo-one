@@ -23,7 +23,7 @@ h2 { margin: 0; font-size: 22px; }
 p { color: var(--muted); line-height: 1.6; }
 .form { display: grid; gap: 14px; margin-top: 28px; }
 label { display: grid; gap: 7px; color: var(--ink); font-size: 13px; font-weight: 700; }
-input { width: 100%; border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; outline: none; }
+input, select, textarea { width: 100%; border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; outline: none; background: white; }
 input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
 .button { display: inline-flex; justify-content: center; border: 0; border-radius: 12px; padding: 12px 16px; background: var(--brand); color: white; cursor: pointer; font-weight: 700; }
 .button:disabled { cursor: wait; opacity: .6; }
