@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>AVENZO ONE Codex Implementation Starter Plan V7</title>
+  <style>
+    :root { color-scheme: light; --ink:#172033; --muted:#5b6476; --line:#d9deea; --brand:#4f46e5; --soft:#f5f7fb; }
+    html { background:#eef1f7; }
+    body { max-width:1060px; margin:32px auto; padding:56px 68px; background:#fff; color:var(--ink); font-family:"Noto Sans Thai","Leelawadee UI",system-ui,sans-serif; font-size:16px; line-height:1.75; box-shadow:0 16px 50px rgba(26,35,58,.10); border-radius:18px; }
+    h1,h2,h3 { color:#121a2c; line-height:1.3; }
+    h1 { font-size:2.25rem; margin-top:0; padding-bottom:18px; border-bottom:4px solid var(--brand); }
+    h2 { margin-top:2.8rem; padding-bottom:9px; border-bottom:1px solid var(--line); }
+    h3 { margin-top:2rem; }
+    p,li { color:var(--ink); }
+    blockquote { margin:1.4rem 0; padding:14px 20px; border-left:4px solid var(--brand); background:#f4f3ff; color:#313956; }
+    table { width:100%; border-collapse:collapse; margin:1.2rem 0 1.8rem; font-size:.95rem; }
+    th,td { border:1px solid var(--line); padding:10px 12px; vertical-align:top; }
+    th { background:#eef0ff; text-align:left; }
+    tr:nth-child(even) td { background:#fafbfe; }
+    code { background:#f0f2f7; color:#9b2858; border-radius:5px; padding:.12em .35em; }
+    pre { overflow:auto; padding:18px; border-radius:10px; background:#171b2b; color:#eef1ff; }
+    pre code { padding:0; background:transparent; color:inherit; }
+    hr { border:0; border-top:1px solid var(--line); margin:2.5rem 0; }
+    a { color:var(--brand); }
+    @media (max-width:760px) { body { margin:0; padding:28px 20px; border-radius:0; box-shadow:none; } h1 { font-size:1.75rem; } table { display:block; overflow-x:auto; } }
+    @media print { html { background:#fff; } body { max-width:none; margin:0; padding:0; box-shadow:none; } }
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* AVENZO document theme overrides */
+    html { background:#eef1f7; }
+    body { max-width:1060px; margin:32px auto; padding:56px 68px; background:#fff; color:#172033; font-family:"Noto Sans Thai","Leelawadee UI",system-ui,sans-serif; font-size:16px; line-height:1.75; box-shadow:0 16px 50px rgba(26,35,58,.10); border-radius:18px; }
+    @media (max-width:760px) { body { margin:0; padding:28px 20px; border-radius:0; box-shadow:none; } }
+    @media print { html { background:#fff; } body { max-width:none; margin:0; padding:0; box-shadow:none; } }
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">AVENZO ONE Codex Implementation Starter Plan V7</h1>
+</header>
+<h1 id="avenzo-one-codex-implementation-starter-plan-v7">AVENZO ONE
+Codex Implementation Starter Plan V7</h1>
+<blockquote>
+<p>แผนแม่บทฉบับอัปเดตสำหรับพัฒนา AVENZO ONE แบบ Vertical Slice โดยใช้ V6
+เป็นฐาน และเพิ่ม Customer Platform, Loyalty, Community และ Referral
+Commerce</p>
+</blockquote>
+<p><strong>เวอร์ชัน:</strong> 7.0<br />
+<strong>วันที่:</strong> 5 สิงหาคม 2026<br />
+<strong>สถานะ:</strong> พร้อมใช้วางสถาปัตยกรรมและแตกงานพัฒนา<br />
+<strong>ระบบเป้าหมาย:</strong> Web Application แบบ Multi-tenant
+รองรับการขยายเป็น SaaS</p>
+<hr />
+<h2 id="1-ขอบเขตของ-v7">1. ขอบเขตของ V7</h2>
+<p>V7 รับรองข้อกำหนดทั้งหมดของ
+<code>AVENZO ONE Codex Implementation Starter Plan V6</code>
+และเพิ่มโดเมนลูกค้าโดยไม่เปลี่ยนหลักการเดิมเรื่อง Multi-tenant, Permission, RLS,
+Audit Log, Domain Event, Stock Movement Ledger, Order Revision,
+Promotion Engine และ Fulfillment Lifecycle</p>
+<p>สิ่งที่เพิ่ม:</p>
+<ul>
+<li><code>Customer 360</code> เป็นฐานลูกค้ากลาง แยกจากรายงานยอดขาย</li>
+<li>สมัครและเชื่อมบัญชีด้วย LINE, Google หรือ Facebook</li>
+<li>ประวัติซื้อ แต้ม ระดับสมาชิก คูปอง เครดิต และความยินยอม</li>
+<li>โปรไฟล์ลูกค้าแบบ Public/Private ที่ไม่เปิดเผยข้อมูลส่วนตัว</li>
+<li>ข่าวร้าน สินค้าใหม่ โปรโมชัน และแจ้งเตือนไลฟ์</li>
+<li>Inbox และการโต้ตอบระหว่างร้านกับลูกค้า</li>
+<li>รีวิวจากผู้ซื้อจริง โพสต์ รูป/วิดีโอ และลิงก์ซื้อสินค้า</li>
+<li>Referral Link และ Sales Attribution</li>
+<li>Commission Ledger, ระยะพักค่านายหน้า และการย้อนรายการเมื่อคืนสินค้า</li>
+<li>Feed ชุมชนขนาดเล็ก โดยยังไม่สร้างระบบวิดีโอหรือ Recommendation Engine แบบ
+TikTok</li>
+</ul>
+<hr />
+<h2 id="2-หลักการออกแบบที่ล็อกใน-v7">2. หลักการออกแบบที่ล็อกใน V7</h2>
+<h3 id="21-รายงานยอดขายไม่ใช่ฐานลูกค้า">2.1 รายงานยอดขายไม่ใช่ฐานลูกค้า</h3>
+<p>รายงานยอดขายเป็นข้อมูลธุรกรรมตามออเดอร์ ใช้ตอบคำถามว่าใครซื้ออะไร เมื่อใด
+ช่องทางไหน และยอดเท่าไร แต่ห้ามใช้เป็น Master Customer โดยตรง</p>
+<p>โครงสร้างที่ถูกต้อง:</p>
+<blockquote>
+<p>Identity → Customer → Order → Loyalty → Content → Referral →
+Commission</p>
+</blockquote>
+<p>ลูกค้าคนเดิมอาจมีชื่อ Facebook, ชื่อผู้รับ, เบอร์โทร, LINE และ Google ต่างกัน
+ระบบต้องรวมด้วยกฎที่ตรวจสอบได้ ไม่รวมอัตโนมัติเพียงเพราะชื่อคล้ายกัน</p>
+<h3 id="22-customer-id-กลาง">2.2 Customer ID กลาง</h3>
+<ul>
+<li>ลูกค้าหนึ่งคนมี <code>customer_id</code> กลางหนึ่งรายการต่อร้าน/องค์กร</li>
+<li>ลูกค้าหนึ่งคนเชื่อมหลาย Identity Provider ได้</li>
+<li>การเชื่อมบัญชีใหม่ต้องไม่สร้างแต้ม เครดิต หรือประวัติซื้อซ้ำ</li>
+<li>การรวม Customer Record ต้องมี Preview, เหตุผล, ผู้อนุมัติ และ Audit Log</li>
+<li>การแยกบัญชีที่รวมผิดต้องย้อนกลับได้โดยไม่ทำลาย Ledger</li>
+</ul>
+<h3 id="23-ข้อมูลส่วนตัวแยกจากข้อมูลสาธารณะ">2.3
+ข้อมูลส่วนตัวแยกจากข้อมูลสาธารณะ</h3>
+<table>
+<thead>
+<tr class="header">
+<th>ข้อมูลส่วนตัว</th>
+<th>ข้อมูลสาธารณะที่ลูกค้าเลือกเปิด</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>เบอร์โทร อีเมล ที่อยู่</td>
+<td>รูปโปรไฟล์และชื่อแสดง</td>
+</tr>
+<tr class="even">
+<td>ประวัติซื้อ ยอดชำระ คืนเงิน</td>
+<td>Bio, รีวิว และโพสต์</td>
+</tr>
+<tr class="odd">
+<td>แต้ม เครดิต คูปอง</td>
+<td>สินค้าที่แนะนำ</td>
+</tr>
+<tr class="even">
+<td>บัญชีรับเงินและเอกสารยืนยัน</td>
+<td>จำนวนผู้ติดตาม/กำลังติดตาม</td>
+</tr>
+<tr class="odd">
+<td>Consent และประวัติการติดต่อ</td>
+<td>ลิงก์โปรไฟล์สาธารณะ</td>
+</tr>
+</tbody>
+</table>
+<p>การเปิดโปรไฟล์เป็น Public ไม่ทำให้ข้อมูลฝั่งซ้ายเปิดเผย</p>
+<h3 id="24-นายหน้าชั้นเดียวก่อน">2.4 นายหน้าชั้นเดียวก่อน</h3>
+<p>V7 ออกแบบและพัฒนาระยะแรกเป็น Single-level Referral:</p>
+<blockquote>
+<p>ลูกค้า A แชร์รีวิว/โพสต์ → ลูกค้า B ซื้อผ่านลิงก์ → ลูกค้า A ได้ค่านายหน้า</p>
+</blockquote>
+<p>ระบบฐานข้อมูลเตรียมขยายหลายระดับได้ แต่ Multi-level/Downline
+ยังไม่เปิดใช้จนกว่าจะมีกฎธุรกิจ การบัญชี ภาษี Anti-fraud
+และการตรวจข้อกฎหมายที่ชัดเจน</p>
+<hr />
+<h2 id="3-customer-360">3. Customer 360</h2>
+<h3 id="31-customer-profile-ภายในร้าน">3.1 Customer Profile ภายในร้าน</h3>
+<p>เจ้าหน้าที่ที่มีสิทธิ์ควรเห็น:</p>
+<ul>
+<li>Customer ID, ชื่อ และช่องทางที่เชื่อม</li>
+<li>Timeline การสั่งซื้อ ชำระเงิน จัดส่ง คืนสินค้า และเคสบริการ</li>
+<li>Lifetime Value, จำนวนออเดอร์, ซื้อครั้งล่าสุด และความถี่</li>
+<li>แต้ม ระดับสมาชิก คูปอง เครดิต และค่านายหน้า</li>
+<li>แท็ก กลุ่มลูกค้า หมายเหตุ และผู้ดูแล</li>
+<li>Consent รายช่องทางและหัวข้อที่ยินยอม</li>
+<li>รีวิว โพสต์ รายงานเนื้อหา และสถานะการ Moderation</li>
+<li>Referral Performance โดยไม่เปิดข้อมูลของลูกค้าปลายทางเกินจำเป็น</li>
+</ul>
+<h3 id="32-identity-resolution">3.2 Identity Resolution</h3>
+<p>ระดับการจับคู่:</p>
+<table>
+<thead>
+<tr class="header">
+<th>ระดับ</th>
+<th>ตัวอย่าง</th>
+<th>การดำเนินการ</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Verified</td>
+<td>OAuth Provider ID เดียวกัน</td>
+<td>เชื่อมอัตโนมัติได้</td>
+</tr>
+<tr class="even">
+<td>Strong</td>
+<td>เบอร์/อีเมลที่ยืนยันตรงกัน</td>
+<td>เสนอให้เชื่อมและยืนยัน</td>
+</tr>
+<tr class="odd">
+<td>Possible</td>
+<td>ชื่อ/ที่อยู่คล้ายกัน</td>
+<td>เข้าคิวตรวจ ห้ามรวมอัตโนมัติ</td>
+</tr>
+<tr class="even">
+<td>Conflict</td>
+<td>ประวัติหรือเจ้าของบัญชีขัดกัน</td>
+<td>ระงับการรวมและให้เจ้าหน้าที่ตรวจ</td>
+</tr>
+</tbody>
+</table>
+<p>ต้องมี <code>customer_merge_cases</code> และ
+<code>customer_merge_audits</code> สำหรับกรณีรวม/แยกบัญชี</p>
+<h3 id="33-ตารางหลัก">3.3 ตารางหลัก</h3>
+<table>
+<thead>
+<tr class="header">
+<th>ตาราง</th>
+<th>หน้าที่</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>customers</code></td>
+<td>Customer ID กลางของร้าน</td>
+</tr>
+<tr class="even">
+<td><code>customer_identities</code></td>
+<td>LINE/Google/Facebook/Auth Identity</td>
+</tr>
+<tr class="odd">
+<td><code>customer_private_profiles</code></td>
+<td>PII และข้อมูลติดต่อ</td>
+</tr>
+<tr class="even">
+<td><code>customer_public_profiles</code></td>
+<td>ชื่อแสดง รูป Bio และ Visibility</td>
+</tr>
+<tr class="odd">
+<td><code>customer_addresses</code></td>
+<td>ที่อยู่พร้อมประวัติและค่า Default</td>
+</tr>
+<tr class="even">
+<td><code>customer_consents</code></td>
+<td>ความยินยอมตามหัวข้อ ช่องทาง และเวลา</td>
+</tr>
+<tr class="odd">
+<td><code>customer_tags</code></td>
+<td>Tag/Segment สำหรับ CRM</td>
+</tr>
+<tr class="even">
+<td><code>customer_notes</code></td>
+<td>หมายเหตุภายในและสิทธิ์การเข้าถึง</td>
+</tr>
+<tr class="odd">
+<td><code>customer_merge_cases</code></td>
+<td>คิวตรวจบัญชีที่อาจเป็นคนเดียวกัน</td>
+</tr>
+<tr class="even">
+<td><code>customer_merge_audits</code></td>
+<td>ประวัติรวมและแยก Customer</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="4-authentication-และ-account-linking">4. Authentication และ
+Account Linking</h2>
+<h3 id="41-ช่องทางสมัคร">4.1 ช่องทางสมัคร</h3>
+<ul>
+<li>LINE Login</li>
+<li>Google Sign-In</li>
+<li>Facebook Login</li>
+</ul>
+<p>ลูกค้าต้องใช้ขั้นต่ำหนึ่งช่องทาง และเพิ่มช่องทางอื่นภายหลังได้
+การตั้งรหัสผ่านไม่จำเป็นในรุ่นแรกหากใช้ OAuth ทั้งหมด</p>
+<h3 id="42-กฎความปลอดภัย">4.2 กฎความปลอดภัย</h3>
+<ul>
+<li>ตรวจ Provider Token ฝั่ง Server</li>
+<li>ใช้ Provider Subject ID เป็นกุญแจหลัก ไม่ใช้ชื่อแสดง</li>
+<li>Account Linking ต้องยืนยันกับ Identity เดิมและ Identity ใหม่</li>
+<li>เปลี่ยนอีเมล/เบอร์ต้อง Re-verify</li>
+<li>Login, Link, Unlink และ Merge ต้องมี Security Audit</li>
+<li>ห้าม Unlink วิธีเข้าสู่ระบบสุดท้ายก่อนเพิ่มวิธีใหม่</li>
+<li>Session และ OAuth Redirect ต้องแยก Environment</li>
+</ul>
+<h3 id="43-การผูกออเดอร์เก่า">4.3 การผูกออเดอร์เก่า</h3>
+<p>เมื่อสมัครสมาชิก ระบบเสนอออเดอร์เดิมที่น่าจะเป็นของลูกค้า
+แต่ต้องยืนยันด้วยข้อมูลที่ควบคุมได้ เช่น OTP เบอร์โทรหรือข้อมูลอ้างอิงออเดอร์ ห้ามให้ผู้ใช้
+Claim ประวัติจากชื่อผู้รับเพียงอย่างเดียว</p>
+<hr />
+<h2 id="5-customer-portal-รุ่นแรก">5. Customer Portal รุ่นแรก</h2>
+<h3 id="51-หน้า-home">5.1 หน้า Home</h3>
+<ul>
+<li>สถานะออเดอร์ล่าสุด</li>
+<li>แต้ม ระดับสมาชิก คูปอง และเครดิต</li>
+<li>โปรโมชันที่มีสิทธิ์ใช้</li>
+<li>สินค้าใหม่และสินค้าแนะนำจากร้าน</li>
+<li>สถานะไลฟ์และกำหนดการไลฟ์ถัดไป</li>
+<li>Notification/Inbox ล่าสุด</li>
+</ul>
+<h3 id="52-หน้า-purchase-history">5.2 หน้า Purchase History</h3>
+<ul>
+<li>รายการซื้อและรายละเอียดราคา/ส่วนลด</li>
+<li>สถานะชำระเงิน แพ็ก ส่ง และเลขพัสดุ</li>
+<li>ดาวน์โหลดเอกสารที่ได้รับอนุญาต</li>
+<li>เปิด After-sales Case</li>
+<li>ปุ่มรีวิวเฉพาะสินค้าที่ผ่านเงื่อนไข</li>
+</ul>
+<h3 id="53-หน้า-loyalty--wallet">5.3 หน้า Loyalty &amp; Wallet</h3>
+<ul>
+<li>แต้มคงเหลือ แต้มรอรับ และแต้มใกล้หมดอายุ</li>
+<li>ประวัติได้/ใช้/คืน/หมดอายุแบบ Ledger</li>
+<li>ระดับสมาชิกและเงื่อนไขรักษาระดับ</li>
+<li>คูปองที่ใช้ได้/ใช้แล้ว/หมดอายุ</li>
+<li>Customer Credit แยกจาก Commission Balance</li>
+</ul>
+<h3 id="54-หน้า-public-profile">5.4 หน้า Public Profile</h3>
+<ul>
+<li>รูป ชื่อแสดง Bio และลิงก์โปรไฟล์</li>
+<li>รีวิว/โพสต์ที่เปิด Public</li>
+<li>สินค้าที่แนะนำ</li>
+<li>สถิติ Public ขั้นต่ำ เช่น จำนวนโพสต์และผู้ติดตาม</li>
+<li>ปุ่ม Follow, Share และ Report</li>
+</ul>
+<p>ไม่แสดงยอดซื้อ แต้ม เครดิต ที่อยู่ เบอร์โทร รายได้ค่านายหน้า หรือ Order ID</p>
+<hr />
+<h2 id="6-loyalty-และ-customer-credit">6. Loyalty และ Customer
+Credit</h2>
+<h3 id="61-loyalty-ledger">6.1 Loyalty Ledger</h3>
+<p>แต้มต้องเป็น Ledger ห้ามแก้ยอดคงเหลือตรง ๆ</p>
+<p>สถานะรายการแต้ม:</p>
+<p><code>pending → available → redeemed / expired / reversed</code></p>
+<p>กฎเบื้องต้น:</p>
+<ul>
+<li>แต้มจากการซื้อเข้า <code>pending</code> จนพ้นเงื่อนไขยกเลิก/คืน</li>
+<li>ยกเลิกหรือคืนสินค้าต้องย้อนแต้มตามสัดส่วนที่อนุมัติ</li>
+<li>คืนส่วนลด/คูปองต้องใช้ Rule ที่ระบุ ไม่คำนวณตามความจำ</li>
+<li>การปรับแต้มด้วยมือต้องมีเหตุผลและสิทธิ์อนุมัติ</li>
+<li><code>Customer Credit</code>, <code>Loyalty Point</code> และ
+<code>Commission</code> เป็นคนละ Ledger ห้ามรวมยอด</li>
+</ul>
+<h3 id="62-ตารางหลัก">6.2 ตารางหลัก</h3>
+<ul>
+<li><code>loyalty_programs</code></li>
+<li><code>loyalty_tiers</code></li>
+<li><code>loyalty_rules</code></li>
+<li><code>loyalty_accounts</code></li>
+<li><code>loyalty_ledger_entries</code></li>
+<li><code>customer_credit_accounts</code> และ
+<code>customer_credit_ledger_entries</code> จาก V6</li>
+<li><code>coupons</code>, <code>coupon_issuances</code>,
+<code>coupon_redemptions</code></li>
+</ul>
+<p>กฎอัตราแต้ม วันหมดอายุ การเลื่อนระดับ และการใช้ร่วมกับโปรโมชันยังเป็น Decision
+Gate ก่อน Implement</p>
+<hr />
+<h2 id="7-content-review-และ-community">7. Content, Review และ
+Community</h2>
+<h3 id="71-verified-purchase-review">7.1 Verified Purchase Review</h3>
+<p>รีวิวเชื่อมกับ <code>order_item_id</code> เพื่อแสดงป้ายซื้อจริง
+โดยหนึ่งรายการสินค้าต้องรีวิวได้ตาม Policy
+ของร้านและไม่สร้างรีวิวซ้ำจากการแก้ข้อความ</p>
+<p>เนื้อหาที่รองรับ:</p>
+<ul>
+<li>คะแนนและข้อความ</li>
+<li>รูปภาพ</li>
+<li>วิดีโอสั้นในระยะถัดไป</li>
+<li>Product/SKU ที่เกี่ยวข้อง</li>
+<li>Visibility: <code>public</code>, <code>followers</code>,
+<code>private</code></li>
+<li>ปุ่มซื้อสินค้าตามรีวิว</li>
+<li>ลิงก์แชร์ภายนอกพร้อม Referral Code</li>
+</ul>
+<h3 id="72-feed-ขนาดเล็ก">7.2 Feed ขนาดเล็ก</h3>
+<p>รุ่นแรกเป็น Feed ตามเวลาและสิทธิ์การมองเห็น ประกอบด้วย:</p>
+<ul>
+<li>ประกาศและโพสต์จากร้าน</li>
+<li>โปรโมชันและสินค้าใหม่</li>
+<li>รีวิว/โพสต์จากลูกค้าที่ติดตามหรือเป็น Public</li>
+<li>แจ้งสถานะ Live</li>
+</ul>
+<p>ไม่รวมในรุ่นแรก:</p>
+<ul>
+<li>Algorithmic Recommendation ซับซ้อน</li>
+<li>Infinite short-video experience</li>
+<li>Live streaming ที่ Host ภายใน AVENZO</li>
+<li>Direct message ระหว่างลูกค้ากับลูกค้า</li>
+</ul>
+<h3 id="73-moderation">7.3 Moderation</h3>
+<ul>
+<li>ลูกค้าแก้/ลบโพสต์ของตนได้ตาม Policy พร้อมประวัติที่จำเป็น</li>
+<li>ร้านซ่อนหรือจำกัดการมองเห็นได้ แต่ต้องมีเหตุผลและ Audit</li>
+<li>ผู้ใช้ Report เนื้อหา/บัญชีได้</li>
+<li>มีคิวตรวจ <code>pending</code>, <code>approved</code>,
+<code>hidden</code>, <code>rejected</code>, <code>appealed</code></li>
+<li>Media Upload ต้องจำกัดชนิด ขนาด และตรวจเนื้อหาที่ไม่เหมาะสม</li>
+<li>เก็บ Policy Version ที่ผู้โพสต์ยอมรับ</li>
+</ul>
+<h3 id="74-ตารางหลัก">7.4 ตารางหลัก</h3>
+<ul>
+<li><code>content_posts</code></li>
+<li><code>product_reviews</code></li>
+<li><code>content_media</code></li>
+<li><code>content_product_links</code></li>
+<li><code>content_reactions</code></li>
+<li><code>customer_follows</code></li>
+<li><code>content_reports</code></li>
+<li><code>moderation_actions</code></li>
+<li><code>store_announcements</code></li>
+</ul>
+<hr />
+<h2 id="8-referral-attribution">8. Referral Attribution</h2>
+<h3 id="81-tracking-flow">8.1 Tracking Flow</h3>
+<pre class="mermaid"><code>flowchart TD
+    A[&quot;แชร์โปรไฟล์/โพสต์/รีวิว&quot;] --&gt; B[&quot;Referral Link&quot;]
+    B --&gt; C[&quot;Click Event&quot;]
+    C --&gt; D[&quot;Attribution Candidate&quot;]
+    D --&gt; E[&quot;Order Paid&quot;]
+    E --&gt; F[&quot;Commission Pending&quot;]
+    F --&gt; G{&quot;พ้นช่วงคืนสินค้า?&quot;}
+    G --&gt;|ใช่| H[&quot;Commission Available&quot;]
+    G --&gt;|ยกเลิก/คืน| I[&quot;Reverse Commission&quot;]</code></pre>
+<h3 id="82-ข้อมูลที่ต้องติดตาม">8.2 ข้อมูลที่ต้องติดตาม</h3>
+<ul>
+<li>Referrer Customer</li>
+<li>Link/Referral Code</li>
+<li>Source Object: profile, post, review หรือ campaign</li>
+<li>Product/SKU ที่เชื่อม</li>
+<li>Click Time, Channel และ Campaign Parameters</li>
+<li>Session/Attribution Window</li>
+<li>Order และ Order Item ที่เกิด Conversion</li>
+<li>Revenue Base, Commission Rule และ Calculation Snapshot</li>
+<li>สถานะยกเลิก คืนสินค้า ปลดล็อก และจ่ายเงิน</li>
+</ul>
+<h3 id="83-attribution-policy-ที่ต้องล็อกก่อน-implement">8.3 Attribution
+Policy ที่ต้องล็อกก่อน Implement</h3>
+<ul>
+<li>First-click หรือ Last-click</li>
+<li>ระยะเวลา Attribution เช่น 7/14/30 วัน</li>
+<li>กรณีกดหลายลิงก์จากหลายคน</li>
+<li>กรณีใช้ Referral ร่วมกับ Paid Ads/Coupon</li>
+<li>Commission คิดจากยอดก่อนหรือหลังส่วนลด ค่าส่ง ภาษี และคืนสินค้า</li>
+<li>สินค้า/หมวดใดไม่มีค่านายหน้า</li>
+<li>ขีดจำกัดต่อออเดอร์/เดือน</li>
+</ul>
+<p>ค่าเริ่มต้นที่แนะนำสำหรับ Prototype คือ Last eligible click ภายใน 7 วัน
+และบันทึก Snapshot ของกฎที่ใช้กับออเดอร์</p>
+<h3 id="84-anti-fraud">8.4 Anti-fraud</h3>
+<ul>
+<li>ห้าม Self-referral</li>
+<li>ตรวจบัญชีซ้ำ Device/Payment/Address ตามระดับความเสี่ยงและกฎหมาย</li>
+<li>ไม่ให้ค่านายหน้ากับออเดอร์ทดสอบ ยกเลิก หรือคืนเต็มจำนวน</li>
+<li>ระงับรายการผิดปกติไว้ตรวจแทนการลบทิ้ง</li>
+<li>มี Velocity Limit และ Risk Flag</li>
+<li>การ Override ต้องมีผู้อนุมัติ เหตุผล และ Audit</li>
+</ul>
+<hr />
+<h2 id="9-commission-ledger-และ-payout">9. Commission Ledger และ
+Payout</h2>
+<h3 id="91-lifecycle">9.1 Lifecycle</h3>
+<p><code>estimated → pending → available → payout_requested → paid</code></p>
+<p>เส้นทางข้อยกเว้น:</p>
+<p><code>pending/available → held → released</code><br />
+<code>pending/available → reversed</code></p>
+<p>กฎสำคัญ:</p>
+<ul>
+<li>ห้ามเพิ่มยอดค่านายหน้าใน Customer Credit โดยตรง</li>
+<li>ทุก Commission อ้างอิง Order Item, Attribution และ Rule Snapshot</li>
+<li>คืนบางรายการต้อง Reverse ตามส่วนที่คืน</li>
+<li>ถ้าจ่ายแล้วจึงเกิดคืนสินค้า ให้สร้างยอดติดลบ/หักรอบถัดไปตาม Policy ห้ามแก้ Ledger
+เดิม</li>
+<li>การถอนต้องผ่านเกณฑ์ขั้นต่ำ การตรวจตัวตน และข้อมูลรับเงิน</li>
+<li>การจ่ายเงินจริงต้องมี Payout Batch, Payment Reference และ
+Reconciliation</li>
+</ul>
+<h3 id="92-ตารางหลัก">9.2 ตารางหลัก</h3>
+<ul>
+<li><code>referral_links</code></li>
+<li><code>referral_clicks</code></li>
+<li><code>attribution_records</code></li>
+<li><code>commission_programs</code></li>
+<li><code>commission_rules</code></li>
+<li><code>commission_ledger_entries</code></li>
+<li><code>commission_holds</code></li>
+<li><code>payout_accounts</code></li>
+<li><code>payout_requests</code></li>
+<li><code>payout_batches</code></li>
+<li><code>payout_items</code></li>
+</ul>
+<hr />
+<h2 id="10-notification-และการสื่อสาร">10. Notification และการสื่อสาร</h2>
+<h3 id="101-ประเภทการแจ้งเตือนลูกค้า">10.1 ประเภทการแจ้งเตือนลูกค้า</h3>
+<ul>
+<li>ออเดอร์ การชำระ แพ็ก จัดส่ง และคืนสินค้า</li>
+<li>ร้านเริ่มไลฟ์หรือใกล้ถึงเวลาไลฟ์</li>
+<li>โปรโมชั่นและสินค้าใหม่</li>
+<li>แต้ม/คูปองใกล้หมดอายุ</li>
+<li>มีคนตอบ กดถูกใจ หรือติดตาม</li>
+<li>มี Conversion จาก Referral</li>
+<li>Commission พร้อมถอนหรือจ่ายแล้ว</li>
+</ul>
+<h3 id="102-consent-และ-preference">10.2 Consent และ Preference</h3>
+<ul>
+<li>แยก Transactional กับ Marketing Notification</li>
+<li>ลูกค้าเลือกหัวข้อ ช่องทาง ความถี่ และ Quiet Hours ได้</li>
+<li>ช่องทางภายนอกใช้เมื่อมี Consent และ Connection ที่ยังใช้ได้</li>
+<li>Unsubscribe การตลาดต้องไม่ปิดข้อความธุรกรรมที่จำเป็น</li>
+<li>ทุกการส่งมี Delivery Log, Provider Response และ Retry Policy</li>
+<li>Broadcast ต้องมี Audience Preview, จำนวนผู้รับ, Approval และ Rate
+Limit</li>
+</ul>
+<p>Inbox รุ่นแรกให้ร้านส่งประกาศหรือดู Thread ร้าน–ลูกค้าได้
+ส่วนลูกค้า–ลูกค้ายังไม่รวม</p>
+<hr />
+<h2 id="11-domain-events-เพิ่มเติม">11. Domain Events เพิ่มเติม</h2>
+<ul>
+<li><code>customer.registered</code></li>
+<li><code>customer.identity_linked</code></li>
+<li><code>customer.merge_requested</code></li>
+<li><code>customer.merged</code></li>
+<li><code>customer.consent_changed</code></li>
+<li><code>loyalty.points_pending</code></li>
+<li><code>loyalty.points_available</code></li>
+<li><code>loyalty.points_reversed</code></li>
+<li><code>review.created</code></li>
+<li><code>content.reported</code></li>
+<li><code>content.moderated</code></li>
+<li><code>store.live_started</code></li>
+<li><code>referral.link_opened</code></li>
+<li><code>referral.attributed</code></li>
+<li><code>commission.estimated</code></li>
+<li><code>commission.available</code></li>
+<li><code>commission.held</code></li>
+<li><code>commission.reversed</code></li>
+<li><code>payout.requested</code></li>
+<li><code>payout.paid</code></li>
+</ul>
+<p>Event ต้องมี <code>organization_id</code>, Actor, Customer, Source
+Entity, Correlation ID, Occurred At และ Idempotency Key
+ตามความเหมาะสม</p>
+<hr />
+<h2 id="12-permission-privacy-และ-tenant-isolation">12. Permission,
+Privacy และ Tenant Isolation</h2>
+<h3 id="121-บทบาทเพิ่มเติม">12.1 บทบาทเพิ่มเติม</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Role</th>
+<th>ขอบเขต</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>CRM Manager</td>
+<td>Customer 360, Segment และ Campaign</td>
+</tr>
+<tr class="even">
+<td>Community Moderator</td>
+<td>Review, Post, Report และ Moderation</td>
+</tr>
+<tr class="odd">
+<td>Loyalty Manager</td>
+<td>Rule แต้ม Tier และ Coupon</td>
+</tr>
+<tr class="even">
+<td>Affiliate Manager</td>
+<td>Referral, Commission, Hold และ Payout</td>
+</tr>
+<tr class="odd">
+<td>Support Agent</td>
+<td>Order/Customer Timeline ตามข้อมูลที่จำเป็น</td>
+</tr>
+</tbody>
+</table>
+<h3 id="122-กฎบังคับ">12.2 กฎบังคับ</h3>
+<ul>
+<li>ทุก Customer/Content/Referral/Commission Record ต้องผูก
+<code>organization_id</code></li>
+<li>RLS ป้องกันข้อมูลข้ามร้านและแยก Staff View กับ Customer View</li>
+<li>Customer อ่านข้อมูลส่วนตัวของตนเองเท่านั้น</li>
+<li>Public Query ใช้ View/DTO ที่ Allowlist Field ห้ามเปิดตาราง PII
+โดยตรง</li>
+<li>จำกัดการค้นหารายชื่อลูกค้าเพื่อป้องกัน Enumeration</li>
+<li>Media ใช้ Signed/Controlled Access ตาม Visibility</li>
+<li>Export/Delete Request ต้องรองรับข้อกำหนดด้านข้อมูลส่วนบุคคลและ Retention
+Policy</li>
+<li>Log ห้ามเก็บ Token, PII เต็ม หรือข้อมูลบัญชีรับเงินเกินจำเป็น</li>
+</ul>
+<p>ก่อน Production ต้องให้ผู้เชี่ยวชาญตรวจ PDPA, เงื่อนไขการตลาด,
+ภาษี/เอกสารค่านายหน้า และข้อกำหนดของ OAuth/Messaging Provider</p>
+<hr />
+<h2 id="13-vertical-slice-roadmap">13. Vertical Slice Roadmap</h2>
+<table>
+<thead>
+<tr class="header">
+<th>ระยะ</th>
+<th>ผลลัพธ์ที่ส่งมอบ</th>
+<th>ยังไม่รวม</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>C1 Customer Identity</td>
+<td>สมัคร 1 Provider, Customer ID, Profile ส่วนตัว, ผูกออเดอร์ที่ยืนยันแล้ว</td>
+<td>Merge อัตโนมัติหลายแหล่ง</td>
+</tr>
+<tr class="even">
+<td>C2 Purchase &amp; Loyalty</td>
+<td>ประวัติซื้อ, แต้ม Ledger, Tier/คูปองพื้นฐาน</td>
+<td>Rule ซับซ้อนหลายร้าน</td>
+</tr>
+<tr class="odd">
+<td>C3 Store Engagement</td>
+<td>ข่าวร้าน สินค้า/โปรใหม่ Live Alert, Inbox และ Preferences</td>
+<td>Customer-to-customer DM</td>
+</tr>
+<tr class="even">
+<td>C4 Verified Review</td>
+<td>รีวิวผู้ซื้อจริง รูป Product Link, Public Profile และ Moderation</td>
+<td>Video Feed เต็มรูปแบบ</td>
+</tr>
+<tr class="odd">
+<td>C5 Referral Commerce</td>
+<td>Share Link, Click, Attribution, Conversion และ Commission
+Pending</td>
+<td>Multi-level Downline</td>
+</tr>
+<tr class="even">
+<td>C6 Payout</td>
+<td>Available Balance, Request, Approval, Batch และ Reconciliation</td>
+<td>จ่ายอัตโนมัติทุก Provider</td>
+</tr>
+<tr class="odd">
+<td>C7 Community Feed</td>
+<td>Follow, Reaction และ Feed ตามเวลา</td>
+<td>Recommendation Algorithm</td>
+</tr>
+</tbody>
+</table>
+<p>แต่ละระยะต้องเป็น Vertical Slice ที่เชื่อม UI → Server → Database → Event →
+Notification → Permission/RLS → Test</p>
+<hr />
+<h2 id="14-acceptance-criteria">14. Acceptance Criteria</h2>
+<h3 id="141-customer-identity">14.1 Customer Identity</h3>
+<ul>
+<li>ลูกค้าสมัครด้วย Provider ที่อนุมัติและได้ Customer ID หนึ่งรายการ</li>
+<li>เชื่อม Provider เพิ่มแล้วไม่สร้าง Customer, Point หรือ Order ซ้ำ</li>
+<li>Claim ออเดอร์เก่าต้องผ่านการยืนยัน</li>
+<li>Staff ไม่มีสิทธิ์ไม่สามารถอ่าน PII</li>
+<li>Public Profile ไม่คืน Field ส่วนตัวแม้เรียก API โดยตรง</li>
+<li>Tenant A อ่าน Customer ของ Tenant B ไม่ได้</li>
+</ul>
+<h3 id="142-loyalty">14.2 Loyalty</h3>
+<ul>
+<li>แต้มจาก Order ที่ยังคืนได้เป็น Pending</li>
+<li>เมื่อผ่านเงื่อนไขจึงเป็น Available</li>
+<li>Cancel/Return สร้าง Reversal Entry ไม่แก้ยอดเดิม</li>
+<li>Balance คำนวณย้อนกลับจาก Ledger ได้</li>
+<li>การปรับมือมีเหตุผลและ Audit</li>
+</ul>
+<h3 id="143-review-และ-community">14.3 Review และ Community</h3>
+<ul>
+<li>Verified Badge ต้องตรวจจาก Order Item จริง</li>
+<li>Visibility ถูกบังคับทั้ง API, RLS และ Media Access</li>
+<li>Report สร้าง Moderation Case และแจ้งผู้มีสิทธิ์</li>
+<li>การซ่อนมีเหตุผลและประวัติ</li>
+<li>ปุ่มซื้อจากรีวิวส่ง Source Attribution ครบ</li>
+</ul>
+<h3 id="144-referral-และ-commission">14.4 Referral และ Commission</h3>
+<ul>
+<li>ทุก Referral Link ระบุเจ้าของและ Source Object ได้</li>
+<li>Click ซ้ำไม่สร้าง Commission ซ้ำ</li>
+<li>Order Snapshot ระบุกฎ Attribution และ Commission ที่ใช้</li>
+<li>Self-referral ถูกปฏิเสธหรือเข้า Hold ตาม Policy</li>
+<li>Cancel/Return ย้อน Commission ตาม Order Item</li>
+<li>Commission ยังถอนไม่ได้จนเป็น Available</li>
+<li>Ledger รวมย้อนหลังตรงกับยอด Estimated/Pending/Available/Paid</li>
+</ul>
+<h3 id="145-notification">14.5 Notification</h3>
+<ul>
+<li>Transactional และ Marketing ถูกแยก Preference</li>
+<li>Marketing ส่งเฉพาะผู้มี Consent</li>
+<li>Live Alert ป้องกันส่งซ้ำด้วย Idempotency</li>
+<li>ลูกค้าเลือกช่องทางและยกเลิกการตลาดได้</li>
+<li>ทุก Delivery ตรวจสถานะและ Retry ได้</li>
+</ul>
+<hr />
+<h2 id="15-testing-matrix-เพิ่มเติม">15. Testing Matrix เพิ่มเติม</h2>
+<ul>
+<li>Unit: Point, Attribution, Commission และ Reversal Calculation</li>
+<li>Integration: OAuth Link/Unlink, Order Claim, Ledger Posting, Return
+Reversal</li>
+<li>RLS: Staff Role, Customer Self-access, Public Profile และ
+Cross-tenant Isolation</li>
+<li>E2E: สมัคร → เห็นประวัติ → รีวิว → แชร์ → ผู้ซื้อใหม่สั่ง → Commission Pending →
+Available</li>
+<li>Security: Account Takeover, OAuth CSRF/State, Enumeration, Media
+Access และ Self-referral</li>
+<li>Idempotency: Provider Callback, Click, Paid Order, Return และ Payout
+Retry</li>
+<li>Migration: Customer Deduplication
+และการนำเข้าข้อมูลจากรายงานยอดขาย</li>
+<li>Moderation: Report, Hide, Appeal และ Restore Visibility</li>
+</ul>
+<hr />
+<h2 id="16-decision-gates-ก่อนเริ่มแต่ละ-slice">16. Decision Gates
+ก่อนเริ่มแต่ละ Slice</h2>
+<p>ต้องตัดสินใจและบันทึกก่อน Implement:</p>
+<ol type="1">
+<li>ร้านแรกจะเปิดสมัครด้วย Provider ใดก่อน</li>
+<li>วิธี Claim ออเดอร์เก่าและกฎ Merge Customer</li>
+<li>อัตราแต้ม วันหมดอายุ Tier และกฎคืนสินค้า</li>
+<li>Public Profile เป็น Opt-in หรือ Private โดยค่าเริ่มต้น</li>
+<li>ใครโพสต์ได้และร้านตรวจรีวิวก่อนเผยแพร่หรือไม่</li>
+<li>รองรับรูป/วิดีโอ ขนาด และ Retention เท่าใด</li>
+<li>First-click/Last-click และ Attribution Window</li>
+<li>ฐานคำนวณ Commission และรายการที่ไม่ร่วม</li>
+<li>Holding Period, ยอดถอนขั้นต่ำ และรอบจ่าย</li>
+<li>Self-referral/Fraud Policy และขั้นตอนอุทธรณ์</li>
+<li>Consent Text, ช่องทางการตลาด และ Quiet Hours</li>
+<li>ข้อกำหนดภาษี เอกสารผู้รับค่านายหน้า และ PDPA</li>
+</ol>
+<p>ห้าม Codex เดาค่าทางธุรกิจที่มีผลต่อเงิน สิทธิ์ ความเป็นส่วนตัว หรือกฎหมายโดยไม่มี
+Decision Record</p>
+<hr />
+<h2 id="17-ลำดับรวมหลัง-sprint-1">17. ลำดับรวมหลัง Sprint 1</h2>
+<ol type="1">
+<li>Foundation Vertical Slice ตาม V6</li>
+<li>Product/SKU, Warehouse, Stock Movement Ledger</li>
+<li>Live CF, Reservation, Waitlist และ Customer Chat Workspace</li>
+<li>Order Revision, Payment, Refund และ Customer Credit</li>
+<li>Promotion Engine, FF Benefit และ Group Repricing</li>
+<li>Picking, Packing, Shipping และ Return QC</li>
+<li>Customer Identity + Customer 360</li>
+<li>Purchase History + Loyalty Ledger</li>
+<li>Store Engagement + Notification Preference</li>
+<li>Verified Review + Public Profile + Moderation</li>
+<li>Referral Attribution + Commission Ledger</li>
+<li>Payout + Reconciliation</li>
+<li>Community Feed</li>
+<li>พิจารณา Multi-level Referral เฉพาะเมื่อผ่าน Decision Gate ใหม่</li>
+</ol>
+<p>สามารถขยับข้อ 7–9 ให้เร็วขึ้นหลัง Order/Customer Model เสถียร แต่ไม่ควรสร้าง
+Referral ก่อน Order Revision, Return และ Ledger พร้อม
+เพราะจะคำนวณและย้อนค่านายหน้าไม่ถูกต้อง</p>
+<hr />
+<h2 id="18-prompt-สำหรับเริ่มออกแบบ-customer-slice-ใน-codex">18. Prompt
+สำหรับเริ่มออกแบบ Customer Slice ใน Codex</h2>
+<pre class="text"><code>อ่านเอกสารต่อไปนี้ทั้งหมดก่อนแก้โค้ด:
+1. AVENZO_ONE_Codex_Implementation_Starter_Plan_V7.md
+2. AVENZO_ONE_Design_System_and_UIUX_Standards_V1.md
+3. AGENTS.md และเอกสารสถาปัตยกรรมใน Repository
+
+เริ่มด้วย Inspect Repository, Schema, Auth, Order, Customer และ RLS ที่มีอยู่ แล้วรายงานผลกระทบก่อน Implement
+
+เป้าหมาย Slice แรก:
+- สมัครลูกค้าด้วย Identity Provider ที่ระบุใน Decision Record
+- สร้าง Customer ID กลางหนึ่งรายการ
+- แยก Private Profile กับ Public Profile
+- ผูก Order ที่ยืนยันเจ้าของแล้ว
+- แสดง Purchase History ขั้นต่ำ
+- สร้าง Domain Event และ Audit Log ที่เกี่ยวข้อง
+- บังคับ Customer Self-access, Staff Permission และ Tenant Isolation ผ่าน Server/RLS
+
+ห้ามสร้าง Social Feed, Referral, Commission หรือ Multi-level Downline ใน Slice นี้
+ห้ามเดา Loyalty Rate, Attribution Window, Commission Rate หรือ Consent Policy
+
+ก่อนลงมือให้เสนอ:
+1. Current-state findings
+2. Schema/API/RLS impact
+3. Migration และ rollback plan
+4. Acceptance criteria และ test cases
+5. รายการ Decision ที่ยังต้องถาม</code></pre>
+<hr />
+<h2 id="19-versioning-rule">19. Versioning Rule</h2>
+<p>เมื่อเพิ่มหรือเปลี่ยนแปลงแผนระบบอย่างมีนัยสำคัญ ให้เพิ่ม Decision Log,
+อัปเดตผลกระทบต่อโมดูล, เพิ่มเวอร์ชัน, เก็บ Changelog และถามผู้ใช้ว่า:</p>
+<blockquote>
+<p><strong>ต้องการให้อัปเดตแผนเป็นเวอร์ชันใหม่ด้วยหรือไม่?</strong></p>
+</blockquote>
+<hr />
+<h2 id="changelog">Changelog</h2>
+<h3 id="v70--5-สิงหาคม-2026">V7.0 — 5 สิงหาคม 2026</h3>
+<ul>
+<li>เพิ่ม Customer 360 และ Customer ID กลาง แยกจากรายงานยอดขาย</li>
+<li>เพิ่ม LINE/Google/Facebook Identity Linking และกฎ Claim Order เก่า</li>
+<li>แยกข้อมูลส่วนตัวจาก Public Profile และกำหนด Privacy/RLS Baseline</li>
+<li>เพิ่ม Purchase History, Loyalty Ledger, Tier, Coupon และ Consent</li>
+<li>เพิ่ม Store Engagement, Live Alert, Inbox และ Notification
+Preference</li>
+<li>เพิ่ม Verified Purchase Review, Post, Public Profile, Follow และ
+Moderation</li>
+<li>เพิ่ม Referral Link, Click Tracking, Attribution Policy และ
+Anti-fraud</li>
+<li>เพิ่ม Commission Ledger, Holding Period, Reversal, Payout และ
+Reconciliation</li>
+<li>กำหนดให้เริ่ม Single-level Referral และเลื่อน Multi-level/Downline
+ออกไป</li>
+<li>เพิ่ม Domain Events, Entity, Roadmap, Acceptance Criteria, Testing
+Matrix และ Decision Gates</li>
+</ul>
+<h3 id="v60--5-สิงหาคม-2026">V6.0 — 5 สิงหาคม 2026</h3>
+<ul>
+<li>Live CF, Customer Chat และ Order Workspace</li>
+<li>FF เป็น Free-shipping Benefit ไม่ใช่ SKU</li>
+<li>Promotion Engine, Mixed-item Group Repricing และกฎใช้โปรร่วมกัน</li>
+<li>Order Revision, Payment Difference, Refund และ Customer Credit
+Ledger</li>
+<li>Inventory Lifecycle, Fulfillment Workspace และ Stock Movement
+Ledger</li>
+</ul>
+<hr />
+<p><strong>เอกสารฐาน:</strong>
+<code>AVENZO_ONE_Codex_Implementation_Starter_Plan_V6.md</code><br />
+<strong>เอกสารมาตรฐาน UI:</strong>
+<code>AVENZO_ONE_Design_System_and_UIUX_Standards_V1.md</code></p>
+</body>
+</html>
