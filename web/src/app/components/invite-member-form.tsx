@@ -23,7 +23,11 @@ export function InviteMemberForm({ organizationId, roles, branches }: { organiza
     try {
       const response = await fetch('/api/invitations/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ organizationId, email, roleCode, branchId: branchId || null }) })
       const result = await response.json() as { message?: string; error?: string; invitationUrl?: string }
-      if (!response.ok) throw new Error(result.error ?? 'ไม่สามารถสร้างคำเชิญได้')
+      if (!response.ok) {
+        setMessage(result.message ?? result.error ?? 'ไม่สามารถสร้างคำเชิญได้')
+        setInvitationUrl(result.invitationUrl ?? '')
+        return
+      }
       setEmail('')
       setMessage(result.message ?? 'สร้างคำเชิญสำเร็จ')
       setInvitationUrl(result.invitationUrl ?? '')

@@ -17,7 +17,13 @@ export async function POST(request: Request) {
     p_role_code: body.roleCode,
     p_branch_id: body.branchId || null,
   })
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  if (error) {
+    if (error.code === '23505' || error.message.includes('organization_invitations_pending_email_unique')) {
+      const { data: existing } = await supabase.from('organization_invitations').select('id').eq('organization_id', body.organizationId).eq('email', email).eq('status', 'pending').maybeSingle()
+      if (existing) return NextResponse.json({ invitationId: existing.id, invitationUrl: `${new URL(request.url).origin}/invitations/${existing.id}`, delivery: 'manual_link', message: 'อีเมลนี้มีคำเชิญที่ยังรอการตอบรับอยู่แล้ว' }, { status: 409 })
+    }
+    return NextResponse.json({ error: error.message }, { status: 400 })
+  }
 
   const invitation = Array.isArray(data) ? data[0] : data
   if (!invitation?.id) return NextResponse.json({ error: 'invitation_not_created' }, { status: 500 })
