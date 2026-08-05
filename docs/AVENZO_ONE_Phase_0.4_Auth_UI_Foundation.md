@@ -12,6 +12,7 @@
 - `/auth/callback` — แลก Auth Code เป็น Session
 - `/dashboard` — แสดง Subscription ของ Organization ที่ผู้ใช้เข้าถึงได้
 - `/platform-admin` — แสดง Organization สำหรับ Platform Admin
+- Session Refresh ผ่าน `web/src/middleware.ts` และ Supabase SSR cookies
 
 ## Subscription Countdown
 
@@ -37,6 +38,7 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<publishable-key>
 
 - `npm install` สำเร็จ
 - `npm run build` สำเร็จบน Next.js 15.5.22
+- Middleware ป้องกันหน้า `/dashboard` และ `/platform-admin` เมื่อไม่มี Session
 - TypeScript ตรวจผ่าน
 
 ## ข้อจำกัด
