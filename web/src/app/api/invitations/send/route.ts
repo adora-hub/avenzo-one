@@ -30,7 +30,8 @@ export async function POST(request: Request) {
 
   const origin = new URL(request.url).origin
   const invitationUrl = `${origin}/invitations/${invitation.id}`
-  const redirectTo = `${origin}/auth/callback?next=${encodeURIComponent(`/invitations/${invitation.id}`)}`
+  const invitationSetupPath = `/invitations/${invitation.id}?setup=1`
+  const redirectTo = `${origin}/auth/callback?next=${encodeURIComponent(invitationSetupPath)}`
   const secretKey = process.env.SUPABASE_SECRET_KEY
 
   if (!secretKey) {

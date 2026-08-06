@@ -4,8 +4,12 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { SignOutButton } from '../../components/sign-out-button'
 import { AcceptInvitationForm } from '../../components/accept-invitation-form'
 import { InvitationLinkNotice } from '../../components/invitation-link-notice'
+import { InvitationPasswordSetupForm } from '../../components/invitation-password-setup-form'
 
-type Props = { params: Promise<{ id: string }> }
+type Props = {
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ setup?: string }>
+}
 
 type Invitation = {
   id: string
@@ -30,8 +34,9 @@ function InvitationCard({ children }: { children: React.ReactNode }) {
   )
 }
 
-export default async function InvitationPage({ params }: Props) {
+export default async function InvitationPage({ params, searchParams }: Props) {
   const { id } = await params
+  const { setup } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -112,6 +117,8 @@ export default async function InvitationPage({ params }: Props) {
               </div>
               <SignOutButton redirectTo={returnToInvitation} label="ออกจากระบบเพื่อเปลี่ยนบัญชี" />
             </div>
+          ) : setup === '1' ? (
+            <InvitationPasswordSetupForm invitationId={invitation.id} />
           ) : (
             <AcceptInvitationForm invitationId={invitation.id} />
           )}

@@ -26,7 +26,10 @@ export async function updateSession(request: NextRequest) {
 
   if (!data?.claims && !isPublic && !isApi) {
     const redirectUrl = request.nextUrl.clone()
+    const requestedPath = `${request.nextUrl.pathname}${request.nextUrl.search}`
     redirectUrl.pathname = '/'
+    redirectUrl.search = ''
+    redirectUrl.searchParams.set('next', requestedPath)
     return NextResponse.redirect(redirectUrl)
   }
 

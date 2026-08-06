@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/browser'
 export function AuthForm() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [mode, setMode] = useState<'sign-in' | 'sign-up'>('sign-in')
+  const [mode, setMode] = useState<'sign-in' | 'sign-up' | 'forgot-password'>('sign-in')
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
   const [canResend, setCanResend] = useState(false)
@@ -28,7 +28,7 @@ export function AuthForm() {
       window.history.replaceState({}, document.title, window.location.pathname)
       const pendingResponse = await fetch('/api/invitations/pending')
       const pending = await pendingResponse.json() as { invitationId?: string | null }
-      window.location.assign(pending.invitationId ? `/invitations/${pending.invitationId}` : '/dashboard')
+      window.location.assign(pending.invitationId ? `/invitations/${pending.invitationId}?setup=1` : '/dashboard')
     })
   }, [])
 
@@ -42,6 +42,15 @@ export function AuthForm() {
       const supabase = createClient()
       const next = new URLSearchParams(window.location.search).get('next')
       const nextPath = next && next.startsWith('/') && !next.startsWith('//') ? next : '/dashboard'
+      if (mode === 'forgot-password') {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/auth/callback?next=/auth/set-password`,
+        })
+        if (error) throw error
+        setMessage('ส่งอีเมลพร้อมลิงก์ตั้งรหัสผ่านแล้ว กรุณาตรวจสอบ Inbox และ Spam')
+        return
+      }
+
       const result = mode === 'sign-in'
         ? await supabase.auth.signInWithPassword({ email, password })
         : await supabase.auth.signUp({
@@ -90,12 +99,13 @@ export function AuthForm() {
   return (
     <form className="form" onSubmit={submit}>
       <label>อีเมล<input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} /></label>
-      <label>รหัสผ่าน<input type="password" required minLength={6} value={password} onChange={(event) => setPassword(event.target.value)} /></label>
+      {mode !== 'forgot-password' && <label>รหัสผ่าน<input type="password" required minLength={6} value={password} onChange={(event) => setPassword(event.target.value)} /></label>}
       {message && <div className={message.includes('สำเร็จ') || message.includes('ส่งอีเมล') ? 'countdown' : 'error'}>{message}</div>}
       {canResend && mode === 'sign-up' && <button type="button" className="button secondary" onClick={resendConfirmation} disabled={resending}>{resending ? 'กำลังส่ง…' : 'ส่งอีเมลยืนยันอีกครั้ง'}</button>}
-      <button className="button" disabled={loading}>{loading ? 'กำลังดำเนินการ…' : mode === 'sign-in' ? 'เข้าสู่ระบบ' : 'สร้างบัญชี'}</button>
+      <button className="button" disabled={loading}>{loading ? 'กำลังดำเนินการ…' : mode === 'sign-in' ? 'เข้าสู่ระบบ' : mode === 'sign-up' ? 'สร้างบัญชี' : 'ส่งลิงก์ตั้งรหัสผ่าน'}</button>
+      {mode === 'sign-in' && <button type="button" className="button secondary" onClick={() => { setMode('forgot-password'); setMessage(''); setCanResend(false) }}>ยังไม่มีหรือลืมรหัสผ่าน</button>}
       <button type="button" className="button secondary" onClick={() => { setMode(mode === 'sign-in' ? 'sign-up' : 'sign-in'); setMessage(''); setCanResend(false) }}>
-        {mode === 'sign-in' ? 'สร้างบัญชีใหม่' : 'มีบัญชีแล้ว เข้าสู่ระบบ'}
+        {mode === 'sign-in' ? 'สร้างบัญชีใหม่' : 'กลับไปเข้าสู่ระบบ'}
       </button>
     </form>
   )
