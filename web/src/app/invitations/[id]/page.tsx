@@ -9,7 +9,7 @@ export default async function InvitationPage({ params }: Props) {
   const { id } = await params
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/')
+  if (!user) redirect(`/?next=${encodeURIComponent(`/invitations/${id}`)}`)
 
   const { data: invitation } = await supabase.from('organization_invitations').select('id, email, role_code, status, expires_at').eq('id', id).maybeSingle()
   if (!invitation) notFound()

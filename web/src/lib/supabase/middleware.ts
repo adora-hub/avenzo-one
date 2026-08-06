@@ -22,8 +22,9 @@ export async function updateSession(request: NextRequest) {
   const { data } = await supabase.auth.getClaims()
   const pathname = request.nextUrl.pathname
   const isPublic = pathname === '/' || pathname.startsWith('/auth')
+  const isApi = pathname.startsWith('/api/')
 
-  if (!data?.claims && !isPublic) {
+  if (!data?.claims && !isPublic && !isApi) {
     const redirectUrl = request.nextUrl.clone()
     redirectUrl.pathname = '/'
     return NextResponse.redirect(redirectUrl)

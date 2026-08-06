@@ -1,6 +1,6 @@
 'use client'
 
-import { FormEvent, useState } from 'react'
+import { FormEvent, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/browser'
 
 export function AuthForm() {
@@ -12,6 +12,26 @@ export function AuthForm() {
   const [canResend, setCanResend] = useState(false)
   const [resending, setResending] = useState(false)
 
+  useEffect(() => {
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+    const accessToken = hash.get('access_token')
+    const refreshToken = hash.get('refresh_token')
+    if (!accessToken || !refreshToken) return
+
+    setLoading(true)
+    createClient().auth.setSession({ access_token: accessToken, refresh_token: refreshToken }).then(async ({ error }) => {
+      if (error) {
+        setMessage(error.message)
+        setLoading(false)
+        return
+      }
+      window.history.replaceState({}, document.title, window.location.pathname)
+      const pendingResponse = await fetch('/api/invitations/pending')
+      const pending = await pendingResponse.json() as { invitationId?: string | null }
+      window.location.assign(pending.invitationId ? `/invitations/${pending.invitationId}` : '/dashboard')
+    })
+  }, [])
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setLoading(true)
@@ -20,20 +40,28 @@ export function AuthForm() {
 
     try {
       const supabase = createClient()
+      const next = new URLSearchParams(window.location.search).get('next')
+      const nextPath = next && next.startsWith('/') && !next.startsWith('//') ? next : '/dashboard'
       const result = mode === 'sign-in'
         ? await supabase.auth.signInWithPassword({ email, password })
         : await supabase.auth.signUp({
             email,
             password,
-            options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+            options: { emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}` },
           })
 
       if (result.error) throw result.error
       if (mode === 'sign-up') {
-        setMessage('สมัครสำเร็จ กรุณาตรวจสอบอีเมลเพื่อยืนยันบัญชี หากไม่พบให้กดส่งอีเมลอีกครั้ง')
-        setCanResend(true)
+        const existingAccount = !result.data.user?.identities?.length
+        if (existingAccount) {
+          setMessage('อีเมลนี้มีบัญชีอยู่แล้ว กรุณาใช้ลิงก์คำเชิญฉบับล่าสุดจากอีเมล ไม่ต้องสมัครซ้ำ')
+          setCanResend(false)
+        } else {
+          setMessage('สมัครสำเร็จ กรุณาตรวจสอบอีเมลเพื่อยืนยันบัญชี หากไม่พบให้กดส่งอีเมลอีกครั้ง')
+          setCanResend(true)
+        }
       } else {
-        window.location.assign('/dashboard')
+        window.location.assign(nextPath)
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'ไม่สามารถดำเนินการได้'
@@ -53,7 +81,7 @@ export function AuthForm() {
     const { error } = await createClient().auth.resend({
       type: 'signup',
       email,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      options: { emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard` },
     })
     setMessage(error ? error.message : 'ส่งอีเมลยืนยันอีกครั้งแล้ว กรุณาตรวจสอบ Inbox และ Spam')
     setResending(false)
