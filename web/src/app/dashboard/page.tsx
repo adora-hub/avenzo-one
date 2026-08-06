@@ -18,11 +18,12 @@ export default async function DashboardPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/')
 
-  const [{ data: organizations }, { data: subscriptions }] = await Promise.all([
+  const [{ data: organizations }, { data: subscriptions }, { data: canCreateOrganization }] = await Promise.all([
     supabase.from('organizations').select('id, name, slug, status, timezone, currency').order('name'),
     supabase
     .from('organization_subscription_status')
-    .select('organization_id, plan_name, access_state, expires_at, days_remaining, hours_remaining, seconds_remaining')
+    .select('organization_id, plan_name, access_state, expires_at, days_remaining, hours_remaining, seconds_remaining'),
+    supabase.rpc('current_user_can_create_organization'),
   ])
 
   return (
@@ -30,8 +31,8 @@ export default async function DashboardPage() {
       <header className="topbar"><div className="brand">AVENZO ONE</div><div className="topbar-actions"><span>{user.email}</span><SignOutButton /></div></header>
       <section className="content">
         <div className="hero"><div><div className="eyebrow">Workspace</div><h1>Subscription ของคุณ</h1><p>เวลาคงเหลือคำนวณจากเวลาจริงของระบบ</p></div></div>
-        <div className="hero"><div><h2>Organizations</h2><p>พื้นที่ทำงานที่บัญชีนี้เข้าถึงได้</p></div><a className="button" href="/onboarding">สร้าง Organization</a></div>
-        {organizations?.length ? <div className="grid">{organizations.map((organization) => { const subscription = (subscriptions as SubscriptionStatus[] | null)?.find((item) => item.organization_id === organization.id); return <article className="card" key={organization.id}><div className={`status ${organization.status}`}>{organization.status}</div><h3>{organization.name}</h3><div className="meta">/{organization.slug} · {organization.currency}</div>{subscription ? <><div className={`status ${subscription.access_state}`}>{subscription.access_state}</div><div className="countdown">เหลือเวลา<Countdown expiresAt={subscription.expires_at} initialSeconds={subscription.seconds_remaining} /></div></> : <div className="meta">ยังไม่มี Subscription</div>}<a className="button secondary" style={{ marginTop: 14 }} href={`/organizations/${organization.id}`}>จัดการ Workspace</a></article>})}</div> : <div className="empty">ยังไม่มี Organization ในบัญชีนี้ เริ่มต้นด้วยการสร้าง Organization ใหม่</div>}
+        <div className="hero"><div><h2>Organizations</h2><p>พื้นที่ทำงานที่บัญชีนี้เข้าถึงได้</p></div>{canCreateOrganization === true && <a className="button" href="/onboarding">สร้าง Organization</a>}</div>
+        {organizations?.length ? <div className="grid">{organizations.map((organization) => { const subscription = (subscriptions as SubscriptionStatus[] | null)?.find((item) => item.organization_id === organization.id); return <article className="card" key={organization.id}><div className={`status ${organization.status}`}>{organization.status}</div><h3>{organization.name}</h3><div className="meta">/{organization.slug} · {organization.currency}</div>{subscription ? <><div className={`status ${subscription.access_state}`}>{subscription.access_state}</div><div className="countdown">เหลือเวลา<Countdown expiresAt={subscription.expires_at} initialSeconds={subscription.seconds_remaining} /></div></> : <div className="meta">ยังไม่มี Subscription</div>}<a className="button secondary" style={{ marginTop: 14 }} href={`/organizations/${organization.id}`}>จัดการ Workspace</a></article>})}</div> : <div className="empty">{canCreateOrganization === true ? 'ยังไม่มี Organization ในบัญชีนี้ เริ่มต้นด้วยการสร้าง Organization ใหม่' : 'บัญชีนี้ยังไม่มี Organization ที่ได้รับอนุญาตให้เข้าถึง'}</div>}
       </section>
     </main>
   )

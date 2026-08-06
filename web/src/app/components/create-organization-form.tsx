@@ -30,6 +30,7 @@ export function CreateOrganizationForm() {
         currency: currency.toUpperCase(),
         created_by: user.id,
       })
+      if (error?.code === '42501') throw new Error('บัญชีนี้ไม่มีสิทธิ์สร้าง Organization')
       if (error) throw error
       router.push('/dashboard')
       router.refresh()

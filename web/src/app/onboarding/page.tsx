@@ -7,6 +7,15 @@ export default async function OnboardingPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/')
 
+  const { data: canCreateOrganization, error } = await supabase.rpc('current_user_can_create_organization')
+  if (error) {
+    console.error('[onboarding-page] organization creation permission lookup failed', {
+      userId: user.id,
+      error: error.message,
+    })
+  }
+  if (canCreateOrganization !== true) redirect('/dashboard')
+
   return (
     <main className="shell">
       <section className="auth-card">
