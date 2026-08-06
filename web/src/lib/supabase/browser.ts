@@ -8,5 +8,7 @@ export function createClient() {
     throw new Error('Missing Supabase public environment variables')
   }
 
-  return createBrowserClient(url, key)
+  return createBrowserClient(url, key, {
+    auth: { detectSessionInUrl: false },
+  })
 }
