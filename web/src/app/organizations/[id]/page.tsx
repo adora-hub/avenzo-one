@@ -4,6 +4,8 @@ import { SignOutButton } from '../../components/sign-out-button'
 import { CreateBranchForm } from '../../components/create-branch-form'
 import { InviteMemberForm } from '../../components/invite-member-form'
 import { CancelInvitationButton } from '../../components/cancel-invitation-button'
+import { OrganizationAccessSummaryCard } from '../../components/organization-access-summary'
+import type { OrganizationAccessSummary } from '@/lib/organization-access'
 
 type Props = { params: Promise<{ id: string }> }
 
@@ -13,25 +15,26 @@ export default async function OrganizationPage({ params }: Props) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/')
 
-  const [organizationResult, branchesResult, permissionsResult] = await Promise.all([
+  const [organizationResult, branchesResult, accessResult] = await Promise.all([
     supabase.from('organizations').select('id, name, slug, status, timezone, currency').eq('id', id).maybeSingle(),
     supabase.from('branches').select('id, code, name, status').eq('organization_id', id).order('code'),
-    supabase.rpc('current_user_org_permissions', { p_organization_id: id }),
+    supabase.rpc('current_user_organization_access', { p_organization_id: id }),
   ])
 
   const organization = organizationResult.data
   const branches = branchesResult.data ?? []
   if (!organization) notFound()
 
-  if (permissionsResult.error) {
-    console.error('[organization-page] permission lookup failed', {
+  if (accessResult.error) {
+    console.error('[organization-page] organization access summary lookup failed', {
       organizationId: id,
       userId: user.id,
-      error: permissionsResult.error.message,
+      error: accessResult.error.message,
     })
   }
 
-  const permissions = new Set<string>(permissionsResult.data ?? [])
+  const access = (accessResult.data?.[0] ?? null) as OrganizationAccessSummary | null
+  const permissions = new Set<string>(access?.permissions.map((permission) => permission.code) ?? [])
   const canCreateBranch = permissions.has('branch.create')
   const canInviteMembers = permissions.has('member.invite')
   const canReadMembers = permissions.has('member.read')
@@ -79,20 +82,18 @@ export default async function OrganizationPage({ params }: Props) {
             {canCreateBranch && <CreateBranchForm organizationId={id} />}
           </article>
 
-          {canInviteMembers ? (
-            <article className="card">
-              <h2>เชิญสมาชิก</h2>
-              <p>สร้างคำเชิญพร้อม Role และ Branch Scope</p>
-              <InviteMemberForm organizationId={id} roles={roles} branches={branches} />
-            </article>
-          ) : (
-            <article className="card">
-              <h2>สิทธิ์ของคุณ</h2>
-              <p>บัญชีนี้ดูข้อมูลองค์กรและสาขาที่ได้รับอนุญาตได้ แต่ไม่มีสิทธิ์เชิญสมาชิก</p>
-              {!canCreateBranch && <div className="countdown">การสร้าง Branch สำหรับ Owner, Admin หรือ Role ที่ได้รับสิทธิ์เท่านั้น</div>}
-            </article>
-          )}
+          {access
+            ? <OrganizationAccessSummaryCard access={access} />
+            : <article className="card"><h2>ตำแหน่งและหน้าที่ของคุณ</h2><div className="empty">ไม่สามารถอ่านข้อมูล Role และ Permission ได้</div></article>}
         </div>
+
+        {canInviteMembers && (
+          <div className="card" style={{ marginTop: 18 }}>
+            <h2>เชิญสมาชิก</h2>
+            <p>สร้างคำเชิญพร้อม Role และ Branch Scope</p>
+            <InviteMemberForm organizationId={id} roles={roles} branches={branches} />
+          </div>
+        )}
 
         {canReadMembers && (
           <div className="card" style={{ marginTop: 18 }}>
@@ -112,7 +113,7 @@ export default async function OrganizationPage({ params }: Props) {
           </div>
         )}
 
-        {!hasManagementPermission && permissionsResult.error && (
+        {!hasManagementPermission && accessResult.error && (
           <div className="error" style={{ marginTop: 18 }}>ไม่สามารถตรวจสอบสิทธิ์การจัดการได้ ระบบจึงซ่อนเครื่องมือจัดการเพื่อความปลอดภัย</div>
         )}
       </section>
