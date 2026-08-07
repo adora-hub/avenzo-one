@@ -72,6 +72,10 @@ export function SubscriptionLifecycleActions({ subscription, planVersions, planP
     ? reasonLength === 0 ? 'กรุณาระบุเหตุผลอย่างน้อย 3 ตัวอักษร' : `กรุณาพิมพ์เหตุผลเพิ่มอีก ${3 - reasonLength} ตัวอักษร`
     : ''
 
+  function getActionLabel(value: string) {
+    return value === 'resume' ? 'เปิดใช้งานต่อ' : subscriptionEventLabels[value] ?? value
+  }
+
   function calculateDates(start: string, version = selectedVersion) {
     if (!version) return
     const expiry = addDays(start, version.duration_days)
@@ -136,7 +140,7 @@ export function SubscriptionLifecycleActions({ subscription, planVersions, planP
         } : {},
       })
       if (error) throw error
-      setMessage(`${subscriptionEventLabels[action]}สำเร็จ`)
+      setMessage(`${getActionLabel(action)}สำเร็จ`)
       setPreview(false)
       setReason('')
       setReasonTouched(false)
@@ -168,7 +172,7 @@ export function SubscriptionLifecycleActions({ subscription, planVersions, planP
       {message && <div className={message.includes('สำเร็จ') ? 'countdown' : 'error'}>{message}</div>}
       {!preview ? <button className={`button ${action === 'cancel' || action === 'suspend' ? 'danger' : ''}`} type="submit">ตรวจสอบก่อนยืนยัน</button> : (
         <section className="subscription-confirmation">
-          <div className="subscription-confirmation-heading"><div><span className="eyebrow">ตรวจสอบครั้งสุดท้าย</span><h3>{subscriptionEventLabels[action]}</h3></div><span className="status active">ยังไม่บันทึก</span></div>
+          <div className="subscription-confirmation-heading"><div><span className="eyebrow">ตรวจสอบครั้งสุดท้าย</span><h3>{getActionLabel(action)}</h3></div><span className="status active">ยังไม่บันทึก</span></div>
           <dl className="subscription-confirmation-grid">
             <div><dt>Organization</dt><dd>{subscription.organization_name}</dd></div>
             <div><dt>Plan / Version</dt><dd>{selectedVersion?.plan_name ?? subscription.plan_name} / {selectedVersion?.label ?? subscription.plan_version_label}</dd></div>
@@ -177,7 +181,7 @@ export function SubscriptionLifecycleActions({ subscription, planVersions, planP
             <div><dt>หมดอายุ</dt><dd>{formatDate(expiresAt, subscription.timezone)}</dd></div>
             <div><dt>เหตุผล</dt><dd>{reason.trim()}</dd></div>
           </dl>
-          <div className="button-row"><button className="button secondary" type="button" disabled={loading} onClick={() => setPreview(false)}>ย้อนกลับแก้ไข</button><button className={`button ${action === 'cancel' || action === 'suspend' ? 'danger' : ''}`} type="button" disabled={loading} onClick={confirm}>{loading ? 'กำลังบันทึก…' : `ยืนยัน${subscriptionEventLabels[action]}`}</button></div>
+          <div className="button-row"><button className="button secondary" type="button" disabled={loading} onClick={() => setPreview(false)}>ย้อนกลับแก้ไข</button><button className={`button ${action === 'cancel' || action === 'suspend' ? 'danger' : ''}`} type="button" disabled={loading} onClick={confirm}>{loading ? 'กำลังบันทึก…' : `ยืนยัน${getActionLabel(action)}`}</button></div>
         </section>
       )}
     </form>
