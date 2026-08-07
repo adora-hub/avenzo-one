@@ -441,8 +441,9 @@ Event ต้องมี `organization_id`, Actor, Customer, Source Entity, Corr
 | Phase 0.9 Security Hardening และ Audit Log | เสร็จสำหรับ Development | Password ขั้นต่ำ 8 ตัวอักษร, Strong Character Requirements, Secure Password Change และ Current Password Verification เปิดแล้ว |
 | Phase 0.9 Production Security Gate | รอก่อน Production | ต้องอัปเกรด Supabase เป็น Pro เปิด Leaked Password Protection และตรวจ Security Advisor ให้ไม่มี WARN |
 | Phase 0.10.1 Platform Admin TOTP Enrollment | เสร็จและทดสอบผ่าน | มีหน้า QR/Secret, ยืนยันรหัส 6 หลัก, ตรวจ Platform Admin ซ้ำ และ Audit โดยไม่เก็บ TOTP Secret หรือ OTP |
-| Phase 0.10.2 Platform Admin MFA Challenge | Implemented / รอทดสอบ Login ครบเส้นทาง | Login นำทางอัตโนมัติ, หน้า Challenge รหัส 6 หลัก, Server ตรวจ AAL ซ้ำ และมีปุ่มลัด Platform Admin |
-| Phase 0.10.3–0.10.4 MFA RLS Enforcement และ Recovery | วางแผน / รออนุมัติแยก | บังคับ `aal2` ที่ Database/RLS และออกแบบ Backup/Recovery |
+| Phase 0.10.2 Platform Admin MFA Challenge | เสร็จและทดสอบผ่าน | Login นำทางอัตโนมัติ, หน้า Challenge รหัส 6 หลัก, Server ตรวจ AAL ซ้ำ และมีปุ่มลัด Platform Admin |
+| Phase 0.10.3 Platform Admin MFA RLS Enforcement | Implemented / รอทดสอบครบเส้นทาง | บังคับ `aal2` ที่ Database/RLS สำหรับสิทธิ์ Control Plane โดยไม่กระทบ Tenant RBAC |
+| Phase 0.10.4 Platform Admin MFA Recovery | วางแผน / รออนุมัติ | ออกแบบการถอด Authenticator, Backup/Recovery และ Session Revocation |
 | Phase 1.0 Subscription Plans, Pricing และ Entitlements | วางแผนถัดไป | ต้องอนุมัติ Feature Catalog, Plan/Price, Trial/Promotion และ Feature Enforcement ก่อนพัฒนา |
 
 ห้ามเปิด Production หาก Phase 0.9 Production Security Gate ยังไม่ผ่าน แม้ระบบ Development จะใช้งานได้ครบตาม Acceptance Criteria แล้ว และต้องตรวจร่างประกาศความเป็นส่วนตัว/ข้อกำหนดการใช้งานโดยผู้เชี่ยวชาญด้านกฎหมายและ PDPA ก่อนเผยแพร่
