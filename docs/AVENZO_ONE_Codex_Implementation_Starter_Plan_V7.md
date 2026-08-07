@@ -431,6 +431,19 @@ Event ต้องมี `organization_id`, Actor, Customer, Source Entity, Corr
 
 ก่อน Production ต้องให้ผู้เชี่ยวชาญตรวจ PDPA, เงื่อนไขการตลาด, ภาษี/เอกสารค่านายหน้า และข้อกำหนดของ OAuth/Messaging Provider
 
+### 12.3 Platform Foundation Roadmap Status
+
+อัปเดตล่าสุด: 7 สิงหาคม 2026
+
+| ระยะ | สถานะ | หมายเหตุ |
+|---|---|---|
+| Phase 0.1–0.8 Multi-tenant, Role, Auth, Invitation และ Member Management | เสร็จแล้ว | ผ่านการทดสอบการใช้งานหลักและสิทธิ์สมาชิก |
+| Phase 0.9 Security Hardening และ Audit Log | เสร็จสำหรับ Development | Password ขั้นต่ำ 8 ตัวอักษร, Strong Character Requirements, Secure Password Change และ Current Password Verification เปิดแล้ว |
+| Phase 0.9 Production Security Gate | รอก่อน Production | ต้องอัปเกรด Supabase เป็น Pro เปิด Leaked Password Protection และตรวจ Security Advisor ให้ไม่มี WARN |
+| Phase 1.0 Subscription Plans, Pricing และ Entitlements | วางแผนถัดไป | ต้องอนุมัติ Feature Catalog, Plan/Price, Trial/Promotion และ Feature Enforcement ก่อนพัฒนา |
+
+ห้ามเปิด Production หาก Phase 0.9 Production Security Gate ยังไม่ผ่าน แม้ระบบ Development จะใช้งานได้ครบตาม Acceptance Criteria แล้ว
+
 ---
 
 ## 13. Vertical Slice Roadmap

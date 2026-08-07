@@ -1,6 +1,6 @@
 # AVENZO ONE — Phase 0.9 Security Hardening และ Audit Log
 
-สถานะ: ดำเนินการและติดตั้งฐานข้อมูลแล้ว
+สถานะ: เสร็จสมบูรณ์สำหรับ Development; มี Production Gate เรื่อง Supabase Pro ก่อนเปิดใช้งานจริง
 
 ## เป้าหมาย
 
@@ -46,11 +46,21 @@
 - ทดสอบสร้างและยกเลิกคำเชิญภายใน transaction: บันทึกทั้งสองเหตุการณ์และ rollback สำเร็จ
 - Supabase Security Advisor เหลือเฉพาะคำเตือนการป้องกันรหัสผ่านที่เคยรั่ว ซึ่งต้องเปิดใน Auth Dashboard
 - Supabase Performance Advisor ไม่มีคำเตือน RLS init-plan เหลือเพียงข้อมูล index ที่ยังไม่ถูกใช้งานในระบบทดสอบ
+- กำหนดรหัสผ่านขั้นต่ำ 8 ตัวอักษร
+- บังคับให้มีตัวพิมพ์เล็ก ตัวพิมพ์ใหญ่ ตัวเลข และสัญลักษณ์
+- เปิด Secure password change เพื่อบังคับ Reauthentication สำหรับ Session ที่เก่ากว่า 24 ชั่วโมง
+- เปิด Require current password when updating เพื่อให้กรอกรหัสผ่านปัจจุบันก่อนเปลี่ยนรหัส
 
 ## หมายเหตุข้อมูลย้อนหลัง
 
 คำเชิญเก่าที่ถูกยกเลิกหรือหมดอายุไม่มีคอลัมน์เวลาสถานะเฉพาะใน schema เดิม จึงใช้เวลาสร้างคำเชิญเป็นเวลาประมาณการสำหรับรายการย้อนหลังเท่านั้น เหตุการณ์ใหม่หลังติดตั้ง Phase 0.9 จะใช้เวลาที่ Trigger บันทึกจริง
 
-## งานตั้งค่าที่ต้องทำใน Dashboard
+## Production Gate
 
-เปิด Supabase Auth leaked-password protection เพื่อป้องกันผู้ใช้ตั้งรหัสผ่านที่พบในฐานข้อมูลรหัสผ่านรั่ว การตั้งค่านี้อยู่นอก SQL migration และต้องเปิดจาก Supabase Dashboard ของ Project
+Project ปัจจุบันใช้ Supabase Free Plan ซึ่งไม่รองรับ leaked-password protection ดังนั้นคำเตือน `auth_leaked_password_protection` ใน Security Advisor เป็นข้อจำกัดที่รับทราบสำหรับ Development
+
+ก่อนเปิด Production ต้อง:
+
+1. อัปเกรด Supabase Organization เป็น Pro หรือสูงกว่า
+2. เปิด `Prevent use of leaked passwords` ใน Authentication → Sign In / Providers → Email
+3. รัน Security Advisor และยืนยันว่าไม่มีคำเตือนระดับ WARN เหลืออยู่
