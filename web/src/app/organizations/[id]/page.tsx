@@ -11,6 +11,7 @@ import type { OrganizationAccessSummary } from '@/lib/organization-access'
 import type { OrganizationMemberDirectoryEntry } from '@/lib/organization-member-directory'
 import type { InvitationStatus, OrganizationInvitationHistoryResult } from '@/lib/organization-invitation-history'
 import type { AuditCategory, OrganizationAuditLogResult } from '@/lib/organization-audit-log'
+import { branchEntitlementMessage, type OrganizationBranchEntitlement } from '@/lib/branch-entitlement'
 
 type SearchParams = Record<string, string | string[] | undefined>
 type InvitationFilterStatus = 'all' | InvitationStatus
@@ -42,10 +43,11 @@ export default async function OrganizationPage({ params, searchParams }: Props) 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/')
 
-  const [organizationResult, branchesResult, accessResult] = await Promise.all([
+  const [organizationResult, branchesResult, accessResult, entitlementResult] = await Promise.all([
     supabase.from('organizations').select('id, name, slug, status, timezone, currency').eq('id', id).maybeSingle(),
     supabase.from('branches').select('id, code, name, status').eq('organization_id', id).order('code'),
     supabase.rpc('current_user_organization_access', { p_organization_id: id }),
+    supabase.from('organization_branch_entitlements').select('*').eq('organization_id', id).maybeSingle(),
   ])
 
   const organization = organizationResult.data
@@ -61,6 +63,7 @@ export default async function OrganizationPage({ params, searchParams }: Props) 
   }
 
   const access = (accessResult.data?.[0] ?? null) as OrganizationAccessSummary | null
+  const branchEntitlement = (entitlementResult.data ?? null) as OrganizationBranchEntitlement | null
   const permissions = new Set<string>(access?.permissions.map((permission) => permission.code) ?? [])
   const canCreateBranch = permissions.has('branch.create')
   const canInviteMembers = permissions.has('member.invite')
@@ -159,7 +162,12 @@ export default async function OrganizationPage({ params, searchParams }: Props) 
             {branches.length
               ? <div>{branches.map((branch) => <div className="meta" key={branch.id}>{branch.code} · {branch.name} · {branch.status}</div>)}</div>
               : <div className="empty">ยังไม่มี Branch</div>}
-            {canCreateBranch && <CreateBranchForm organizationId={id} />}
+            {!canCreateBranch && (
+              <div className={branchEntitlement?.can_create === false ? 'error' : 'countdown'} style={{ marginTop: 14 }}>
+                {branchEntitlementMessage(branchEntitlement)}
+              </div>
+            )}
+            {canCreateBranch && <CreateBranchForm organizationId={id} entitlement={branchEntitlement} />}
           </article>
 
           {access
