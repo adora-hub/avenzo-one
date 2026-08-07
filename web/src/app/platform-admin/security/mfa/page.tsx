@@ -28,9 +28,9 @@ export default async function PlatformAdminMfaPage() {
       <section className="content mfa-content">
         <div className="hero">
           <div>
-            <div className="eyebrow">Phase 0.10.1</div>
-            <h1>ตั้งค่า TOTP MFA</h1>
-            <p>เพิ่มการยืนยันตัวตนชั้นที่สองสำหรับบัญชี Platform Admin</p>
+            <div className="eyebrow">Phase 0.10.4</div>
+            <h1>จัดการ TOTP MFA</h1>
+            <p>เพิ่มเครื่องสำรอง ถอดอุปกรณ์ และยกเลิก Session อื่นอย่างปลอดภัย</p>
           </div>
           <Link className="button secondary" href="/platform-admin">กลับ Platform Admin</Link>
         </div>
