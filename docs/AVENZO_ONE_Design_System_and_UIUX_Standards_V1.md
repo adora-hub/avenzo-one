@@ -101,7 +101,7 @@ Primitive Tokens → Semantic Tokens → AVENZO Components → Feature Pages
 
 ### 3.2 Typography
 
-ฟอนต์ตั้งต้น: **Noto Sans Thai** พร้อม System Fallback; ตัวเลขตารางใช้ `font-variant-numeric: tabular-nums`
+ฟอนต์ตั้งต้น: **Noto Sans Thai** สำหรับภาษาไทย และ **Inter** สำหรับภาษาอังกฤษ โดยมี System Fallback; ตัวเลขตารางใช้ `font-variant-numeric: tabular-nums`
 
 | Style | ขนาดตั้งต้น | น้ำหนัก | ใช้กับ |
 |---|---:|---:|---|
@@ -201,6 +201,7 @@ Variant มาตรฐาน:
 
 - ขณะ Loading ให้กันการกดซ้ำและคงความกว้างของปุ่ม
 - ปุ่ม Icon-only ต้องมี Accessible Label และ Tooltip เมื่อความหมายไม่ชัด
+- ปุ่มต้องมี Feedback ทางสายตาเมื่อ Hover เช่น เปลี่ยนสีเล็กน้อย ยกตัวเล็กน้อย หรือแสดง Shadow อย่างพอดี โดยไม่ทำให้ Layout กระโดด
 - Dialog มาตรฐานวาง Primary ด้านขวา และ Cancel ก่อนหน้า Primary
 - Action ที่ย้อนกลับยากต้องมี Confirmation พร้อมชื่อรายการและผลที่จะเกิด
 
@@ -557,3 +558,8 @@ Design System ควรพัฒนาเท่าที่ Vertical Slice ต�
 - เพิ่ม Page Patterns, Responsive และ Accessibility Standards
 - เพิ่ม Component Catalog, Visual Regression และ Change Control
 - เพิ่มกฎสำหรับ `AGENTS.md`, UI Definition of Done และ Prompt สำหรับ Codex
+
+### V1.1 — 7 สิงหาคม 2026
+
+- กำหนด Font กลางแบบสองภาษา: Noto Sans Thai + Inter
+- กำหนด Button Interaction กลาง: Hover, Focus-visible, Active, Disabled และ Reduced Motion
