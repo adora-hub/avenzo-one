@@ -4,18 +4,23 @@ import { SignOutButton } from '../../components/sign-out-button'
 import { CreateBranchForm } from '../../components/create-branch-form'
 import { InviteMemberForm } from '../../components/invite-member-form'
 import { InvitationHistory } from '../../components/invitation-history'
+import { OrganizationAuditLog } from '../../components/organization-audit-log'
 import { OrganizationAccessSummaryCard } from '../../components/organization-access-summary'
 import { MemberManagement } from '../../components/member-management'
 import type { OrganizationAccessSummary } from '@/lib/organization-access'
 import type { OrganizationMemberDirectoryEntry } from '@/lib/organization-member-directory'
 import type { InvitationStatus, OrganizationInvitationHistoryResult } from '@/lib/organization-invitation-history'
+import type { AuditCategory, OrganizationAuditLogResult } from '@/lib/organization-audit-log'
 
 type SearchParams = Record<string, string | string[] | undefined>
 type InvitationFilterStatus = 'all' | InvitationStatus
+type AuditFilterCategory = 'all' | AuditCategory
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<SearchParams> }
 
 const invitationStatuses = new Set<InvitationFilterStatus>(['all', 'pending', 'accepted', 'revoked', 'expired'])
 const invitationPageSize = 10
+const auditCategories = new Set<AuditFilterCategory>(['all', 'organization', 'branch', 'member', 'invitation', 'subscription', 'moderation', 'security'])
+const auditPageSize = 10
 
 function firstParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] ?? '' : value ?? ''
@@ -28,6 +33,11 @@ export default async function OrganizationPage({ params, searchParams }: Props) 
   const invitationStatus = invitationStatuses.has(requestedStatus) ? requestedStatus : 'all'
   const parsedPage = Number.parseInt(firstParam(queryParams.invitePage), 10)
   const invitationPage = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1
+  const auditSearch = firstParam(queryParams.auditSearch).trim().slice(0, 160)
+  const requestedAuditCategory = firstParam(queryParams.auditCategory).toLowerCase() as AuditFilterCategory
+  const auditCategory = auditCategories.has(requestedAuditCategory) ? requestedAuditCategory : 'all'
+  const parsedAuditPage = Number.parseInt(firstParam(queryParams.auditPage), 10)
+  const auditPage = Number.isFinite(parsedAuditPage) && parsedAuditPage > 0 ? parsedAuditPage : 1
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/')
@@ -58,8 +68,9 @@ export default async function OrganizationPage({ params, searchParams }: Props) 
   const canUpdateMembers = permissions.has('member.update')
   const canManageRoles = permissions.has('role.manage')
   const canManageOwners = access?.roles.some((role) => role.code === 'owner') ?? false
+  const canReadAudit = permissions.has('audit.read')
 
-  const [membersResult, invitationHistoryResult, rolesResult] = await Promise.all([
+  const [membersResult, invitationHistoryResult, rolesResult, auditResult] = await Promise.all([
     canReadMembers
       ? supabase.rpc('organization_member_directory', { p_organization_id: id })
       : Promise.resolve({ data: [] }),
@@ -75,6 +86,15 @@ export default async function OrganizationPage({ params, searchParams }: Props) 
     canInviteMembers || canUpdateMembers || canManageRoles
       ? supabase.from('organization_roles').select('code, name').eq('organization_id', id).order('code')
       : Promise.resolve({ data: [] }),
+    canReadAudit
+      ? supabase.rpc('organization_audit_history', {
+          p_organization_id: id,
+          p_search: auditSearch,
+          p_category: auditCategory,
+          p_page: auditPage,
+          p_page_size: auditPageSize,
+        })
+      : Promise.resolve({ data: { items: [], total_count: 0 } }),
   ])
 
   if ('error' in membersResult && membersResult.error) {
@@ -105,6 +125,14 @@ export default async function OrganizationPage({ params, searchParams }: Props) 
     redirect(`/organizations/${id}${canonicalQuery ? `?${canonicalQuery}` : ''}#invitation-history`)
   }
   const roles = rolesResult.data ?? []
+  if ('error' in auditResult && auditResult.error) {
+    console.error('[organization-page] audit history lookup failed', {
+      organizationId: id,
+      userId: user.id,
+      error: auditResult.error.message,
+    })
+  }
+  const auditHistory = (auditResult.data ?? { items: [], total_count: 0 }) as OrganizationAuditLogResult
   const invitationRoles = canManageOwners ? roles : roles.filter((role) => role.code !== 'owner')
   const hasManagementPermission = canCreateBranch || canInviteMembers || canReadMembers
 
@@ -159,6 +187,25 @@ export default async function OrganizationPage({ params, searchParams }: Props) 
               canManageRoles={canManageRoles}
               canManageOwners={canManageOwners}
             />
+          </div>
+        )}
+
+        {canReadAudit && (
+          <div className="card" style={{ marginTop: 18 }}>
+            <h2>Audit Log</h2>
+            <p>ประวัติกิจกรรมสำคัญของ Organization แก้ไขหรือลบย้อนหลังไม่ได้ และแสดงหน้าละ {auditPageSize} รายการ</p>
+            {'error' in auditResult && auditResult.error
+              ? <div className="error">ไม่สามารถโหลด Audit Log ได้ กรุณาลอง Refresh อีกครั้ง</div>
+              : <OrganizationAuditLog
+                  organizationId={id}
+                  items={auditHistory.items}
+                  totalCount={auditHistory.total_count}
+                  page={auditPage}
+                  pageSize={auditPageSize}
+                  search={auditSearch}
+                  category={auditCategory}
+                  timezone={organization.timezone}
+                />}
           </div>
         )}
 

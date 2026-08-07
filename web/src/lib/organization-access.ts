@@ -43,6 +43,7 @@ const permissionLabels: Record<string, string> = {
   'member.update': 'จัดการสถานะและขอบเขตสมาชิก',
   'role.read': 'ดู Role และ Permission',
   'role.manage': 'จัดการ Role และ Permission',
+  'audit.read': 'ดูประวัติกิจกรรมและการเปลี่ยนแปลง',
 }
 
 export function getRoleLabel(role: OrganizationRoleSummary) {
