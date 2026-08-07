@@ -1,0 +1,39 @@
+import Link from 'next/link'
+import { redirect } from 'next/navigation'
+import { MfaEnrollment } from '@/app/components/mfa-enrollment'
+import { SignOutButton } from '@/app/components/sign-out-button'
+import { createClient } from '@/lib/supabase/server'
+
+export default async function PlatformAdminMfaPage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/?next=/platform-admin/security/mfa')
+
+  const { data: platformAdmin } = await supabase
+    .from('platform_admins')
+    .select('status')
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (platformAdmin?.status !== 'active') redirect('/dashboard')
+
+  return (
+    <main className="dashboard">
+      <header className="topbar">
+        <div className="brand">AVENZO ONE / Platform Admin Security</div>
+        <div className="topbar-actions"><span>{user.email}</span><SignOutButton /></div>
+      </header>
+      <section className="content mfa-content">
+        <div className="hero">
+          <div>
+            <div className="eyebrow">Phase 0.10.1</div>
+            <h1>ตั้งค่า TOTP MFA</h1>
+            <p>เพิ่มการยืนยันตัวตนชั้นที่สองสำหรับบัญชี Platform Admin</p>
+          </div>
+          <Link className="button secondary" href="/platform-admin">กลับ Platform Admin</Link>
+        </div>
+        <MfaEnrollment />
+      </section>
+    </main>
+  )
+}
