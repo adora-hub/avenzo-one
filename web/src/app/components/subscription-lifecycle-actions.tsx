@@ -62,10 +62,15 @@ export function SubscriptionLifecycleActions({ subscription, planVersions, planP
   const [commandId, setCommandId] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
+  const [reasonTouched, setReasonTouched] = useState(false)
 
   const selectedVersion = useMemo(() => planVersions.find((item) => item.id === planVersionId), [planVersionId, planVersions])
   const selectedPrice = useMemo(() => planPrices.find((item) => item.plan_version_id === planVersionId), [planPrices, planVersionId])
   const changesPlan = action === 'renew' || action === 'adjust'
+  const reasonLength = reason.trim().length
+  const reasonHint = reasonTouched && reasonLength < 3
+    ? reasonLength === 0 ? 'กรุณาระบุเหตุผลอย่างน้อย 3 ตัวอักษร' : `กรุณาพิมพ์เหตุผลเพิ่มอีก ${3 - reasonLength} ตัวอักษร`
+    : ''
 
   function calculateDates(start: string, version = selectedVersion) {
     if (!version) return
@@ -97,7 +102,8 @@ export function SubscriptionLifecycleActions({ subscription, planVersions, planP
 
   function preparePreview(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (reason.trim().length < 3) { setMessage('กรุณาระบุเหตุผลอย่างน้อย 3 ตัวอักษร'); return }
+    setReasonTouched(true)
+    if (reason.trim().length < 3) { setMessage(''); return }
     if (changesPlan && !selectedVersion) { setMessage('ไม่พบ Plan Version ที่เปิดใช้งาน กรุณาเลือก Version ใหม่'); return }
     setMessage('')
     setCommandId(crypto.randomUUID())
@@ -133,6 +139,7 @@ export function SubscriptionLifecycleActions({ subscription, planVersions, planP
       setMessage(`${subscriptionEventLabels[action]}สำเร็จ`)
       setPreview(false)
       setReason('')
+      setReasonTouched(false)
       router.refresh()
     } catch (error) {
       const raw = error instanceof Error ? error.message : 'ไม่สามารถจัดการ Subscription ได้'
@@ -150,14 +157,14 @@ export function SubscriptionLifecycleActions({ subscription, planVersions, planP
       ]
 
   return (
-    <form className="form subscription-action-form" onSubmit={preparePreview}>
+    <form className="form subscription-action-form" noValidate onSubmit={preparePreview}>
       <label>รายการที่ต้องการทำ<select value={action} onChange={(event) => selectAction(event.target.value)}>{actionOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
       {changesPlan && <>
         <label>Plan Version<select value={planVersionId} onChange={(event) => { const id = event.target.value; setPlanVersionId(id); calculateDates(startsAt, planVersions.find((item) => item.id === id)); resetPreview() }}>{planVersions.map((item) => <option key={item.id} value={item.id}>{item.plan_name} · {item.label}</option>)}</select></label>
         <label>เริ่มรอบใหม่<input type="datetime-local" value={startsAt} onChange={(event) => { setStartsAt(event.target.value); calculateDates(event.target.value); resetPreview() }} /></label>
         <div className="form-grid-two"><label>หมดอายุ<input type="datetime-local" readOnly value={expiresAt.slice(0, 16)} /></label><label>สิ้นสุดช่วงผ่อนผัน<input type="datetime-local" readOnly value={graceEndsAt.slice(0, 16)} /></label></div>
       </>}
-      <label>เหตุผล<span className="field-help">จำเป็นสำหรับประวัติและ Audit Log</span><textarea rows={3} minLength={3} required value={reason} onChange={(event) => { setReason(event.target.value); resetPreview() }} /></label>
+      <label>เหตุผล<span className="field-help">จำเป็นสำหรับประวัติและ Audit Log</span><textarea aria-describedby={reasonHint ? 'subscription-reason-hint' : undefined} aria-invalid={reasonHint ? 'true' : 'false'} rows={3} minLength={3} value={reason} onChange={(event) => { setReason(event.target.value); setReasonTouched(true); resetPreview() }} />{reasonHint && <span id="subscription-reason-hint" className="form-message info" role="status"><span className="form-message-icon" aria-hidden="true">i</span>{reasonHint}</span>}</label>
       {message && <div className={message.includes('สำเร็จ') ? 'countdown' : 'error'}>{message}</div>}
       {!preview ? <button className={`button ${action === 'cancel' || action === 'suspend' ? 'danger' : ''}`} type="submit">ตรวจสอบก่อนยืนยัน</button> : (
         <section className="subscription-confirmation">

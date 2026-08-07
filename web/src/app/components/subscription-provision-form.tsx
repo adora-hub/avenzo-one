@@ -75,12 +75,17 @@ export function SubscriptionProvisionForm({ organizations, planVersions, planPri
   const [loading, setLoading] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
   const [commandId, setCommandId] = useState('')
+  const [reasonTouched, setReasonTouched] = useState(false)
 
   const selectedOrganization = useMemo(() => organizations.find((item) => item.id === organizationId), [organizationId, organizations])
   const selectedVersion = useMemo(() => planVersions.find((item) => item.id === planVersionId), [planVersionId, planVersions])
   const availablePrices = useMemo(() => planPrices.filter((item) => item.plan_version_id === planVersionId), [planPrices, planVersionId])
   const selectedPrice = useMemo(() => planPrices.find((item) => item.id === planPriceId), [planPriceId, planPrices])
   const trialEndsAt = selectedPrice?.trial_days ? addDays(startsAt, selectedPrice.trial_days) : ''
+  const reasonLength = reason.trim().length
+  const reasonHint = reasonTouched && reasonLength < 3
+    ? reasonLength === 0 ? 'กรุณาระบุเหตุผลอย่างน้อย 3 ตัวอักษร' : `กรุณาพิมพ์เหตุผลเพิ่มอีก ${3 - reasonLength} ตัวอักษร`
+    : ''
 
   function resetPreview() { setShowPreview(false); setCommandId(''); setMessage('') }
 
@@ -121,8 +126,13 @@ export function SubscriptionProvisionForm({ organizations, planVersions, planPri
 
   function preview(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    setReasonTouched(true)
     const error = validate()
-    if (error) { setMessage(error); setShowPreview(false); return }
+    if (error) {
+      setMessage(error === 'กรุณาระบุเหตุผลอย่างน้อย 3 ตัวอักษร' ? '' : error)
+      setShowPreview(false)
+      return
+    }
     setMessage('')
     setCommandId(crypto.randomUUID())
     setShowPreview(true)
@@ -158,6 +168,7 @@ export function SubscriptionProvisionForm({ organizations, planVersions, planPri
       if (error) throw error
       setMessage('บันทึก Subscription และ Plan Version สำเร็จ')
       setShowPreview(false)
+      setReasonTouched(false)
       router.refresh()
     } catch (error) {
       const raw = error instanceof Error ? error.message : 'ไม่สามารถบันทึก Subscription ได้'
@@ -169,7 +180,7 @@ export function SubscriptionProvisionForm({ organizations, planVersions, planPri
   if (!planVersions.length) return <div className="empty">ยังไม่มี Plan Version ที่ Active — ไปที่ Plans &amp; Prices เปิดใช้งาน Feature ที่อ้างอิงก่อน แล้วจึงเปิดใช้งาน Version</div>
 
   return (
-    <form className="form subscription-provision-form" onSubmit={preview}>
+    <form className="form subscription-provision-form" noValidate onSubmit={preview}>
       <label>Organization<select value={organizationId} onChange={(event) => { setOrganizationId(event.target.value); resetPreview() }}>{organizations.map((item) => <option value={item.id} key={item.id}>{item.name} / {item.slug}</option>)}</select></label>
       <label>Plan Version<select value={planVersionId} onChange={(event) => applyPlanVersion(event.target.value)}>{planVersions.map((item) => <option value={item.id} key={item.id}>{item.plan_name} · {item.label} · {item.duration_days} วัน + Grace {item.grace_period_days} วัน</option>)}</select></label>
       <label>ราคา<select value={planPriceId} onChange={(event) => { setPlanPriceId(event.target.value); resetPreview() }}>{!availablePrices.length && <option value="">ยังไม่กำหนดราคา Active</option>}{availablePrices.map((price) => <option value={price.id} key={price.id}>{formatPrice(price.amount, price.currency)} / {billingIntervalLabel(price.billing_interval)} · ทดลอง {price.trial_days} วัน</option>)}</select><span className="field-help">ราคานี้ใช้เป็นข้อมูลอ้างอิง ยังไม่มีการเรียกเก็บเงินจริงใน Phase นี้</span></label>
@@ -178,7 +189,7 @@ export function SubscriptionProvisionForm({ organizations, planVersions, planPri
         <label>หมดอายุ (คำนวณอัตโนมัติ)<input type="datetime-local" required readOnly value={expiresAt} /></label>
         <label>สิ้นสุด Grace Period (คำนวณอัตโนมัติ)<input type="datetime-local" required readOnly value={graceEndsAt} /></label>
       </div>
-      <label>เหตุผล<textarea required minLength={3} value={reason} onChange={(event) => { setReason(event.target.value); resetPreview() }} rows={3} /></label>
+      <label>เหตุผล<textarea aria-describedby={reasonHint ? 'provision-reason-hint' : undefined} aria-invalid={reasonHint ? 'true' : 'false'} minLength={3} value={reason} onChange={(event) => { setReason(event.target.value); setReasonTouched(true); resetPreview() }} rows={3} />{reasonHint && <span id="provision-reason-hint" className="form-message info" role="status"><span className="form-message-icon" aria-hidden="true">i</span>{reasonHint}</span>}</label>
       {message && <div className={message.includes('สำเร็จ') ? 'countdown' : 'error'}>{message}</div>}
       {!showPreview ? <button className="button" type="submit">ตรวจสอบก่อนบันทึก</button> : (
         <section className="subscription-confirmation" aria-live="polite">
