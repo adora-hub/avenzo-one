@@ -3,6 +3,7 @@
 import { FormEvent, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/browser'
+import { subscriptionErrorMessage } from './subscription-labels'
 
 type Organization = { id: string; name: string; slug: string; timezone: string; currency: string }
 export type ActivePlanVersion = {
@@ -69,11 +70,11 @@ export function SubscriptionProvisionForm({ organizations, planVersions, planPri
   const [startsAt, setStartsAt] = useState(initialStart)
   const [expiresAt, setExpiresAt] = useState(addDays(initialStart, initialVersion?.duration_days ?? 30))
   const [graceEndsAt, setGraceEndsAt] = useState(addDays(initialStart, (initialVersion?.duration_days ?? 30) + (initialVersion?.grace_period_days ?? 3)))
-  const [eventType, setEventType] = useState('provision')
   const [reason, setReason] = useState('เริ่มต้น Subscription ของ Organization')
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
+  const [commandId, setCommandId] = useState('')
 
   const selectedOrganization = useMemo(() => organizations.find((item) => item.id === organizationId), [organizationId, organizations])
   const selectedVersion = useMemo(() => planVersions.find((item) => item.id === planVersionId), [planVersionId, planVersions])
@@ -81,7 +82,7 @@ export function SubscriptionProvisionForm({ organizations, planVersions, planPri
   const selectedPrice = useMemo(() => planPrices.find((item) => item.id === planPriceId), [planPriceId, planPrices])
   const trialEndsAt = selectedPrice?.trial_days ? addDays(startsAt, selectedPrice.trial_days) : ''
 
-  function resetPreview() { setShowPreview(false); setMessage('') }
+  function resetPreview() { setShowPreview(false); setCommandId(''); setMessage('') }
 
   function calculateDates(start: string, version = selectedVersion) {
     if (!version) return
@@ -123,27 +124,28 @@ export function SubscriptionProvisionForm({ organizations, planVersions, planPri
     const error = validate()
     if (error) { setMessage(error); setShowPreview(false); return }
     setMessage('')
+    setCommandId(crypto.randomUUID())
     setShowPreview(true)
   }
 
   async function confirmSubscription() {
-    if (!selectedVersion) return
+    if (!selectedVersion || !commandId) return
     const errorMessage = validate()
     if (errorMessage) { setMessage(errorMessage); setShowPreview(false); return }
     setLoading(true)
     setMessage('')
     try {
       const supabase = createClient()
-      const { error } = await supabase.rpc('platform_set_organization_subscription_versioned', {
+      const { error } = await supabase.rpc('platform_transition_organization_subscription', {
         p_organization_id: organizationId,
         p_plan_code: selectedVersion.plan_code,
         p_plan_version_id: selectedVersion.id,
         p_starts_at: new Date(startsAt).toISOString(),
         p_expires_at: new Date(expiresAt).toISOString(),
         p_grace_ends_at: new Date(graceEndsAt).toISOString(),
-        p_lifecycle_status: eventType === 'cancel' ? 'canceled' : 'active',
-        p_event_type: eventType,
+        p_event_type: 'provision',
         p_reason: reason.trim(),
+        p_command_id: commandId,
         p_metadata: {
           phase: '1.0.4.1', price_id: selectedPrice?.id ?? null,
           billing_interval: selectedPrice?.billing_interval ?? null,
@@ -158,7 +160,8 @@ export function SubscriptionProvisionForm({ organizations, planVersions, planPri
       setShowPreview(false)
       router.refresh()
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'ไม่สามารถบันทึก Subscription ได้')
+      const raw = error instanceof Error ? error.message : 'ไม่สามารถบันทึก Subscription ได้'
+      setMessage(subscriptionErrorMessage(raw))
     } finally { setLoading(false) }
   }
 
@@ -170,7 +173,6 @@ export function SubscriptionProvisionForm({ organizations, planVersions, planPri
       <label>Organization<select value={organizationId} onChange={(event) => { setOrganizationId(event.target.value); resetPreview() }}>{organizations.map((item) => <option value={item.id} key={item.id}>{item.name} / {item.slug}</option>)}</select></label>
       <label>Plan Version<select value={planVersionId} onChange={(event) => applyPlanVersion(event.target.value)}>{planVersions.map((item) => <option value={item.id} key={item.id}>{item.plan_name} · {item.label} · {item.duration_days} วัน + Grace {item.grace_period_days} วัน</option>)}</select></label>
       <label>ราคา<select value={planPriceId} onChange={(event) => { setPlanPriceId(event.target.value); resetPreview() }}>{!availablePrices.length && <option value="">ยังไม่กำหนดราคา Active</option>}{availablePrices.map((price) => <option value={price.id} key={price.id}>{formatPrice(price.amount, price.currency)} / {billingIntervalLabel(price.billing_interval)} · ทดลอง {price.trial_days} วัน</option>)}</select><span className="field-help">ราคานี้ใช้เป็นข้อมูลอ้างอิง ยังไม่มีการเรียกเก็บเงินจริงใน Phase นี้</span></label>
-      <label>ประเภท Event<select value={eventType} onChange={(event) => { setEventType(event.target.value); resetPreview() }}><option value="provision">Provision — เริ่มสิทธิ์ใหม่</option><option value="renew">Renew — ต่ออายุ</option><option value="adjust">Adjust — ปรับสิทธิ์</option><option value="cancel">Cancel — ยกเลิก</option></select></label>
       <label>เริ่มต้น<input type="datetime-local" required value={startsAt} onChange={(event) => updateStart(event.target.value)} /></label>
       <div className="form-grid-two">
         <label>หมดอายุ (คำนวณอัตโนมัติ)<input type="datetime-local" required readOnly value={expiresAt} /></label>
@@ -189,7 +191,7 @@ export function SubscriptionProvisionForm({ organizations, planVersions, planPri
             <div><dt>เริ่มต้น</dt><dd>{formatDate(startsAt, selectedOrganization?.timezone)}</dd></div>
             <div><dt>หมดอายุ</dt><dd>{formatDate(expiresAt, selectedOrganization?.timezone)}</dd></div>
             <div><dt>Grace Period สิ้นสุด</dt><dd>{formatDate(graceEndsAt, selectedOrganization?.timezone)}</dd></div>
-            <div><dt>Event</dt><dd>{eventType}</dd></div>
+            <div><dt>รายการ</dt><dd>เริ่ม Subscription</dd></div>
           </dl>
           <div className="subscription-confirmation-note"><strong>เหตุผล</strong><span>{reason.trim()}</span></div>
           <div className="button-row"><button className="button secondary" type="button" disabled={loading} onClick={() => setShowPreview(false)}>ย้อนกลับแก้ไข</button><button className="button" type="button" disabled={loading} onClick={confirmSubscription}>{loading ? 'กำลังบันทึก…' : 'ยืนยันและบันทึก Subscription'}</button></div>

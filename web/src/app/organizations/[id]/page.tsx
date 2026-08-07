@@ -12,6 +12,7 @@ import type { OrganizationMemberDirectoryEntry } from '@/lib/organization-member
 import type { InvitationStatus, OrganizationInvitationHistoryResult } from '@/lib/organization-invitation-history'
 import type { AuditCategory, OrganizationAuditLogResult } from '@/lib/organization-audit-log'
 import { branchEntitlementMessage, type OrganizationBranchEntitlement } from '@/lib/branch-entitlement'
+import { subscriptionAccessStateLabel } from '../../components/subscription-labels'
 
 type SearchParams = Record<string, string | string[] | undefined>
 type InvitationFilterStatus = 'all' | InvitationStatus
@@ -167,13 +168,13 @@ export default async function OrganizationPage({ params, searchParams }: Props) 
                 <div className="subscription-overview-header">
                   <strong>สิทธิ์ Subscription</strong>
                   <span className={`subscription-state ${branchEntitlement.access_state}`}>
-                    {branchEntitlement.access_state === 'active' ? 'Active · ใช้งานอยู่' : branchEntitlement.access_state === 'grace' ? 'Grace Period' : branchEntitlement.access_state === 'expired' ? 'Expired · หมดอายุ' : 'Legacy'}
+                    {subscriptionAccessStateLabel(branchEntitlement.access_state)}
                   </span>
                 </div>
                 <dl className="subscription-overview-grid">
                   <div><dt>Plan</dt><dd>{branchEntitlement.plan_name}</dd></div>
                   <div><dt>Version</dt><dd>{branchEntitlement.plan_version_label}</dd></div>
-                  <div><dt>สถานะ Subscription</dt><dd>{branchEntitlement.access_state === 'active' ? 'ใช้งานอยู่' : branchEntitlement.access_state === 'grace' ? 'อยู่ใน Grace Period' : branchEntitlement.access_state === 'expired' ? 'หมดอายุแล้ว' : 'ระบบเดิม'}</dd></div>
+                  <div><dt>สถานะ Subscription</dt><dd>{subscriptionAccessStateLabel(branchEntitlement.access_state)}</dd></div>
                   <div><dt>สิทธิ์สาขา</dt><dd>{branchEntitlement.current_count} / {branchEntitlement.max_count ?? 'ไม่จำกัด'} สาขา</dd></div>
                 </dl>
               </section>

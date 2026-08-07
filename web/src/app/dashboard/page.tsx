@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Countdown } from '../components/countdown'
 import { SignOutButton } from '../components/sign-out-button'
 import { OrganizationAccessSummaryCard } from '../components/organization-access-summary'
+import { subscriptionAccessStateLabel } from '../components/subscription-labels'
 import type { OrganizationAccessSummary } from '@/lib/organization-access'
 
 type SubscriptionStatus = {
@@ -73,8 +74,10 @@ export default async function DashboardPage() {
                   {access && <OrganizationAccessSummaryCard access={access} compact />}
                   {subscription ? (
                     <>
-                      <div className={`status ${subscription.access_state}`}>{subscription.access_state}</div>
-                      <div className="countdown">เหลือเวลา<Countdown expiresAt={subscription.expires_at} initialSeconds={subscription.seconds_remaining} /></div>
+                      <div className={`status ${subscription.access_state}`}>{subscriptionAccessStateLabel(subscription.access_state)}</div>
+                      {['trial', 'active', 'grace'].includes(subscription.access_state)
+                        ? <div className="countdown">เหลือเวลา<Countdown expiresAt={subscription.expires_at} initialSeconds={subscription.seconds_remaining} /></div>
+                        : <div className="meta">Subscription ไม่อยู่ในสถานะที่ใช้งานได้ตามปกติ</div>}
                     </>
                   ) : <div className="meta">ยังไม่มี Subscription</div>}
                   <a className="button secondary" style={{ marginTop: 14 }} href={`/organizations/${organization.id}`}>จัดการ Workspace</a>
