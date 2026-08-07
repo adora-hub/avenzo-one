@@ -21,7 +21,10 @@ export async function updateSession(request: NextRequest) {
 
   const { data } = await supabase.auth.getClaims()
   const pathname = request.nextUrl.pathname
-  const isPublic = pathname === '/' || pathname.startsWith('/auth')
+  const isPublic = pathname === '/'
+    || pathname === '/privacy'
+    || pathname === '/terms'
+    || pathname.startsWith('/auth')
   const isApi = pathname.startsWith('/api/')
 
   if (!data?.claims && !isPublic && !isApi) {

@@ -1,10 +1,19 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import type { FormEvent } from 'react'
+import type { FormEvent, KeyboardEvent } from 'react'
+import { getThaiAuthError, isExistingAccountError } from '@/lib/auth-error-message'
 import { createClient } from '@/lib/supabase/browser'
 
 const rememberedEmailKey = 'avenzo-one:remembered-email:v1'
+
+const passwordRules = [
+  { key: 'length', label: 'อย่างน้อย 8 ตัวอักษร', test: (value: string) => value.length >= 8 },
+  { key: 'lowercase', label: 'ตัวอักษรภาษาอังกฤษพิมพ์เล็ก', test: (value: string) => /[a-z]/.test(value) },
+  { key: 'uppercase', label: 'ตัวอักษรภาษาอังกฤษพิมพ์ใหญ่', test: (value: string) => /[A-Z]/.test(value) },
+  { key: 'number', label: 'ตัวเลขอย่างน้อย 1 ตัว', test: (value: string) => /\d/.test(value) },
+  { key: 'symbol', label: 'สัญลักษณ์พิเศษอย่างน้อย 1 ตัว', test: (value: string) => /[\p{P}\p{S}]/u.test(value) },
+] as const
 
 function EyeIcon({ hidden }: { hidden: boolean }) {
   return hidden ? (
@@ -27,11 +36,16 @@ export function AuthForm() {
   const [password, setPassword] = useState('')
   const [mode, setMode] = useState<'sign-in' | 'sign-up' | 'forgot-password'>('sign-in')
   const [message, setMessage] = useState('')
+  const [messageTone, setMessageTone] = useState<'success' | 'error'>('error')
   const [loading, setLoading] = useState(false)
   const [canResend, setCanResend] = useState(false)
   const [resending, setResending] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [rememberEmail, setRememberEmail] = useState(false)
+  const [capsLockOn, setCapsLockOn] = useState(false)
+
+  const passwordChecks = passwordRules.map((rule) => ({ ...rule, passed: rule.test(password) }))
+  const passwordMeetsRequirements = passwordChecks.every((rule) => rule.passed)
 
   useEffect(() => {
     const rememberedEmail = window.localStorage.getItem(rememberedEmailKey)
@@ -48,7 +62,8 @@ export function AuthForm() {
     setLoading(true)
     createClient().auth.setSession({ access_token: accessToken, refresh_token: refreshToken }).then(async ({ error }) => {
       if (error) {
-        setMessage(error.message)
+        setMessageTone('error')
+        setMessage(getThaiAuthError(error))
         setLoading(false)
         return
       }
@@ -63,17 +78,23 @@ export function AuthForm() {
     event.preventDefault()
     setLoading(true)
     setMessage('')
+    setMessageTone('error')
     setCanResend(false)
 
     try {
       const supabase = createClient()
       const next = new URLSearchParams(window.location.search).get('next')
       const nextPath = next && next.startsWith('/') && !next.startsWith('//') ? next : '/dashboard'
+      if (mode === 'sign-up' && !passwordMeetsRequirements) {
+        setMessage('รหัสผ่านยังไม่ครบทุกเงื่อนไข กรุณาตรวจสอบรายการด้านล่าง')
+        return
+      }
       if (mode === 'forgot-password') {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
           redirectTo: `${window.location.origin}/auth/callback?next=/auth/set-password`,
         })
         if (error) throw error
+        setMessageTone('success')
         setMessage('ส่งอีเมลพร้อมลิงก์ตั้งรหัสผ่านแล้ว กรุณาตรวจสอบ Inbox และ Spam')
         return
       }
@@ -90,9 +111,11 @@ export function AuthForm() {
       if (mode === 'sign-up') {
         const existingAccount = !result.data.user?.identities?.length
         if (existingAccount) {
+          setMessageTone('error')
           setMessage('อีเมลนี้มีบัญชีอยู่แล้ว กรุณาใช้ลิงก์คำเชิญฉบับล่าสุดจากอีเมล ไม่ต้องสมัครซ้ำ')
           setCanResend(false)
         } else {
+          setMessageTone('success')
           setMessage('สมัครสำเร็จ กรุณาตรวจสอบอีเมลเพื่อยืนยันบัญชี หากไม่พบให้กดส่งอีเมลอีกครั้ง')
           setCanResend(true)
         }
@@ -103,9 +126,9 @@ export function AuthForm() {
         window.location.assign(nextPath)
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'ไม่สามารถดำเนินการได้'
-      setMessage(errorMessage)
-      if (mode === 'sign-up' && /already registered|already exists|user already/i.test(errorMessage)) {
+      setMessageTone('error')
+      setMessage(getThaiAuthError(error))
+      if (mode === 'sign-up' && isExistingAccountError(error)) {
         setCanResend(true)
       }
     } finally {
@@ -122,8 +145,13 @@ export function AuthForm() {
       email,
       options: { emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard` },
     })
-    setMessage(error ? error.message : 'ส่งอีเมลยืนยันอีกครั้งแล้ว กรุณาตรวจสอบ Inbox และ Spam')
+    setMessageTone(error ? 'error' : 'success')
+    setMessage(error ? getThaiAuthError(error) : 'ส่งอีเมลยืนยันอีกครั้งแล้ว กรุณาตรวจสอบ Inbox และ Spam')
     setResending(false)
+  }
+
+  function updateCapsLock(event: KeyboardEvent<HTMLInputElement>) {
+    setCapsLockOn(event.getModifierState('CapsLock'))
   }
 
   return (
@@ -144,6 +172,10 @@ export function AuthForm() {
               autoComplete={mode === 'sign-in' ? 'current-password' : 'new-password'}
               value={password}
               onChange={(event) => setPassword(event.target.value)}
+              onKeyDown={updateCapsLock}
+              onKeyUp={updateCapsLock}
+              onBlur={() => setCapsLockOn(false)}
+              aria-describedby={mode === 'sign-up' ? 'password-requirements' : capsLockOn ? 'caps-lock-warning' : undefined}
             />
             <button
               type="button"
@@ -156,6 +188,17 @@ export function AuthForm() {
               <EyeIcon hidden={!showPassword} />
             </button>
           </span>
+          {capsLockOn && <div id="caps-lock-warning" className="caps-lock-warning" role="status">เปิด Caps Lock อยู่</div>}
+          {mode === 'sign-up' && (
+            <ul id="password-requirements" className="password-requirements" aria-label="เงื่อนไขรหัสผ่าน">
+              {passwordChecks.map((rule) => (
+                <li key={rule.key} className={rule.passed ? 'passed' : undefined}>
+                  <span aria-hidden="true">{rule.passed ? '✓' : '○'}</span>
+                  {rule.label}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
       {mode === 'sign-in' && (
@@ -164,7 +207,7 @@ export function AuthForm() {
           <span>จดจำอีเมลบนอุปกรณ์นี้</span>
         </label>
       )}
-      {message && <div className={message.includes('สำเร็จ') || message.includes('ส่งอีเมล') ? 'countdown' : 'error'}>{message}</div>}
+      {message && <div className={messageTone === 'success' ? 'countdown' : 'error'}>{message}</div>}
       {canResend && mode === 'sign-up' && <button type="button" className="button secondary" onClick={resendConfirmation} disabled={resending}>{resending ? 'กำลังส่ง…' : 'ส่งอีเมลยืนยันอีกครั้ง'}</button>}
       <button className="button" disabled={loading}>{loading ? 'กำลังดำเนินการ…' : mode === 'sign-in' ? 'เข้าสู่ระบบ' : mode === 'sign-up' ? 'สร้างบัญชี' : 'ส่งลิงก์ตั้งรหัสผ่าน'}</button>
       {mode === 'sign-in' && <button type="button" className="button secondary" onClick={() => { setMode('forgot-password'); setMessage(''); setCanResend(false) }}>ลืมรหัสผ่าน?</button>}
