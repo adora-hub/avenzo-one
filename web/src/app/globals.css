@@ -217,6 +217,16 @@ input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft
 .subscription-overview-grid > div { padding: 12px 14px; border-radius: 12px; background: white; }
 .subscription-overview-grid dt { margin-bottom: 4px; color: var(--muted); font-size: 12px; font-weight: 700; }
 .subscription-overview-grid dd { margin: 0; color: var(--ink); font-size: 17px; font-weight: 800; overflow-wrap: anywhere; }
+.subscription-provision-form input[readonly] { background: #f4f6fa; color: var(--muted); cursor: not-allowed; }
+.subscription-confirmation { display: grid; gap: 16px; padding: 18px; border: 1px solid #9eb3ff; border-radius: 16px; background: #f7f9ff; }
+.subscription-confirmation-heading { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.subscription-confirmation-heading h3 { margin: 5px 0 0; font-size: 20px; }
+.subscription-confirmation-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0; }
+.subscription-confirmation-grid > div, .subscription-confirmation-note { padding: 13px 14px; border: 1px solid var(--line); border-radius: 12px; background: white; }
+.subscription-confirmation-grid dt { margin-bottom: 4px; color: var(--muted); font-size: 12px; font-weight: 700; }
+.subscription-confirmation-grid dd { margin: 0; color: var(--ink); font-size: 15px; font-weight: 800; overflow-wrap: anywhere; }
+.subscription-confirmation-note { display: grid; gap: 5px; }
+.subscription-confirmation-note span { color: var(--muted); }
 .feature-create-card { position: sticky; top: 20px; }
 .feature-create-card h2, .feature-create-card p { margin: 0; }
 .feature-create-card > div { display: grid; gap: 8px; }
@@ -257,6 +267,8 @@ input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft
   .plans-prices-layout { grid-template-columns: 1fr; }
   .subscription-overview-header { align-items: flex-start; flex-direction: column; }
   .subscription-overview-grid { grid-template-columns: 1fr; }
+  .subscription-confirmation-heading { flex-direction: column; }
+  .subscription-confirmation-grid { grid-template-columns: 1fr; }
   .feature-create-card { position: static; }
 }
 

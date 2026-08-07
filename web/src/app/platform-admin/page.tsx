@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { SignOutButton } from '../components/sign-out-button'
-import { SubscriptionProvisionForm, type ActivePlanVersion } from '../components/subscription-provision-form'
+import { SubscriptionProvisionForm, type ActivePlanPrice, type ActivePlanVersion } from '../components/subscription-provision-form'
 
 export default async function PlatformAdminPage() {
   const supabase = await createClient()
@@ -18,10 +18,11 @@ export default async function PlatformAdminPage() {
     redirect('/auth/mfa?next=/platform-admin')
   }
 
-  const [organizationsResult, plansResult, planVersionsResult, subscriptionsResult] = await Promise.all([
-    supabase.from('organizations').select('id, name, slug, status, updated_at').order('updated_at', { ascending: false }),
+  const [organizationsResult, plansResult, planVersionsResult, planPricesResult, subscriptionsResult] = await Promise.all([
+    supabase.from('organizations').select('id, name, slug, timezone, currency, status, updated_at').order('updated_at', { ascending: false }),
     supabase.from('subscription_plans').select('code, name, duration_days, grace_period_days').order('name'),
     supabase.from('subscription_plan_versions').select('id, plan_code, label, duration_days, grace_period_days').eq('lifecycle_status', 'active').order('label'),
+    supabase.from('subscription_plan_prices').select('id, plan_version_id, billing_interval, amount, currency, trial_days').eq('is_active', true).order('amount'),
     supabase.from('organization_branch_entitlements').select('organization_id, plan_name, plan_version_label, access_state, current_count, max_count'),
   ])
   const organizations = organizationsResult.data ?? []
@@ -38,6 +39,10 @@ export default async function PlatformAdminPage() {
       grace_period_days: version.grace_period_days,
     }] : []
   })
+  const planPrices: ActivePlanPrice[] = (planPricesResult.data ?? []).map((price) => ({
+    ...price,
+    amount: Number(price.amount),
+  }))
   const subscriptions = subscriptionsResult.data ?? []
 
   return (
@@ -77,7 +82,7 @@ export default async function PlatformAdminPage() {
           <div><h2>Provision Subscription</h2><p>กำหนด Active Plan Version ให้ Organization และบันทึก Subscription Event</p></div>
         </div>
         <div className="card">
-          <SubscriptionProvisionForm organizations={organizations} planVersions={planVersions} />
+          <SubscriptionProvisionForm organizations={organizations} planVersions={planVersions} planPrices={planPrices} />
         </div>
 
         {subscriptions.length ? (
