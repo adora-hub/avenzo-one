@@ -123,6 +123,28 @@ export function AuthForm() {
         const normalizedEmail = email.trim().toLowerCase()
         if (rememberEmail) window.localStorage.setItem(rememberedEmailKey, normalizedEmail)
         else window.localStorage.removeItem(rememberedEmailKey)
+
+        const signedInUserId = result.data.user?.id
+        if (!signedInUserId) throw new Error('ไม่พบข้อมูลบัญชีหลังเข้าสู่ระบบ กรุณาลองใหม่อีกครั้ง')
+
+        const platformAdminResult = await supabase
+          .from('platform_admins')
+          .select('status')
+          .eq('user_id', signedInUserId)
+          .maybeSingle()
+
+        if (platformAdminResult.data?.status === 'active') {
+          const destination = next ? nextPath : '/platform-admin'
+          const assurance = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+          if (assurance.error) throw assurance.error
+          if (assurance.data.nextLevel === 'aal2' && assurance.data.currentLevel !== 'aal2') {
+            window.location.assign(`/auth/mfa?next=${encodeURIComponent(destination)}`)
+            return
+          }
+          window.location.assign(destination)
+          return
+        }
+
         window.location.assign(nextPath)
       }
     } catch (error) {

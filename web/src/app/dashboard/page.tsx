@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { Countdown } from '../components/countdown'
 import { SignOutButton } from '../components/sign-out-button'
@@ -20,13 +21,14 @@ export default async function DashboardPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/')
 
-  const [organizationsResult, subscriptionsResult, creationPermissionResult, accessResult] = await Promise.all([
+  const [organizationsResult, subscriptionsResult, creationPermissionResult, accessResult, platformAdminResult] = await Promise.all([
     supabase.from('organizations').select('id, name, slug, status, timezone, currency').order('name'),
     supabase
     .from('organization_subscription_status')
     .select('organization_id, plan_name, access_state, expires_at, days_remaining, hours_remaining, seconds_remaining'),
     supabase.rpc('current_user_can_create_organization'),
     supabase.rpc('current_user_organization_access', { p_organization_id: null }),
+    supabase.from('platform_admins').select('status').eq('user_id', user.id).maybeSingle(),
   ])
 
   const organizations = organizationsResult.data
@@ -49,7 +51,7 @@ export default async function DashboardPage() {
     <main className="dashboard">
       <header className="topbar"><div className="brand">AVENZO ONE</div><div className="topbar-actions"><span>{user.email}</span><SignOutButton /></div></header>
       <section className="content">
-        <div className="hero"><div><div className="eyebrow">Workspace</div><h1>Subscription ของคุณ</h1><p>เวลาคงเหลือคำนวณจากเวลาจริงของระบบ</p></div></div>
+        <div className="hero"><div><div className="eyebrow">Workspace</div><h1>Subscription ของคุณ</h1><p>เวลาคงเหลือคำนวณจากเวลาจริงของระบบ</p></div>{platformAdminResult.data?.status === 'active' && <Link className="button secondary" href="/platform-admin">Platform Admin</Link>}</div>
         <div className="hero"><div><h2>Organizations</h2><p>พื้นที่ทำงานที่บัญชีนี้เข้าถึงได้</p></div>{canCreateOrganization === true && <a className="button" href="/onboarding">สร้าง Organization</a>}</div>
         {organizations?.length ? (
           <div className="grid">

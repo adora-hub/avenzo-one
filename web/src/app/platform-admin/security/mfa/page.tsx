@@ -9,13 +9,15 @@ export default async function PlatformAdminMfaPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/?next=/platform-admin/security/mfa')
 
-  const { data: platformAdmin } = await supabase
-    .from('platform_admins')
-    .select('status')
-    .eq('user_id', user.id)
-    .maybeSingle()
+  const [platformAdminResult, assuranceResult] = await Promise.all([
+    supabase.from('platform_admins').select('status').eq('user_id', user.id).maybeSingle(),
+    supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
+  ])
 
-  if (platformAdmin?.status !== 'active') redirect('/dashboard')
+  if (platformAdminResult.data?.status !== 'active') redirect('/dashboard')
+  if (assuranceResult.data?.nextLevel === 'aal2' && assuranceResult.data.currentLevel !== 'aal2') {
+    redirect('/auth/mfa?next=/platform-admin/security/mfa')
+  }
 
   return (
     <main className="dashboard">

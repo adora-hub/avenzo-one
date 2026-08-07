@@ -9,9 +9,23 @@ export default async function PlatformAdminPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/')
 
-  const { data: organizations } = await supabase.from('organizations').select('id, name, slug, status, updated_at').order('updated_at', { ascending: false })
-  const { data: plans } = await supabase.from('subscription_plans').select('code, name, duration_days, grace_period_days').order('name')
-  const { data: subscriptions } = await supabase.from('organization_subscription_status').select('organization_id, plan_name, access_state, expires_at, days_remaining')
+  const [platformAdminResult, assuranceResult] = await Promise.all([
+    supabase.from('platform_admins').select('status').eq('user_id', user.id).maybeSingle(),
+    supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
+  ])
+  if (platformAdminResult.data?.status !== 'active') redirect('/dashboard')
+  if (assuranceResult.data?.nextLevel === 'aal2' && assuranceResult.data.currentLevel !== 'aal2') {
+    redirect('/auth/mfa?next=/platform-admin')
+  }
+
+  const [organizationsResult, plansResult, subscriptionsResult] = await Promise.all([
+    supabase.from('organizations').select('id, name, slug, status, updated_at').order('updated_at', { ascending: false }),
+    supabase.from('subscription_plans').select('code, name, duration_days, grace_period_days').order('name'),
+    supabase.from('organization_subscription_status').select('organization_id, plan_name, access_state, expires_at, days_remaining'),
+  ])
+  const organizations = organizationsResult.data
+  const plans = plansResult.data
+  const subscriptions = subscriptionsResult.data
 
   return (
     <main className="dashboard">

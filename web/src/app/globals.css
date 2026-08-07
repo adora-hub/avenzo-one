@@ -159,6 +159,10 @@ input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft
 .mfa-status-card { display: grid; gap: 14px; max-width: 680px; padding: 24px; border: 1px solid #ccebdc; border-radius: 18px; background: #f3fbf7; }
 .mfa-status-card .status { width: fit-content; }
 .mfa-status-card h2, .mfa-status-card p { margin: 0; }
+.mfa-challenge-card { width: min(440px, 100%); }
+.mfa-challenge-form input { text-align: center; font-size: 28px; font-weight: 700; letter-spacing: .35em; }
+.mfa-help { margin: 0; color: var(--muted); text-align: center; font-size: 12px; }
+.mfa-challenge-signout { display: flex; justify-content: center; margin-top: 14px; }
 @media (max-width: 640px) {
   .topbar, .hero { align-items: flex-start; flex-direction: column; }
   .auth-card { padding: 26px; }
