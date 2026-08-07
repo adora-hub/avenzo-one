@@ -16,6 +16,8 @@
 - ไม่มี Delete; ใช้ `retired` เพื่อรักษาประวัติอ้างอิง
 - Feature ใหม่เริ่มเป็น `draft`
 - หน้า `/platform-admin/features` สำหรับสร้างและแก้รายละเอียด
+- UI มี Combo Box ภาษาคน แยกหมวด สาขา สมาชิก และรายงาน พร้อมโหมดกำหนดเอง
+- เมื่อเลือก Feature สำเร็จรูป ระบบเติม Feature Key, ชนิดค่า, Unit และคำอธิบายให้อัตโนมัติ
 - ใช้งานได้เฉพาะ Platform Admin ที่ผ่าน MFA ระดับ `aal2`
 - Audit แบบ append-only ใน `private.feature_catalog_audit_logs`
 
@@ -29,14 +31,15 @@
 ## Acceptance Test
 
 1. Platform Admin เปิดหน้า Feature Catalog จากปุ่มใน Control Plane
-2. สร้าง Feature แบบเปิด/ปิดได้ โดยไม่ต้องกรอก Unit
-3. สร้าง Feature แบบจำนวนได้เมื่อกรอก Unit
-4. Feature ใหม่ต้องมีสถานะ `draft`
-5. Feature Key ซ้ำต้องถูกปฏิเสธ
-6. แก้ชื่อ คำอธิบาย Unit และสถานะได้
-7. Feature Key และ Value Type ต้องเปลี่ยนไม่ได้
-8. ผู้ใช้ทั่วไปและ Session ที่ไม่ใช่ AAL2 อ่านหรือแก้ Catalog ไม่ได้
-9. การสร้างและแก้ไขต้องมี Audit Log
+2. เลือก Feature จาก Combo Box แล้วตรวจสอบค่าที่ระบบเติมให้อัตโนมัติ
+3. สร้าง Feature แบบเปิด/ปิดได้ โดยไม่ต้องกรอก Unit
+4. สร้าง Feature แบบจำนวนได้โดยระบบเติม Unit ให้ หรือใช้โหมดกำหนดเอง
+5. Feature ใหม่ต้องมีสถานะ `draft`
+6. Feature Key ซ้ำต้องถูกปฏิเสธ
+7. แก้ชื่อ คำอธิบาย Unit และสถานะได้
+8. Feature Key และ Value Type ต้องเปลี่ยนไม่ได้
+9. ผู้ใช้ทั่วไปและ Session ที่ไม่ใช่ AAL2 อ่านหรือแก้ Catalog ไม่ได้
+10. การสร้างและแก้ไขต้องมี Audit Log
 
 ## Rollback
 

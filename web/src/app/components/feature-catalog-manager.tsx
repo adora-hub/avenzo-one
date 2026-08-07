@@ -18,6 +18,67 @@ export type CatalogFeature = {
 
 type FeatureDraft = Pick<CatalogFeature, 'name' | 'description' | 'unit' | 'lifecycle_status'>
 
+type FeatureTemplate = {
+  id: string
+  category: string
+  label: string
+  feature_key: string
+  description: string
+  value_type: CatalogFeature['value_type']
+  unit: string | null
+}
+
+const CUSTOM_TEMPLATE_ID = 'custom'
+
+const FEATURE_TEMPLATES: FeatureTemplate[] = [
+  {
+    id: 'branches-enabled',
+    category: 'สาขา',
+    label: 'เปิดใช้งานระบบสาขา',
+    feature_key: 'branches.enabled',
+    description: 'กำหนดว่าแพ็กเกจนี้สามารถใช้งานระบบสาขาได้หรือไม่',
+    value_type: 'boolean',
+    unit: null,
+  },
+  {
+    id: 'branches-max-count',
+    category: 'สาขา',
+    label: 'จำนวนสาขาสูงสุด',
+    feature_key: 'branches.max_count',
+    description: 'กำหนดจำนวนสาขาสูงสุดที่ Organization สามารถสร้างได้',
+    value_type: 'integer',
+    unit: 'สาขา',
+  },
+  {
+    id: 'members-max-count',
+    category: 'สมาชิก',
+    label: 'จำนวนสมาชิกสูงสุด',
+    feature_key: 'members.max_count',
+    description: 'กำหนดจำนวนสมาชิกสูงสุดที่ Organization สามารถเพิ่มได้',
+    value_type: 'integer',
+    unit: 'คน',
+  },
+  {
+    id: 'reports-enabled',
+    category: 'รายงาน',
+    label: 'เปิดใช้งานรายงาน',
+    feature_key: 'reports.enabled',
+    description: 'กำหนดว่าแพ็กเกจนี้สามารถใช้งานรายงานได้หรือไม่',
+    value_type: 'boolean',
+    unit: null,
+  },
+]
+
+const CUSTOM_TEMPLATE: FeatureTemplate = {
+  id: CUSTOM_TEMPLATE_ID,
+  category: 'กำหนดเอง',
+  label: 'ฟีเจอร์อื่น ๆ (กำหนดเอง)',
+  feature_key: '',
+  description: '',
+  value_type: 'boolean',
+  unit: null,
+}
+
 function featureErrorMessage(error: unknown) {
   if (typeof error === 'object' && error && 'code' in error && error.code === '23505') {
     return 'Feature Key นี้มีอยู่แล้ว กรุณาใช้ Key อื่น'
@@ -29,16 +90,30 @@ function featureErrorMessage(error: unknown) {
 
 export function FeatureCatalogManager({ initialFeatures }: { initialFeatures: CatalogFeature[] }) {
   const router = useRouter()
-  const [featureKey, setFeatureKey] = useState('')
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const [valueType, setValueType] = useState<CatalogFeature['value_type']>('boolean')
-  const [unit, setUnit] = useState('')
+  const [templateId, setTemplateId] = useState(FEATURE_TEMPLATES[0].id)
+  const [featureKey, setFeatureKey] = useState(FEATURE_TEMPLATES[0].feature_key)
+  const [name, setName] = useState(FEATURE_TEMPLATES[0].label)
+  const [description, setDescription] = useState(FEATURE_TEMPLATES[0].description)
+  const [valueType, setValueType] = useState<CatalogFeature['value_type']>(FEATURE_TEMPLATES[0].value_type)
+  const [unit, setUnit] = useState(FEATURE_TEMPLATES[0].unit ?? '')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editDraft, setEditDraft] = useState<FeatureDraft | null>(null)
   const [message, setMessage] = useState('')
   const [messageTone, setMessageTone] = useState<'success' | 'error'>('success')
   const [loading, setLoading] = useState(false)
+  const selectedTemplate = FEATURE_TEMPLATES.find((template) => template.id === templateId) ?? CUSTOM_TEMPLATE
+  const isCustomTemplate = selectedTemplate.id === CUSTOM_TEMPLATE_ID
+
+  function selectTemplate(nextTemplateId: string) {
+    const nextTemplate = FEATURE_TEMPLATES.find((template) => template.id === nextTemplateId) ?? CUSTOM_TEMPLATE
+    setTemplateId(nextTemplate.id)
+    setFeatureKey(nextTemplate.feature_key)
+    setName(nextTemplate.label)
+    setDescription(nextTemplate.description)
+    setValueType(nextTemplate.value_type)
+    setUnit(nextTemplate.unit ?? '')
+    setMessage('')
+  }
 
   function beginEdit(feature: CatalogFeature) {
     setEditingId(feature.id)
@@ -65,11 +140,7 @@ export function FeatureCatalogManager({ initialFeatures }: { initialFeatures: Ca
         lifecycle_status: 'draft',
       })
       if (error) throw error
-      setFeatureKey('')
-      setName('')
-      setDescription('')
-      setValueType('boolean')
-      setUnit('')
+      selectTemplate(FEATURE_TEMPLATES[0].id)
       setMessageTone('success')
       setMessage('สร้าง Feature แบบ Draft สำเร็จ')
       router.refresh()
@@ -115,7 +186,20 @@ export function FeatureCatalogManager({ initialFeatures }: { initialFeatures: Ca
           <p>Feature ใหม่เริ่มเป็น Draft และยังไม่ให้สิทธิ์แก่แพ็กเกจใด</p>
         </div>
         <form className="form" onSubmit={createFeature}>
-          <label>Feature Key
+          <label>เลือกหมวดหมู่และฟีเจอร์
+            <select value={templateId} onChange={(event) => selectTemplate(event.target.value)}>
+              <option value={CUSTOM_TEMPLATE_ID}>ฟีเจอร์อื่น ๆ (กำหนดเอง)</option>
+              {Array.from(new Set(FEATURE_TEMPLATES.map((template) => template.category))).map((category) => (
+                <optgroup label={category} key={category}>
+                  {FEATURE_TEMPLATES.filter((template) => template.category === category).map((template) => (
+                    <option value={template.id} key={template.id}>{template.label}</option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+            <span className="field-help">เลือกคำที่เข้าใจง่าย ระบบจะเติมรหัสภายใน ชนิดค่า และหน่วยให้เอง</span>
+          </label>
+          <label>{isCustomTemplate ? 'Feature Key (กำหนดเอง)' : 'Feature Key (ระบบสร้างให้)'}
             <input
               value={featureKey}
               onChange={(event) => setFeatureKey(event.target.value.toLowerCase().replace(/[^a-z0-9_.]/g, ''))}
@@ -123,9 +207,10 @@ export function FeatureCatalogManager({ initialFeatures }: { initialFeatures: Ca
               pattern="[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*"
               minLength={3}
               maxLength={80}
+              readOnly={!isCustomTemplate}
               required
             />
-            <span className="field-help">Key และชนิดค่าจะล็อกถาวรหลังสร้าง</span>
+            <span className="field-help">รหัสนี้ใช้ภายในระบบและจะล็อกถาวรหลังสร้าง</span>
           </label>
           <label>ชื่อที่แสดง
             <input value={name} onChange={(event) => setName(event.target.value)} minLength={2} maxLength={100} placeholder="เช่น จำนวนสาขาสูงสุด" required />
@@ -134,14 +219,14 @@ export function FeatureCatalogManager({ initialFeatures }: { initialFeatures: Ca
             <textarea value={description} onChange={(event) => setDescription(event.target.value)} minLength={3} maxLength={500} rows={3} placeholder="อธิบายว่าฟีเจอร์นี้ควบคุมอะไร" required />
           </label>
           <label>ชนิดค่า
-            <select value={valueType} onChange={(event) => setValueType(event.target.value as CatalogFeature['value_type'])}>
+            <select value={valueType} onChange={(event) => setValueType(event.target.value as CatalogFeature['value_type'])} disabled={!isCustomTemplate}>
               <option value="boolean">เปิด / ปิด</option>
               <option value="integer">จำนวน / Limit</option>
             </select>
           </label>
           {valueType === 'integer' ? (
             <label>หน่วย
-              <input value={unit} onChange={(event) => setUnit(event.target.value)} minLength={1} maxLength={30} placeholder="เช่น สาขา, คน, วัน" required />
+              <input value={unit} onChange={(event) => setUnit(event.target.value)} minLength={1} maxLength={30} placeholder="เช่น สาขา, คน, วัน" readOnly={!isCustomTemplate} required />
             </label>
           ) : null}
           <button className="button" disabled={loading}>{loading ? 'กำลังบันทึก…' : 'สร้าง Feature แบบ Draft'}</button>
