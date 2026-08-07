@@ -18,6 +18,16 @@ export async function POST(request: Request) {
     p_branch_id: body.branchId || null,
   })
   if (error) {
+    const errorMessages: Record<string, string> = {
+      user_already_active_member: 'อีเมลนี้เป็นสมาชิกที่ใช้งานอยู่แล้ว',
+      suspended_member_requires_reactivation: 'สมาชิกนี้ถูกพักสิทธิ์ กรุณาเปิดสิทธิ์จากตารางสมาชิกแทนการเชิญใหม่',
+      owner_management_requires_owner: 'เฉพาะ Owner เท่านั้นที่เชิญสมาชิกด้วย Role Owner ได้',
+      member_invite_permission_required: 'บัญชีนี้ไม่มีสิทธิ์เชิญสมาชิก',
+      organization_role_not_found: 'ไม่พบ Role ที่เลือก',
+      organization_branch_not_found: 'ไม่พบสาขาที่เลือกหรือสาขาไม่ได้เปิดใช้งาน',
+    }
+    const knownError = Object.keys(errorMessages).find((key) => error.message.includes(key))
+    if (knownError) return NextResponse.json({ error: knownError, message: errorMessages[knownError] }, { status: 400 })
     if (error.code === '23505' || error.message.includes('organization_invitations_pending_email_unique')) {
       const { data: existing } = await supabase.from('organization_invitations').select('id').eq('organization_id', body.organizationId).eq('email', email).eq('status', 'pending').maybeSingle()
       if (existing) return NextResponse.json({ invitationId: existing.id, invitationUrl: `${new URL(request.url).origin}/invitations/${existing.id}`, delivery: 'manual_link', message: 'อีเมลนี้มีคำเชิญที่ยังรอการตอบรับอยู่แล้ว' }, { status: 409 })

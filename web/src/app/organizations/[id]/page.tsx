@@ -3,16 +3,31 @@ import { createClient } from '@/lib/supabase/server'
 import { SignOutButton } from '../../components/sign-out-button'
 import { CreateBranchForm } from '../../components/create-branch-form'
 import { InviteMemberForm } from '../../components/invite-member-form'
-import { CancelInvitationButton } from '../../components/cancel-invitation-button'
+import { InvitationHistory } from '../../components/invitation-history'
 import { OrganizationAccessSummaryCard } from '../../components/organization-access-summary'
 import { MemberManagement } from '../../components/member-management'
 import type { OrganizationAccessSummary } from '@/lib/organization-access'
 import type { OrganizationMemberDirectoryEntry } from '@/lib/organization-member-directory'
+import type { InvitationStatus, OrganizationInvitationHistoryResult } from '@/lib/organization-invitation-history'
 
-type Props = { params: Promise<{ id: string }> }
+type SearchParams = Record<string, string | string[] | undefined>
+type InvitationFilterStatus = 'all' | InvitationStatus
+type Props = { params: Promise<{ id: string }>; searchParams: Promise<SearchParams> }
 
-export default async function OrganizationPage({ params }: Props) {
-  const { id } = await params
+const invitationStatuses = new Set<InvitationFilterStatus>(['all', 'pending', 'accepted', 'revoked', 'expired'])
+const invitationPageSize = 10
+
+function firstParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] ?? '' : value ?? ''
+}
+
+export default async function OrganizationPage({ params, searchParams }: Props) {
+  const [{ id }, queryParams] = await Promise.all([params, searchParams])
+  const invitationSearch = firstParam(queryParams.inviteSearch).trim().slice(0, 160)
+  const requestedStatus = firstParam(queryParams.inviteStatus).toLowerCase() as InvitationFilterStatus
+  const invitationStatus = invitationStatuses.has(requestedStatus) ? requestedStatus : 'all'
+  const parsedPage = Number.parseInt(firstParam(queryParams.invitePage), 10)
+  const invitationPage = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/')
@@ -44,13 +59,19 @@ export default async function OrganizationPage({ params }: Props) {
   const canManageRoles = permissions.has('role.manage')
   const canManageOwners = access?.roles.some((role) => role.code === 'owner') ?? false
 
-  const [membersResult, invitationsResult, rolesResult] = await Promise.all([
+  const [membersResult, invitationHistoryResult, rolesResult] = await Promise.all([
     canReadMembers
       ? supabase.rpc('organization_member_directory', { p_organization_id: id })
       : Promise.resolve({ data: [] }),
     canReadMembers
-      ? supabase.from('organization_invitations').select('id, email, role_code, branch_id, status, expires_at, created_at').eq('organization_id', id).order('created_at', { ascending: false })
-      : Promise.resolve({ data: [] }),
+      ? supabase.rpc('organization_invitation_history', {
+          p_organization_id: id,
+          p_search: invitationSearch,
+          p_status: invitationStatus,
+          p_page: invitationPage,
+          p_page_size: invitationPageSize,
+        })
+      : Promise.resolve({ data: { items: [], total_count: 0 } }),
     canInviteMembers || canUpdateMembers || canManageRoles
       ? supabase.from('organization_roles').select('code, name').eq('organization_id', id).order('code')
       : Promise.resolve({ data: [] }),
@@ -65,8 +86,26 @@ export default async function OrganizationPage({ params }: Props) {
   }
 
   const members = (membersResult.data ?? []) as OrganizationMemberDirectoryEntry[]
-  const invitations = invitationsResult.data ?? []
+  if ('error' in invitationHistoryResult && invitationHistoryResult.error) {
+    console.error('[organization-page] invitation history lookup failed', {
+      organizationId: id,
+      userId: user.id,
+      error: invitationHistoryResult.error.message,
+    })
+  }
+
+  const invitationHistory = (invitationHistoryResult.data ?? { items: [], total_count: 0 }) as OrganizationInvitationHistoryResult
+  const invitationTotalPages = Math.max(1, Math.ceil(invitationHistory.total_count / invitationPageSize))
+  if (canReadMembers && !('error' in invitationHistoryResult && invitationHistoryResult.error) && invitationPage > invitationTotalPages) {
+    const canonicalParams = new URLSearchParams()
+    if (invitationTotalPages > 1) canonicalParams.set('invitePage', String(invitationTotalPages))
+    if (invitationSearch) canonicalParams.set('inviteSearch', invitationSearch)
+    if (invitationStatus !== 'all') canonicalParams.set('inviteStatus', invitationStatus)
+    const canonicalQuery = canonicalParams.toString()
+    redirect(`/organizations/${id}${canonicalQuery ? `?${canonicalQuery}` : ''}#invitation-history`)
+  }
   const roles = rolesResult.data ?? []
+  const invitationRoles = canManageOwners ? roles : roles.filter((role) => role.code !== 'owner')
   const hasManagementPermission = canCreateBranch || canInviteMembers || canReadMembers
 
   return (
@@ -104,7 +143,7 @@ export default async function OrganizationPage({ params }: Props) {
           <div className="card" style={{ marginTop: 18 }}>
             <h2>เชิญสมาชิก</h2>
             <p>สร้างคำเชิญพร้อม Role และ Branch Scope</p>
-            <InviteMemberForm organizationId={id} roles={roles} branches={branches} />
+            <InviteMemberForm organizationId={id} roles={invitationRoles} branches={branches} />
           </div>
         )}
 
@@ -125,10 +164,21 @@ export default async function OrganizationPage({ params }: Props) {
 
         {canReadMembers && (
           <div className="card" style={{ marginTop: 18 }}>
-            <h2>คำเชิญล่าสุด</h2>
-            {invitations.length
-              ? <div className="table">{invitations.map((invitation) => <div className="table-row invitation-row" key={invitation.id}><span>{invitation.email}</span><span>{invitation.role_code}</span><span>{invitation.status}</span>{invitation.status === 'pending' && canInviteMembers ? <CancelInvitationButton invitationId={invitation.id} /> : <a className="button secondary" href={`/invitations/${invitation.id}`}>เปิดคำเชิญ</a>}</div>)}</div>
-              : <div className="empty">ยังไม่มีคำเชิญ</div>}
+            <h2>ประวัติคำเชิญ</h2>
+            <p>ค้นหา กรองสถานะ และแสดงหน้าละ {invitationPageSize} รายการ</p>
+            {'error' in invitationHistoryResult && invitationHistoryResult.error
+              ? <div className="error">ไม่สามารถโหลดประวัติคำเชิญได้ กรุณาลอง Refresh อีกครั้ง</div>
+              : <InvitationHistory
+                  organizationId={id}
+                  invitations={invitationHistory.items}
+                  totalCount={invitationHistory.total_count}
+                  page={invitationPage}
+                  pageSize={invitationPageSize}
+                  search={invitationSearch}
+                  status={invitationStatus}
+                  timezone={organization.timezone}
+                  canInviteMembers={canInviteMembers}
+                />}
           </div>
         )}
 

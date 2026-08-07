@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/browser'
 
-export function CancelInvitationButton({ invitationId }: { invitationId: string }) {
+export function CancelInvitationButton({ invitationId, compact = false }: { invitationId: string; compact?: boolean }) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
 
@@ -17,5 +17,5 @@ export function CancelInvitationButton({ invitationId }: { invitationId: string 
     setLoading(false)
   }
 
-  return <button className="button danger" type="button" onClick={cancel} disabled={loading}>{loading ? 'กำลังยกเลิก…' : 'ยกเลิกคำเชิญ'}</button>
+  return <button className={`button danger${compact ? ' compact-button' : ''}`} type="button" onClick={cancel} disabled={loading}>{loading ? 'กำลังยกเลิก…' : 'ยกเลิก'}</button>
 }
