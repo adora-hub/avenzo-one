@@ -19,7 +19,7 @@ export default async function PlatformAdminPlansPage() {
 
   const [plansResult, versionsResult, pricesResult, featuresResult, catalogResult] = await Promise.all([
     supabase.from('subscription_plans').select('code, name, description, duration_days, grace_period_days, lifecycle_status').order('name'),
-    supabase.from('subscription_plan_versions').select('id, plan_code, version_no, label, description, lifecycle_status').order('plan_code').order('version_no', { ascending: false }),
+    supabase.from('subscription_plan_versions').select('id, plan_code, version_no, label, description, duration_days, grace_period_days, lifecycle_status').order('plan_code').order('version_no', { ascending: false }),
     supabase.from('subscription_plan_prices').select('id, plan_version_id, billing_interval, amount, currency, trial_days, is_active').order('billing_interval'),
     supabase.from('subscription_plan_features').select('id, plan_version_id, feature_id, boolean_value, integer_value'),
     supabase.from('feature_catalog').select('id, feature_key, name, value_type, unit, lifecycle_status').order('name'),
@@ -34,7 +34,7 @@ export default async function PlatformAdminPlansPage() {
       </header>
       <section className="content feature-catalog-content">
         <div className="hero">
-          <div><div className="eyebrow">Phase 1.0.2</div><h1>Plans & Prices</h1><p>สร้างแพ็กเกจ รุ่นราคา ทดลองใช้ และกำหนดค่า Feature สำหรับใช้ในขั้นตอน Entitlement ถัดไป</p></div>
+          <div><div className="eyebrow">Phase 1.0.3.1</div><h1>Plans & Prices</h1><p>สร้างและแก้ไข Draft Version ก่อนล็อกเป็นรุ่นใช้งานจริงสำหรับ Subscription</p></div>
           <Link className="button secondary" href="/platform-admin">กลับ Platform Admin</Link>
         </div>
         {firstError ? <div className="error">ไม่สามารถอ่าน Plans & Prices ได้: {firstError.message}</div> : <PlansPricesManager

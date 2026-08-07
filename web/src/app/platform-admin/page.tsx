@@ -21,7 +21,7 @@ export default async function PlatformAdminPage() {
   const [organizationsResult, plansResult, planVersionsResult, subscriptionsResult] = await Promise.all([
     supabase.from('organizations').select('id, name, slug, status, updated_at').order('updated_at', { ascending: false }),
     supabase.from('subscription_plans').select('code, name, duration_days, grace_period_days').order('name'),
-    supabase.from('subscription_plan_versions').select('id, plan_code, label').eq('lifecycle_status', 'active').order('label'),
+    supabase.from('subscription_plan_versions').select('id, plan_code, label, duration_days, grace_period_days').eq('lifecycle_status', 'active').order('label'),
     supabase.from('organization_branch_entitlements').select('organization_id, plan_name, plan_version_label, access_state, current_count, max_count'),
   ])
   const organizations = organizationsResult.data ?? []
@@ -34,8 +34,8 @@ export default async function PlatformAdminPage() {
       plan_code: version.plan_code,
       plan_name: plan.name,
       label: version.label,
-      duration_days: plan.duration_days,
-      grace_period_days: plan.grace_period_days,
+      duration_days: version.duration_days,
+      grace_period_days: version.grace_period_days,
     }] : []
   })
   const subscriptions = subscriptionsResult.data ?? []
