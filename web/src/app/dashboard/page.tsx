@@ -49,9 +49,16 @@ export default async function DashboardPage() {
 
   return (
     <main className="dashboard">
-      <header className="topbar"><div className="brand">AVENZO ONE</div><div className="topbar-actions"><span>{user.email}</span><SignOutButton /></div></header>
+      <header className="topbar">
+        <div className="brand">AVENZO ONE</div>
+        <div className="topbar-actions">
+          <span>{user.email}</span>
+          {platformAdminResult.data?.status === 'active' && <Link className="button secondary" href="/platform-admin">Platform Admin</Link>}
+          <SignOutButton />
+        </div>
+      </header>
       <section className="content">
-        <div className="hero"><div><div className="eyebrow">Workspace</div><h1>Subscription ของคุณ</h1><p>เวลาคงเหลือคำนวณจากเวลาจริงของระบบ</p></div>{platformAdminResult.data?.status === 'active' && <Link className="button secondary" href="/platform-admin">Platform Admin</Link>}</div>
+        <div className="hero"><div><div className="eyebrow">Workspace</div><h1>Subscription ของคุณ</h1><p>เวลาคงเหลือคำนวณจากเวลาจริงของระบบ</p></div></div>
         <div className="hero"><div><h2>Organizations</h2><p>พื้นที่ทำงานที่บัญชีนี้เข้าถึงได้</p></div>{canCreateOrganization === true && <a className="button" href="/onboarding">สร้าง Organization</a>}</div>
         {organizations?.length ? (
           <div className="grid">
