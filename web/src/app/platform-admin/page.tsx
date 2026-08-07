@@ -29,7 +29,16 @@ export default async function PlatformAdminPage() {
 
   return (
     <main className="dashboard">
-      <header className="topbar"><div className="brand">AVENZO ONE / Platform Admin</div><div className="topbar-actions"><span>{user.email}</span><SignOutButton /></div></header>
+      <header className="topbar">
+        <div className="brand">AVENZO ONE / Platform Admin</div>
+        <div className="topbar-actions">
+          <span>{user.email}</span>
+          <Link className="button secondary" href="/dashboard">
+            กลับ Dashboard
+          </Link>
+          <SignOutButton />
+        </div>
+      </header>
       <section className="content"><div className="hero"><div><div className="eyebrow">Control Plane</div><h1>Organizations</h1><p>ตรวจสอบ Organization และจัดการ Subscription</p></div><Link className="button secondary" href="/platform-admin/security/mfa">ตั้งค่า MFA</Link></div>
         {organizations?.length ? <div className="grid">{organizations.map((organization) => <article className="card" key={organization.id}><div className={`status ${organization.status}`}>{organization.status}</div><h3>{organization.name}</h3><div className="meta">/{organization.slug}</div><div className="meta">อัปเดต {new Date(organization.updated_at).toLocaleString('th-TH')}</div></article>)}</div> : <div className="empty">ยังไม่พบ Organization หรือบัญชีนี้ยังไม่ใช่ Platform Admin</div>}
         <div className="hero" style={{ marginTop: 40 }}><div><h2>Provision Subscription</h2><p>การทำรายการจะตรวจ Platform Admin และสร้าง Subscription Event</p></div></div>
