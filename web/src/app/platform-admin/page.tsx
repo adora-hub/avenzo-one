@@ -39,7 +39,7 @@ export default async function PlatformAdminPage() {
           <SignOutButton />
         </div>
       </header>
-      <section className="content"><div className="hero"><div><div className="eyebrow">Control Plane</div><h1>Organizations</h1><p>ตรวจสอบ Organization และจัดการ Subscription</p></div><Link className="button secondary" href="/platform-admin/security/mfa">ตั้งค่า MFA</Link></div>
+      <section className="content"><div className="hero"><div><div className="eyebrow">Control Plane</div><h1>Organizations</h1><p>ตรวจสอบ Organization และจัดการ Subscription</p></div><div className="platform-admin-actions"><Link className="button secondary" href="/platform-admin/features">Feature Catalog</Link><Link className="button secondary" href="/platform-admin/security/mfa">ตั้งค่า MFA</Link></div></div>
         {organizations?.length ? <div className="grid">{organizations.map((organization) => <article className="card" key={organization.id}><div className={`status ${organization.status}`}>{organization.status}</div><h3>{organization.name}</h3><div className="meta">/{organization.slug}</div><div className="meta">อัปเดต {new Date(organization.updated_at).toLocaleString('th-TH')}</div></article>)}</div> : <div className="empty">ยังไม่พบ Organization หรือบัญชีนี้ยังไม่ใช่ Platform Admin</div>}
         <div className="hero" style={{ marginTop: 40 }}><div><h2>Provision Subscription</h2><p>การทำรายการจะตรวจ Platform Admin และสร้าง Subscription Event</p></div></div>
         <div className="card"><SubscriptionProvisionForm organizations={organizations ?? []} plans={plans ?? []} /></div>
