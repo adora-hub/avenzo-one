@@ -194,6 +194,8 @@ input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft
 .plans-prices-forms, .plans-prices-results { display: grid; gap: 18px; }
 .plans-prices-forms .card { display: grid; gap: 8px; }
 .plans-prices-forms .card h2, .plans-prices-forms .card p { margin: 0; }
+.version-editor-card { scroll-margin-top: 20px; transition: border-color .18s ease, background-color .18s ease; }
+.version-editor-card.is-active { border-color: #9eb3ff; background: #fbfcff; }
 .form-grid-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .compact-form { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line); }
 .compact-form h3 { margin: 0; font-size: 16px; }

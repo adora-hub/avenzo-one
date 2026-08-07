@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/browser'
@@ -77,6 +77,7 @@ function intervalLabel(interval: PlanPriceRow['billing_interval']) {
 
 export function PlansPricesManager({ plans, versions, prices, features, catalog }: Props) {
   const router = useRouter()
+  const versionEditorRef = useRef<HTMLElement>(null)
   const selectablePlans = plans.filter((plan) => plan.lifecycle_status !== 'retired')
   const editableVersions = versions.filter((version) => version.lifecycle_status === 'draft')
   const initialEditableVersion = editableVersions[0]
@@ -108,6 +109,7 @@ export function PlansPricesManager({ plans, versions, prices, features, catalog 
   const [message, setMessage] = useState('')
   const [messageTone, setMessageTone] = useState<'success' | 'error'>('success')
   const [loading, setLoading] = useState(false)
+  const [editingVersionId, setEditingVersionId] = useState('')
 
   const selectedCatalogFeature = catalog.find((item) => item.id === featureId)
   const selectedVersion = editableVersions.find((version) => version.id === selectedVersionId)
@@ -123,6 +125,18 @@ export function PlansPricesManager({ plans, versions, prices, features, catalog 
     setDraftVersionGrace(String(version?.grace_period_days ?? 3))
     loadPrice(versionId, billingInterval)
     loadFeature(versionId, featureId)
+  }
+
+  function openVersionEditor(versionId: string) {
+    const version = editableVersions.find((item) => item.id === versionId)
+    loadVersion(versionId)
+    setEditingVersionId(versionId)
+    setMessageTone('success')
+    setMessage(`เปิดแบบฟอร์มแก้ไข ${version?.label ?? 'Version'} แล้ว`)
+    window.requestAnimationFrame(() => {
+      versionEditorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      window.setTimeout(() => document.getElementById('draft-version-label')?.focus({ preventScroll: true }), 350)
+    })
   }
 
   function loadPrice(versionId: string, interval: PlanPriceRow['billing_interval']) {
@@ -193,6 +207,7 @@ export function PlansPricesManager({ plans, versions, prices, features, catalog 
       }).select('id, label, description, duration_days, grace_period_days').single()
       if (error) throw error
       setSelectedVersionId(data.id)
+      setEditingVersionId(data.id)
       setDraftVersionLabel(data.label)
       setDraftVersionDescription(data.description)
       setDraftVersionDuration(String(data.duration_days))
@@ -367,14 +382,14 @@ export function PlansPricesManager({ plans, versions, prices, features, catalog 
           </form>
         </section>
 
-        <section className="card">
+        <section ref={versionEditorRef} className={`card version-editor-card${editingVersionId ? ' is-active' : ''}`}>
           <div className="eyebrow">3 · Configuration</div>
           <h2>แก้ไข Draft Version</h2>
-          <p>แก้ชื่อ อายุ Grace ราคา และ Feature ได้จนกว่าจะเปิดใช้งาน Version</p>
-          <label>Version ที่กำลังแก้ไข<select value={selectedVersionId} onChange={(event) => loadVersion(event.target.value)} disabled={!editableVersions.length} required><option value="">เลือก Version แบบ Draft</option>{editableVersions.map((version) => <option value={version.id} key={version.id}>{version.label} · Draft</option>)}</select></label>
+          <p>{editingVersionId && selectedVersion ? `กำลังแก้ไข: ${selectedVersion.label}` : 'เลือก Version จากรายการ หรือกด “แก้ไข Version นี้” ทางด้านขวา'}</p>
+          <label>Version ที่กำลังแก้ไข<select value={selectedVersionId} onChange={(event) => { loadVersion(event.target.value); setEditingVersionId(event.target.value) }} disabled={!editableVersions.length} required><option value="">เลือก Version แบบ Draft</option>{editableVersions.map((version) => <option value={version.id} key={version.id}>{version.label} · Draft</option>)}</select></label>
           <form className="form compact-form" onSubmit={updateVersion}>
             <h3>ข้อมูล Version</h3>
-            <label>ชื่อ Version<input value={draftVersionLabel} onChange={(event) => setDraftVersionLabel(event.target.value)} minLength={2} maxLength={120} required /></label>
+            <label>ชื่อ Version<input id="draft-version-label" value={draftVersionLabel} onChange={(event) => setDraftVersionLabel(event.target.value)} minLength={2} maxLength={120} required /></label>
             <label>คำอธิบาย<textarea value={draftVersionDescription} onChange={(event) => setDraftVersionDescription(event.target.value)} maxLength={500} rows={3} required /></label>
             <div className="form-grid-two">
               <label>อายุ Subscription (วัน)<input type="number" min={1} value={draftVersionDuration} onChange={(event) => setDraftVersionDuration(event.target.value)} required /></label>
@@ -424,7 +439,7 @@ export function PlansPricesManager({ plans, versions, prices, features, catalog 
                 <div className="feature-meta"><span>อายุ <strong>{version.duration_days} วัน</strong></span><span>Grace <strong>{version.grace_period_days} วัน</strong></span></div>
                 {versionPrices.length ? <div className="plan-detail-list"><strong>ราคา</strong>{versionPrices.map((price) => <span key={price.id}>{formatAmount(price.amount, price.currency)} / {intervalLabel(price.billing_interval)}{price.trial_days ? ` · ทดลอง ${price.trial_days} วัน` : ''}</span>)}</div> : <div className="field-help">ยังไม่ได้กำหนดราคา</div>}
                 {versionFeatures.length ? <div className="plan-detail-list"><strong>Features</strong>{versionFeatures.map((feature) => { const item = catalog.find((catalogFeature) => catalogFeature.id === feature.feature_id); return <span key={feature.id}>{item?.name ?? feature.feature_id}: {item?.value_type === 'boolean' ? (feature.boolean_value ? 'เปิด' : 'ปิด') : `${feature.integer_value} ${item?.unit ?? ''}`}</span> })}</div> : <div className="field-help">ยังไม่ได้กำหนด Feature</div>}
-                {version.lifecycle_status === 'draft' ? <div className="button-row"><button className="button secondary" type="button" disabled={loading} onClick={() => { loadVersion(version.id); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>แก้ไข Version นี้</button><button className="button secondary" type="button" disabled={loading} onClick={() => void activateVersion(version.id)}>เปิดใช้งาน Version นี้</button><button className="button danger" type="button" disabled={loading} onClick={() => void retireVersion(version)}>เก็บ Draft Version</button></div> : null}
+                {version.lifecycle_status === 'draft' ? <div className="button-row"><button className="button secondary" type="button" disabled={loading} onClick={() => openVersionEditor(version.id)}>แก้ไข Version นี้</button><button className="button secondary" type="button" disabled={loading} onClick={() => void activateVersion(version.id)}>เปิดใช้งาน Version นี้</button><button className="button danger" type="button" disabled={loading} onClick={() => void retireVersion(version)}>เก็บ Draft Version</button></div> : null}
               </div>
             })}</div> : <div className="empty">ยังไม่มี Version ของ Plan นี้</div>}
           </article>
