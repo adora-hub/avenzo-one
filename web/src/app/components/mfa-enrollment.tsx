@@ -1,18 +1,11 @@
 'use client'
 
-import Image from 'next/image'
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { getThaiAuthError } from '@/lib/auth-error-message'
 import { createClient } from '@/lib/supabase/browser'
 
 const factorFriendlyName = 'AVENZO ONE Platform Admin'
-
-function normalizeQrCode(qrCode: string) {
-  return qrCode.startsWith('data:image/')
-    ? qrCode
-    : `data:image/svg+xml;utf-8,${encodeURIComponent(qrCode)}`
-}
 
 type EnrollmentDetails = {
   factorId: string
@@ -87,7 +80,7 @@ export function MfaEnrollment() {
 
       setEnrollment({
         factorId: data.id,
-        qrCode: normalizeQrCode(data.totp.qr_code),
+        qrCode: data.totp.qr_code,
         secret: data.totp.secret,
       })
       setStage('verify')
@@ -150,7 +143,9 @@ export function MfaEnrollment() {
           <h2>สแกน QR Code</h2>
           <p>เปิด Google Authenticator, Microsoft Authenticator, 1Password หรือ Authy แล้วเพิ่มบัญชีใหม่</p>
           <div className="mfa-qr-frame">
-            <Image src={enrollment.qrCode} alt="QR Code สำหรับลงทะเบียน TOTP ของ AVENZO ONE" width={240} height={240} unoptimized priority />
+            {/* Runtime-generated Supabase SVG data URLs are intentionally rendered by the browser. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={enrollment.qrCode} alt="QR Code สำหรับลงทะเบียน TOTP ของ AVENZO ONE" width={240} height={240} />
           </div>
           <details className="mfa-secret">
             <summary>สแกนไม่ได้? แสดงรหัสสำหรับกรอกเอง</summary>
