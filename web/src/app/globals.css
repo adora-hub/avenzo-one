@@ -175,6 +175,19 @@ input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft
 .platform-admin-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .feature-catalog-content { max-width: 1120px; }
 .feature-catalog-layout { display: grid; grid-template-columns: minmax(300px, .78fr) minmax(0, 1.22fr); gap: 22px; align-items: start; }
+.plans-prices-layout { display: grid; grid-template-columns: minmax(320px, .88fr) minmax(0, 1.12fr); gap: 22px; align-items: start; }
+.plans-prices-forms, .plans-prices-results { display: grid; gap: 18px; }
+.plans-prices-forms .card { display: grid; gap: 8px; }
+.plans-prices-forms .card h2, .plans-prices-forms .card p { margin: 0; }
+.form-grid-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.compact-form { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line); }
+.compact-form h3 { margin: 0; font-size: 16px; }
+.plan-summary-card { display: grid; gap: 14px; }
+.plan-summary-card p { margin: 0; }
+.plan-version-list { display: grid; gap: 12px; }
+.plan-version-item { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: #fbfcff; }
+.plan-detail-list { display: grid; gap: 4px; color: var(--muted); font-size: 13px; }
+.plan-detail-list strong { color: var(--ink); }
 .feature-create-card { position: sticky; top: 20px; }
 .feature-create-card h2, .feature-create-card p { margin: 0; }
 .feature-create-card > div { display: grid; gap: 8px; }
@@ -212,5 +225,10 @@ input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft
   .invitation-filter-actions { align-items: stretch; }
   .pagination-jump { width: 100%; margin-left: 0; margin-top: 5px; }
   .feature-catalog-layout { grid-template-columns: 1fr; }
+  .plans-prices-layout { grid-template-columns: 1fr; }
   .feature-create-card { position: static; }
+}
+
+@media (max-width: 640px) {
+  .form-grid-two { grid-template-columns: 1fr; }
 }
