@@ -123,7 +123,7 @@ export default async function PlatformAdminPage({ searchParams }: {
                   <div><dt>สิ้นสุดช่วงผ่อนผัน</dt><dd>{formatDate(subscription.grace_ends_at, subscription.timezone)}</dd></div>
                   <div><dt>การใช้งานสาขา</dt><dd>{entitlement ? `${entitlement.current_count} / ${entitlement.max_count ?? 'ไม่จำกัด'} สาขา` : 'ยังไม่มีข้อมูลสิทธิ์'}</dd></div>
                 </dl>
-                <details className="subscription-action-panel"><summary>จัดการ Subscription นี้</summary><SubscriptionLifecycleActions subscription={subscription} planVersions={planVersions} planPrices={planPrices} /></details>
+                <details className="subscription-action-panel"><summary>จัดการ Subscription นี้</summary><SubscriptionLifecycleActions key={`${subscription.id}:${subscription.lifecycle_status}:${subscription.updated_at}`} subscription={subscription} planVersions={planVersions} planPrices={planPrices} /></details>
               </article>
             )
           })}</div> : <div className="empty">ยังไม่มี Subscription ที่กำลังใช้งานหรือพักอยู่</div>}

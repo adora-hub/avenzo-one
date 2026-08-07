@@ -58,6 +58,11 @@
 - ตรวจ Status View บนฐานข้อมูลจริง: Organization ปัจจุบันแสดง `trial` ตามวันสิ้นสุดทดลอง
 - Security Advisor ไม่มีคำเตือนใหม่จาก Migration (คำเตือน Leaked Password Protection เดิมยังคงอยู่ตามข้อจำกัดแพ็กเกจ)
 
+## แก้ไขหลังทดสอบ UI
+
+- Remount ฟอร์ม Lifecycle อัตโนมัติเมื่อ `lifecycle_status` หรือ `updated_at` เปลี่ยนหลัง `router.refresh()`
+- หลังพักหรือเปิดใช้งานต่อ รายการ หัวข้อ Preview และปุ่มยืนยันจะแสดง Action ใหม่ทันทีโดยไม่ต้องกด `Ctrl + F5`
+
 ## ขอบเขตที่ยังไม่รวม
 
 - Payment Gateway และ Auto-renew
