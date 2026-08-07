@@ -1,7 +1,26 @@
 'use client'
 
-import { FormEvent, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
+import type { FormEvent } from 'react'
 import { createClient } from '@/lib/supabase/browser'
+
+const rememberedEmailKey = 'avenzo-one:remembered-email:v1'
+
+function EyeIcon({ hidden }: { hidden: boolean }) {
+  return hidden ? (
+    <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 3l18 18" />
+      <path d="M10.6 10.7a2 2 0 0 0 2.7 2.7" />
+      <path d="M9.9 4.2A10.8 10.8 0 0 1 12 4c5.2 0 8.8 4.5 9.7 6.1a3.5 3.5 0 0 1 0 3.8 14.2 14.2 0 0 1-2.1 2.8" />
+      <path d="M6.2 6.2a15.5 15.5 0 0 0-3.9 3.9 3.5 3.5 0 0 0 0 3.8C3.2 15.5 6.8 20 12 20a10.6 10.6 0 0 0 4-.8" />
+    </svg>
+  ) : (
+    <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2.3 10.1a3.5 3.5 0 0 0 0 3.8C3.2 15.5 6.8 20 12 20s8.8-4.5 9.7-6.1a3.5 3.5 0 0 0 0-3.8C20.8 8.5 17.2 4 12 4S3.2 8.5 2.3 10.1Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  )
+}
 
 export function AuthForm() {
   const [email, setEmail] = useState('')
@@ -11,8 +30,16 @@ export function AuthForm() {
   const [loading, setLoading] = useState(false)
   const [canResend, setCanResend] = useState(false)
   const [resending, setResending] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [rememberEmail, setRememberEmail] = useState(false)
 
   useEffect(() => {
+    const rememberedEmail = window.localStorage.getItem(rememberedEmailKey)
+    if (rememberedEmail) {
+      setEmail(rememberedEmail)
+      setRememberEmail(true)
+    }
+
     const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''))
     const accessToken = hash.get('access_token')
     const refreshToken = hash.get('refresh_token')
@@ -70,6 +97,9 @@ export function AuthForm() {
           setCanResend(true)
         }
       } else {
+        const normalizedEmail = email.trim().toLowerCase()
+        if (rememberEmail) window.localStorage.setItem(rememberedEmailKey, normalizedEmail)
+        else window.localStorage.removeItem(rememberedEmailKey)
         window.location.assign(nextPath)
       }
     } catch (error) {
@@ -98,12 +128,46 @@ export function AuthForm() {
 
   return (
     <form className="form" onSubmit={submit}>
-      <label>อีเมล<input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} /></label>
-      {mode !== 'forgot-password' && <label>รหัสผ่าน<input type="password" required minLength={6} value={password} onChange={(event) => setPassword(event.target.value)} /></label>}
+      <label>
+        อีเมล
+        <input type="email" required autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} />
+      </label>
+      {mode !== 'forgot-password' && (
+        <div className="field-group">
+          <label htmlFor="auth-password">รหัสผ่าน</label>
+          <span className="password-field">
+            <input
+              id="auth-password"
+              type={showPassword ? 'text' : 'password'}
+              required
+              minLength={mode === 'sign-up' ? 8 : undefined}
+              autoComplete={mode === 'sign-in' ? 'current-password' : 'new-password'}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+            />
+            <button
+              type="button"
+              className="password-toggle"
+              aria-label={showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
+              aria-pressed={showPassword}
+              title={showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
+              onClick={() => setShowPassword((current) => !current)}
+            >
+              <EyeIcon hidden={!showPassword} />
+            </button>
+          </span>
+        </div>
+      )}
+      {mode === 'sign-in' && (
+        <label className="remember-row">
+          <input type="checkbox" checked={rememberEmail} onChange={(event) => setRememberEmail(event.target.checked)} />
+          <span>จดจำอีเมลบนอุปกรณ์นี้</span>
+        </label>
+      )}
       {message && <div className={message.includes('สำเร็จ') || message.includes('ส่งอีเมล') ? 'countdown' : 'error'}>{message}</div>}
       {canResend && mode === 'sign-up' && <button type="button" className="button secondary" onClick={resendConfirmation} disabled={resending}>{resending ? 'กำลังส่ง…' : 'ส่งอีเมลยืนยันอีกครั้ง'}</button>}
       <button className="button" disabled={loading}>{loading ? 'กำลังดำเนินการ…' : mode === 'sign-in' ? 'เข้าสู่ระบบ' : mode === 'sign-up' ? 'สร้างบัญชี' : 'ส่งลิงก์ตั้งรหัสผ่าน'}</button>
-      {mode === 'sign-in' && <button type="button" className="button secondary" onClick={() => { setMode('forgot-password'); setMessage(''); setCanResend(false) }}>ยังไม่มีหรือลืมรหัสผ่าน</button>}
+      {mode === 'sign-in' && <button type="button" className="button secondary" onClick={() => { setMode('forgot-password'); setMessage(''); setCanResend(false) }}>ลืมรหัสผ่าน?</button>}
       <button type="button" className="button secondary" onClick={() => { setMode(mode === 'sign-in' ? 'sign-up' : 'sign-in'); setMessage(''); setCanResend(false) }}>
         {mode === 'sign-in' ? 'สร้างบัญชีใหม่' : 'กลับไปเข้าสู่ระบบ'}
       </button>

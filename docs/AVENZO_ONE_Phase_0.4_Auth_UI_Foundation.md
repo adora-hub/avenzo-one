@@ -25,6 +25,17 @@ Dashboard อ่านจาก View `organization_subscription_status` แล�
 - นาที
 - วินาที
 
+## Login UX Update
+
+อัปเดตล่าสุด: 7 สิงหาคม 2026
+
+- เพิ่มปุ่มรูปตาสำหรับแสดงและซ่อนรหัสผ่าน พร้อม `aria-label` สำหรับโปรแกรมช่วยอ่านหน้าจอ
+- เพิ่มตัวเลือก “จดจำอีเมลบนอุปกรณ์นี้” โดยเก็บเฉพาะอีเมลใน Local Storage และไม่เก็บรหัสผ่าน
+- กำหนด `autocomplete="email"`, `current-password` และ `new-password` เพื่อให้ Password Manager ของเบราว์เซอร์ทำงานถูกต้อง
+- เปลี่ยนข้อความปุ่มกู้บัญชีเป็น “ลืมรหัสผ่าน?”
+- ตรวจรหัสผ่านขั้นต่ำ 8 ตัวอักษรเฉพาะการสมัครบัญชีใหม่ โดยการเข้าสู่ระบบเดิมไม่ถูกขวางด้วย HTML validation
+- ผ่านการตรวจ TypeScript, การแสดง/ซ่อนรหัสผ่าน และ Accessibility locator
+
 ## Environment
 
 สร้างไฟล์ `.env.local` จาก `web/.env.example` แล้วใส่เฉพาะ:
