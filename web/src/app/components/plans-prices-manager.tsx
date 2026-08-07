@@ -75,17 +75,19 @@ function intervalLabel(interval: PlanPriceRow['billing_interval']) {
 
 export function PlansPricesManager({ plans, versions, prices, features, catalog }: Props) {
   const router = useRouter()
+  const selectablePlans = plans.filter((plan) => plan.lifecycle_status !== 'retired')
+  const editableVersions = versions.filter((version) => version.lifecycle_status === 'draft')
   const [planCode, setPlanCode] = useState('')
   const [planName, setPlanName] = useState('')
   const [planDescription, setPlanDescription] = useState('')
   const [planDuration, setPlanDuration] = useState('30')
   const [planGrace, setPlanGrace] = useState('3')
   const [planStatus, setPlanStatus] = useState<PlanRow['lifecycle_status']>('draft')
-  const [versionPlanCode, setVersionPlanCode] = useState(plans[0]?.code ?? '')
+  const [versionPlanCode, setVersionPlanCode] = useState(selectablePlans[0]?.code ?? '')
   const [versionNo, setVersionNo] = useState('1')
   const [versionLabel, setVersionLabel] = useState('')
   const [versionDescription, setVersionDescription] = useState('')
-  const [selectedVersionId, setSelectedVersionId] = useState(versions[0]?.id ?? '')
+  const [selectedVersionId, setSelectedVersionId] = useState(editableVersions[0]?.id ?? '')
   const [billingInterval, setBillingInterval] = useState<PlanPriceRow['billing_interval']>('monthly')
   const [amount, setAmount] = useState('0')
   const [currency, setCurrency] = useState('THB')
@@ -233,6 +235,22 @@ export function PlansPricesManager({ plans, versions, prices, features, catalog 
     }
   }
 
+  async function retirePlan(plan: PlanRow) {
+    const action = plan.lifecycle_status === 'draft' ? 'เก็บ Draft นี้' : 'ปิดใช้งาน Plan นี้'
+    if (!window.confirm(`${action}: ${plan.name} (${plan.code})? ข้อมูลจะไม่ถูกลบและจะกู้กลับมาเปิดใช้งานไม่ได้`)) return
+    setLoading(true)
+    setMessage('')
+    try {
+      const { error } = await createClient().from('subscription_plans').update({ lifecycle_status: 'retired', is_active: false }).eq('code', plan.code)
+      if (error) throw error
+      success(`${action}สำเร็จ`)
+    } catch (error) {
+      failure(error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="plans-prices-layout">
       <div className="plans-prices-forms">
@@ -260,13 +278,13 @@ export function PlansPricesManager({ plans, versions, prices, features, catalog 
           <h2>สร้างรุ่นของแพ็กเกจ</h2>
           <p>ราคาและ Feature จะผูกอยู่กับ Version เพื่อรักษาประวัติลูกค้าเดิม</p>
           <form className="form" onSubmit={createVersion}>
-            <label>Plan<select value={versionPlanCode} onChange={(event) => setVersionPlanCode(event.target.value)} required>{plans.map((plan) => <option value={plan.code} key={plan.code}>{plan.name} ({plan.code})</option>)}</select></label>
+            <label>Plan<select value={versionPlanCode} onChange={(event) => setVersionPlanCode(event.target.value)} disabled={!selectablePlans.length} required>{selectablePlans.map((plan) => <option value={plan.code} key={plan.code}>{plan.name} ({plan.code})</option>)}</select></label>
             <div className="form-grid-two">
               <label>เลข Version<input type="number" min={1} value={versionNo} onChange={(event) => setVersionNo(event.target.value)} required /></label>
               <label>ชื่อรุ่น<input value={versionLabel} onChange={(event) => setVersionLabel(event.target.value)} placeholder="เช่น Standard 2026" minLength={2} maxLength={120} required /></label>
             </div>
             <label>คำอธิบายรุ่น<textarea value={versionDescription} onChange={(event) => setVersionDescription(event.target.value)} placeholder="รายละเอียดของรุ่นนี้" maxLength={500} rows={3} required /></label>
-            <button className="button" disabled={loading || !plans.length}>สร้าง Version แบบ Draft</button>
+            <button className="button" disabled={loading || !selectablePlans.length}>สร้าง Version แบบ Draft</button>
           </form>
         </section>
 
@@ -274,7 +292,7 @@ export function PlansPricesManager({ plans, versions, prices, features, catalog 
           <div className="eyebrow">3 · Configuration</div>
           <h2>กำหนดราคาและ Feature</h2>
           <p>เลือก Version แบบ Draft ก่อน แล้วเพิ่มราคาและค่าฟีเจอร์</p>
-          <label>Version ที่กำลังแก้ไข<select value={selectedVersionId} onChange={(event) => setSelectedVersionId(event.target.value)} required><option value="">เลือก Version</option>{versions.map((version) => <option value={version.id} key={version.id}>{version.label} · {version.lifecycle_status}</option>)}</select></label>
+          <label>Version ที่กำลังแก้ไข<select value={selectedVersionId} onChange={(event) => setSelectedVersionId(event.target.value)} disabled={!editableVersions.length} required><option value="">เลือก Version แบบ Draft</option>{editableVersions.map((version) => <option value={version.id} key={version.id}>{version.label} · Draft</option>)}</select></label>
           <form className="form compact-form" onSubmit={createPrice}>
             <h3>เพิ่มราคา</h3>
             <div className="form-grid-two">
@@ -306,7 +324,9 @@ export function PlansPricesManager({ plans, versions, prices, features, catalog 
             <div className="feature-item-header"><div><div className="feature-key">{plan.code}</div><h3>{plan.name}</h3></div><span className={`status ${plan.lifecycle_status}`}>{plan.lifecycle_status}</span></div>
             <p>{plan.description}</p>
             <div className="feature-meta"><span>อายุ <strong>{plan.duration_days} วัน</strong></span><span>Grace <strong>{plan.grace_period_days} วัน</strong></span></div>
-            {plan.lifecycle_status === 'draft' ? <button className="button secondary" type="button" disabled={loading} onClick={() => void activatePlan(plan.code)}>เปิดใช้งาน Plan นี้</button> : null}
+            {plan.lifecycle_status === 'draft' ? <div className="button-row"><button className="button secondary" type="button" disabled={loading} onClick={() => void activatePlan(plan.code)}>เปิดใช้งาน Plan นี้</button><button className="button danger" type="button" disabled={loading} onClick={() => void retirePlan(plan)}>เก็บ Draft นี้</button></div> : null}
+            {plan.lifecycle_status === 'active' ? <button className="button danger" type="button" disabled={loading} onClick={() => void retirePlan(plan)}>ปิดใช้งาน Plan นี้</button> : null}
+            {plan.lifecycle_status === 'retired' ? <div className="field-help">Plan นี้ถูกเก็บถาวรแล้วและจะไม่ถูกเลือกใช้งาน</div> : null}
             {planVersions.length ? <div className="plan-version-list">{planVersions.map((version) => {
               const versionPrices = prices.filter((price) => price.plan_version_id === version.id)
               const versionFeatures = features.filter((feature) => feature.plan_version_id === version.id)

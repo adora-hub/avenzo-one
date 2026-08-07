@@ -446,6 +446,7 @@ Event ต้องมี `organization_id`, Actor, Customer, Source Entity, Corr
 | Phase 0.10.4 Platform Admin MFA Recovery | Implemented / รอทดสอบการใช้งานจริง | รองรับ Authenticator หลักและสำรอง, เลือก Factor ตอน Challenge, ถอดอุปกรณ์แบบคง Factor สุดท้าย, Session Revocation และ Audit Log |
 | Phase 1.0.1 Feature Catalog | Implemented / รอทดสอบการใช้งานจริง | ทะเบียน Feature แบบเปิด/ปิดหรือ Limit พร้อม Combo Box ภาษาคนและโหมดกำหนดเอง, Lifecycle, AAL2 RLS และ Audit Log โดยยังไม่กระทบ Entitlement ปัจจุบัน |
 | Phase 1.0.2 Plans และ Prices | Implemented / รอทดสอบการใช้งานจริง | สร้าง Plan, Plan Version, ราคา, Trial และค่า Feature โดยยังไม่กระทบ Subscription เดิม |
+| Phase 1.0.2.1 Plan Lifecycle Management | Implemented / รอทดสอบการใช้งานจริง | เก็บ Draft, ปิดใช้งาน Plan และ Retired แบบไม่ลบข้อมูล พร้อม Audit Log |
 | Phase 1.0.3 Entitlement Enforcement | วางแผนถัดไป | ผูก Organization Subscription กับ Plan Version และบังคับ Feature/Limit ที่ API และ UI |
 
 ห้ามเปิด Production หาก Phase 0.9 Production Security Gate ยังไม่ผ่าน แม้ระบบ Development จะใช้งานได้ครบตาม Acceptance Criteria แล้ว และต้องตรวจร่างประกาศความเป็นส่วนตัว/ข้อกำหนดการใช้งานโดยผู้เชี่ยวชาญด้านกฎหมายและ PDPA ก่อนเผยแพร่

@@ -15,6 +15,7 @@
 - `subscription_plan_features` สำหรับกำหนดค่าเปิด/ปิด หรือจำนวนสูงสุดของ Feature
 - Plan Version ที่ `active` แก้ไขย้อนหลังไม่ได้
 - แพ็กเกจใหม่เริ่มเป็น `draft` และต้องเปิด Plan ก่อนจึงเปิด Version ได้
+- การจัดการ Draft/Active/Retired แยกไว้ใน Phase 1.0.2.1 โดยไม่ลบข้อมูลถาวร
 - หน้า `/platform-admin/plans` สำหรับ Platform Admin ที่ผ่าน MFA ระดับ `aal2`
 - Audit แบบ append-only ใน `private.subscription_plan_audit_logs`
 - RLS และ Data API grants แบบจำกัดสิทธิ์ตามแนวทาง Supabase ปัจจุบัน
