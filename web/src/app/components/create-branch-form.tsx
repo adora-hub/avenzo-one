@@ -62,9 +62,6 @@ export function CreateBranchForm({
   return (
     <form className="form" onSubmit={submit}>
       <div className={canCreate ? 'countdown' : 'error'}>{branchEntitlementMessage(entitlement)}</div>
-      {entitlement?.plan_version_label && (
-        <div className="meta">สิทธิ์จาก {entitlement.plan_name} · {entitlement.plan_version_label}</div>
-      )}
       <label>รหัส Branch<input required pattern="[A-Z0-9-]+" value={code} onChange={(event) => setCode(event.target.value)} placeholder="BKK-01" disabled={!canCreate} /></label>
       <label>ชื่อ Branch<input required value={name} onChange={(event) => setName(event.target.value)} placeholder="สาขากรุงเทพ" disabled={!canCreate} /></label>
       {message && <div className={message.includes('สำเร็จ') ? 'countdown' : 'error'}>{message}</div>}
