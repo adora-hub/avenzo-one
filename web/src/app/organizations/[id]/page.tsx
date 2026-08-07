@@ -5,7 +5,9 @@ import { CreateBranchForm } from '../../components/create-branch-form'
 import { InviteMemberForm } from '../../components/invite-member-form'
 import { CancelInvitationButton } from '../../components/cancel-invitation-button'
 import { OrganizationAccessSummaryCard } from '../../components/organization-access-summary'
+import { MemberManagement } from '../../components/member-management'
 import type { OrganizationAccessSummary } from '@/lib/organization-access'
+import type { OrganizationMemberDirectoryEntry } from '@/lib/organization-member-directory'
 
 type Props = { params: Promise<{ id: string }> }
 
@@ -38,20 +40,31 @@ export default async function OrganizationPage({ params }: Props) {
   const canCreateBranch = permissions.has('branch.create')
   const canInviteMembers = permissions.has('member.invite')
   const canReadMembers = permissions.has('member.read')
+  const canUpdateMembers = permissions.has('member.update')
+  const canManageRoles = permissions.has('role.manage')
+  const canManageOwners = access?.roles.some((role) => role.code === 'owner') ?? false
 
   const [membersResult, invitationsResult, rolesResult] = await Promise.all([
     canReadMembers
-      ? supabase.from('organization_members').select('id, user_id, membership_status, scope, created_at').eq('organization_id', id).order('created_at')
+      ? supabase.rpc('organization_member_directory', { p_organization_id: id })
       : Promise.resolve({ data: [] }),
     canReadMembers
       ? supabase.from('organization_invitations').select('id, email, role_code, branch_id, status, expires_at, created_at').eq('organization_id', id).order('created_at', { ascending: false })
       : Promise.resolve({ data: [] }),
-    canInviteMembers
+    canInviteMembers || canUpdateMembers || canManageRoles
       ? supabase.from('organization_roles').select('code, name').eq('organization_id', id).order('code')
       : Promise.resolve({ data: [] }),
   ])
 
-  const members = membersResult.data ?? []
+  if ('error' in membersResult && membersResult.error) {
+    console.error('[organization-page] member directory lookup failed', {
+      organizationId: id,
+      userId: user.id,
+      error: membersResult.error.message,
+    })
+  }
+
+  const members = (membersResult.data ?? []) as OrganizationMemberDirectoryEntry[]
   const invitations = invitationsResult.data ?? []
   const roles = rolesResult.data ?? []
   const hasManagementPermission = canCreateBranch || canInviteMembers || canReadMembers
@@ -98,9 +111,15 @@ export default async function OrganizationPage({ params }: Props) {
         {canReadMembers && (
           <div className="card" style={{ marginTop: 18 }}>
             <h2>สมาชิก</h2>
-            {members.length
-              ? <div className="table">{members.map((member) => <div className="table-row" key={member.id}><span>{member.user_id}</span><span>{member.membership_status}</span><span>{member.scope}</span></div>)}</div>
-              : <div className="empty">ยังไม่มีสมาชิก</div>}
+            <p>รายชื่อ ตำแหน่ง Role ขอบเขต และสถานะสมาชิกภายใน Organization</p>
+            <MemberManagement
+              members={members}
+              roles={roles}
+              branches={branches}
+              canUpdateMembers={canUpdateMembers}
+              canManageRoles={canManageRoles}
+              canManageOwners={canManageOwners}
+            />
           </div>
         )}
 

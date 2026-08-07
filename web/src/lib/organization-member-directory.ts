@@ -20,6 +20,7 @@ export type OrganizationMemberDirectoryEntry = {
 export type MembershipEventType =
   | 'created'
   | 'profile_updated'
+  | 'access_updated'
   | 'role_changed'
   | 'scope_changed'
   | 'suspended'
