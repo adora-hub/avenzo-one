@@ -278,6 +278,12 @@ input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft
 .status.sent { background: #e8f7ef; color: var(--success); }
 .status.failed { background: #fff0ef; color: var(--danger); }
 .status.canceled { background: #eef0f3; color: #5f6673; }
+.status.retrying { background: #fff7d6; color: #8a5a00; }
+.notification-worker-control { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: center; }
+.notification-worker-control > div:first-child { display: grid; gap: 4px; }
+.notification-worker-control > div:first-child span { color: var(--muted); }
+.notification-worker-control .countdown { grid-column: 1 / -1; }
+.notification-queue-table td .button { margin-top: 8px; }
 .feature-create-card { position: sticky; top: 20px; }
 .feature-create-card h2, .feature-create-card p { margin: 0; }
 .feature-create-card > div { display: grid; gap: 8px; }
@@ -329,6 +335,8 @@ input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft
   .notification-toolbar { align-items: stretch; flex-direction: column; }
   .notification-rule-row { grid-template-columns: 1fr auto; }
   .notification-rule-row .button { grid-column: 1 / -1; }
+  .notification-worker-control { grid-template-columns: 1fr; }
+  .notification-worker-control .countdown { grid-column: auto; }
   .feature-create-card { position: static; }
 }
 

@@ -63,7 +63,7 @@ export function SubscriptionNotificationControls({ rules }: { rules: Subscriptio
 
   return <div className="notification-rule-manager">
     <div className="notification-toolbar">
-      <div><h2>กฎแจ้งเตือน</h2><p>เปิดหรือปิดแต่ละช่วงเวลาได้ โดยรอบนี้ยังไม่ส่งอีเมลจริง</p></div>
+      <div><h2>กฎแจ้งเตือน</h2><p>เปิดหรือปิดแต่ละช่วงเวลาได้ การปิดกฎจะยกเลิกคิวที่ยังไม่ส่ง</p></div>
       <button className="button" type="button" disabled={Boolean(busy)} onClick={generateQueue}>
         {busy === 'generate' ? 'กำลังคำนวณ…' : 'คำนวณคิวแจ้งเตือน'}
       </button>

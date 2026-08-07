@@ -453,6 +453,7 @@ Event ต้องมี `organization_id`, Actor, Customer, Source Entity, Corr
 | Phase 1.0.4.2 Subscription Lifecycle & History | Implemented / รอทดสอบ UI โดยผู้ใช้ | สถานะภาษาไทย Trial/Active/Grace/Suspended/Expired/Canceled, Action ต่ออายุ/ปรับ/พัก/เปิดต่อ/ยกเลิก, Preview, Event History 10 รายการต่อหน้า และ Command ID ป้องกันคำสั่งซ้ำ |
 | Phase 1.0.4.2.1 Form Typography & Inline Validation | Implemented / รอทดสอบ UI โดยผู้ใช้ | ฟอนต์ช่องกรอกเป็นมาตรฐานเดียวกัน, ปิด Browser Popup, แจ้งเตือนด้วยไอคอน i, รองรับ aria และตรวจเหตุผลอย่างน้อย 3 ตัวอักษร |
 | Phase 1.0.5.1 Notification Rules & Queue | เสร็จและทดสอบผ่าน | กฎแจ้งเตือน 7 ช่วงเวลา, Queue Preview, ป้องกันรายการซ้ำ, Owner Recipient, AAL2 RLS, Audit Log และ UI 10 รายการต่อหน้า โดยยังไม่ส่งอีเมลจริง |
+| Phase 1.0.5.2 Scheduler & Delivery Worker | Implemented / Preview ทดสอบผ่าน | Atomic Claim, Resend Idempotency, Retry Backoff สูงสุด 5 ครั้ง, Delivery Log, Manual Run และ Vercel Cron โดยรอ Secret/Production URL เพื่อทดสอบ Live Delivery |
 
 ห้ามเปิด Production หาก Phase 0.9 Production Security Gate ยังไม่ผ่าน แม้ระบบ Development จะใช้งานได้ครบตาม Acceptance Criteria แล้ว และต้องตรวจร่างประกาศความเป็นส่วนตัว/ข้อกำหนดการใช้งานโดยผู้เชี่ยวชาญด้านกฎหมายและ PDPA ก่อนเผยแพร่
 
