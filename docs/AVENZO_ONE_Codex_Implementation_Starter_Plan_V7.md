@@ -449,7 +449,7 @@ Event ต้องมี `organization_id`, Actor, Customer, Source Entity, Corr
 | Phase 1.0.2.1 Plan Lifecycle Management | Implemented / รอทดสอบการใช้งานจริง | เก็บ Draft, ปิดใช้งาน Plan และ Retired แบบไม่ลบข้อมูล พร้อม Audit Log |
 | Phase 1.0.3 Entitlement Enforcement | เสร็จและทดสอบผ่าน | ผูก Organization Subscription กับ Active Plan Version, บังคับสิทธิ์และจำนวนสาขาที่ Database/UI, รองรับ Legacy Subscription และผ่านการ Provision จริงกับ AVENZO THAILAND |
 | Phase 1.0.3.1 Draft Version Editing | Implemented / รอทดสอบ UI โดยผู้ใช้ | แก้ Draft Version, อายุ, Grace, ราคาและ Feature เดิมได้; เก็บ Draft แบบ Retired และล็อก Active Version เป็น Snapshot |
-| Phase 1.0.4.1 Subscription Preview & Automatic Dates | Implemented / รอทดสอบ UI โดยผู้ใช้ | เลือกราคา Active, คำนวณ Expiry/Grace/Trial อัตโนมัติ, ตรวจสอบข้อมูลก่อนยืนยัน และบันทึก Price Snapshot ใน Subscription Event โดยยังไม่เรียกเก็บเงินจริง |
+| Phase 1.0.4.1 Subscription Preview & Automatic Dates | เสร็จและทดสอบผ่าน | เลือกราคา Active, คำนวณ Expiry/Grace/Trial อัตโนมัติ, ตรวจสอบข้อมูลก่อนยืนยัน และบันทึก Price Snapshot ใน Subscription Event สำเร็จ โดยยังไม่เรียกเก็บเงินจริง |
 
 ห้ามเปิด Production หาก Phase 0.9 Production Security Gate ยังไม่ผ่าน แม้ระบบ Development จะใช้งานได้ครบตาม Acceptance Criteria แล้ว และต้องตรวจร่างประกาศความเป็นส่วนตัว/ข้อกำหนดการใช้งานโดยผู้เชี่ยวชาญด้านกฎหมายและ PDPA ก่อนเผยแพร่
 

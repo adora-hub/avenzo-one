@@ -44,4 +44,4 @@
 
 ## สถานะ
 
-Implemented และผ่าน TypeScript verification; รอทดสอบ UI และการบันทึกจริงโดยผู้ใช้
+เสร็จและทดสอบผ่าน: ผู้ใช้ตรวจ Preview และบันทึก Subscription พร้อม Plan Version สำเร็จเมื่อ 7 สิงหาคม 2026
