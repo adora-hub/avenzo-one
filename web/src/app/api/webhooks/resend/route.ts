@@ -24,7 +24,6 @@ type ResendWebhookEvent = {
     bounce?: { type?: string; subType?: string }
   }
 }
-
 export async function POST(request: Request) {
   const secret = process.env.RESEND_WEBHOOK_SECRET
   if (!secret) return NextResponse.json({ error: 'webhook_not_configured' }, { status: 503 })
@@ -80,4 +79,3 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ received: true, result: data })
 }
-
