@@ -456,7 +456,7 @@ Event ต้องมี `organization_id`, Actor, Customer, Source Entity, Corr
 | Phase 1.0.5.2 Scheduler & Delivery Worker | Production Live Delivery พร้อมใช้งาน | Atomic Claim, Resend Idempotency, Retry Backoff สูงสุด 5 ครั้ง, Delivery Log, Manual Run และ Supabase Cron รายชั่วโมง; Endpoint Production และ Resend delivery ทำงานแล้ว |
 | Phase 1.0.5.3 Resend Webhook & Suppression | เสร็จและเชื่อม Production แล้ว | ตรวจลายเซ็น Svix จาก Raw Body, กัน Event ซ้ำและ Event มาไม่เรียงลำดับ, แสดงสถานะส่งจริงภาษาไทย และหยุดส่งอัตโนมัติเมื่อ Bounce/Complaint/Suppression |
 | Phase 1.0.5.4 Production Deployment & Supabase Cron | เสร็จและทดสอบผ่าน | Deploy บน Vercel Hobby ที่ `app.avenzoone.com`, ใช้ Supabase Cron รายชั่วโมง, เก็บ Secret ใน Vault, ตั้ง Supabase Auth Redirect และเชื่อม Resend Webhook; ทดสอบ Browser/API/Cron ได้ HTTP 200 |
-| Phase 1.0.6 Production Monitoring & Alerts | Implemented / รอทดสอบ Production รอบสุดท้าย | บันทึก Worker Run, ตรวจ Cron/Queue/Resend/Webhook, แสดง Alert ภาษาไทยสำหรับ Platform Admin AAL2, เพิ่ม Structured Runtime Log และจำกัด Vercel Environment Variables ให้เฉพาะ Production |
+| Phase 1.0.6 Production Monitoring & Alerts | เสร็จและทดสอบ Production ผ่าน | บันทึก Worker Run, ตรวจ Cron/Queue/Resend/Webhook, แสดง Alert ภาษาไทยสำหรับ Platform Admin AAL2, เพิ่ม Structured Runtime Log, จำกัด Vercel Environment Variables ให้เฉพาะ Production และทดสอบ Worker โหมด Live ได้ HTTP 200 โดยไม่มี Error |
 
 ห้ามเปิด Production หาก Phase 0.9 Production Security Gate ยังไม่ผ่าน แม้ระบบ Development จะใช้งานได้ครบตาม Acceptance Criteria แล้ว และต้องตรวจร่างประกาศความเป็นส่วนตัว/ข้อกำหนดการใช้งานโดยผู้เชี่ยวชาญด้านกฎหมายและ PDPA ก่อนเผยแพร่
 

@@ -36,3 +36,13 @@
 
 การเปลี่ยน Environment Variable Scope ต้องมี Production Redeployment ใหม่จึงจะมีผลกับ Deployment ปัจจุบัน
 
+## ผลการทดสอบ Production
+
+- รัน Worker โหมด `live` สำเร็จเมื่อ 8 สิงหาคม 2026 เวลา 12:32 น. (Asia/Bangkok)
+- Production Endpoint ตอบ HTTP 200 และไม่ Timeout
+- Worker Run `5bd9fe1d-c042-4534-9765-2e9eeb78dfd1` สำเร็จในฐานข้อมูล
+- รอบทดสอบพบรายการถึงกำหนด 0 รายการ จึงไม่มีอีเมลถูกส่ง
+- Queue หลังทดสอบ: รอ 7, ถึงกำหนด 0, กำลังส่ง 0, ล้มเหลว 0, ส่งแล้ว 1
+- Vercel Runtime แสดง `subscription_notification_cron_completed`; Warning 0, Error 0 และ Fatal 0
+- หน้า Production Monitoring แสดง Cron สำเร็จ 1 รอบและล้มเหลว 0 รอบ
+- Alert เรื่อง Webhook 1 รายการเป็นอีเมลเดิมที่ส่งก่อนเปิด Resend Webhook ไม่ใช่ความล้มเหลวจากรอบทดสอบนี้
