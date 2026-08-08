@@ -58,7 +58,12 @@ CRON_SECRET=long-random-secret
 - การทดสอบ Claim/Complete ใช้ Transaction และ rollback จึงไม่เปลี่ยนข้อมูลจริง
 - AAL1 อ่าน Delivery Log ได้ 0 รายการ
 - TypeScript ผ่าน และ UI Preview ไม่มี Console Error
+- สร้าง Resend API Key แบบ `Sending access` และจำกัดเฉพาะโดเมน `avenzoone.com`
+- Live Worker ส่งอีเมลทดสอบถึง Owner สำเร็จ 1 รายการ
+- Resend ยืนยันสถานะ `delivered`
+- Queue และ Delivery Log บันทึก `sent`, Attempt `1/5`, `sent_at` และ Provider Message ID ครบถ้วน
+- Secret เก็บเฉพาะใน `web/.env.local` ซึ่งไม่ถูก Commit ขึ้น GitHub
 
 ## สถานะ
 
-Implemented และทดสอบผ่านใน Preview Mode; รอ Resend API Key และ Production URL เพื่อทดสอบส่งอีเมลจริงก่อนเปิด `live`
+Implemented และทดสอบ Live Delivery บนเครื่องสำเร็จแล้ว; ขั้นต่อไปคือนำขึ้น Production URL และตั้ง Environment Variables/Cron บนระบบ Hosting
