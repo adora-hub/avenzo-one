@@ -23,6 +23,7 @@ export type NotificationWorkerResult = {
   due: number
   claimed: number
   sent: number
+  suppressed: number
   retrying: number
   failed: number
   errors: string[]
@@ -73,7 +74,7 @@ async function completeNotification(
 export async function processSubscriptionNotifications(): Promise<NotificationWorkerResult> {
   const admin = createAdminClient()
   const mode = process.env.SUBSCRIPTION_NOTIFICATION_DELIVERY_MODE === 'live' ? 'live' : 'preview'
-  const result: NotificationWorkerResult = { mode, generated: 0, due: 0, claimed: 0, sent: 0, retrying: 0, failed: 0, errors: [] }
+  const result: NotificationWorkerResult = { mode, generated: 0, due: 0, claimed: 0, sent: 0, suppressed: 0, retrying: 0, failed: 0, errors: [] }
 
   const { data: generated, error: generateError } = await admin.rpc('worker_generate_subscription_notification_queue')
   if (generateError) throw new Error(`queue_generation_failed:${generateError.message}`)
@@ -102,6 +103,23 @@ export async function processSubscriptionNotifications(): Promise<NotificationWo
 
   for (const notification of claimed) {
     try {
+      const { data: suppression, error: suppressionError } = await admin
+        .from('subscription_notification_suppressions')
+        .select('reason')
+        .eq('recipient_user_id', notification.recipient_user_id)
+        .eq('active', true)
+        .maybeSingle()
+      if (suppressionError) throw new Error(`suppression_check_failed:${suppressionError.message}`)
+      if (suppression) {
+        const { data: canceled, error: cancelError } = await admin.rpc('worker_cancel_suppressed_notification', {
+          p_queue_id: notification.queue_id,
+          p_lock_token: notification.lock_token,
+        })
+        if (cancelError || !canceled) throw new Error(`suppression_cancel_failed:${cancelError?.message ?? 'not_suppressed'}`)
+        result.suppressed += 1
+        continue
+      }
+
       const { data: recipientData, error: recipientError } = await admin.auth.admin.getUserById(notification.recipient_user_id)
       const recipientEmail = recipientData.user?.email
       if (recipientError || !recipientEmail) throw new Error('active_owner_email_not_found')

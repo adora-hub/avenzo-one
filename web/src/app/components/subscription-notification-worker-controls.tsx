@@ -10,6 +10,7 @@ type WorkerResult = {
   due: number
   claimed: number
   sent: number
+  suppressed: number
   retrying: number
   failed: number
   errors: string[]
@@ -29,7 +30,7 @@ export function SubscriptionNotificationWorkerControls({ deliveryMode }: { deliv
       if (!response.ok) throw new Error(data.error || 'worker_failed')
       setMessage(data.mode === 'preview'
         ? `โหมดตรวจสอบ: มี ${data.due} รายการถึงกำหนด โดยยังไม่ส่งอีเมล`
-        : `ส่งสำเร็จ ${data.sent} · รอลองใหม่ ${data.retrying} · ล้มเหลว ${data.failed}`)
+        : `Resend รับคำขอแล้ว ${data.sent} · ระงับก่อนส่ง ${data.suppressed} · รอลองใหม่ ${data.retrying} · ล้มเหลว ${data.failed}`)
       router.refresh()
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'ไม่สามารถประมวลผลคิวได้')
