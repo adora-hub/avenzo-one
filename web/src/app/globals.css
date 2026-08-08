@@ -384,6 +384,58 @@ input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft
 .billing-profile-grid h3, .billing-profile-grid p { margin: 0; }
 .form-card-with-footer { display: flex; flex-direction: column; }
 .form-card-with-footer > .button:last-child { flex: 0 0 var(--button-height); margin-top: auto; }
+
+.gateway-readiness-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.gateway-readiness-grid .card { padding: 20px; }
+.gateway-readiness-grid h3 { margin: 6px 0; }
+.gateway-readiness-grid p { margin: 0; color: var(--muted); }
+.gateway-sandbox-panel { margin-top: 18px; padding: 18px; border: 1px solid #b9c8ff; border-radius: 14px; background: #f6f8ff; }
+.gateway-sandbox-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.gateway-sandbox-heading h4 { margin: 5px 0 0; font-size: 18px; }
+.gateway-sandbox-panel > p { color: var(--muted); }
+.gateway-sandbox-panel .subscription-confirmation-grid { margin-bottom: 16px; }
+.stripe-test-panel { display: grid; gap: 16px; margin-top: 18px; padding: 20px; border: 1px solid #b9c8ff; border-radius: 14px; background: #f8faff; }
+.stripe-test-panel > p { margin: 0; color: var(--muted); }
+.stripe-payment-methods { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.stripe-method-card { display: flex; gap: 12px; align-items: flex-start; padding: 15px; border: 1px solid var(--line); border-radius: 12px; background: white; cursor: pointer; transition: background-color .18s ease, border-color .18s ease; }
+.stripe-method-card:hover { background: #f8faff; border-color: #b9c8ff; }
+.stripe-method-card.is-selected { border-color: var(--brand); background: var(--brand-soft); }
+.stripe-method-card input { width: 17px; height: 17px; margin: 2px 0 0; accent-color: var(--brand); }
+.stripe-method-card span { display: grid; gap: 4px; }
+.stripe-method-card small { color: var(--muted); }
+.stripe-fee-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0; }
+.stripe-fee-summary > div { padding: 13px 14px; border: 1px solid var(--line); border-radius: 12px; background: white; }
+.stripe-fee-summary dt { color: var(--muted); font-size: 12px; font-weight: 700; }
+.stripe-fee-summary dd { margin: 5px 0 0; font-weight: 800; }
+.stripe-fee-summary .stripe-customer-total { border-color: #a9baff; background: var(--brand-soft); }
+.stripe-fee-summary .stripe-customer-total dd { color: var(--brand); font-size: 20px; }
+.stripe-fee-snapshot { display: grid; gap: 14px; padding: 16px; border: 1px solid #dbe4ff; border-radius: 14px; background: #f8faff; }
+.stripe-fee-snapshot > div { display: grid; gap: 4px; }
+.stripe-fee-snapshot dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0; }
+.stripe-fee-snapshot dl div { display: grid; gap: 3px; padding: 10px 12px; border-radius: 10px; background: #fff; }
+.stripe-fee-snapshot dt { color: #667085; font-size: .8rem; }
+.stripe-fee-snapshot dd { margin: 0; font-weight: 700; }
+.info-message { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 12px; background: #eef3ff; color: #284ba7; }
+.info-message > span { display: grid; flex: 0 0 20px; width: 20px; height: 20px; place-items: center; border: 1px solid currentColor; border-radius: 50%; font-size: 12px; font-weight: 900; }
+.info-message p { margin: 0; line-height: 1.55; }
+.warning { padding: 12px 14px; border-radius: 12px; background: #fff4dc; color: var(--warning); font-weight: 700; }
+.checkout-result-card { display: grid; gap: 16px; }
+.checkout-result-card h1, .checkout-result-card p { margin: 0; }
+.manual-payment-panel { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 14px; }
+.manual-payment-panel > summary { color: var(--brand); cursor: pointer; font-weight: 700; }
+.manual-payment-panel .billing-payment-form { margin-top: 16px; }
+.tax-calculation-panel { display: grid; grid-template-columns: minmax(220px, .55fr) 1fr; gap: 12px 18px; padding: 16px; border: 1px solid #cfd8f6; border-radius: 14px; background: #f8faff; }
+.tax-calculation-panel > .field-help { grid-column: 1 / -1; }
+.tax-calculation-summary { display: grid; grid-template-columns: 1fr auto; align-content: center; gap: 8px 14px; padding: 10px 14px; border-radius: 10px; background: white; color: var(--muted); }
+.tax-calculation-summary strong { color: var(--ink); text-align: right; }
+.confirmation-detail { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; font-weight: 500; }
+
+@media (max-width: 900px) {
+  .gateway-readiness-grid { grid-template-columns: 1fr; }
+  .gateway-sandbox-heading { flex-direction: column; }
+  .stripe-payment-methods, .stripe-fee-summary, .stripe-fee-snapshot dl { grid-template-columns: 1fr; }
+  .tax-calculation-panel { grid-template-columns: 1fr; }
+}
 .billing-profile-grid p { font-size: 13px; }
 .billing-invoice-card { display: grid; gap: 16px; }
 .billing-invoice-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }

@@ -31,6 +31,10 @@ function formatDate(value: string, timezone = 'Asia/Bangkok') {
   return new Intl.DateTimeFormat('th-TH', { dateStyle: 'medium', timeStyle: 'short', timeZone: timezone }).format(new Date(value))
 }
 
+function roundMoney(value: number) {
+  return Math.round((value + Number.EPSILON) * 100) / 100
+}
+
 export function BillingInvoiceForm({ organizations, subscriptions, prices }: {
   organizations: BillingOrganization[]
   subscriptions: BillingSubscription[]
@@ -44,7 +48,8 @@ export function BillingInvoiceForm({ organizations, subscriptions, prices }: {
   const [periodEnd, setPeriodEnd] = useState(firstSubscription ? toLocalDateTime(new Date(firstSubscription.expires_at)) : '')
   const [dueAt, setDueAt] = useState(toLocalDateTime(new Date(Date.now() + 7 * 86400000)))
   const [discount, setDiscount] = useState('0')
-  const [tax, setTax] = useState('0')
+  const [taxMode, setTaxMode] = useState<'none' | 'percentage' | 'amount'>('none')
+  const [taxInput, setTaxInput] = useState('0')
   const [reason, setReason] = useState('ออก Invoice สำหรับรอบ Subscription')
   const [preview, setPreview] = useState(false)
   const [commandId, setCommandId] = useState('')
@@ -56,8 +61,10 @@ export function BillingInvoiceForm({ organizations, subscriptions, prices }: {
   const availablePrices = useMemo(() => prices.filter((item) => item.plan_version_id === selectedSubscription?.plan_version_id), [prices, selectedSubscription])
   const selectedPrice = useMemo(() => availablePrices.find((item) => item.id === priceId) ?? availablePrices[0], [availablePrices, priceId])
   const discountAmount = Number(discount) || 0
-  const taxAmount = Number(tax) || 0
-  const total = (selectedPrice?.amount ?? 0) - discountAmount + taxAmount
+  const taxableBase = Math.max(0, (selectedPrice?.amount ?? 0) - discountAmount)
+  const taxValue = Number(taxInput) || 0
+  const taxAmount = taxMode === 'percentage' ? roundMoney(taxableBase * taxValue / 100) : taxMode === 'amount' ? roundMoney(taxValue) : 0
+  const total = roundMoney(taxableBase + taxAmount)
 
   function resetPreview() { setPreview(false); setCommandId(''); setMessage('') }
 
@@ -70,7 +77,8 @@ export function BillingInvoiceForm({ organizations, subscriptions, prices }: {
       setPriceId(next.selected_price_id ?? prices.find((item) => item.plan_version_id === next.plan_version_id)?.id ?? '')
     }
     setDiscount('0')
-    setTax('0')
+    setTaxMode('none')
+    setTaxInput('0')
     resetPreview()
   }
 
@@ -79,7 +87,8 @@ export function BillingInvoiceForm({ organizations, subscriptions, prices }: {
     if (!selectedSubscription || !selectedPrice) { setMessage('Subscription นี้ยังไม่มีราคาที่เปิดใช้งาน'); return }
     if (new Date(periodStart) >= new Date(periodEnd)) { setMessage('วันเริ่มรอบต้องมาก่อนวันสิ้นสุดรอบ'); return }
     if (discountAmount < 0 || discountAmount > selectedPrice.amount) { setMessage('ส่วนลดต้องไม่ติดลบและไม่เกินยอดก่อนส่วนลด'); return }
-    if (taxAmount < 0 || total < 0) { setMessage('ภาษีและยอดสุทธิต้องไม่ติดลบ'); return }
+    if (taxValue < 0 || total < 0) { setMessage('ภาษีและยอดสุทธิต้องไม่ติดลบ'); return }
+    if (taxMode === 'percentage' && taxValue > 100) { setMessage('อัตราภาษีต้องอยู่ระหว่าง 0–100%'); return }
     if (reason.trim().length < 3) { setMessage('กรุณาระบุเหตุผลอย่างน้อย 3 ตัวอักษร'); return }
     setMessage('')
     setCommandId(crypto.randomUUID())
@@ -102,7 +111,7 @@ export function BillingInvoiceForm({ organizations, subscriptions, prices }: {
         p_due_at: new Date(dueAt).toISOString(),
         p_reason: reason.trim(),
         p_command_id: commandId,
-        p_metadata: { source: 'platform_admin_billing_ui' },
+        p_metadata: { source: 'platform_admin_billing_ui', tax_mode: taxMode, tax_rate: taxMode === 'percentage' ? taxValue : null, taxable_base: taxableBase },
       })
       if (error) throw error
       setMessage('สร้าง Invoice สำเร็จ')
@@ -126,7 +135,8 @@ export function BillingInvoiceForm({ organizations, subscriptions, prices }: {
       <label>รอบราคา<select value={selectedPrice?.id ?? ''} onChange={(event) => { setPriceId(event.target.value); resetPreview() }}>{availablePrices.map((price) => <option key={price.id} value={price.id}>{price.billing_interval === 'monthly' ? 'รายเดือน' : price.billing_interval === 'yearly' ? 'รายปี' : 'ครั้งเดียว'} · {formatMoney(price.amount, price.currency)}</option>)}</select><span className="field-help">เลือกตามรอบราคาที่ตกลงกับลูกค้า ระบบจะเก็บเป็น Snapshot ใน Invoice</span></label>
       <div className="form-grid-two"><label>เริ่มรอบ Billing<input type="datetime-local" value={periodStart} onChange={(event) => { setPeriodStart(event.target.value); resetPreview() }} /></label><label>สิ้นสุดรอบ Billing<input type="datetime-local" value={periodEnd} onChange={(event) => { setPeriodEnd(event.target.value); resetPreview() }} /></label></div>
       <label>ครบกำหนดชำระ<input type="datetime-local" value={dueAt} onChange={(event) => { setDueAt(event.target.value); resetPreview() }} /></label>
-      <div className="form-grid-two"><label>ส่วนลด<input type="number" min="0" step="0.01" value={discount} onChange={(event) => { setDiscount(event.target.value); resetPreview() }} /></label><label>ภาษี<input type="number" min="0" step="0.01" value={tax} onChange={(event) => { setTax(event.target.value); resetPreview() }} /></label></div>
+      <div className="form-grid-two"><label>ส่วนลด (จำนวนเงิน)<input type="number" min="0" step="0.01" value={discount} onChange={(event) => { setDiscount(event.target.value); resetPreview() }} /></label><label>วิธีคำนวณภาษี<select value={taxMode} onChange={(event) => { const mode = event.target.value as 'none' | 'percentage' | 'amount'; setTaxMode(mode); setTaxInput(mode === 'percentage' ? '7' : '0'); resetPreview() }}><option value="none">ไม่มีภาษี</option><option value="percentage">คำนวณเป็นเปอร์เซ็นต์</option><option value="amount">ระบุจำนวนเงินเอง</option></select></label></div>
+      {taxMode !== 'none' && <div className="tax-calculation-panel"><label>{taxMode === 'percentage' ? 'อัตราภาษี (%)' : 'จำนวนภาษี'}<input type="number" min="0" max={taxMode === 'percentage' ? 100 : undefined} step="0.01" value={taxInput} onChange={(event) => { setTaxInput(event.target.value); resetPreview() }} /></label><div className="tax-calculation-summary"><span>ฐานภาษีหลังหักส่วนลด</span><strong>{formatMoney(taxableBase, selectedPrice?.currency ?? 'THB')}</strong><span>{taxMode === 'percentage' ? `ภาษี ${taxValue}%` : 'ภาษีที่ระบุ'}</span><strong>{formatMoney(taxAmount, selectedPrice?.currency ?? 'THB')}</strong></div><span className="field-help">{taxMode === 'percentage' ? `ระบบคำนวณ ${formatMoney(taxableBase, selectedPrice?.currency ?? 'THB')} × ${taxValue}% = ${formatMoney(taxAmount, selectedPrice?.currency ?? 'THB')}` : 'ระบบจะใช้จำนวนภาษีที่กรอกโดยตรง'}</span></div>}
       <label>เหตุผล<span className="field-help">บันทึกใน Audit Log</span><textarea rows={3} minLength={3} value={reason} onChange={(event) => { setReason(event.target.value); resetPreview() }} /></label>
       {message && <div className={message.includes('สำเร็จ') ? 'countdown' : 'error'}>{message}</div>}
       {!preview ? <button className="button" type="submit">ตรวจสอบก่อนสร้าง Invoice</button> : <section className="subscription-confirmation" aria-live="polite">
@@ -134,7 +144,7 @@ export function BillingInvoiceForm({ organizations, subscriptions, prices }: {
         <dl className="subscription-confirmation-grid">
           <div><dt>Organization</dt><dd>{selectedOrganization?.name}</dd></div><div><dt>Plan / Version</dt><dd>{selectedSubscription?.plan_name} / {selectedSubscription?.plan_version_label}</dd></div>
           <div><dt>ยอดก่อนส่วนลด</dt><dd>{formatMoney(selectedPrice?.amount ?? 0, selectedPrice?.currency ?? 'THB')}</dd></div><div><dt>ส่วนลด</dt><dd>{formatMoney(discountAmount, selectedPrice?.currency ?? 'THB')}</dd></div>
-          <div><dt>ภาษี</dt><dd>{formatMoney(taxAmount, selectedPrice?.currency ?? 'THB')}</dd></div><div><dt>ยอดสุทธิ</dt><dd>{formatMoney(total, selectedPrice?.currency ?? 'THB')}</dd></div>
+          <div><dt>{taxMode === 'percentage' ? `ภาษี ${taxValue}%` : taxMode === 'amount' ? 'ภาษี (ระบุเอง)' : 'ภาษี'}</dt><dd>{formatMoney(taxAmount, selectedPrice?.currency ?? 'THB')}<small className="confirmation-detail">ฐานภาษี {formatMoney(taxableBase, selectedPrice?.currency ?? 'THB')}</small></dd></div><div><dt>ยอดสุทธิ</dt><dd>{formatMoney(total, selectedPrice?.currency ?? 'THB')}</dd></div>
           <div><dt>รอบ Billing</dt><dd>{formatDate(periodStart, selectedOrganization?.timezone)} – {formatDate(periodEnd, selectedOrganization?.timezone)}</dd></div><div><dt>ครบกำหนด</dt><dd>{formatDate(dueAt, selectedOrganization?.timezone)}</dd></div>
         </dl>
         <div className="subscription-confirmation-note"><strong>หมายเหตุ</strong><span>ขั้นตอนนี้สร้างเอกสารและยอดค้างชำระเท่านั้น ยังไม่มีการตัดเงินจริง</span></div>

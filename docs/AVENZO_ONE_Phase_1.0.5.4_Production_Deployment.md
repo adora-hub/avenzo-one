@@ -9,6 +9,7 @@ Phase 1.0.5.4 นำระบบ AVENZO ONE ขึ้น Production สำเร
 - Production URL: `https://app.avenzoone.com`
 - Vercel fallback URL: `https://avenzo-one.vercel.app`
 - Vercel project: `adora3/avenzo-one`
+- Canonical production target: deploy AVENZO ONE to `adora3/avenzo-one` only. Never deploy this repository to `ADORA/adora-commerce-os`.
 - Git branch: `main`
 - Application root: `web`
 - Supabase project: `eigrllibviqjddenjuch`
@@ -82,4 +83,3 @@ Phase 1.0.5.4 นำระบบ AVENZO ONE ขึ้น Production สำเร
 2. ปิด Resend Webhook จาก Resend Dashboard
 3. ถอด `app.avenzoone.com` จาก Vercel หรือเอา CNAME `app` ออกจาก Cloudflare
 4. Vercel สามารถ Rollback ไป Deployment ก่อนหน้าได้โดยไม่แก้ฐานข้อมูล
-
