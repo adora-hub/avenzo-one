@@ -458,6 +458,7 @@ Event ต้องมี `organization_id`, Actor, Customer, Source Entity, Corr
 | Phase 1.0.5.4 Production Deployment & Supabase Cron | เสร็จและทดสอบผ่าน | Deploy บน Vercel Hobby ที่ `app.avenzoone.com`, ใช้ Supabase Cron รายชั่วโมง, เก็บ Secret ใน Vault, ตั้ง Supabase Auth Redirect และเชื่อม Resend Webhook; ทดสอบ Browser/API/Cron ได้ HTTP 200 |
 | Phase 1.0.6 Production Monitoring & Alerts | เสร็จและทดสอบ Production ผ่าน | บันทึก Worker Run, ตรวจ Cron/Queue/Resend/Webhook, แสดง Alert ภาษาไทยสำหรับ Platform Admin AAL2, เพิ่ม Structured Runtime Log, จำกัด Vercel Environment Variables ให้เฉพาะ Production และทดสอบ Worker โหมด Live ได้ HTTP 200 โดยไม่มี Error |
 | Phase 1.1.0 Billing Foundation | Implemented และทดสอบ Database/Build ผ่าน | เชื่อม Organization, Subscription, Plan Version และราคาเป็น Invoice Snapshot; รองรับส่วนลด ภาษี สถานะภาษาไทย Payment History แบบ Provider-neutral, Preview, Pagination, Command ID, AAL2 RLS และ Audit Log โดยยังไม่มีการตัดเงินจริง |
+| Phase 1.1.1 Invoice Documents & Correction Policy | Implemented และกำลังทดสอบ UI/Production | เพิ่มข้อมูลผู้ออก/ผู้รับเอกสาร, Invoice Document Snapshot, หน้าพิมพ์, การล็อกยอดหลังออกเอกสาร, ยกเลิกเอกสาร และ Credit Note โดยยังไม่เป็นเอกสารภาษีตามกฎหมายและยังไม่มี Refund/Payment Gateway |
 
 ห้ามเปิด Production หาก Phase 0.9 Production Security Gate ยังไม่ผ่าน แม้ระบบ Development จะใช้งานได้ครบตาม Acceptance Criteria แล้ว และต้องตรวจร่างประกาศความเป็นส่วนตัว/ข้อกำหนดการใช้งานโดยผู้เชี่ยวชาญด้านกฎหมายและ PDPA ก่อนเผยแพร่
 

@@ -2,6 +2,8 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { BillingInvoiceForm, type BillingOrganization, type BillingPrice, type BillingSubscription } from '@/app/components/billing-invoice-form'
 import { BillingPaymentActions } from '@/app/components/billing-payment-actions'
+import { BillingDocumentProfiles } from '@/app/components/billing-document-profiles'
+import { BillingDocumentActions } from '@/app/components/billing-document-actions'
 import { billingStatusLabels } from '@/app/components/billing-labels'
 import { SignOutButton } from '@/app/components/sign-out-button'
 import { createClient } from '@/lib/supabase/server'
@@ -25,20 +27,29 @@ export default async function PlatformAdminBillingPage({ searchParams }: { searc
   if (platformAdminResult.data?.status !== 'active') redirect('/dashboard')
   if (assuranceResult.data?.currentLevel !== 'aal2') redirect('/auth/mfa?next=/platform-admin/billing')
 
-  const [organizationsResult, subscriptionsResult, plansResult, versionsResult, pricesResult, invoicesResult] = await Promise.all([
+  const [organizationsResult, subscriptionsResult, plansResult, versionsResult, pricesResult, invoicesResult, issuerResult, customersResult] = await Promise.all([
     supabase.from('organizations').select('id, name, slug, timezone, currency').order('name'),
     supabase.from('organization_subscriptions').select('id, organization_id, plan_code, plan_version_id, lifecycle_status, starts_at, expires_at, metadata').in('lifecycle_status', ['active', 'suspended']).not('plan_version_id', 'is', null).order('updated_at', { ascending: false }),
     supabase.from('subscription_plans').select('code, name'),
     supabase.from('subscription_plan_versions').select('id, label'),
     supabase.from('subscription_plan_prices').select('id, plan_version_id, billing_interval, amount, currency').eq('is_active', true),
     supabase.from('billing_invoices').select('id, invoice_number, organization_id, subscription_id, billing_interval, billing_period_start, billing_period_end, currency, subtotal_amount, discount_amount, tax_amount, total_amount, status, issued_at, due_at, reason', { count: 'exact' }).order('issued_at', { ascending: false }).range(from, from + PAGE_SIZE - 1),
+    supabase.from('billing_issuer_profiles').select('legal_name, tax_id, branch_code, address, email, phone').eq('is_active', true).maybeSingle(),
+    supabase.from('billing_customer_profiles').select('organization_id, legal_name, tax_id, branch_code, address, email, phone'),
   ])
   const invoiceRows = invoicesResult.data ?? []
   const invoiceIds = invoiceRows.map((item) => item.id)
   const paymentsResult = invoiceIds.length
     ? await supabase.from('billing_payments').select('id, payment_number, invoice_id, provider, provider_reference, status, amount, currency, reason, occurred_at').in('invoice_id', invoiceIds).order('occurred_at', { ascending: false })
     : { data: [], error: null }
-  const firstError = [organizationsResult, subscriptionsResult, plansResult, versionsResult, pricesResult, invoicesResult, paymentsResult].find((result) => result.error)?.error
+  const documentsResult = invoiceIds.length
+    ? await supabase.from('billing_invoice_documents').select('id, invoice_id, document_number, status, total_amount, currency, issued_at').in('invoice_id', invoiceIds)
+    : { data: [], error: null }
+  const documentIds = (documentsResult.data ?? []).map((item) => item.id)
+  const creditNotesResult = documentIds.length
+    ? await supabase.from('billing_credit_notes').select('id, invoice_document_id, credit_note_number, status, total_amount, currency, reason, issued_at').in('invoice_document_id', documentIds).order('issued_at', { ascending: false })
+    : { data: [], error: null }
+  const firstError = [organizationsResult, subscriptionsResult, plansResult, versionsResult, pricesResult, invoicesResult, issuerResult, customersResult, paymentsResult, documentsResult, creditNotesResult].find((result) => result.error)?.error
   const organizations = (organizationsResult.data ?? []) as BillingOrganization[]
   const organizationsById = new Map(organizations.map((item) => [item.id, item]))
   const plansByCode = new Map((plansResult.data ?? []).map((item) => [item.code, item.name]))
@@ -48,13 +59,17 @@ export default async function PlatformAdminBillingPage({ searchParams }: { searc
   const invoices = invoiceRows.map((item) => ({ ...item, subtotal_amount: Number(item.subtotal_amount), discount_amount: Number(item.discount_amount), tax_amount: Number(item.tax_amount), total_amount: Number(item.total_amount) }))
   const paymentsByInvoice = new Map<string, typeof paymentsResult.data>()
   for (const payment of paymentsResult.data ?? []) paymentsByInvoice.set(payment.invoice_id, [...(paymentsByInvoice.get(payment.invoice_id) ?? []), payment])
+  const documentsByInvoice = new Map((documentsResult.data ?? []).map((item) => [item.invoice_id, { ...item, total_amount: Number(item.total_amount) }]))
+  const creditNotesByDocument = new Map<string, Array<{ id: string; invoice_document_id: string; credit_note_number: string; status: string; total_amount: number; currency: string; reason: string }>>()
+  for (const creditNote of creditNotesResult.data ?? []) creditNotesByDocument.set(creditNote.invoice_document_id, [...(creditNotesByDocument.get(creditNote.invoice_document_id) ?? []), { ...creditNote, total_amount: Number(creditNote.total_amount) }])
   const totalPages = Math.max(1, Math.ceil((invoicesResult.count ?? 0) / PAGE_SIZE))
 
   return <main className="dashboard">
     <header className="topbar"><div className="brand">AVENZO ONE / Billing</div><div className="topbar-actions"><span>{user.email}</span><SignOutButton /></div></header>
     <section className="content platform-subscription-content">
-      <div className="hero"><div><div className="eyebrow">Phase 1.1.0</div><h1>Billing Foundation</h1><p>ออก Invoice บันทึกส่วนลด ภาษี และผล Payment โดยยังไม่มีการตัดเงินจริง</p></div><Link className="button secondary" href="/platform-admin">กลับ Platform Admin</Link></div>
+      <div className="hero"><div><div className="eyebrow">Phase 1.1.1</div><h1>Billing Documents</h1><p>ออกเอกสารจาก Snapshot ที่แก้ยอดย้อนหลังไม่ได้ พร้อม Credit Note สำหรับการแก้ไขเชิงบัญชี</p></div><Link className="button secondary" href="/platform-admin">กลับ Platform Admin</Link></div>
       {firstError ? <div className="error">ไม่สามารถอ่านข้อมูล Billing ได้: {firstError.message}</div> : <>
+        <section className="subscription-management-section"><div className="feature-list-heading"><div><div className="eyebrow">DOCUMENT IDENTITY</div><h2>ข้อมูลบนเอกสาร</h2><p>ต้องตั้งค่าผู้ออกเอกสารและผู้รับเอกสารก่อนออก Invoice Document</p></div></div><BillingDocumentProfiles issuer={issuerResult.data} organizations={organizations.map(({ id, name }) => ({ id, name }))} customers={customersResult.data ?? []} /></section>
         <section className="subscription-management-section"><div className="feature-list-heading"><div><div className="eyebrow">NEW INVOICE</div><h2>สร้าง Invoice</h2><p>ยอดตั้งต้นมาจาก Active Plan Price และบันทึกเป็น Snapshot</p></div></div><div className="card"><BillingInvoiceForm organizations={organizations} subscriptions={subscriptions} prices={prices} /></div></section>
         <section className="subscription-management-section"><div className="feature-list-heading"><div><div className="eyebrow">HISTORY</div><h2>Invoices &amp; Payments</h2><p>แสดง 10 รายการต่อหน้า พร้อมประวัติการชำระ</p></div><span className="feature-count">{invoicesResult.count ?? 0} Invoice</span></div>
           {invoices.length ? <div className="billing-invoice-list">{invoices.map((invoice) => {
@@ -69,6 +84,7 @@ export default async function PlatformAdminBillingPage({ searchParams }: { searc
                 {payments.length ? <div className="billing-payment-history">{payments.map((payment) => <div className="billing-payment-row" key={payment.id}><strong>{payment.payment_number}</strong><span>{billingStatusLabels[payment.status]?.label ?? payment.status}</span><span>{formatMoney(Number(payment.amount), payment.currency)}</span><span>{payment.provider}{payment.provider_reference ? ` · ${payment.provider_reference}` : ''}</span><time>{formatDate(payment.occurred_at, organization?.timezone)}</time></div>)}</div> : <div className="empty">ยังไม่มีประวัติ Payment</div>}
                 {(invoice.status === 'pending' || invoice.status === 'failed') && <BillingPaymentActions key={`${invoice.id}:${invoice.status}`} invoice={invoice} />}
               </details>
+              <details className="subscription-action-panel"><summary>เอกสาร Invoice และ Credit Note</summary><BillingDocumentActions invoice={invoice} document={documentsByInvoice.get(invoice.id) ?? null} creditNotes={documentsByInvoice.get(invoice.id) ? creditNotesByDocument.get(documentsByInvoice.get(invoice.id)!.id) ?? [] : []} /></details>
             </article>
           })}</div> : <div className="empty">ยังไม่มี Invoice</div>}
           {totalPages > 1 && <nav className="pagination" aria-label="หน้า Invoice"><Link className={`button secondary ${requestedPage <= 1 ? 'is-disabled' : ''}`} href={`?page=${Math.max(1, requestedPage - 1)}`}>ก่อนหน้า</Link><span>หน้า {requestedPage} / {totalPages}</span><Link className={`button secondary ${requestedPage >= totalPages ? 'is-disabled' : ''}`} href={`?page=${Math.min(totalPages, requestedPage + 1)}`}>ถัดไป</Link><form className="pagination-jump" method="get"><label>ไปหน้าที่<input name="page" type="number" min="1" max={totalPages} defaultValue={requestedPage} /></label><button className="button secondary" type="submit">ไป</button></form></nav>}
