@@ -444,6 +444,7 @@ Event ต้องมี `organization_id`, Actor, Customer, Source Entity, Corr
 | Phase 0.10.2 Platform Admin MFA Challenge | เสร็จและทดสอบผ่าน | Login นำทางอัตโนมัติ, หน้า Challenge รหัส 6 หลัก, Server ตรวจ AAL ซ้ำ และมีปุ่มลัด Platform Admin |
 | Phase 0.10.3 Platform Admin MFA RLS Enforcement | Implemented / รอทดสอบครบเส้นทาง | บังคับ `aal2` ที่ Database/RLS สำหรับสิทธิ์ Control Plane โดยไม่กระทบ Tenant RBAC |
 | Phase 0.10.4 Platform Admin MFA Recovery | Implemented / รอทดสอบการใช้งานจริง | รองรับ Authenticator หลักและสำรอง, เลือก Factor ตอน Challenge, ถอดอุปกรณ์แบบคง Factor สุดท้าย, Session Revocation และ Audit Log |
+| Phase 0.10.4.1 Preferred Authenticator & MFA Layout | เสร็จและทดสอบ Local ผ่าน | การ์ด MFA เต็มความกว้าง, แสดงเครื่องหลัก/สำรอง, เปลี่ยนเครื่องหลักได้โดยไม่ถอดอุปกรณ์, หน้า Challenge เลือกเครื่องหลักเป็นค่าเริ่มต้น พร้อม AAL2, RLS และ Audit Log |
 | Phase 1.0.1 Feature Catalog | Implemented / รอทดสอบการใช้งานจริง | ทะเบียน Feature แบบเปิด/ปิดหรือ Limit พร้อม Combo Box ภาษาคนและโหมดกำหนดเอง, Lifecycle, AAL2 RLS และ Audit Log โดยยังไม่กระทบ Entitlement ปัจจุบัน |
 | Phase 1.0.2 Plans และ Prices | Implemented / รอทดสอบการใช้งานจริง | สร้าง Plan, Plan Version, ราคา, Trial และค่า Feature โดยยังไม่กระทบ Subscription เดิม |
 | Phase 1.0.2.1 Plan Lifecycle Management | Implemented / รอทดสอบการใช้งานจริง | เก็บ Draft, ปิดใช้งาน Plan และ Retired แบบไม่ลบข้อมูล พร้อม Audit Log |
@@ -459,6 +460,8 @@ Event ต้องมี `organization_id`, Actor, Customer, Source Entity, Corr
 | Phase 1.0.6 Production Monitoring & Alerts | เสร็จและทดสอบ Production ผ่าน | บันทึก Worker Run, ตรวจ Cron/Queue/Resend/Webhook, แสดง Alert ภาษาไทยสำหรับ Platform Admin AAL2, เพิ่ม Structured Runtime Log, จำกัด Vercel Environment Variables ให้เฉพาะ Production และทดสอบ Worker โหมด Live ได้ HTTP 200 โดยไม่มี Error |
 | Phase 1.1.0 Billing Foundation | Implemented และทดสอบ Database/Build ผ่าน | เชื่อม Organization, Subscription, Plan Version และราคาเป็น Invoice Snapshot; รองรับส่วนลด ภาษี สถานะภาษาไทย Payment History แบบ Provider-neutral, Preview, Pagination, Command ID, AAL2 RLS และ Audit Log โดยยังไม่มีการตัดเงินจริง |
 | Phase 1.1.1 Invoice Documents & Correction Policy | เสร็จและทดสอบผ่าน | เพิ่มข้อมูลผู้ออก/ผู้รับเอกสาร, Invoice Document Snapshot, หน้าพิมพ์, การล็อกยอดหลังออกเอกสาร, ยกเลิกเอกสาร และ Credit Note โดยยังไม่เป็นเอกสารภาษีตามกฎหมายและยังไม่มี Refund/Payment Gateway |
+| Phase 1.1.2 Payment Gateway Sandbox & Reconciliation Foundation | Implemented / รอทดสอบ Local | เพิ่ม Payment Attempt, Event Ledger, Idempotency, Audit และ Sandbox จำลองผลสำเร็จ/ไม่สำเร็จโดยไม่ตัดเงินจริง พร้อมแยก Payment Manual ออกจาก Gateway |
+| Phase 1.1.2.1 Automatic Tax Calculation | Implemented / รอทดสอบ Local | เลือกไม่มีภาษี/เปอร์เซ็นต์/จำนวนเงิน คำนวณจากฐานหลังหักส่วนลด ปัดสองตำแหน่ง และแสดงสูตรพร้อมยอดจริงก่อนสร้าง Invoice |
 
 ห้ามเปิด Production หาก Phase 0.9 Production Security Gate ยังไม่ผ่าน แม้ระบบ Development จะใช้งานได้ครบตาม Acceptance Criteria แล้ว และต้องตรวจร่างประกาศความเป็นส่วนตัว/ข้อกำหนดการใช้งานโดยผู้เชี่ยวชาญด้านกฎหมายและ PDPA ก่อนเผยแพร่
 

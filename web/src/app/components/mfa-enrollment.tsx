@@ -20,6 +20,7 @@ type SecurityEvent =
   | 'mfa_enrollment_verified'
   | 'mfa_factor_unenrolled'
   | 'mfa_other_sessions_revoked'
+  | 'mfa_preferred_factor_changed'
 
 type EnrollmentStage = 'checking' | 'ready' | 'enrolling' | 'verify' | 'enabled'
 
@@ -35,9 +36,14 @@ function displayCreatedAt(value: string) {
   }).format(new Date(value))
 }
 
+function sortFactors(factors: Factor<'totp', 'verified'>[], preferredFactorId: string | null) {
+  return [...factors].sort((left, right) => left.id === preferredFactorId ? -1 : right.id === preferredFactorId ? 1 : 0)
+}
+
 export function MfaEnrollment() {
   const [stage, setStage] = useState<EnrollmentStage>('checking')
   const [verifiedFactors, setVerifiedFactors] = useState<Factor<'totp', 'verified'>[]>([])
+  const [preferredFactorId, setPreferredFactorId] = useState<string | null>(null)
   const [enrollment, setEnrollment] = useState<EnrollmentDetails | null>(null)
   const [factorName, setFactorName] = useState('')
   const [verificationCode, setVerificationCode] = useState('')
@@ -48,12 +54,20 @@ export function MfaEnrollment() {
   const [messageTone, setMessageTone] = useState<'success' | 'error'>('error')
 
   async function loadFactors() {
-    const { data, error } = await createClient().auth.mfa.listFactors()
-    if (error) throw error
-    setVerifiedFactors(data.totp)
-    setFactorName(data.totp.length === 0 ? 'เครื่องหลัก' : 'เครื่องสำรอง')
-    setStage(data.totp.length > 0 ? 'enabled' : 'ready')
-    return data.totp
+    const supabase = createClient()
+    const [factors, preference] = await Promise.all([
+      supabase.auth.mfa.listFactors(),
+      supabase.from('platform_mfa_preferences').select('preferred_factor_id').maybeSingle(),
+    ])
+    if (factors.error) throw factors.error
+    if (preference.error) throw preference.error
+    const preferredId = preference.data?.preferred_factor_id ?? null
+    const sortedFactors = sortFactors(factors.data.totp, preferredId)
+    setPreferredFactorId(preferredId)
+    setVerifiedFactors(sortedFactors)
+    setFactorName(sortedFactors.length === 0 ? 'เครื่องหลัก' : 'เครื่องสำรอง')
+    setStage(sortedFactors.length > 0 ? 'enabled' : 'ready')
+    return sortedFactors
   }
 
   useEffect(() => {
@@ -61,12 +75,20 @@ export function MfaEnrollment() {
 
     async function checkFactors() {
       try {
-        const { data, error } = await createClient().auth.mfa.listFactors()
+        const supabase = createClient()
+        const [{ data, error }, preference] = await Promise.all([
+          supabase.auth.mfa.listFactors(),
+          supabase.from('platform_mfa_preferences').select('preferred_factor_id').maybeSingle(),
+        ])
         if (!active) return
         if (error) throw error
-        setVerifiedFactors(data.totp)
-        setFactorName(data.totp.length === 0 ? 'เครื่องหลัก' : 'เครื่องสำรอง')
-        setStage(data.totp.length > 0 ? 'enabled' : 'ready')
+        if (preference.error) throw preference.error
+        const preferredId = preference.data?.preferred_factor_id ?? null
+        const sortedFactors = sortFactors(data.totp, preferredId)
+        setPreferredFactorId(preferredId)
+        setVerifiedFactors(sortedFactors)
+        setFactorName(sortedFactors.length === 0 ? 'เครื่องหลัก' : 'เครื่องสำรอง')
+        setStage(sortedFactors.length > 0 ? 'enabled' : 'ready')
       } catch (error) {
         if (!active) return
         setMessage(getThaiAuthError(error))
@@ -168,11 +190,37 @@ export function MfaEnrollment() {
       const removalAudit = await recordSecurityEvent('mfa_factor_unenrolled')
       if (removalAudit.error) console.error('[mfa-recovery] factor removal audit failed', { message: removalAudit.error.message })
 
+      if (factorId === preferredFactorId) {
+        const remainingFactor = verifiedFactors.find((factor) => factor.id !== factorId)
+        if (remainingFactor) {
+          const preferenceResult = await supabase.rpc('set_platform_mfa_preferred_factor', { p_factor_id: remainingFactor.id })
+          if (preferenceResult.error) throw preferenceResult.error
+        }
+      }
+
       const refreshResult = await supabase.auth.refreshSession()
       if (refreshResult.error) throw refreshResult.error
       window.location.assign('/auth/mfa?next=/platform-admin/security/mfa')
     } catch (error) {
       setMessage(getThaiAuthError(error))
+      setBusyFactorId(null)
+    }
+  }
+
+  async function setPreferredFactor(factorId: string) {
+    setBusyFactorId(factorId)
+    setMessage('')
+    setMessageTone('error')
+    try {
+      const { error } = await createClient().rpc('set_platform_mfa_preferred_factor', { p_factor_id: factorId })
+      if (error) throw error
+      setPreferredFactorId(factorId)
+      setVerifiedFactors((current) => sortFactors(current, factorId))
+      setMessageTone('success')
+      setMessage('เปลี่ยนเครื่องหลักสำเร็จ ระบบจะเลือกเครื่องนี้เป็นค่าเริ่มต้นตอน Login ครั้งถัดไป')
+    } catch (error) {
+      setMessage(getThaiAuthError(error))
+    } finally {
       setBusyFactorId(null)
     }
   }
@@ -188,19 +236,21 @@ export function MfaEnrollment() {
           <h2>Authenticator ของบัญชีนี้</h2>
           <p>เพิ่มเครื่องสำรองไว้กู้คืนบัญชีเมื่อโทรศัพท์หลักสูญหาย และเลือกใช้เครื่องใดก็ได้ตอน Login</p>
           <div className="mfa-factor-list">
-            {verifiedFactors.map((factor, index) => (
+            {verifiedFactors.map((factor, index) => {
+              const isPreferred = factor.id === preferredFactorId || (!preferredFactorId && index === 0)
+              return (
               <article className="mfa-factor-item" key={factor.id}>
                 <div>
-                  <strong>{displayFactorName(factor, index)}</strong>
+                  <div className="mfa-factor-title"><strong>{displayFactorName(factor, index)}</strong><span className={`mfa-factor-role ${isPreferred ? 'primary' : ''}`}>{isPreferred ? 'เครื่องหลัก · ลำดับ 1' : 'เครื่องสำรอง · ลำดับ 2'}</span></div>
                   <span>เพิ่มเมื่อ {displayCreatedAt(factor.created_at)} · ยืนยันแล้ว</span>
                 </div>
-                <button className="button danger" type="button" disabled={verifiedFactors.length <= 1 || busyFactorId !== null} onClick={() => {
+                <div className="mfa-factor-actions">{!isPreferred ? <button className="button secondary" type="button" disabled={busyFactorId !== null} onClick={() => void setPreferredFactor(factor.id)}>ตั้งเป็นเครื่องหลัก</button> : null}<button className="button danger" type="button" disabled={verifiedFactors.length <= 1 || busyFactorId !== null} onClick={() => {
                   setRemoveFactorId(factor.id)
                   setRemoveText('')
                   setMessage('')
-                }}>ถอดอุปกรณ์</button>
+                }}>ถอดอุปกรณ์</button></div>
               </article>
-            ))}
+            )})}
           </div>
           {verifiedFactors.length <= 1 ? <div className="mfa-security-note">ต้องเพิ่ม Authenticator สำรองก่อน จึงจะถอดเครื่องปัจจุบันได้</div> : null}
         </section>

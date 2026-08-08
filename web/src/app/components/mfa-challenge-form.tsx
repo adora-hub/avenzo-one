@@ -17,13 +17,20 @@ export function MfaChallengeForm({ nextPath }: { nextPath: string }) {
   useEffect(() => {
     let active = true
     async function loadFactors() {
-      const result = await createClient().auth.mfa.listFactors()
+      const supabase = createClient()
+      const [result, preference] = await Promise.all([
+        supabase.auth.mfa.listFactors(),
+        supabase.from('platform_mfa_preferences').select('preferred_factor_id').maybeSingle(),
+      ])
       if (!active) return
       if (result.error) setMessage(getThaiAuthError(result.error))
       else {
-        setFactors(result.data.totp)
-        setFactorId(result.data.totp[0]?.id ?? '')
-        if (result.data.totp.length === 0) setMessage('ไม่พบ Authenticator ที่ยืนยันแล้ว กรุณาติดต่อผู้ดูแลระบบ')
+        if (preference.error) console.error('[mfa-challenge] preferred factor load failed', { message: preference.error.message })
+        const preferredId = preference.data?.preferred_factor_id
+        const sortedFactors = [...result.data.totp].sort((left, right) => left.id === preferredId ? -1 : right.id === preferredId ? 1 : 0)
+        setFactors(sortedFactors)
+        setFactorId(sortedFactors[0]?.id ?? '')
+        if (sortedFactors.length === 0) setMessage('ไม่พบ Authenticator ที่ยืนยันแล้ว กรุณาติดต่อผู้ดูแลระบบ')
       }
       setLoadingFactors(false)
     }
