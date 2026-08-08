@@ -199,6 +199,10 @@ Variant มาตรฐาน:
 
 ทุกปุ่มต้องรองรับ Default, Hover, Focus-visible, Active, Loading และ Disabled
 
+- ปุ่มมาตรฐาน (`primary`, `secondary`, `outline`, `danger`) ใช้ความสูงกลาง 44 px
+- ปุ่มแบบ Compact ใช้ความสูงกลาง 38 px และใช้เฉพาะ Action ย่อย เช่น Action ในตาราง
+- การ์ดแบบฟอร์มที่อยู่ใน Grid แถวเดียวกันต้องวางปุ่มหลักที่แนวฐานเดียวกัน โดยใช้ Pattern `form-card-with-footer` เพื่อดัน Action สุดท้ายไว้ด้านล่างของการ์ด
+- ห้ามแก้ตำแหน่งปุ่มด้วย Margin เฉพาะหน้า หรือกำหนดความสูงการ์ดแบบ Hard-code
 - ขณะ Loading ให้กันการกดซ้ำและคงความกว้างของปุ่ม
 - ปุ่ม Icon-only ต้องมี Accessible Label และ Tooltip เมื่อความหมายไม่ชัด
 - ปุ่มต้องมี Feedback ทางสายตาเมื่อ Hover เช่น เปลี่ยนสีเล็กน้อย ยกตัวเล็กน้อย หรือแสดง Shadow อย่างพอดี โดยไม่ทำให้ Layout กระโดด
@@ -563,3 +567,8 @@ Design System ควรพัฒนาเท่าที่ Vertical Slice ต�
 
 - กำหนด Font กลางแบบสองภาษา: Noto Sans Thai + Inter
 - กำหนด Button Interaction กลาง: Hover, Focus-visible, Active, Disabled และ Reduced Motion
+
+### V1.2 — 8 สิงหาคม 2026
+
+- กำหนดความสูงมาตรฐานของปุ่มปกติและปุ่ม Compact
+- กำหนด Pattern `form-card-with-footer` ให้ Action หลักของการ์ดคู่กันอยู่แนวฐานเดียวกัน
