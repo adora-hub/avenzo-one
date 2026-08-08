@@ -465,7 +465,7 @@ Event ต้องมี `organization_id`, Actor, Customer, Source Entity, Corr
 | Phase 1.1.3.1 Payment Requirements | เสร็จแล้ว | กำหนดตลาดไทย/THB, PromptPay QR, บัตรและโอนธนาคารสำรอง, Manual Renewal รุ่นแรก, Refund/Reconciliation/Security และเกณฑ์ให้คะแนน Provider โดยยังไม่สมัครบริการหรือมีค่าใช้จ่าย |
 | Phase 1.1.3.2 Payment Provider Comparison | เสร็จแล้ว | เปรียบเทียบ Stripe, Omise, 2C2P และ GB Prime Pay จากข้อมูลทางการ; เลือก Stripe เป็น Sandbox Provider หลักและ Omise เป็นสำรองแบบ provisional โดยยังไม่สมัคร ไม่สร้าง Secret และไม่เสียค่าใช้จ่าย |
 | Phase 1.1.3.3 Stripe Test Checkout & Fee Snapshot | เสร็จและทดสอบ Local E2E ผ่าน | เพิ่ม Hosted Checkout สำหรับ PromptPay/บัตร, Webhook ตรวจลายเซ็นและ Idempotency, Success/Cancel Page และ UI แสดงค่าธรรมเนียมประมาณการ/ผู้รับภาระ/ยอดลูกค้าชำระ พร้อมเก็บ Fee Snapshot โดยใช้ Test Mode เท่านั้น |
-| Phase 1.1.3.4 Stripe Sandbox Acceptance & Reconciliation | Implemented / รอผู้ใช้ยืนยัน Local ก่อน Deploy | Card Success, PromptPay QR/Expired, Duplicate Webhook และ Invoice State Guard ผ่าน; เพิ่มปุ่มตรวจค่าธรรมเนียมจริง ยอดสุทธิและส่วนต่างจากประมาณการ โดยจำกัดสิทธิ์ Platform Admin + AAL2 |
+| Phase 1.1.3.4 Stripe Sandbox Acceptance & Reconciliation | เสร็จและ Deploy Production ผ่าน | Card Success, PromptPay QR/Expired, Duplicate Webhook และ Invoice State Guard ผ่าน; เพิ่มปุ่มตรวจค่าธรรมเนียมจริง ยอดสุทธิและส่วนต่างจากประมาณการ โดยจำกัดสิทธิ์ Platform Admin + AAL2; Deploy เฉพาะ `adora3/avenzo-one` |
 
 ห้ามเปิด Production หาก Phase 0.9 Production Security Gate ยังไม่ผ่าน แม้ระบบ Development จะใช้งานได้ครบตาม Acceptance Criteria แล้ว และต้องตรวจร่างประกาศความเป็นส่วนตัว/ข้อกำหนดการใช้งานโดยผู้เชี่ยวชาญด้านกฎหมายและ PDPA ก่อนเผยแพร่
 

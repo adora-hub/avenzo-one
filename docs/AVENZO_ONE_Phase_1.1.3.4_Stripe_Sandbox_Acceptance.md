@@ -4,7 +4,7 @@
 
 ## สถานะ
 
-Implemented / Local automated acceptance ผ่าน และรอผู้ใช้ยืนยันหน้าจอ Local ก่อน Deploy
+เสร็จและทดสอบ Local/Production ผ่าน; Deploy ไปยัง `adora3/avenzo-one` แล้วด้วย Commit `3f4d580`
 
 ## เป้าหมาย
 
@@ -59,7 +59,7 @@ Invoice ทดสอบ: `INV-202608-000058` ยอด `1,605.00 THB`
 ## ข้อจำกัดที่ยังต้องทดสอบด้วยผู้ใช้
 
 - การสแกน PromptPay QR จนสำเร็จด้วยมือถือใน Stripe Test Mode
-- การติดตั้ง Test Secret/Webhook Secret บน Vercel Preview/Production จะทำหลัง Local ผ่านและผู้ใช้อนุมัติ Deploy
+- Vercel Production ใช้ Stripe Test Mode สำหรับ Acceptance เท่านั้น และ Webhook ปฏิเสธคำขอที่ไม่มีลายเซ็นด้วย HTTP 400
 - Production Onboarding, Live Key, Refund จริง และการตัดเงินจริงยังไม่อยู่ใน Phase นี้
 
 ## แผนถัดไป
