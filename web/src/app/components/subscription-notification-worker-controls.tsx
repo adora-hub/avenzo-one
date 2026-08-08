@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/browser'
 
 type WorkerResult = {
+  runId: string | null
   mode: 'preview' | 'live'
   generated: number
   due: number

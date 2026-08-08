@@ -18,7 +18,7 @@ export async function POST() {
   }
 
   try {
-    return NextResponse.json(await processSubscriptionNotifications())
+    return NextResponse.json(await processSubscriptionNotifications('manual'))
   } catch (error) {
     const message = error instanceof Error ? error.message : 'worker_failed'
     return NextResponse.json({ error: message }, { status: 500 })

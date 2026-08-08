@@ -7,6 +7,43 @@ import { createClient } from '@/lib/supabase/server'
 
 const PAGE_SIZE = 10
 
+type HealthAlert = {
+  code: string
+  severity: 'warning' | 'critical'
+  title: string
+  detail: string
+}
+
+type NotificationHealth = {
+  checked_at: string
+  overall_status: 'healthy' | 'warning' | 'critical'
+  alerts: HealthAlert[]
+  cron: {
+    active: boolean
+    schedule: string | null
+    runs_24h: number
+    failed_runs_24h: number
+    last_run: null | {
+      status: 'running' | 'succeeded' | 'failed'
+      delivery_mode: 'preview' | 'live'
+      started_at: string
+      finished_at: string | null
+      duration_ms: number | null
+      sent: number
+      failed: number
+      error_code: string | null
+    }
+  }
+  queue: { pending: number; due: number; processing: number; stuck: number; failed: number; exhausted: number; sent: number }
+  email_24h: { attempts: number; accepted_by_resend: number; retrying: number; failed: number; delivered: number; bounced: number; complained: number; suppressed: number; waiting_webhook: number; webhook_failed: number }
+}
+
+const healthLabels = {
+  healthy: 'ระบบปกติ',
+  warning: 'ควรตรวจสอบ',
+  critical: 'ต้องดำเนินการ',
+}
+
 const queueStatusLabels: Record<string, string> = {
   pending: 'รอถึงเวลาส่ง',
   processing: 'กำลังส่ง',
@@ -69,7 +106,8 @@ export default async function SubscriptionNotificationsPage({ searchParams }: {
   if (platformAdminResult.data?.status !== 'active') redirect('/dashboard')
   if (assuranceResult.data?.currentLevel !== 'aal2') redirect('/auth/mfa?next=/platform-admin/subscription-notifications')
 
-  const [rulesResult, queueResult, organizationsResult, deliveriesResult, webhookEventsResult, suppressionsResult] = await Promise.all([
+  const [healthResult, rulesResult, queueResult, organizationsResult, deliveriesResult, webhookEventsResult, suppressionsResult] = await Promise.all([
+    supabase.rpc('platform_subscription_notification_health'),
     supabase.from('subscription_notification_rules').select('id, name_th, timing_anchor, offset_minutes, is_enabled').order('timing_anchor').order('offset_minutes'),
     supabase.from('subscription_notification_queue').select('id, rule_id, organization_id, subscription_id, recipient_user_id, scheduled_for, next_attempt_at, status, attempt_count, max_attempts, provider_message_id, last_error, created_at', { count: 'exact' }).order('scheduled_for', { ascending: true }).range(from, from + PAGE_SIZE - 1),
     supabase.from('organizations').select('id, name, timezone'),
@@ -78,6 +116,7 @@ export default async function SubscriptionNotificationsPage({ searchParams }: {
     supabase.from('subscription_notification_suppressions').select('recipient_user_id, reason, provider_message_id, active, created_at, updated_at').eq('active', true).order('updated_at', { ascending: false }).limit(20),
   ])
 
+  const health = healthResult.data as NotificationHealth | null
   const rules = (rulesResult.data ?? []) as SubscriptionNotificationRule[]
   const queue = queueResult.data ?? []
   const deliveries = deliveriesResult.data ?? []
@@ -90,7 +129,7 @@ export default async function SubscriptionNotificationsPage({ searchParams }: {
   const currentPage = Math.min(requestedPage, totalPages)
   if (requestedPage !== currentPage) redirect(pageHref(currentPage))
   const pageNumbers = Array.from(new Set([1, totalPages, currentPage - 1, currentPage, currentPage + 1].filter((page) => page >= 1 && page <= totalPages))).sort((a, b) => a - b)
-  const firstError = [rulesResult, queueResult, organizationsResult, deliveriesResult, webhookEventsResult, suppressionsResult].find((result) => result.error)?.error
+  const firstError = [healthResult, rulesResult, queueResult, organizationsResult, deliveriesResult, webhookEventsResult, suppressionsResult].find((result) => result.error)?.error
   const deliveryMode = process.env.SUBSCRIPTION_NOTIFICATION_DELIVERY_MODE === 'live' ? 'live' : 'preview'
 
   return <main className="dashboard">
@@ -100,10 +139,42 @@ export default async function SubscriptionNotificationsPage({ searchParams }: {
     </header>
     <section className="content notification-content">
       <div className="hero">
-        <div><div className="eyebrow">Phase 1.0.5.3</div><h1>แจ้งเตือน Subscription</h1><p>ตั้งกฎ ตรวจคิว และติดตามผลการส่งจริงจาก Resend แบบป้องกันรายการซ้ำ</p></div>
+        <div><div className="eyebrow">Phase 1.0.6</div><h1>แจ้งเตือน Subscription</h1><p>ตรวจสุขภาพ Cron, Queue และผลการส่งจาก Resend พร้อมแจ้งเหตุที่ต้องดำเนินการ</p></div>
         <Link className="button secondary" href="/platform-admin">กลับ Platform Admin</Link>
       </div>
       {firstError ? <div className="error">ไม่สามารถอ่านข้อมูลแจ้งเตือนได้: {firstError.message}</div> : <>
+        {health ? <section className={`monitor-card monitor-${health.overall_status}`} aria-live="polite">
+          <div className="monitor-heading">
+            <div><div className="eyebrow">PRODUCTION HEALTH</div><h2>สุขภาพระบบแจ้งเตือน</h2><p>ตรวจล่าสุด {formatDate(health.checked_at)} · ไม่แสดงอีเมลผู้รับหรือ Secret</p></div>
+            <span className={`monitor-overall ${health.overall_status}`}>{healthLabels[health.overall_status]}</span>
+          </div>
+          <div className="monitor-metric-grid">
+            <article className="monitor-metric">
+              <span>Cron รายชั่วโมง</span><strong>{health.cron.active ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}</strong>
+              <small>{health.cron.last_run ? `รอบล่าสุด ${formatDate(health.cron.last_run.started_at)}` : 'รอหลักฐานจาก Worker หลัง Deploy'}</small>
+              <small>สำเร็จ {Math.max(0, health.cron.runs_24h - health.cron.failed_runs_24h)} · ล้มเหลว {health.cron.failed_runs_24h} รอบใน 24 ชม.</small>
+            </article>
+            <article className="monitor-metric">
+              <span>คิวแจ้งเตือน</span><strong>{health.queue.due} รายการถึงกำหนด</strong>
+              <small>รอทั้งหมด {health.queue.pending} · กำลังส่ง {health.queue.processing}</small>
+              <small>ค้าง {health.queue.stuck} · ลองครบแล้ว {health.queue.exhausted}</small>
+            </article>
+            <article className="monitor-metric">
+              <span>อีเมล 24 ชั่วโมง</span><strong>Resend รับแล้ว {health.email_24h.accepted_by_resend}</strong>
+              <small>ยืนยันส่งถึงแล้ว {health.email_24h.delivered} · ล้มเหลว {health.email_24h.failed}</small>
+              <small>รอ Webhook {health.email_24h.waiting_webhook} · ตีกลับ {health.email_24h.bounced}</small>
+            </article>
+          </div>
+          <div className="monitor-alerts">
+            {health.alerts.length ? health.alerts.map((alert) => <div className={`monitor-alert ${alert.severity}`} key={alert.code}>
+              <span className="monitor-alert-icon" aria-hidden="true">!</span>
+              <div><strong>{alert.title}</strong><p>{alert.detail}</p></div>
+            </div>) : <div className="monitor-alert healthy">
+              <span className="monitor-alert-icon" aria-hidden="true">✓</span>
+              <div><strong>ไม่พบเหตุผิดปกติ</strong><p>Cron, Queue และการส่งอีเมลอยู่ในเกณฑ์ปกติ</p></div>
+            </div>}
+          </div>
+        </section> : null}
         <section className="card"><SubscriptionNotificationControls rules={rules} /></section>
         <section className="card"><SubscriptionNotificationWorkerControls deliveryMode={deliveryMode} /></section>
         <section className="subscription-management-section">

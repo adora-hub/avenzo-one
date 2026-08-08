@@ -25,6 +25,8 @@ type ResendWebhookEvent = {
   }
 }
 export async function POST(request: Request) {
+  const startedAt = Date.now()
+  const requestId = request.headers.get('x-vercel-id')
   const secret = process.env.RESEND_WEBHOOK_SECRET
   if (!secret) return NextResponse.json({ error: 'webhook_not_configured' }, { status: 503 })
 
@@ -73,9 +75,10 @@ export async function POST(request: Request) {
     p_payload_summary: payloadSummary,
   })
   if (error) {
-    console.error('resend_webhook_processing_failed', error.code)
+    console.error(JSON.stringify({ level: 'error', message: 'resend_webhook_processing_failed', route: '/api/webhooks/resend', requestId, code: error.code, durationMs: Date.now() - startedAt }))
     return NextResponse.json({ error: 'webhook_processing_failed' }, { status: 500 })
   }
 
+  console.log(JSON.stringify({ level: 'info', message: 'resend_webhook_processed', route: '/api/webhooks/resend', requestId, eventType: event.type, durationMs: Date.now() - startedAt }))
   return NextResponse.json({ received: true, result: data })
 }
