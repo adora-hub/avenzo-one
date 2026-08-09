@@ -72,6 +72,37 @@ export type BillingLiveRolloutEvaluation = {
   requested_amount: number
 }
 
+export type BillingLiveActivationStatus = 'pending' | 'approved' | 'rejected' | 'canceled' | 'expired'
+
+export type BillingLiveActivationRequest = {
+  id: string
+  provider: 'stripe'
+  status: BillingLiveActivationStatus
+  policy_version: number
+  max_amount_per_charge: number
+  max_total_amount: number
+  max_successful_charges: number
+  tester_count: number
+  request_reason: string
+  requested_by: string
+  requested_by_email: string
+  requested_at: string
+  expires_at: string
+  reviewed_by: string | null
+  reviewed_by_email: string | null
+  review_reason: string | null
+  reviewed_at: string | null
+}
+
+export type BillingLiveActivationEvent = {
+  id: string
+  request_id: string
+  action: 'request' | 'approve' | 'reject' | 'cancel' | 'expire'
+  reason: string
+  actor_email: string
+  created_at: string
+}
+
 export type BillingLiveWebhookInboxEvent = {
   id: string
   provider_event_id: string

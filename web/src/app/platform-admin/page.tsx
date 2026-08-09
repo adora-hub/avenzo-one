@@ -101,7 +101,7 @@ export default async function PlatformAdminPage({ searchParams }: {
       <section className="content platform-subscription-content">
         <div className="hero">
           <div><div className="eyebrow">Control Plane</div><h1>จัดการ Subscription</h1><p>ตรวจสอบสิทธิ์ ต่ออายุ พัก เปิดต่อ หรือยกเลิก พร้อมประวัติภาษาไทย</p></div>
-          <div className="platform-admin-actions"><Link className="button secondary" href="/platform-admin/features">Feature Catalog</Link><Link className="button secondary" href="/platform-admin/plans">Plans &amp; Prices</Link><Link className="button secondary" href="/platform-admin/billing">Billing &amp; Invoice</Link><Link className="button secondary" href="/platform-admin/subscription-notifications">แจ้งเตือน Subscription</Link><Link className="button secondary" href="/platform-admin/security/mfa">ตั้งค่า MFA</Link></div>
+          <div className="platform-admin-actions"><Link className="button secondary" href="/platform-admin/access">จัดการ Platform Admin</Link><Link className="button secondary" href="/platform-admin/features">Feature Catalog</Link><Link className="button secondary" href="/platform-admin/plans">Plans &amp; Prices</Link><Link className="button secondary" href="/platform-admin/billing">Billing &amp; Invoice</Link><Link className="button secondary" href="/platform-admin/subscription-notifications">แจ้งเตือน Subscription</Link><Link className="button secondary" href="/platform-admin/security/mfa">ตั้งค่า MFA</Link></div>
         </div>
 
         <section className="subscription-management-section">
