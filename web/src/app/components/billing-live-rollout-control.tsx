@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { BillingLiveRolloutEvaluation, BillingLiveRolloutPolicy, BillingLiveTester } from '@/lib/billing/live-safety'
 import { createClient } from '@/lib/supabase/browser'
@@ -39,6 +39,20 @@ export function BillingLiveRolloutControl({
   const [reviewAction, setReviewAction] = useState<ReviewAction>(null)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
+  const feedbackRef = useRef<HTMLDivElement>(null)
+  const reviewRef = useRef<HTMLElement>(null)
+
+  useEffect(() => {
+    const target = reviewAction ? reviewRef.current : message ? feedbackRef.current : null
+    if (!target) return
+
+    const frame = window.requestAnimationFrame(() => {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      target.focus({ preventScroll: true })
+    })
+
+    return () => window.cancelAnimationFrame(frame)
+  }, [message, reviewAction])
 
   function reasonValid(value: string) {
     return value.trim().length >= 10
@@ -146,7 +160,7 @@ export function BillingLiveRolloutControl({
       <button className="button" type="button" onClick={() => prepare('policy')}>ตรวจสอบก่อนบันทึกขีดจำกัด</button>
     </section>
 
-    <section className="readiness-review-card">
+    <section className="readiness-review-card" id="live-rollout-testers">
       <div className="feature-list-heading"><div><div className="eyebrow">Tester Allowlist</div><h2>ผู้ทดสอบที่ได้รับอนุญาต</h2><p>อีเมลต้องอยู่ในรายการนี้ก่อนจึงจะผ่านกติกาผู้ทดสอบ</p></div><span className="feature-count">{testers.filter((tester) => tester.active).length} คนใช้งาน</span></div>
       <div className="live-rollout-tester-form">
         <label className="readiness-note">อีเมลผู้ทดสอบ<input type="email" value={testerEmail} onChange={(event) => setTesterEmail(event.target.value)} placeholder="tester@example.com" /></label>
@@ -181,10 +195,10 @@ export function BillingLiveRolloutControl({
       <button className="button danger" type="button" onClick={() => prepare('rollback')}>ตรวจสอบก่อนสั่งย้อนกลับ</button>
     </section>
 
-    {message ? <div className={message.includes('แล้ว') || message.includes('ไม่มีการ') ? 'success live-rollout-message' : 'error live-rollout-message'} role="status">{message}</div> : null}
+    {message ? <div className={message.includes('แล้ว') || message.includes('ไม่มีการ') ? 'success live-rollout-message' : 'error live-rollout-message'} ref={feedbackRef} role="status" tabIndex={-1}>{message}</div> : null}
 
-    {reviewAction ? <section className="subscription-confirmation live-rollout-confirmation">
-      <div className="subscription-confirmation-heading"><div><span className="eyebrow">ตรวจสอบครั้งสุดท้าย</span><h3>{reviewTitle}</h3></div><span className="status pending">ยังไม่บันทึก</span></div>
+    {reviewAction ? <section aria-labelledby="live-rollout-review-title" className="subscription-confirmation live-rollout-confirmation" ref={reviewRef} tabIndex={-1}>
+      <div className="subscription-confirmation-heading"><div><span className="eyebrow">ตรวจสอบครั้งสุดท้าย</span><h3 id="live-rollout-review-title">{reviewTitle}</h3></div><span className="status pending">ยังไม่บันทึก</span></div>
       <div className="readiness-preview-note"><strong>ผลด้านความปลอดภัย</strong><span>ยังคงไม่เปิดรับเงินจริง และทุกคำสั่งจะถูกบันทึก Audit Log</span></div>
       <div className="readiness-preview-note"><strong>เหตุผล</strong><span>{reviewAction === 'policy' ? policyReason.trim() : reviewAction === 'tester' ? testerReason.trim() : rollbackReason.trim()}</span></div>
       <div className="button-row"><button className="button secondary" type="button" disabled={loading} onClick={() => setReviewAction(null)}>ย้อนกลับแก้ไข</button><button className={`button ${reviewAction === 'rollback' ? 'danger' : ''}`} type="button" disabled={loading} onClick={confirmReview}>{loading ? 'กำลังบันทึก…' : reviewTitle}</button></div>

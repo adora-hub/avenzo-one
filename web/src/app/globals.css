@@ -563,6 +563,12 @@ input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft
 .live-rollout-message { margin-top: 22px; }
 .live-rollout-confirmation { margin-top: 22px; }
 .live-approval-card { display: grid; gap: 18px; }
+.live-approval-prerequisites { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: #fbfcff; }
+.live-approval-prerequisites .feature-list-heading { margin-bottom: 0; }
+.live-approval-prerequisites a { color: var(--primary); font-size: 13px; font-weight: 700; text-decoration: none; }
+.live-approval-prerequisites a:hover { color: var(--brand-hover); text-decoration: underline; }
+.live-approval-verification { display: grid; gap: 14px; padding: 18px; border: 1px solid #cad4f7; border-radius: 14px; background: #f6f8ff; }
+.live-approval-verification .feature-list-heading { margin-bottom: 0; }
 .live-approval-state { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 .live-approval-state > div { display: grid; gap: 5px; padding: 14px 15px; border: 1px solid var(--line); border-radius: 12px; background: #fbfcff; }
 .live-approval-state span, .live-approval-snapshot span { color: var(--muted); font-size: 12px; }

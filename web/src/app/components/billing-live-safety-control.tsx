@@ -74,7 +74,7 @@ export function BillingLiveSafetyControl({
     }
   }
 
-  return <section className="live-safety-control-card">
+  return <section className="live-safety-control-card" id="live-safety-control">
     <div className="feature-list-heading"><div><div className="eyebrow">คำสั่งความปลอดภัย</div><h2>ควบคุมขั้นเตรียม Live</h2><p>ทุกตัวเลือกใน Phase นี้ยังคง Emergency Stop และไม่เปิดรับเงินจริง</p></div><span className="status pending">ล็อกอยู่</span></div>
     {!preview ? <>
       <label className="readiness-note">รายการที่ต้องการทำ

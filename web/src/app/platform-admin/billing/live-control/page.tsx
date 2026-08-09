@@ -50,7 +50,7 @@ export default async function BillingLiveControlPage() {
   if (adminResult.data?.status !== 'active') redirect('/dashboard')
   if (assuranceResult.data?.currentLevel !== 'aal2') redirect('/auth/mfa?next=/platform-admin/billing/live-control')
 
-  const [controlResult, eventsResult, readinessResult, liveWebhookResult, policyResult, testersResult, rolloutEventsResult, approvalRequestsResult, approvalEventsResult] = await Promise.all([
+  const [controlResult, eventsResult, readinessResult, liveWebhookResult, policyResult, testersResult, rolloutEventsResult, approvalRequestsResult, approvalEventsResult, adminCountResult] = await Promise.all([
     supabase.from('billing_live_safety_controls').select('provider, state, emergency_stop, reason, version, updated_by_email, updated_at').eq('provider', 'stripe').maybeSingle(),
     supabase.from('billing_live_safety_events').select('id, action, previous_state, next_state, reason, actor_email, created_at').order('created_at', { ascending: false }).limit(10),
     supabase.from('billing_production_readiness_reviews').select('manual_status').order('created_at', { ascending: false }).limit(1).maybeSingle(),
@@ -60,8 +60,9 @@ export default async function BillingLiveControlPage() {
     supabase.from('billing_live_rollout_events').select('id, action, tester_email, requested_amount, allowed, reason, actor_email, created_at').order('created_at', { ascending: false }).limit(10),
     supabase.from('billing_live_activation_requests').select('id, provider, status, policy_version, max_amount_per_charge, max_total_amount, max_successful_charges, tester_count, request_reason, requested_by, requested_by_email, requested_at, expires_at, reviewed_by, reviewed_by_email, review_reason, reviewed_at').order('requested_at', { ascending: false }).limit(10),
     supabase.from('billing_live_activation_events').select('id, request_id, action, reason, actor_email, created_at').order('created_at', { ascending: false }).limit(10),
+    supabase.rpc('platform_admin_directory'),
   ])
-  const firstError = [controlResult, eventsResult, readinessResult, liveWebhookResult, policyResult, testersResult, rolloutEventsResult, approvalRequestsResult, approvalEventsResult].find((result) => result.error)?.error
+  const firstError = [controlResult, eventsResult, readinessResult, liveWebhookResult, policyResult, testersResult, rolloutEventsResult, approvalRequestsResult, approvalEventsResult, adminCountResult].find((result) => result.error)?.error
   const control = controlResult.data as LiveControl | null
   const events = (eventsResult.data ?? []) as BillingLiveSafetyEvent[]
   const environment = inspectLiveSafetyEnvironment()
@@ -71,6 +72,7 @@ export default async function BillingLiveControlPage() {
   const rolloutEvents = (rolloutEventsResult.data ?? []) as BillingLiveRolloutEvent[]
   const approvalRequests = (approvalRequestsResult.data ?? []) as BillingLiveActivationRequest[]
   const approvalEvents = (approvalEventsResult.data ?? []) as BillingLiveActivationEvent[]
+  const activeAdminCount = (adminCountResult.data ?? []).filter((admin: { status: string }) => admin.status === 'active').length
   const latestApprovedRequest = approvalRequests.find((request) => request.status === 'approved') ?? null
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
   const liveWebhookUrl = `${appUrl.replace(/\/$/, '')}/api/billing/stripe/live-webhook`
@@ -106,7 +108,18 @@ export default async function BillingLiveControlPage() {
         </section>
         <BillingLiveSafetyControl currentState={control.state} canMarkReviewReady={canMarkReviewReady} />
         {rolloutPolicy ? <BillingLiveRolloutControl policy={rolloutPolicy} testers={testers} /> : <div className="error">ไม่พบขีดจำกัดการทดลองรับเงินจริง</div>}
-        <BillingLiveApprovalControl currentUserId={user.id} requests={approvalRequests} serverNow={new Date().toISOString()} />
+        <BillingLiveApprovalControl
+          currentUserId={user.id}
+          requests={approvalRequests}
+          serverNow={new Date().toISOString()}
+          productionReadinessComplete={canMarkReviewReady}
+          reviewReady={control.state === 'review_ready'}
+          activeTesterCount={testers.filter((tester) => tester.active).length}
+          activeAdminCount={activeAdminCount}
+          events={approvalEvents}
+          pilotEnabled={rolloutPolicy?.pilot_enabled ?? false}
+          emergencyStop={control.emergency_stop}
+        />
         {rolloutPolicy ? <BillingControlledLiveCheckoutPreview
           control={control}
           policy={rolloutPolicy}
