@@ -469,6 +469,7 @@ Event ต้องมี `organization_id`, Actor, Customer, Source Entity, Corr
 | Phase 1.1.3.5.1 Payment Exception Queue | เสร็จและ Deploy Production ผ่าน | เพิ่มคิว Read-only สำหรับ Webhook ล้มเหลว, Invoice ไม่ตรงกับ Payment, รอกระทบยอด, ชำระล้มเหลว/หมดเวลา/ยกเลิก และ Pending เกิน 30 นาที; ตรวจ 100 Attempt ล่าสุด แสดง 10 รายการ และซ่อน Attempt เก่าที่ Invoice ชำระสำเร็จแล้ว |
 | Phase 1.1.3.5.2 Retry & Reconciliation Actions | เสร็จและ Deploy Production ผ่าน | เพิ่มคำสั่งตรวจค่าธรรมเนียม, ตรวจ/ซ่อมสถานะ Provider และสร้าง Checkout ใหม่ พร้อม Preview, เหตุผล, AAL2, Command Idempotency, Server-only Stripe Test Mode และ Audit Trail |
 | Phase 1.1.3.5.3 Exception Operations Hardening | เสร็จและ Deploy Production ผ่าน | เพิ่มกำหนดเวลาตรวจสอบตามชนิดปัญหา, การเตือนรายการเกินกำหนด, ตัวกรองคิว, ค้นหา/กรอง/แบ่งหน้าประวัติคำสั่ง และ Production Runbook โดยยังคง Stripe Test Mode เท่านั้น; Deploy เฉพาะ `adora3/avenzo-one` |
+| Phase 1.1.3.6 Billing Production Readiness Gate | เสร็จและทดสอบ Local ผ่าน | เพิ่มหน้าตรวจความพร้อมอัตโนมัติและ Checklist 9 ข้อพร้อมหลักฐาน, บันทึกผลแบบ Immutable Audit ด้วย Platform Admin + AAL2 และแสดง Go/No-Go โดยยังล็อก Stripe Test Mode และไม่เปิดรับเงินจริง |
 
 ห้ามเปิด Production หาก Phase 0.9 Production Security Gate ยังไม่ผ่าน แม้ระบบ Development จะใช้งานได้ครบตาม Acceptance Criteria แล้ว และต้องตรวจร่างประกาศความเป็นส่วนตัว/ข้อกำหนดการใช้งานโดยผู้เชี่ยวชาญด้านกฎหมายและ PDPA ก่อนเผยแพร่
 
