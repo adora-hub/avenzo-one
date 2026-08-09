@@ -15,6 +15,7 @@ coverage/
 .idea/
 *.log
 .git.empty-backup/
+.vercel/
 
 # OS files
 Thumbs.db
