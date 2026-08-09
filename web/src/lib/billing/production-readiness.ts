@@ -25,6 +25,8 @@ export function inspectBillingProductionEnvironment(env: NodeJS.ProcessEnv = pro
       ? 'live'
       : 'missing'
   const liveActivationLocked = env.STRIPE_LIVE_ACTIVATION !== 'enabled'
+  const liveSecretConfigured = Boolean(env.STRIPE_LIVE_SECRET_KEY?.startsWith('sk_live_'))
+  const liveWebhookConfigured = Boolean(env.STRIPE_LIVE_WEBHOOK_SECRET?.startsWith('whsec_'))
 
   return {
     keyMode,
@@ -61,6 +63,22 @@ export function inspectBillingProductionEnvironment(env: NodeJS.ProcessEnv = pro
           ? 'STRIPE_LIVE_ACTIVATION ยังไม่ถูกเปิด ระบบจึงอยู่ในสถานะปลอดภัย'
           : 'พบคำสั่งเปิด Live Activation ก่อนผ่าน Gate ให้ปิดทันที',
         passed: liveActivationLocked,
+      },
+      {
+        id: 'live_credentials_separated',
+        label: 'แยก Live Secret ออกจาก Test แล้ว',
+        detail: liveSecretConfigured
+          ? 'พบ STRIPE_LIVE_SECRET_KEY ฝั่ง Server แยกจาก Test Key โดยไม่แสดงค่าจริง'
+          : 'ยังไม่พบ STRIPE_LIVE_SECRET_KEY; ระบบยังปลอดภัยแต่ยังไม่พร้อมทดสอบ Live Webhook',
+        passed: liveSecretConfigured,
+      },
+      {
+        id: 'live_webhook_secret_separated',
+        label: 'แยก Live Webhook Signing Secret แล้ว',
+        detail: liveWebhookConfigured
+          ? 'พบ STRIPE_LIVE_WEBHOOK_SECRET ฝั่ง Server แยกจาก Test Webhook'
+          : 'ยังไม่พบ STRIPE_LIVE_WEBHOOK_SECRET; ห้ามเชื่อม Live Endpoint ที่ Stripe',
+        passed: liveWebhookConfigured,
       },
     ] satisfies ReadinessCheck[],
   }

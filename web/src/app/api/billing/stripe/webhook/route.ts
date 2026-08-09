@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import { NextResponse } from 'next/server'
 import type Stripe from 'stripe'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getStripeTestClient, getStripeWebhookSecret } from '@/lib/stripe/server'
+import { getStripeTestClient, getStripeTestWebhookSecret } from '@/lib/stripe/server'
 import { retrieveStripeActualFee } from '@/lib/stripe/reconciliation'
 
 export const runtime = 'nodejs'
@@ -22,7 +22,7 @@ export async function POST(request: Request) {
 
   let event: Stripe.Event
   try {
-    event = getStripeTestClient().webhooks.constructEvent(rawBody, signature, getStripeWebhookSecret())
+    event = getStripeTestClient().webhooks.constructEvent(rawBody, signature, getStripeTestWebhookSecret())
   } catch {
     return NextResponse.json({ error: 'invalid_stripe_signature' }, { status: 400 })
   }
