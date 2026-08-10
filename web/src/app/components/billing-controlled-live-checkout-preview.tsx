@@ -1,5 +1,6 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import type {
   BillingLiveActivationRequest,
@@ -40,6 +41,7 @@ export function BillingControlledLiveCheckoutPreview({
   serverNow,
   dryRuns = [],
 }: Props) {
+  const router = useRouter()
   const activeTesters = testers.filter((tester) => tester.active)
   const [testerEmail, setTesterEmail] = useState(activeTesters[0]?.email ?? '')
   const [amount, setAmount] = useState('')
@@ -98,6 +100,7 @@ export function BillingControlledLiveCheckoutPreview({
       if (!response.ok || !payload.dryRun) throw new Error(payload.error ?? 'live_checkout_dry_run_failed')
       setServerResult(payload.dryRun)
       setReviewed(true)
+      router.refresh()
     } catch (error) {
       setRequestError(error instanceof Error ? error.message : 'live_checkout_dry_run_failed')
     } finally {
@@ -105,7 +108,7 @@ export function BillingControlledLiveCheckoutPreview({
     }
   }
 
-  return <section className="readiness-review-card controlled-checkout-card">
+  return <section id="controlled-live-checkout" className="readiness-review-card controlled-checkout-card">
     <div className="feature-list-heading">
       <div>
         <div className="eyebrow">Phase 1.1.3.7.5.1 · Controlled Live Checkout UI</div>

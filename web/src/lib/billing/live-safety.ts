@@ -107,6 +107,9 @@ export type BillingLiveWebhookInboxEvent = {
   id: string
   provider_event_id: string
   event_type: string
+  environment: 'production'
+  payload_sha256: string
+  livemode: true
   processing_status: 'blocked_by_emergency_stop'
   provider_created_at: string
   received_at: string
@@ -145,6 +148,29 @@ export type BillingLiveCheckoutDryRun = {
   created_at: string
 }
 
+export type BillingLiveShadowCommand = {
+  id: string
+  command_id: string
+  source_dry_run_id: string
+  provider: 'stripe'
+  executor_mode: 'shadow'
+  status: 'reserved' | 'blocked'
+  idempotency_key: string
+  tester_email: string
+  requested_amount: number
+  reference: string
+  reason: string
+  policy_version: number
+  approval_request_id: string | null
+  checks: Record<string, boolean>
+  stage_snapshot: Array<{ order: number; key: string; label: string; status: 'verified' | 'reserved' | 'simulated' | 'blocked' }>
+  real_charge: false
+  stripe_api_called: false
+  checkout_session_id: null
+  actor_email: string
+  created_at: string
+}
+
 export function inspectLiveSafetyEnvironment(env: NodeJS.ProcessEnv = process.env) {
   const testSecretConfigured = Boolean(env.STRIPE_SECRET_KEY?.startsWith('sk_test_'))
   const testWebhookConfigured = Boolean(env.STRIPE_WEBHOOK_SECRET?.startsWith('whsec_'))
@@ -159,7 +185,7 @@ export function inspectLiveSafetyEnvironment(env: NodeJS.ProcessEnv = process.en
     liveWebhookConfigured,
     environmentLocked,
     codeTestOnly: true,
-    acceptsRealMoney: false,
+    acceptsRealMoney: false as const,
     liveWebhookMode: 'verify_and_quarantine' as const,
   }
 }

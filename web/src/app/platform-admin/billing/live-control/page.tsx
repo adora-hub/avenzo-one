@@ -3,11 +3,16 @@ import { redirect } from 'next/navigation'
 import { BillingLiveApprovalControl } from '@/app/components/billing-live-approval-control'
 import { BillingControlledLiveCheckoutPreview } from '@/app/components/billing-controlled-live-checkout-preview'
 import { BillingLiveEligibilityContractTests } from '@/app/components/billing-live-eligibility-contract-tests'
+import { BillingLiveExecutorDesign } from '@/app/components/billing-live-executor-design'
 import { BillingLiveReleaseGate } from '@/app/components/billing-live-release-gate'
 import { BillingLiveSafetyControl } from '@/app/components/billing-live-safety-control'
 import { BillingLiveRolloutControl } from '@/app/components/billing-live-rollout-control'
+import { BillingLiveShadowExecutor } from '@/app/components/billing-live-shadow-executor'
+import { BillingLiveWebhookConnectivityEvidence } from '@/app/components/billing-live-webhook-connectivity-evidence'
+import { LiveControlCardSearch } from '@/app/components/live-control-card-search'
 import { SignOutButton } from '@/app/components/sign-out-button'
-import { inspectLiveSafetyEnvironment, type BillingLiveActivationEvent, type BillingLiveActivationRequest, type BillingLiveCheckoutDryRun, type BillingLiveRolloutEvent, type BillingLiveRolloutPolicy, type BillingLiveSafetyControl as LiveControl, type BillingLiveSafetyEvent, type BillingLiveTester, type BillingLiveWebhookInboxEvent } from '@/lib/billing/live-safety'
+import { buildLiveWebhookConnectivityEvidence } from '@/lib/billing/live-webhook-connectivity-evidence'
+import { inspectLiveSafetyEnvironment, type BillingLiveActivationEvent, type BillingLiveActivationRequest, type BillingLiveCheckoutDryRun, type BillingLiveRolloutEvent, type BillingLiveRolloutPolicy, type BillingLiveSafetyControl as LiveControl, type BillingLiveSafetyEvent, type BillingLiveShadowCommand, type BillingLiveTester, type BillingLiveWebhookInboxEvent } from '@/lib/billing/live-safety'
 import { createClient } from '@/lib/supabase/server'
 
 function dateTime(value: string) {
@@ -52,11 +57,11 @@ export default async function BillingLiveControlPage() {
   if (adminResult.data?.status !== 'active') redirect('/dashboard')
   if (assuranceResult.data?.currentLevel !== 'aal2') redirect('/auth/mfa?next=/platform-admin/billing/live-control')
 
-  const [controlResult, eventsResult, readinessResult, liveWebhookResult, policyResult, testersResult, rolloutEventsResult, approvalRequestsResult, approvalEventsResult, adminCountResult, dryRunsResult] = await Promise.all([
+  const [controlResult, eventsResult, readinessResult, liveWebhookResult, policyResult, testersResult, rolloutEventsResult, approvalRequestsResult, approvalEventsResult, adminCountResult, dryRunsResult, shadowCommandsResult] = await Promise.all([
     supabase.from('billing_live_safety_controls').select('provider, state, emergency_stop, reason, version, updated_by_email, updated_at').eq('provider', 'stripe').maybeSingle(),
     supabase.from('billing_live_safety_events').select('id, action, previous_state, next_state, reason, actor_email, created_at').order('created_at', { ascending: false }).limit(10),
     supabase.from('billing_production_readiness_reviews').select('manual_status').order('created_at', { ascending: false }).limit(1).maybeSingle(),
-    supabase.from('billing_live_webhook_inbox').select('id, provider_event_id, event_type, processing_status, provider_created_at, received_at').order('received_at', { ascending: false }).limit(10),
+    supabase.from('billing_live_webhook_inbox').select('id, provider_event_id, event_type, environment, payload_sha256, livemode, processing_status, provider_created_at, received_at').order('received_at', { ascending: false }).limit(10),
     supabase.from('billing_live_rollout_policies').select('provider, pilot_enabled, max_amount_per_charge, max_total_amount, max_successful_charges, reason, version, updated_by_email, updated_at').eq('provider', 'stripe').maybeSingle(),
     supabase.from('billing_live_testers').select('id, email, active, reason, updated_by_email, updated_at').order('active', { ascending: false }).order('updated_at', { ascending: false }).limit(50),
     supabase.from('billing_live_rollout_events').select('id, action, tester_email, requested_amount, allowed, reason, actor_email, created_at').order('created_at', { ascending: false }).limit(10),
@@ -64,8 +69,9 @@ export default async function BillingLiveControlPage() {
     supabase.from('billing_live_activation_events').select('id, request_id, action, reason, actor_email, created_at').order('created_at', { ascending: false }).limit(10),
     supabase.rpc('platform_admin_directory'),
     supabase.from('billing_live_checkout_dry_runs').select('id, command_id, provider, environment, tester_email, requested_amount, reference, eligible, real_charge, checks, policy_version, approval_request_id, actor_email, created_at').order('created_at', { ascending: false }).limit(10),
+    supabase.from('billing_live_shadow_commands').select('id, command_id, source_dry_run_id, provider, executor_mode, status, idempotency_key, tester_email, requested_amount, reference, reason, policy_version, approval_request_id, checks, stage_snapshot, real_charge, stripe_api_called, checkout_session_id, actor_email, created_at').order('created_at', { ascending: false }).limit(10),
   ])
-  const firstError = [controlResult, eventsResult, readinessResult, liveWebhookResult, policyResult, testersResult, rolloutEventsResult, approvalRequestsResult, approvalEventsResult, adminCountResult, dryRunsResult].find((result) => result.error)?.error
+  const firstError = [controlResult, eventsResult, readinessResult, liveWebhookResult, policyResult, testersResult, rolloutEventsResult, approvalRequestsResult, approvalEventsResult, adminCountResult, dryRunsResult, shadowCommandsResult].find((result) => result.error)?.error
   const control = controlResult.data as LiveControl | null
   const events = (eventsResult.data ?? []) as BillingLiveSafetyEvent[]
   const environment = inspectLiveSafetyEnvironment()
@@ -76,10 +82,20 @@ export default async function BillingLiveControlPage() {
   const approvalRequests = (approvalRequestsResult.data ?? []) as BillingLiveActivationRequest[]
   const approvalEvents = (approvalEventsResult.data ?? []) as BillingLiveActivationEvent[]
   const dryRuns = (dryRunsResult.data ?? []) as BillingLiveCheckoutDryRun[]
+  const shadowCommands = (shadowCommandsResult.data ?? []) as BillingLiveShadowCommand[]
   const activeAdminCount = (adminCountResult.data ?? []).filter((admin: { status: string }) => admin.status === 'active').length
   const latestApprovedRequest = approvalRequests.find((request) => request.status === 'approved') ?? null
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
   const liveWebhookUrl = `${appUrl.replace(/\/$/, '')}/api/billing/stripe/live-webhook`
+  const liveWebhookEvidence = buildLiveWebhookConnectivityEvidence({
+    endpointUrl: liveWebhookUrl,
+    liveSecretConfigured: environment.liveSecretConfigured,
+    liveWebhookConfigured: environment.liveWebhookConfigured,
+    emergencyStopActive: control?.emergency_stop === true,
+    liveWebhookMode: environment.liveWebhookMode,
+    acceptsRealMoney: environment.acceptsRealMoney,
+    latestEvent: liveWebhookEvents[0] ?? null,
+  })
   const canMarkReviewReady = readinessResult.data?.manual_status === 'manual_complete'
   const locks = [
     { label: 'Environment Lock', passed: environment.environmentLocked, detail: environment.environmentLocked ? 'STRIPE_LIVE_ACTIVATION ยังปิดอยู่' : 'พบการเปิด Environment Live ให้หยุดระบบทันที' },
@@ -92,8 +108,9 @@ export default async function BillingLiveControlPage() {
   return <main className="dashboard">
     <header className="topbar"><div className="brand">AVENZO ONE / ศูนย์ควบคุมการรับเงินจริง</div><div className="topbar-actions"><span>{user.email}</span><SignOutButton /></div></header>
     <section className="content platform-subscription-content">
-      <div className="hero"><div><div className="eyebrow">Phase 1.1.3.7.5.4</div><h1>ศูนย์ควบคุมการรับเงินจริง</h1><p>รวบรวม Release Gate, Evidence Pack, Contract ฝั่ง Server และ Safety Audit โดยยังไม่เปิดรับเงินจริง</p></div><div className="button-row"><Link className="button secondary" href="/platform-admin/billing/readiness">กลับความพร้อม Production</Link><Link className="button secondary" href="/platform-admin/billing">กลับ Billing</Link></div></div>
+      <div className="hero"><div><div className="eyebrow">Phase 1.1.3.7.5.7</div><h1>ศูนย์ควบคุมการรับเงินจริง</h1><p>ตรวจหลักฐานการเชื่อมต่อ Stripe Live Webhook โดยยังไม่สร้าง Checkout ไม่เปลี่ยน Invoice/Subscription และไม่รับเงินจริง</p></div><div className="button-row"><Link className="button secondary" href="/platform-admin/billing/readiness">กลับความพร้อม Production</Link><Link className="button secondary" href="/platform-admin/billing">กลับ Billing</Link></div></div>
       <div className={`readiness-decision ${allLocked ? 'ready' : 'blocked'}`} role="status"><span aria-hidden="true">{allLocked ? '✓' : '!'}</span><div><strong>{allLocked ? 'ระบบถูกล็อกอย่างปลอดภัย' : 'พบจุดที่ไม่อยู่ในสถานะล็อก'}</strong><p>{allLocked ? 'ทุกชั้นป้องกันยังปิดการรับเงินจริง สามารถทดสอบคำสั่ง Emergency Stop ได้' : 'หยุดการเตรียม Live และแก้รายการที่ไม่ผ่านก่อน'}</p></div><span className="status pending">ไม่รับเงินจริง</span></div>
+      <LiveControlCardSearch>
       {firstError || !control ? <div className="error">ไม่สามารถอ่านศูนย์ควบคุมการรับเงินจริงได้: {firstError?.message ?? 'ไม่พบข้อมูล Safety Control'}</div> : <>
         <section className="readiness-review-card">
           <div className="feature-list-heading"><div><div className="eyebrow">กุญแจความปลอดภัย 4 ชั้น</div><h2>สถานะบังคับหยุดรับเงินจริง</h2><p>ระบบแสดงเฉพาะชนิดและสถานะของ Secret โดยไม่แสดงค่าจริง</p></div><span className="feature-count">{locks.filter((item) => item.passed).length} / {locks.length} ชั้น</span></div>
@@ -137,6 +154,9 @@ export default async function BillingLiveControlPage() {
         /> : null}
         <BillingLiveEligibilityContractTests />
         <BillingLiveReleaseGate />
+        <BillingLiveExecutorDesign />
+        <BillingLiveShadowExecutor dryRuns={dryRuns} initialCommands={shadowCommands} />
+        <BillingLiveWebhookConnectivityEvidence evidence={liveWebhookEvidence} />
         <section className="readiness-review-card">
           <div className="feature-list-heading"><div><div className="eyebrow">Two-person Approval Audit</div><h2>ประวัติการอนุมัติร่วมกัน</h2><p>แสดง 10 เหตุการณ์ล่าสุด ผู้ขอและผู้อนุมัติไม่สามารถเป็นบัญชีเดียวกัน</p></div><span className="feature-count">{approvalEvents.length} รายการ</span></div>
           {approvalEvents.length ? <div className="live-safety-events">{approvalEvents.map((event) => <article key={event.id}><div><strong>{approvalActionLabel(event.action)}</strong><span>{event.actor_email} · {dateTime(event.created_at)}</span></div><p>{event.reason}</p></article>)}</div> : <div className="empty-state">ยังไม่มีคำขอหรือผลอนุมัติ Limited Live Pilot</div>}
@@ -154,7 +174,8 @@ export default async function BillingLiveControlPage() {
           {events.length ? <div className="live-safety-events">{events.map((event) => <article key={event.id}><div><strong>{actionLabel(event.action)}</strong><span>{event.actor_email} · {dateTime(event.created_at)}</span></div><p>{event.reason}</p></article>)}</div> : <div className="empty-state">ยังไม่มีคำสั่งจากผู้ดูแล ระบบเริ่มต้นอยู่ในสถานะล็อก</div>}
         </section>
       </>}
-      <div className="readiness-safety-note"><strong>ข้อจำกัดของ Phase 1.1.3.7.5.4</strong><p>ระบบสร้าง Evidence Pack จากหลักฐานฝั่ง Server ได้ แต่ยังบังคับ Pilot = ปิด, Emergency Stop = เปิด และไม่มี Route สำหรับสร้าง Live Checkout การผ่าน Gate จึงยังไม่อนุญาตรับเงินจริง</p></div>
+      </LiveControlCardSearch>
+      <div className="readiness-safety-note"><strong>ข้อจำกัดของ Phase 1.1.3.7.5.7</strong><p>ระบบอ่านและแสดงหลักฐาน Webhook เท่านั้น ยังคงบังคับ Pilot = ปิด, Emergency Stop = เปิด ไม่สร้าง Checkout ไม่เปลี่ยน Invoice/Subscription และไม่มีเงินจริงเคลื่อนย้าย</p></div>
     </section>
   </main>
 }

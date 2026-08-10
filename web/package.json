@@ -7,7 +7,10 @@
     "build": "next build",
     "start": "next start",
     "test:live-eligibility": "node --experimental-strip-types --test scripts/test-live-eligibility-contract.mjs",
-    "test:live-release-gate": "node --experimental-strip-types --test scripts/test-live-release-gate.mjs"
+    "test:live-release-gate": "node --experimental-strip-types --test scripts/test-live-release-gate.mjs",
+    "test:live-executor-design": "node --experimental-strip-types --test scripts/test-live-executor-design.mjs",
+    "test:live-shadow-executor": "node --experimental-strip-types --test scripts/test-live-shadow-executor.mjs",
+    "test:live-webhook-evidence": "node --experimental-strip-types --test scripts/test-live-webhook-connectivity-evidence.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.7.0",
