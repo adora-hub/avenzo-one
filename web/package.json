@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test:live-eligibility": "node --experimental-strip-types --test scripts/test-live-eligibility-contract.mjs",
+    "test:live-release-gate": "node --experimental-strip-types --test scripts/test-live-release-gate.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.7.0",

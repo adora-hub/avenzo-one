@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import type {
   BillingLiveActivationRequest,
+  BillingLiveCheckoutDryRun,
   BillingLiveRolloutPolicy,
   BillingLiveSafetyControl,
   BillingLiveTester,
@@ -17,6 +18,7 @@ type Props = {
   environmentLocked: boolean
   liveCredentialsConfigured: boolean
   serverNow: string
+  dryRuns?: BillingLiveCheckoutDryRun[]
 }
 
 function money(value: number) {
@@ -36,12 +38,16 @@ export function BillingControlledLiveCheckoutPreview({
   environmentLocked,
   liveCredentialsConfigured,
   serverNow,
+  dryRuns = [],
 }: Props) {
   const activeTesters = testers.filter((tester) => tester.active)
   const [testerEmail, setTesterEmail] = useState(activeTesters[0]?.email ?? '')
   const [amount, setAmount] = useState('')
   const [reference, setReference] = useState('')
   const [reviewed, setReviewed] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [serverResult, setServerResult] = useState<BillingLiveCheckoutDryRun | null>(null)
+  const [requestError, setRequestError] = useState('')
 
   const amountNumber = Number(amount)
   const approvalValid = Boolean(
@@ -68,10 +74,35 @@ export function BillingControlledLiveCheckoutPreview({
     { label: 'Environment Lock ยังทำงาน', passed: environmentLocked, detail: 'Phase นี้ต้องยังไม่อนุญาตการรับเงินจริง' },
     { label: 'Emergency Stop ยังทำงาน', passed: control.emergency_stop === true, detail: 'การรับเงินจริงต้องถูกบังคับหยุดตลอดการทดสอบ UI' },
   ]
-  const allChecksPassed = checks.every((check) => check.passed)
-
   function resetReview() {
     if (reviewed) setReviewed(false)
+    setServerResult(null)
+    setRequestError('')
+  }
+
+  async function runServerDryRun() {
+    setSubmitting(true)
+    setRequestError('')
+    try {
+      const response = await fetch('/api/billing/stripe/live-eligibility', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          commandId: crypto.randomUUID(),
+          testerEmail,
+          amount: amountNumber,
+          reference,
+        }),
+      })
+      const payload = await response.json() as { dryRun?: BillingLiveCheckoutDryRun; error?: string }
+      if (!response.ok || !payload.dryRun) throw new Error(payload.error ?? 'live_checkout_dry_run_failed')
+      setServerResult(payload.dryRun)
+      setReviewed(true)
+    } catch (error) {
+      setRequestError(error instanceof Error ? error.message : 'live_checkout_dry_run_failed')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return <section className="readiness-review-card controlled-checkout-card">
@@ -112,13 +143,15 @@ export function BillingControlledLiveCheckoutPreview({
     </div>
 
     <div className="button-row">
-      <button className="button" type="button" disabled={!testerEmail || !amount || !reference.trim()} onClick={() => setReviewed(true)}>ตรวจสอบ Checkout แบบจำลอง</button>
+      <button className="button" type="button" disabled={submitting || !testerEmail || !amount || !reference.trim()} onClick={runServerDryRun}>{submitting ? 'กำลังตรวจสอบ...' : 'ตรวจสอบฝั่ง Server และบันทึก Dry-run'}</button>
     </div>
+
+    {requestError ? <div className="error" role="alert">ตรวจสอบไม่สำเร็จ: {requestError}</div> : null}
 
     {reviewed ? <section className="subscription-confirmation controlled-checkout-review">
       <div className="subscription-confirmation-heading">
         <div><span className="eyebrow">ตรวจสอบครั้งสุดท้าย</span><h3>สรุป Controlled Checkout</h3></div>
-        <span className={`status ${allChecksPassed ? 'active' : 'suspended'}`}>{allChecksPassed ? 'ผ่านเงื่อนไข UI' : 'ยังไม่ผ่าน'}</span>
+        <span className={`status ${serverResult?.eligible ? 'active' : 'suspended'}`}>{serverResult?.eligible ? 'Dry-run ผ่าน' : 'Dry-run ยังไม่ผ่าน'}</span>
       </div>
       <dl className="live-safety-state-grid">
         <div><dt>ผู้ทดสอบ</dt><dd>{testerEmail || '—'}</dd></div>
@@ -126,11 +159,18 @@ export function BillingControlledLiveCheckoutPreview({
         <div><dt>Policy</dt><dd>Version {policy.version}</dd></div>
         <div><dt>รหัสอ้างอิง</dt><dd>{reference.trim() || '—'}</dd></div>
       </dl>
-      {!allChecksPassed ? <div className="error" role="status">ยังมีเงื่อนไขที่ไม่ผ่าน กรุณาดูรายการเครื่องหมาย ! ด้านบน</div> : <div className="success" role="status">ข้อมูลแบบจำลองผ่านกติกา UI แล้ว แต่ยังไม่อนุญาตให้รับเงินจริง</div>}
+      {serverResult ? <div className={serverResult.eligible ? 'success' : 'error'} role="status">
+        บันทึก Dry-run ฝั่ง Server แล้ว · Audit ID: {serverResult.id} · ไม่มีการสร้างรายการชำระเงินจริง
+      </div> : null}
       <div className="button-row">
         <button className="button secondary" type="button" onClick={() => setReviewed(false)}>ย้อนกลับแก้ไข</button>
         <button className="button" type="button" disabled>สร้าง Live Checkout — ยังล็อก</button>
       </div>
     </section> : null}
+
+    <section className="readiness-review-card">
+      <div className="feature-list-heading"><div><div className="eyebrow">Server Dry-run Audit</div><h3>ประวัติการตรวจ Eligibility</h3><p>แสดง 10 รายการล่าสุด แก้ไขหรือลบย้อนหลังไม่ได้ และไม่มีการเรียก Stripe Live API</p></div><span className="feature-count">{dryRuns.length} รายการ</span></div>
+      {dryRuns.length ? <div className="live-safety-events">{dryRuns.map((item) => <article key={item.id}><div><strong>{item.eligible ? 'ผ่าน Dry-run' : 'ยังไม่ผ่าน Dry-run'}</strong><span>{item.actor_email} · {new Date(item.created_at).toLocaleString('th-TH')}</span></div><div><p>{item.reference}</p><span>{item.tester_email} · {money(Number(item.requested_amount))}</span></div></article>)}</div> : <div className="empty-state">ยังไม่มีผลตรวจ Dry-run ฝั่ง Server</div>}
+    </section>
   </section>
 }

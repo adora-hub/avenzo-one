@@ -112,6 +112,39 @@ export type BillingLiveWebhookInboxEvent = {
   received_at: string
 }
 
+export type BillingLiveDryRunChecks = {
+  production_readiness_complete: boolean
+  approval_valid: boolean
+  tester_allowed: boolean
+  amount_valid: boolean
+  amount_within_limit: boolean
+  count_within_limit: boolean
+  total_within_limit: boolean
+  reference_valid: boolean
+  live_credentials_configured: boolean
+  environment_locked: boolean
+  emergency_stop_active: boolean
+  pilot_disabled: boolean
+  code_test_only: boolean
+}
+
+export type BillingLiveCheckoutDryRun = {
+  id: string
+  command_id: string
+  provider: 'stripe'
+  environment: 'production_dry_run'
+  tester_email: string
+  requested_amount: number
+  reference: string
+  eligible: boolean
+  real_charge: false
+  checks: BillingLiveDryRunChecks
+  policy_version: number
+  approval_request_id: string | null
+  actor_email: string
+  created_at: string
+}
+
 export function inspectLiveSafetyEnvironment(env: NodeJS.ProcessEnv = process.env) {
   const testSecretConfigured = Boolean(env.STRIPE_SECRET_KEY?.startsWith('sk_test_'))
   const testWebhookConfigured = Boolean(env.STRIPE_WEBHOOK_SECRET?.startsWith('whsec_'))

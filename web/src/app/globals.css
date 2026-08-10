@@ -509,6 +509,7 @@ input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft
 .readiness-check > span { display: grid; width: 26px; height: 26px; place-items: center; border-radius: 50%; font-weight: 900; }
 .readiness-check strong { display: block; }
 .readiness-check p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+.readiness-check small { display: block; margin-top: 6px; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
 .readiness-check.passed { border-color: #b9e5cc; background: #f6fcf8; }
 .readiness-check.passed > span { background: #dff7e9; color: #087443; }
 .readiness-check.failed { border-color: #f0c5c1; background: #fff8f7; }
