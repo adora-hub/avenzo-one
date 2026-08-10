@@ -6,6 +6,7 @@ import { BillingGatewaySandbox, type BillingGatewayAttempt } from '@/app/compone
 import { StripeFeeSnapshot, StripeTestCheckout, type StripeFeeAttemptSnapshot } from '@/app/components/stripe-test-checkout'
 import { BillingDocumentProfiles } from '@/app/components/billing-document-profiles'
 import { BillingDocumentActions } from '@/app/components/billing-document-actions'
+import { BillingTransferChannelSettings, type BillingTransferChannel } from '@/app/components/billing-transfer-channel-settings'
 import { billingStatusLabels } from '@/app/components/billing-labels'
 import { PaymentExceptionActions } from '@/app/components/payment-exception-actions'
 import { SignOutButton } from '@/app/components/sign-out-button'
@@ -89,7 +90,7 @@ export default async function PlatformAdminBillingPage({ searchParams }: { searc
   if (auditSearch) exceptionCommandsQuery = exceptionCommandsQuery.or(`actor_email.ilike.%${auditSearch}%,reason.ilike.%${auditSearch}%`)
   exceptionCommandsQuery = exceptionCommandsQuery.order('created_at', { ascending: false }).range((auditPage - 1) * AUDIT_PAGE_SIZE, auditPage * AUDIT_PAGE_SIZE - 1)
 
-  const [organizationsResult, subscriptionsResult, plansResult, versionsResult, pricesResult, invoicesResult, issuerResult, customersResult, exceptionAttemptsResult, exceptionCommandsResult] = await Promise.all([
+  const [organizationsResult, subscriptionsResult, plansResult, versionsResult, pricesResult, invoicesResult, issuerResult, customersResult, transferChannelsResult, exceptionAttemptsResult, exceptionCommandsResult] = await Promise.all([
     supabase.from('organizations').select('id, name, slug, timezone, currency').order('name'),
     supabase.from('organization_subscriptions').select('id, organization_id, plan_code, plan_version_id, lifecycle_status, starts_at, expires_at, metadata').in('lifecycle_status', ['active', 'suspended']).not('plan_version_id', 'is', null).order('updated_at', { ascending: false }),
     supabase.from('subscription_plans').select('code, name'),
@@ -98,6 +99,7 @@ export default async function PlatformAdminBillingPage({ searchParams }: { searc
     supabase.from('billing_invoices').select('id, invoice_number, organization_id, subscription_id, billing_interval, billing_period_start, billing_period_end, currency, subtotal_amount, discount_amount, tax_amount, total_amount, status, issued_at, due_at, reason', { count: 'exact' }).order('issued_at', { ascending: false }).range(from, from + PAGE_SIZE - 1),
     supabase.from('billing_issuer_profiles').select('legal_name, tax_id, branch_code, address, email, phone').eq('is_active', true).maybeSingle(),
     supabase.from('billing_customer_profiles').select('organization_id, legal_name, tax_id, branch_code, address, email, phone'),
+    supabase.from('billing_transfer_channels').select('id, channel_type, display_name, provider_name, account_name, account_identifier, customer_instructions, status, display_order, updated_at').order('display_order').order('created_at'),
     supabase.from('billing_payment_attempts').select('id, invoice_id, organization_id, provider, status, payment_method, amount, currency, failure_code, failure_message, provider_fee_actual, provider_net_amount, created_at, updated_at').order('updated_at', { ascending: false }).limit(100),
     exceptionCommandsQuery,
   ])
@@ -128,7 +130,7 @@ export default async function PlatformAdminBillingPage({ searchParams }: { searc
   const creditNotesResult = documentIds.length
     ? await supabase.from('billing_credit_notes').select('id, invoice_document_id, credit_note_number, status, total_amount, currency, reason, issued_at').in('invoice_document_id', documentIds).order('issued_at', { ascending: false })
     : { data: [], error: null }
-  const firstError = [organizationsResult, subscriptionsResult, plansResult, versionsResult, pricesResult, invoicesResult, issuerResult, customersResult, exceptionAttemptsResult, exceptionCommandsResult, paymentsResult, attemptsResult, gatewayEventsResult, documentsResult, exceptionEventsResult, exceptionInvoicesResult, creditNotesResult].find((result) => result.error)?.error
+  const firstError = [organizationsResult, subscriptionsResult, plansResult, versionsResult, pricesResult, invoicesResult, issuerResult, customersResult, transferChannelsResult, exceptionAttemptsResult, exceptionCommandsResult, paymentsResult, attemptsResult, gatewayEventsResult, documentsResult, exceptionEventsResult, exceptionInvoicesResult, creditNotesResult].find((result) => result.error)?.error
   const organizations = (organizationsResult.data ?? []) as BillingOrganization[]
   const organizationsById = new Map(organizations.map((item) => [item.id, item]))
   const allPaymentExceptions = buildPaymentExceptions({
@@ -232,6 +234,7 @@ export default async function PlatformAdminBillingPage({ searchParams }: { searc
           </nav> : null}
         </section>
         <section className="subscription-management-section"><div className="feature-list-heading"><div><div className="eyebrow">DOCUMENT IDENTITY</div><h2>ข้อมูลบนเอกสาร</h2><p>ต้องตั้งค่าผู้ออกเอกสารและผู้รับเอกสารก่อนออก Invoice Document</p></div></div><BillingDocumentProfiles issuer={issuerResult.data} organizations={organizations.map(({ id, name }) => ({ id, name }))} customers={customersResult.data ?? []} /></section>
+        <section className="subscription-management-section"><div className="feature-list-heading"><div><div className="eyebrow">PHASE 1.1.3.8.1 · TRANSFER SETUP</div><h2>ตั้งค่าช่องทางรับโอน</h2><p>กำหนดบัญชีธนาคารหรือพร้อมเพย์ของ AVENZO ONE สำหรับขั้นตอนชำระแบบ Manual โดยยังไม่เปลี่ยน Invoice เป็นชำระแล้ว</p></div></div><BillingTransferChannelSettings channels={(transferChannelsResult.data ?? []) as BillingTransferChannel[]} /></section>
         <section className="subscription-management-section"><div className="feature-list-heading"><div><div className="eyebrow">NEW INVOICE</div><h2>สร้าง Invoice</h2><p>ยอดตั้งต้นมาจาก Active Plan Price และบันทึกเป็น Snapshot</p></div></div><div className="card"><BillingInvoiceForm organizations={organizations} subscriptions={subscriptions} prices={prices} /></div></section>
         <section className="subscription-management-section"><div className="feature-list-heading"><div><div className="eyebrow">HISTORY</div><h2>Invoices &amp; Payments</h2><p>แสดง 10 รายการต่อหน้า พร้อมประวัติการชำระ</p></div><span className="feature-count">{invoicesResult.count ?? 0} Invoice</span></div>
           {invoices.length ? <div className="billing-invoice-list">{invoices.map((invoice) => {
@@ -241,7 +244,7 @@ export default async function PlatformAdminBillingPage({ searchParams }: { searc
             const latestStripeAttempt = latestStripeAttemptByInvoice.get(invoice.id) ?? null
             const isPayable = invoice.status === 'pending' || invoice.status === 'failed'
             return <article className="card billing-invoice-card" id={`invoice-${invoice.id}`} key={invoice.id}>
-              <div className="billing-invoice-header"><div><span className={`subscription-state ${invoice.status}`}>{status.label}</span><h3>{invoice.invoice_number}</h3><p className="meta">{organization?.name}</p></div><div className="subscription-plan-highlight"><span>ยอดสุทธิ</span><strong>{formatMoney(invoice.total_amount, invoice.currency)}</strong><small>ครบกำหนด {formatDate(invoice.due_at, organization?.timezone)}</small></div></div>
+              <div className="billing-invoice-header"><div><div className="status-title-row"><h3>{invoice.invoice_number}</h3><span className={`subscription-state ${invoice.status}`}>{status.label}</span></div><p className="meta">{organization?.name}</p></div><div className="subscription-plan-highlight"><span>ยอดสุทธิ</span><strong>{formatMoney(invoice.total_amount, invoice.currency)}</strong><small>ครบกำหนด {formatDate(invoice.due_at, organization?.timezone)}</small></div></div>
               <p className="subscription-status-description">{status.description}</p>
               <dl className="subscription-overview-grid"><div><dt>ยอดก่อนส่วนลด</dt><dd>{formatMoney(invoice.subtotal_amount, invoice.currency)}</dd></div><div><dt>ส่วนลด</dt><dd>{formatMoney(invoice.discount_amount, invoice.currency)}</dd></div><div><dt>ภาษี</dt><dd>{formatMoney(invoice.tax_amount, invoice.currency)}</dd></div><div><dt>รอบ Billing</dt><dd>{formatDate(invoice.billing_period_start, organization?.timezone)} – {formatDate(invoice.billing_period_end, organization?.timezone)}</dd></div></dl>
               <details className="subscription-action-panel"><summary>ดูประวัติและจัดการ Payment</summary>

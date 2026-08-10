@@ -36,6 +36,16 @@
 4. ก่อนมี Live Event ต้องขึ้น **ระบบพร้อม รอ Live Event แรก** หรือแสดงเงื่อนไขที่ยังขาด ห้ามขึ้นว่าหลักฐานครบ
 5. ตรวจว่าไม่มี Checkout, Invoice, Subscription หรือรายการเงินจริงใหม่จากการเปิดหน้านี้
 
+## ผลการทดสอบ Production
+
+- ทดสอบกับ Stripe Live Mode ผ่านครบ `6/6`
+- Production Endpoint เป็น HTTPS และเข้าถึงได้
+- Live API Secret และ Live Webhook Secret ถูกตั้งค่าฝั่ง Server ครบ
+- รับ `customer.created` ที่มี `livemode=true` และผ่านการตรวจลายเซ็นสำเร็จ
+- Event ถูกกักด้วยสถานะ `blocked_by_emergency_stop`
+- ไม่สร้าง Checkout, ไม่เรียกเก็บเงินจริง และไม่เปลี่ยน Invoice หรือ Subscription
+- หลังเก็บหลักฐานครบแล้ว ได้นำ `customer.created` ออกจาก Stripe Live Event destination เรียบร้อย
+
 ## สถานะ
 
-Implemented / รอผู้ใช้ทดสอบ Local
+Completed / ปิด Phase หลังทดสอบ Production ผ่าน

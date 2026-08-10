@@ -68,13 +68,16 @@ export default async function DashboardPage() {
               const access = accessByOrganization.get(organization.id)
               return (
                 <article className="card" key={organization.id}>
-                  <div className={`status ${organization.status}`}>{organization.status}</div>
-                  <h3>{organization.name}</h3>
+                  <div className="status-title-row">
+                    <h3>{organization.name}</h3>
+                    {subscription
+                      ? <span className={`status ${subscription.access_state}`}>{subscriptionAccessStateLabel(subscription.access_state)}</span>
+                      : <span className={`status ${organization.status}`}>{organization.status}</span>}
+                  </div>
                   <div className="meta">/{organization.slug} · {organization.currency}</div>
                   {access && <OrganizationAccessSummaryCard access={access} compact />}
                   {subscription ? (
                     <>
-                      <div className={`status ${subscription.access_state}`}>{subscriptionAccessStateLabel(subscription.access_state)}</div>
                       {['trial', 'active', 'grace'].includes(subscription.access_state)
                         ? <div className="countdown">เหลือเวลา<Countdown expiresAt={subscription.expires_at} initialSeconds={subscription.seconds_remaining} /></div>
                         : <div className="meta">Subscription ไม่อยู่ในสถานะที่ใช้งานได้ตามปกติ</div>}

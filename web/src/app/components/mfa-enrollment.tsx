@@ -232,8 +232,10 @@ export function MfaEnrollment() {
     return (
       <div className="mfa-management">
         <section className="mfa-status-card">
-          <span className="status active">เปิดใช้งานแล้ว</span>
-          <h2>Authenticator ของบัญชีนี้</h2>
+          <div className="status-title-row">
+            <h2>Authenticator ของบัญชีนี้</h2>
+            <span className="status active">เปิดใช้งานแล้ว</span>
+          </div>
           <p>เพิ่มเครื่องสำรองไว้กู้คืนบัญชีเมื่อโทรศัพท์หลักสูญหาย และเลือกใช้เครื่องใดก็ได้ตอน Login</p>
           <div className="mfa-factor-list">
             {verifiedFactors.map((factor, index) => {
@@ -317,7 +319,10 @@ export function MfaEnrollment() {
 
   return (
     <div className="mfa-intro card">
-      <span className="status pending">ยังไม่ได้เปิด</span><h2>เพิ่ม Authenticator ให้บัญชีนี้</h2>
+      <div className="status-title-row">
+        <h2>เพิ่ม Authenticator ให้บัญชีนี้</h2>
+        <span className="status pending">ยังไม่ได้เปิด</span>
+      </div>
       <p>หลังจากเริ่ม ระบบจะแสดง QR Code ให้สแกนด้วยโทรศัพท์ และให้กรอกรหัส 6 หลักเพื่อยืนยัน</p>
       <ul className="permission-list"><li>ไม่มีค่า SMS และไม่ต้องรออีเมล</li><li>QR Code และ Secret จะแสดงเฉพาะระหว่างตั้งค่า</li><li>เมื่อเปิดแล้ว Platform Admin ต้องใช้รหัส 6 หลักหลัง Login</li></ul>
       <label>ชื่ออุปกรณ์

@@ -113,7 +113,7 @@ export default async function PlatformAdminPage({ searchParams }: {
             return (
               <article className="card subscription-management-card" key={subscription.id}>
                 <div className="subscription-management-header">
-                  <div><span className={`subscription-state ${displayStatus}`}>{status.label}</span><h3>{subscription.organization_name}</h3><p className="meta">/{subscription.organization_slug}</p></div>
+                  <div><div className="status-title-row"><h3>{subscription.organization_name}</h3><span className={`subscription-state ${displayStatus}`}>{status.label}</span></div><p className="meta">/{subscription.organization_slug}</p></div>
                   <div className="subscription-plan-highlight"><span>Plan</span><strong>{subscription.plan_name}</strong><small>{subscription.plan_version_label}</small></div>
                 </div>
                 <p className="subscription-status-description">{status.description}{displayStatus === 'grace' ? ` ใช้งานได้ถึง ${formatDate(subscription.grace_ends_at, subscription.timezone)}` : ''}</p>

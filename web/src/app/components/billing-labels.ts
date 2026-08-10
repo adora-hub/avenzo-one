@@ -51,6 +51,14 @@ export function billingErrorMessage(raw: string) {
     ['credit_note_requires_paid_invoice', 'ออก Credit Note ได้เฉพาะ Invoice ที่ชำระแล้ว'],
     ['credit_note_exceeds_invoice_total', 'ยอด Credit Note รวมต้องไม่เกินยอดเอกสาร'],
     ['invoice_document_not_issued', 'เอกสารต้นทางยังไม่อยู่ในสถานะออกเอกสาร'],
+    ['transfer_channel_command_required', 'ไม่พบรหัสคำสั่ง กรุณาลองใหม่'],
+    ['invalid_transfer_channel_type', 'ประเภทช่องทางรับโอนไม่ถูกต้อง'],
+    ['invalid_transfer_channel_status', 'สถานะช่องทางรับโอนไม่ถูกต้อง'],
+    ['transfer_channel_identity_required', 'กรุณากรอกชื่อช่องทาง ผู้ให้บริการ และชื่อบัญชีให้ครบ'],
+    ['invalid_transfer_account_identifier', 'เลขบัญชีหรือหมายเลขพร้อมเพย์ต้องมีตัวเลข 6–20 หลัก'],
+    ['invalid_transfer_display_order', 'ลำดับการแสดงต้องอยู่ระหว่าง 0–9999'],
+    ['transfer_channel_not_found', 'ไม่พบช่องทางรับโอนที่เลือก'],
+    ['transfer_channel_already_exists', 'มีเลขบัญชีหรือหมายเลขพร้อมเพย์นี้อยู่แล้ว'],
   ]
   return messages.find(([code]) => raw.includes(code))?.[1] ?? raw
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/browser'
@@ -20,7 +20,7 @@ export type PlatformAdminDirectoryEntry = {
 }
 
 type PendingAction = {
-  action: 'grant' | 'update' | 'suspend' | 'reactivate'
+  action: 'grant' | 'update' | 'suspend' | 'reactivate' | 'profile'
   email: string
   displayName: string
   roleCode: PlatformAdminDirectoryEntry['role_code']
@@ -61,6 +61,7 @@ function errorMessage(error: unknown) {
   if (message.includes('platform_admin_already_active')) return 'อีเมลนี้เป็น Platform Admin ที่ใช้งานอยู่แล้ว'
   if (message.includes('platform_admin_not_suspended')) return 'บัญชีนี้ไม่ได้อยู่ในสถานะพักสิทธิ์'
   if (message.includes('platform_admin_reason_invalid')) return 'กรุณาระบุเหตุผลอย่างน้อย 10 ตัวอักษร'
+  if (message.includes('platform_admin_display_name_invalid')) return 'กรุณาระบุชื่อที่แสดง 2–100 ตัวอักษร'
   return message
 }
 
@@ -80,6 +81,20 @@ export function PlatformAdminAccessManager({
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [tone, setTone] = useState<'success' | 'error'>('success')
+  const [editingProfile, setEditingProfile] = useState(false)
+  const [profileDisplayName, setProfileDisplayName] = useState('')
+  const [profileReason, setProfileReason] = useState('')
+  const confirmationRef = useRef<HTMLElement>(null)
+
+  useEffect(() => {
+    if (!pending) return
+
+    confirmationRef.current?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    })
+    confirmationRef.current?.focus({ preventScroll: true })
+  }, [pending])
 
   const activeCount = useMemo(() => initialAdmins.filter((admin) => admin.status === 'active').length, [initialAdmins])
 
@@ -102,6 +117,26 @@ export function PlatformAdminAccessManager({
     })
   }
 
+  function startProfileEdit(admin: PlatformAdminDirectoryEntry) {
+    setMessage('')
+    setPending(null)
+    setProfileDisplayName(admin.display_name ?? '')
+    setProfileReason('')
+    setEditingProfile(true)
+  }
+
+  function prepareOwnProfile(event: FormEvent<HTMLFormElement>, admin: PlatformAdminDirectoryEntry) {
+    event.preventDefault()
+    setMessage('')
+    setPending({
+      action: 'profile',
+      email: admin.email,
+      displayName: profileDisplayName.trim(),
+      roleCode: admin.role_code,
+      reason: profileReason.trim(),
+    })
+  }
+
   async function confirm() {
     if (!pending) return
     if (pending.reason.trim().length < 10) {
@@ -113,14 +148,22 @@ export function PlatformAdminAccessManager({
     setLoading(true)
     setMessage('')
     try {
-      const { error } = await createClient().rpc('platform_manage_admin_access', {
-        p_command_id: crypto.randomUUID(),
-        p_email: pending.email,
-        p_display_name: pending.displayName,
-        p_role_code: pending.roleCode,
-        p_action: pending.action,
-        p_reason: pending.reason,
-      })
+      const supabase = createClient()
+      const commandId = crypto.randomUUID()
+      const { error } = pending.action === 'profile'
+        ? await supabase.rpc('platform_update_own_admin_profile', {
+          p_command_id: commandId,
+          p_display_name: pending.displayName,
+          p_reason: pending.reason,
+        })
+        : await supabase.rpc('platform_manage_admin_access', {
+          p_command_id: commandId,
+          p_email: pending.email,
+          p_display_name: pending.displayName,
+          p_role_code: pending.roleCode,
+          p_action: pending.action,
+          p_reason: pending.reason,
+        })
       if (error) throw error
 
       setPending(null)
@@ -128,8 +171,13 @@ export function PlatformAdminAccessManager({
       setDisplayName('')
       setRoleCode('platform_admin')
       setReason('')
+      setEditingProfile(false)
+      setProfileDisplayName('')
+      setProfileReason('')
       setTone('success')
-      setMessage('บันทึกสิทธิ์ Platform Admin และ Audit Log สำเร็จ')
+      setMessage(pending.action === 'profile'
+        ? 'บันทึกชื่อของคุณและ Audit Log สำเร็จ'
+        : 'บันทึกสิทธิ์ Platform Admin และ Audit Log สำเร็จ')
       router.refresh()
     } catch (error) {
       setTone('error')
@@ -145,6 +193,8 @@ export function PlatformAdminAccessManager({
       ? 'ยืนยันพักสิทธิ์ชั่วคราว'
       : pending?.action === 'reactivate'
         ? 'ยืนยันเปิดสิทธิ์กลับ'
+        : pending?.action === 'profile'
+          ? 'ยืนยันแก้ไขชื่อของฉัน'
         : 'ยืนยันเปลี่ยนระดับสิทธิ์'
 
   return <div className="platform-access-shell">
@@ -177,6 +227,15 @@ export function PlatformAdminAccessManager({
           <div><dt>เข้าสู่ระบบล่าสุด</dt><dd>{dateTime(admin.last_sign_in_at)}</dd></div>
           <div><dt>หมายเหตุล่าสุด</dt><dd>{admin.note || 'ไม่มีหมายเหตุ'}</dd></div>
         </dl>
+        {admin.is_current_user ? <div className="platform-access-profile-actions">
+          {!editingProfile ? <button className="button secondary" type="button" onClick={() => startProfileEdit(admin)}>แก้ไขชื่อของฉัน</button> : null}
+          {editingProfile ? <form className="platform-access-profile-form" onSubmit={(event) => prepareOwnProfile(event, admin)}>
+            <div><div className="eyebrow">บัญชีของคุณ</div><h4>แก้ไขชื่อที่แสดง</h4><p>เปลี่ยนเฉพาะชื่อของคุณ ไม่เปลี่ยนระดับสิทธิ์หรือสถานะบัญชี</p></div>
+            <label>ชื่อที่แสดงในระบบ<input autoFocus value={profileDisplayName} onChange={(event) => setProfileDisplayName(event.target.value)} minLength={2} maxLength={100} placeholder="เช่น คุณธนาธิป" required /></label>
+            <label>เหตุผลสำหรับ Audit Log<textarea value={profileReason} onChange={(event) => setProfileReason(event.target.value)} minLength={10} maxLength={2000} rows={2} placeholder="เช่น ตั้งชื่อบัญชีเพื่อให้ทีมระบุตัวผู้ดูแลได้" required /></label>
+            <div className="button-row"><button className="button secondary" type="button" onClick={() => setEditingProfile(false)}>ยกเลิก</button><button className="button" disabled={loading}>ตรวจสอบก่อนบันทึก</button></div>
+          </form> : null}
+        </div> : null}
         {canManage && !admin.is_current_user ? <div className="platform-access-actions">
           <button className="button secondary" type="button" onClick={() => prepareExisting(admin, 'update')}>
             {admin.role_code === 'super_admin' ? 'เปลี่ยนเป็น Platform Admin' : 'เลื่อนเป็น Super Admin'}
@@ -189,13 +248,21 @@ export function PlatformAdminAccessManager({
       </section>
     </div>
 
-    {pending ? <section className="subscription-confirmation platform-access-confirmation">
+    {pending ? <section
+      className="subscription-confirmation platform-access-confirmation"
+      ref={confirmationRef}
+      tabIndex={-1}
+    >
       <div className="subscription-confirmation-heading"><div><span className="eyebrow">ตรวจสอบครั้งสุดท้าย</span><h3>{confirmationTitle}</h3></div><span className="status pending">ยังไม่บันทึก</span></div>
       <div className="subscription-confirmation-grid">
         <div><span>บัญชี</span><strong>{pending.email}</strong></div>
         <div><span>ชื่อที่แสดง</span><strong>{pending.displayName || 'ไม่ได้ระบุ'}</strong></div>
         <div><span>ระดับสิทธิ์</span><strong>{roleLabels[pending.roleCode].label}</strong><small>{roleLabels[pending.roleCode].description}</small></div>
-        <div><span>ผลที่จะเกิดขึ้น</span><strong>{pending.action === 'suspend' ? 'ออกจาก Control Plane จนกว่าจะเปิดสิทธิ์กลับ' : 'เข้าใช้งานตามระดับสิทธิ์หลัง Login และ MFA'}</strong></div>
+        <div><span>ผลที่จะเกิดขึ้น</span><strong>{pending.action === 'suspend'
+          ? 'ออกจาก Control Plane จนกว่าจะเปิดสิทธิ์กลับ'
+          : pending.action === 'profile'
+            ? 'เปลี่ยนเฉพาะชื่อที่แสดง โดยไม่เปลี่ยนสิทธิ์หรือสถานะบัญชี'
+            : 'เข้าใช้งานตามระดับสิทธิ์หลัง Login และ MFA'}</strong></div>
       </div>
       <label className="readiness-note">เหตุผลสำหรับ Audit Log<textarea value={pending.reason} minLength={10} maxLength={2000} onChange={(event) => setPending({ ...pending, reason: event.target.value })} placeholder="ระบุเหตุผลอย่างน้อย 10 ตัวอักษร" required /></label>
       <div className="button-row"><button className="button secondary" type="button" disabled={loading} onClick={() => setPending(null)}>ย้อนกลับแก้ไข</button><button className={`button ${pending.action === 'suspend' ? 'danger' : ''}`} type="button" disabled={loading} onClick={confirm}>{loading ? 'กำลังบันทึก…' : confirmationTitle}</button></div>
