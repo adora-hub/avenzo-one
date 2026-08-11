@@ -8,6 +8,9 @@ export async function GET(request: Request) {
   const code = searchParams.get('code')
   const tokenHash = searchParams.get('token_hash')
   const type = searchParams.get('type')
+  const next = searchParams.get('next')
+  const safeNext = next && next.startsWith('/') && !next.startsWith('//') ? next : '/dashboard'
+  const isPasswordRecovery = safeNext === '/auth/set-password' || type === 'recovery'
   const supabase = await createClient()
 
   let authSucceeded = false
@@ -24,12 +27,14 @@ export async function GET(request: Request) {
     authSucceeded = !error
   }
 
-  if (authSucceeded) {
+  if (authSucceeded && !isPasswordRecovery) {
     const registration = await registerCurrentAppSession(supabase)
     reportSessionRegistrationFailure('auth-callback', registration)
   }
 
-  const next = searchParams.get('next')
-  const safeNext = next && next.startsWith('/') && !next.startsWith('//') ? next : '/dashboard'
+  if (!authSucceeded && isPasswordRecovery && (code || tokenHash)) {
+    return NextResponse.redirect(`${origin}/auth/set-password?error=recovery_link_invalid`)
+  }
+
   return NextResponse.redirect(`${origin}${safeNext}`)
 }

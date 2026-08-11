@@ -54,7 +54,6 @@ export function SessionActivityHeartbeat() {
       if (disposed || !session) return
 
       if (!deviceMetadataRecorded) {
-        deviceMetadataRecorded = true
         const deviceResult = await updateCurrentSessionDeviceMetadata(
           supabase,
           getCurrentSessionDeviceMetadata(window.navigator.userAgent),
@@ -62,6 +61,17 @@ export function SessionActivityHeartbeat() {
         if (deviceResult.errorMessage) {
           console.warn('[session-device] metadata update failed', {
             message: deviceResult.errorMessage,
+          })
+        } else {
+          deviceMetadataRecorded = true
+          void fetch('/api/account/security/session-notifications', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'new_device_login' }),
+          }).catch((error: unknown) => {
+            console.warn('[session-security-email] request failed safely', {
+              code: error instanceof Error ? error.name : 'unknown_error',
+            })
           })
         }
       }

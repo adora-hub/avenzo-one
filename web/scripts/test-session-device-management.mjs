@@ -5,6 +5,7 @@ import { getCurrentSessionDeviceMetadata } from '../src/lib/session-device.ts'
 
 const migration = await readFile('../supabase/migrations/20260811150000_phase_1_2_2_5_1_session_device_management_ui.sql', 'utf8')
 const page = await readFile('src/app/account/security/sessions/page.tsx', 'utf8')
+const sessionList = await readFile('src/app/account/security/sessions/session-device-list.tsx', 'utf8')
 const heartbeat = await readFile('src/app/components/session-activity-heartbeat.tsx', 'utf8')
 const dashboard = await readFile('src/app/dashboard/page.tsx', 'utf8')
 
@@ -43,11 +44,11 @@ test('device metadata RPC can update only the caller current session', () => {
   assert.match(heartbeat, /window\.navigator\.userAgent/)
 })
 
-test('read-only page clearly labels current device and contains no revoke action', () => {
+test('session management page clearly labels current device and delegates guarded actions', () => {
   assert.match(page, /อุปกรณ์ที่เข้าใช้งาน/)
-  assert.match(page, /อุปกรณ์นี้/)
-  assert.match(page, /ขั้นนี้เป็นการดูข้อมูลเท่านั้น/)
   assert.match(page, /app_list_my_sessions/)
-  assert.doesNotMatch(page, /ยกเลิก Session นี้|ออกจากระบบอุปกรณ์นี้/)
+  assert.match(page, /SessionDeviceList/)
+  assert.match(sessionList, /อุปกรณ์นี้/)
+  assert.match(sessionList, /!session\.is_current/)
   assert.match(dashboard, /href="\/account\/security\/sessions"/)
 })

@@ -8,6 +8,16 @@ import { getAppSessionLogoutMessage } from '@/lib/session-activity'
 import { createClient } from '@/lib/supabase/browser'
 
 const rememberedEmailKey = 'avenzo-one:remembered-email:v1'
+const productionAppOrigin = 'https://app.avenzoone.com'
+
+function getPasswordRecoveryRedirectUrl() {
+  const configuredOrigin = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '')
+  const recoveryOrigin = configuredOrigin?.startsWith('https://')
+    ? configuredOrigin
+    : productionAppOrigin
+
+  return `${recoveryOrigin}/auth/callback?next=${encodeURIComponent('/auth/set-password')}`
+}
 
 const passwordRules = [
   { key: 'length', label: 'อย่างน้อย 8 ตัวอักษร', test: (value: string) => value.length >= 8 },
@@ -50,12 +60,19 @@ export function AuthForm() {
   const passwordMeetsRequirements = passwordChecks.every((rule) => rule.passed)
 
   useEffect(() => {
-    const sessionMessage = getAppSessionLogoutMessage(
-      new URLSearchParams(window.location.search).get('session'),
-    )
+    const search = new URLSearchParams(window.location.search)
+    const sessionMessage = getAppSessionLogoutMessage(search.get('session'))
     if (sessionMessage) {
       setMessageTone('error')
       setMessage(sessionMessage)
+    }
+
+    if (search.get('forgot') === '1') {
+      setMode('forgot-password')
+      if (search.get('recovery') === 'expired') {
+        setMessageTone('error')
+        setMessage('ลิงก์ตั้งรหัสผ่านหมดอายุหรือถูกใช้แล้ว กรุณาขอลิงก์ใหม่')
+      }
     }
 
     const rememberedEmail = window.localStorage.getItem(rememberedEmailKey)
@@ -65,8 +82,22 @@ export function AuthForm() {
     }
 
     const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+    const recoveryError = hash.get('error_code') || hash.get('error')
+    if (recoveryError) {
+      setMode('forgot-password')
+      setMessageTone('error')
+      setMessage(
+        recoveryError === 'otp_expired'
+          ? 'ลิงก์ตั้งรหัสผ่านหมดอายุหรือถูกใช้แล้ว กรุณาขอลิงก์ใหม่ด้านล่าง'
+          : 'ไม่สามารถเปิดลิงก์ตั้งรหัสผ่านได้ กรุณาขอลิงก์ใหม่ด้านล่าง',
+      )
+      window.history.replaceState({}, document.title, '/?forgot=1&recovery=expired')
+      return
+    }
+
     const accessToken = hash.get('access_token')
     const refreshToken = hash.get('refresh_token')
+    const authType = hash.get('type')
     if (!accessToken || !refreshToken) return
 
     setLoading(true)
@@ -76,6 +107,11 @@ export function AuthForm() {
         setMessageTone('error')
         setMessage(getThaiAuthError(error))
         setLoading(false)
+        return
+      }
+      if (authType === 'recovery') {
+        window.history.replaceState({}, document.title, '/auth/set-password')
+        window.location.assign('/auth/set-password')
         return
       }
       const registration = await registerCurrentAppSession(supabase)
@@ -104,7 +140,10 @@ export function AuthForm() {
       }
       if (mode === 'forgot-password') {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/auth/callback?next=/auth/set-password`,
+          // Password recovery is an account-level flow. Always return users to
+          // the public AVENZO ONE app, even when an administrator requested the
+          // email while testing from localhost.
+          redirectTo: getPasswordRecoveryRedirectUrl(),
         })
         if (error) throw error
         setMessageTone('success')
