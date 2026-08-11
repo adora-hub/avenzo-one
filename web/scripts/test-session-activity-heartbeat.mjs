@@ -46,3 +46,13 @@ test('heartbeat remains globally mounted and reports inactive session evidence',
   assert.match(layout, /<SessionActivityHeartbeat \/>/)
   assert.match(component, /inactive session observed/)
 })
+
+test('heartbeat requests the security email only after device metadata is registered', () => {
+  const metadataRecordedAt = component.indexOf('deviceMetadataRecorded = true')
+  const notificationRequestedAt = component.indexOf('await requestNewDeviceLoginNotification()')
+
+  assert.ok(metadataRecordedAt >= 0)
+  assert.ok(notificationRequestedAt > metadataRecordedAt)
+  assert.match(component, /reportSessionSecurityNotificationFailure\('session-heartbeat', notification\)/)
+  assert.doesNotMatch(component, /fetch\('\/api\/account\/security\/session-notifications'/)
+})

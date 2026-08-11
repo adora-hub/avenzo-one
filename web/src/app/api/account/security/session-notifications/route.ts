@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+import { createClient as createServerClient } from '@/lib/supabase/server'
 import { sendCurrentSessionSecurityEmail } from '@/lib/session-security-email'
 
 export const runtime = 'nodejs'
@@ -17,7 +18,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'unsupported_notification_type' }, { status: 400 })
   }
 
-  const supabase = await createClient()
+  const authorization = request.headers.get('authorization')
+  const accessToken = authorization?.startsWith('Bearer ')
+    ? authorization.slice('Bearer '.length).trim()
+    : ''
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+  const supabase = accessToken && url && key
+    ? createSupabaseClient(url, key, {
+        auth: { autoRefreshToken: false, persistSession: false },
+        global: { headers: { Authorization: `Bearer ${accessToken}` } },
+      })
+    : await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user?.email) {
     return NextResponse.json({ error: 'authentication_required' }, { status: 401 })
@@ -29,5 +41,9 @@ export async function POST(request: Request) {
     'new_device_login',
   )
 
-  return NextResponse.json({ accepted: true, status: result.status })
+  return NextResponse.json({
+    accepted: true,
+    status: result.status,
+    errorCode: result.safeCode ?? null,
+  })
 }

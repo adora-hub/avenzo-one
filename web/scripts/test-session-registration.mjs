@@ -22,16 +22,18 @@ test('password and hash-session login paths register before redirecting', () => 
 test('platform admin registers only after a successful MFA verification', () => {
   const verifiedAt = mfaForm.indexOf('challengeAndVerify')
   const registeredAt = mfaForm.indexOf('registerCurrentAppSession(supabase)')
+  const notifiedAt = mfaForm.indexOf('requestNewDeviceLoginNotification()')
   const redirectedAt = mfaForm.indexOf('window.location.assign(nextPath)')
 
   assert.ok(verifiedAt >= 0)
   assert.ok(registeredAt > verifiedAt)
-  assert.ok(redirectedAt > registeredAt)
+  assert.ok(notifiedAt > registeredAt)
+  assert.ok(redirectedAt > notifiedAt)
 })
 
 test('PKCE and OTP callback sessions are registered only after authentication succeeds', () => {
   assert.match(callback, /authSucceeded = !error/)
-  assert.match(callback, /if \(authSucceeded\) \{[\s\S]*registerCurrentAppSession\(supabase\)/)
+  assert.match(callback, /if \(authSucceeded && !isPasswordRecovery\) \{[\s\S]*registerCurrentAppSession\(supabase\)/)
 })
 
 test('registration errors are logged safely and do not throw a second login error', () => {

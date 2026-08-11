@@ -36,29 +36,44 @@ function formatThaiDate(value: string) {
   }).format(new Date(value))
 }
 
+function emailFrame(title: string, content: string, sessionsUrl: string) {
+  return `<!doctype html><html lang="th"><body style="margin:0;background:#f4f7fb;font-family:'Noto Sans Thai',Arial,sans-serif;color:#10203a"><div style="max-width:600px;margin:0 auto;padding:32px 20px"><div style="background:#fff;border:1px solid #dce4f0;border-radius:18px;padding:32px"><div style="color:#315cf6;font-size:12px;font-weight:700;letter-spacing:.12em">AVENZO ONE SECURITY</div><h1 style="font-size:25px;margin:12px 0">${escapeHtml(title)}</h1>${content}<a href="${escapeHtml(sessionsUrl)}" style="display:inline-block;padding:12px 20px;border-radius:10px;background:#315cf6;color:#fff;text-decoration:none;font-weight:700">ตรวจสอบอุปกรณ์และ Session</a></div></div></body></html>`
+}
+
 function createSecurityEmail(
   notification: ClaimedSessionSecurityEmail,
   appUrl: string,
 ) {
   const sessionsUrl = `${appUrl.replace(/\/$/, '')}/account/security/sessions`
   const occurredAt = formatThaiDate(notification.event_created_at)
+  const unknown = 'ไม่ทราบ'
   const device = notification.device_label
     || [notification.browser_name, notification.operating_system].filter(Boolean).join(' บน ')
     || 'ไม่ทราบอุปกรณ์'
 
   if (notification.notification_type === 'other_sessions_revoked') {
     const count = Math.max(1, Number(notification.revoked_count || 0))
+    const title = 'ออกจากระบบบนอุปกรณ์อื่นแล้ว'
     return {
-      subject: '[AVENZO ONE] ออกจากระบบบนอุปกรณ์อื่นแล้ว',
-      text: `ออกจากระบบบนอุปกรณ์อื่นแล้ว ${count} อุปกรณ์\nเวลา: ${occurredAt}\n\nหากคุณไม่ได้เป็นผู้ดำเนินการ ให้เปลี่ยนรหัสผ่านทันทีและตรวจสอบอุปกรณ์ที่เข้าสู่ระบบ: ${sessionsUrl}`,
-      html: `<!doctype html><html lang="th"><body style="margin:0;background:#f4f7fb;font-family:'Noto Sans Thai',Arial,sans-serif;color:#10203a"><div style="max-width:600px;margin:0 auto;padding:32px 20px"><div style="background:#fff;border:1px solid #dce4f0;border-radius:18px;padding:32px"><div style="color:#315cf6;font-size:12px;font-weight:700;letter-spacing:.12em">AVENZO ONE SECURITY</div><h1 style="font-size:25px;margin:12px 0">ออกจากระบบบนอุปกรณ์อื่นแล้ว</h1><p style="font-size:16px;line-height:1.7">ระบบออกจากบัญชีของคุณบนอุปกรณ์อื่น <strong>${count} อุปกรณ์</strong></p><p style="font-size:16px;line-height:1.7">เวลา: <strong>${escapeHtml(occurredAt)}</strong></p><div style="margin:22px 0;padding:16px;border-radius:12px;background:#fff4f2;color:#9f2d20">หากคุณไม่ได้เป็นผู้ดำเนินการ โปรดเปลี่ยนรหัสผ่านทันทีและตรวจสอบอุปกรณ์ที่เข้าสู่ระบบ</div><a href="${escapeHtml(sessionsUrl)}" style="display:inline-block;padding:12px 20px;border-radius:10px;background:#315cf6;color:#fff;text-decoration:none;font-weight:700">ตรวจสอบอุปกรณ์และ Session</a></div></div></body></html>`,
+      subject: `[AVENZO ONE] ${title}`,
+      text: `${title} ${count} อุปกรณ์\nเวลา: ${occurredAt}\n\nหากคุณไม่ได้เป็นผู้ดำเนินการ ให้เปลี่ยนรหัสผ่านทันทีและตรวจสอบอุปกรณ์ที่เข้าสู่ระบบ: ${sessionsUrl}`,
+      html: emailFrame(
+        title,
+        `<p style="font-size:16px;line-height:1.7">ระบบออกจากบัญชีของคุณบนอุปกรณ์อื่น <strong>${count} อุปกรณ์</strong></p><p style="font-size:16px;line-height:1.7">เวลา: <strong>${escapeHtml(occurredAt)}</strong></p><div style="margin:22px 0;padding:16px;border-radius:12px;background:#fff4f2;color:#9f2d20">หากคุณไม่ได้เป็นผู้ดำเนินการ โปรดเปลี่ยนรหัสผ่านทันทีและตรวจสอบอุปกรณ์ที่เข้าสู่ระบบ</div>`,
+        sessionsUrl,
+      ),
     }
   }
 
+  const title = 'มีการเข้าสู่ระบบจากอุปกรณ์ใหม่'
   return {
-    subject: '[AVENZO ONE] มีการเข้าสู่ระบบจากอุปกรณ์ใหม่',
-    text: `มีการเข้าสู่ระบบจากอุปกรณ์ใหม่\nอุปกรณ์: ${device}\nเบราว์เซอร์: ${notification.browser_name || 'ไม่ทราบ'}\nระบบปฏิบัติการ: ${notification.operating_system || 'ไม่ทราบ'}\nเวลา: ${occurredAt}\n\nหากไม่ใช่คุณ ให้ตรวจสอบและออกจากระบบอุปกรณ์ดังกล่าวทันที: ${sessionsUrl}`,
-    html: `<!doctype html><html lang="th"><body style="margin:0;background:#f4f7fb;font-family:'Noto Sans Thai',Arial,sans-serif;color:#10203a"><div style="max-width:600px;margin:0 auto;padding:32px 20px"><div style="background:#fff;border:1px solid #dce4f0;border-radius:18px;padding:32px"><div style="color:#315cf6;font-size:12px;font-weight:700;letter-spacing:.12em">AVENZO ONE SECURITY</div><h1 style="font-size:25px;margin:12px 0">มีการเข้าสู่ระบบจากอุปกรณ์ใหม่</h1><p style="font-size:16px;line-height:1.7">อุปกรณ์: <strong>${escapeHtml(device)}</strong><br>เบราว์เซอร์: <strong>${escapeHtml(notification.browser_name || 'ไม่ทราบ')}</strong><br>ระบบปฏิบัติการ: <strong>${escapeHtml(notification.operating_system || 'ไม่ทราบ')}</strong><br>เวลา: <strong>${escapeHtml(occurredAt)}</strong></p><div style="margin:22px 0;padding:16px;border-radius:12px;background:#fff4f2;color:#9f2d20">หากไม่ใช่คุณ โปรดตรวจสอบและออกจากระบบอุปกรณ์ดังกล่าวทันที</div><a href="${escapeHtml(sessionsUrl)}" style="display:inline-block;padding:12px 20px;border-radius:10px;background:#315cf6;color:#fff;text-decoration:none;font-weight:700">ตรวจสอบอุปกรณ์และ Session</a></div></div></body></html>`,
+    subject: `[AVENZO ONE] ${title}`,
+    text: `${title}\nอุปกรณ์: ${device}\nเบราว์เซอร์: ${notification.browser_name || unknown}\nระบบปฏิบัติการ: ${notification.operating_system || unknown}\nเวลา: ${occurredAt}\n\nหากไม่ใช่คุณ ให้ตรวจสอบและออกจากระบบอุปกรณ์ดังกล่าวทันที: ${sessionsUrl}`,
+    html: emailFrame(
+      title,
+      `<p style="font-size:16px;line-height:1.7">อุปกรณ์: <strong>${escapeHtml(device)}</strong><br>เบราว์เซอร์: <strong>${escapeHtml(notification.browser_name || unknown)}</strong><br>ระบบปฏิบัติการ: <strong>${escapeHtml(notification.operating_system || unknown)}</strong><br>เวลา: <strong>${escapeHtml(occurredAt)}</strong></p><div style="margin:22px 0;padding:16px;border-radius:12px;background:#fff4f2;color:#9f2d20">หากไม่ใช่คุณ โปรดตรวจสอบและออกจากระบบอุปกรณ์ดังกล่าวทันที</div>`,
+      sessionsUrl,
+    ),
   }
 }
 

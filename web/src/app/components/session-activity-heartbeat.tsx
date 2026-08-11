@@ -13,6 +13,10 @@ import {
   getCurrentSessionDeviceMetadata,
   updateCurrentSessionDeviceMetadata,
 } from '@/lib/session-device'
+import {
+  reportSessionSecurityNotificationFailure,
+  requestNewDeviceLoginNotification,
+} from '@/lib/session-security-notification-client'
 
 const ACTIVITY_EVENTS: ReadonlyArray<keyof WindowEventMap> = [
   'focus',
@@ -54,6 +58,19 @@ export function SessionActivityHeartbeat() {
       if (disposed || !session) return
 
       if (!deviceMetadataRecorded) {
+        // A password login for an MFA-enabled account creates an AAL1 session
+        // before the user completes the TOTP challenge. Do not claim the
+        // new-device event during that intermediate session: the application
+        // registers the final session only after MFA succeeds.
+        const assurance = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+        const authenticationComplete = !assurance.error
+          && assurance.data.currentLevel === assurance.data.nextLevel
+
+        if (!authenticationComplete) {
+          activityPending = true
+          return
+        }
+
         const deviceResult = await updateCurrentSessionDeviceMetadata(
           supabase,
           getCurrentSessionDeviceMetadata(window.navigator.userAgent),
@@ -64,15 +81,8 @@ export function SessionActivityHeartbeat() {
           })
         } else {
           deviceMetadataRecorded = true
-          void fetch('/api/account/security/session-notifications', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'new_device_login' }),
-          }).catch((error: unknown) => {
-            console.warn('[session-security-email] request failed safely', {
-              code: error instanceof Error ? error.name : 'unknown_error',
-            })
-          })
+          const notification = await requestNewDeviceLoginNotification()
+          reportSessionSecurityNotificationFailure('session-heartbeat', notification)
         }
       }
 

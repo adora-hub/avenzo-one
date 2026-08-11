@@ -5,6 +5,7 @@ import type { FormEvent } from 'react'
 import type { Factor } from '@supabase/supabase-js'
 import { getThaiAuthError } from '@/lib/auth-error-message'
 import { registerCurrentAppSession, reportSessionRegistrationFailure } from '@/lib/session-registration'
+import { requestNewDeviceLoginNotification, reportSessionSecurityNotificationFailure } from '@/lib/session-security-notification-client'
 import { createClient } from '@/lib/supabase/browser'
 
 export function MfaChallengeForm({ nextPath }: { nextPath: string }) {
@@ -52,6 +53,10 @@ export function MfaChallengeForm({ nextPath }: { nextPath: string }) {
       if (auditResult.error) console.error('[mfa-challenge] audit event failed', { message: auditResult.error.message })
       const registration = await registerCurrentAppSession(supabase)
       reportSessionRegistrationFailure('mfa-challenge', registration)
+      if (registration.registered) {
+        const notification = await requestNewDeviceLoginNotification()
+        reportSessionSecurityNotificationFailure('mfa-challenge', notification)
+      }
       window.location.assign(nextPath)
     } catch (error) {
       setMessage(getThaiAuthError(error))

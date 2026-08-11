@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import type { FormEvent, KeyboardEvent } from 'react'
 import { getThaiAuthError, isExistingAccountError } from '@/lib/auth-error-message'
 import { registerCurrentAppSession, reportSessionRegistrationFailure } from '@/lib/session-registration'
+import { requestNewDeviceLoginNotification, reportSessionSecurityNotificationFailure } from '@/lib/session-security-notification-client'
 import { getAppSessionLogoutMessage } from '@/lib/session-activity'
 import { createClient } from '@/lib/supabase/browser'
 
@@ -116,6 +117,10 @@ export function AuthForm() {
       }
       const registration = await registerCurrentAppSession(supabase)
       reportSessionRegistrationFailure('hash-session', registration)
+      if (registration.registered) {
+        const notification = await requestNewDeviceLoginNotification()
+        reportSessionSecurityNotificationFailure('hash-session', notification)
+      }
       window.history.replaceState({}, document.title, window.location.pathname)
       const pendingResponse = await fetch('/api/invitations/pending')
       const pending = await pendingResponse.json() as { invitationId?: string | null }
@@ -195,12 +200,20 @@ export function AuthForm() {
           }
           const registration = await registerCurrentAppSession(supabase)
           reportSessionRegistrationFailure('password-login', registration)
+          if (registration.registered) {
+            const notification = await requestNewDeviceLoginNotification()
+            reportSessionSecurityNotificationFailure('password-login', notification)
+          }
           window.location.assign(destination)
           return
         }
 
         const registration = await registerCurrentAppSession(supabase)
         reportSessionRegistrationFailure('password-login', registration)
+        if (registration.registered) {
+          const notification = await requestNewDeviceLoginNotification()
+          reportSessionSecurityNotificationFailure('password-login', notification)
+        }
         window.location.assign(nextPath)
       }
     } catch (error) {
