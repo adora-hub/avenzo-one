@@ -96,7 +96,7 @@ export default async function PlatformAdminPage({ searchParams }: {
     <main className="dashboard">
       <header className="topbar">
         <div className="brand">AVENZO ONE / Platform Admin</div>
-        <div className="topbar-actions"><span>{user.email}</span><Link className="button secondary" href="/dashboard">กลับ Dashboard</Link><SignOutButton /></div>
+        <div className="topbar-actions"><span>{user.email}</span><Link className="button secondary" href="/account/security/sessions">อุปกรณ์ที่เข้าใช้งาน</Link><Link className="button secondary" href="/dashboard">กลับ Dashboard</Link><SignOutButton /></div>
       </header>
       <section className="content platform-subscription-content">
         <div className="hero">

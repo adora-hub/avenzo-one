@@ -904,3 +904,65 @@ input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft
 @media (max-width: 820px) {
   .approval-policy-layout { grid-template-columns: 1fr; }
 }
+
+.session-expiry-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, .56);
+  backdrop-filter: blur(4px);
+}
+
+.session-expiry-dialog {
+  display: grid;
+  gap: 16px;
+  width: min(460px, 100%);
+  padding: 28px;
+  border: 1px solid #f0d28a;
+  border-radius: 20px;
+  background: #fffdf7;
+}
+
+.session-expiry-dialog.expired { border-color: #f1a7a2; background: #fffafa; }
+.session-expiry-dialog h2, .session-expiry-dialog p { margin: 0; }
+.session-expiry-dialog > p { color: var(--muted); line-height: 1.65; }
+.session-expiry-countdown { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 15px 16px; border-radius: 13px; background: #fff4d6; color: #7a5200; }
+.session-expiry-countdown strong { font-size: 28px; font-variant-numeric: tabular-nums; }
+.session-expiry-message { padding: 11px 13px; border-radius: 11px; background: #e5f7ed; color: #087443 !important; font-size: 13px; }
+.session-expiry-action { width: 100%; }
+.session-expiry-dialog small { color: var(--muted); text-align: center; }
+
+.session-management-content { width: min(1040px, 100%); }
+.session-management-hero { align-items: center; }
+.session-management-hero .feature-count { flex: 0 0 auto; }
+.session-management-notice,
+.session-privacy-note { display: flex; gap: 13px; margin-bottom: 20px; padding: 16px 18px; border: 1px solid #b9c8ff; border-radius: 15px; background: #f7f9ff; }
+.session-management-notice > span { display: grid; flex: 0 0 26px; width: 26px; height: 26px; place-items: center; border-radius: 50%; background: var(--brand-soft); color: var(--brand); font-weight: 900; }
+.session-management-notice p,
+.session-privacy-note p { margin: 3px 0 0; font-size: 13px; }
+.session-device-list { display: grid; gap: 16px; }
+.session-device-card { display: grid; gap: 18px; }
+.session-device-card.current { border-color: #9fb3ff; background: #fbfcff; }
+.session-device-header { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; }
+.session-device-header h2 { font-size: 20px; }
+.session-device-header p { margin: 7px 0 0; font-size: 13px; }
+.session-policy-label { flex: 0 0 auto; padding: 7px 10px; border-radius: 999px; background: #f1f3f7; color: var(--muted); font-size: 12px; font-weight: 700; }
+.session-device-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 0; }
+.session-device-grid > div { min-width: 0; padding: 13px 14px; border: 1px solid var(--line); border-radius: 12px; background: white; }
+.session-device-grid dt { margin-bottom: 5px; color: var(--muted); font-size: 12px; font-weight: 700; }
+.session-device-grid dd { margin: 0; overflow-wrap: anywhere; font-size: 14px; font-weight: 750; }
+.session-privacy-note { display: grid; gap: 2px; margin: 20px 0 0; border-style: dashed; }
+
+@media (max-width: 520px) {
+  .session-expiry-backdrop { padding: 14px; }
+  .session-expiry-dialog { padding: 22px; }
+}
+
+@media (max-width: 760px) {
+  .session-management-hero,
+  .session-device-header { align-items: flex-start; flex-direction: column; }
+  .session-device-grid { grid-template-columns: 1fr; }
+}

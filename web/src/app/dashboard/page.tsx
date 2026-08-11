@@ -54,6 +54,7 @@ export default async function DashboardPage() {
         <div className="brand">AVENZO ONE</div>
         <div className="topbar-actions">
           <span>{user.email}</span>
+          <Link className="button secondary" href="/account/security/sessions">อุปกรณ์ที่เข้าใช้งาน</Link>
           {platformAdminResult.data?.status === 'active' && <Link className="button secondary" href="/platform-admin">Platform Admin</Link>}
           <SignOutButton />
         </div>

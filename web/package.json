@@ -18,7 +18,13 @@
     "test:transfer-approval-enforcement": "node --test scripts/test-transfer-approval-policy-enforcement.mjs",
     "test:transfer-workflow-status-ui": "node --test scripts/test-transfer-workflow-status-ui.mjs",
     "test:transfer-workflow-actions-ui": "node --test scripts/test-transfer-workflow-actions-ui.mjs",
-    "test:transfer-approval-timeline-ui": "node --test scripts/test-transfer-approval-timeline-ui.mjs"
+    "test:transfer-approval-timeline-ui": "node --test scripts/test-transfer-approval-timeline-ui.mjs",
+    "test:session-policy-foundation": "node --test scripts/test-session-policy-foundation.mjs",
+    "test:session-registration": "node --test scripts/test-session-registration.mjs",
+    "test:session-activity-heartbeat": "node --test scripts/test-session-activity-heartbeat.mjs",
+    "test:session-expiry-warning": "node --experimental-strip-types --test scripts/test-session-expiry-warning.mjs",
+    "test:session-enforcement": "node --experimental-strip-types --test scripts/test-session-enforcement.mjs",
+    "test:session-device-management": "node --experimental-strip-types --test scripts/test-session-device-management.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.7.0",

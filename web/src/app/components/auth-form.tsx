@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent, KeyboardEvent } from 'react'
 import { getThaiAuthError, isExistingAccountError } from '@/lib/auth-error-message'
+import { registerCurrentAppSession, reportSessionRegistrationFailure } from '@/lib/session-registration'
+import { getAppSessionLogoutMessage } from '@/lib/session-activity'
 import { createClient } from '@/lib/supabase/browser'
 
 const rememberedEmailKey = 'avenzo-one:remembered-email:v1'
@@ -48,6 +50,14 @@ export function AuthForm() {
   const passwordMeetsRequirements = passwordChecks.every((rule) => rule.passed)
 
   useEffect(() => {
+    const sessionMessage = getAppSessionLogoutMessage(
+      new URLSearchParams(window.location.search).get('session'),
+    )
+    if (sessionMessage) {
+      setMessageTone('error')
+      setMessage(sessionMessage)
+    }
+
     const rememberedEmail = window.localStorage.getItem(rememberedEmailKey)
     if (rememberedEmail) {
       setEmail(rememberedEmail)
@@ -60,13 +70,16 @@ export function AuthForm() {
     if (!accessToken || !refreshToken) return
 
     setLoading(true)
-    createClient().auth.setSession({ access_token: accessToken, refresh_token: refreshToken }).then(async ({ error }) => {
+    const supabase = createClient()
+    supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken }).then(async ({ error }) => {
       if (error) {
         setMessageTone('error')
         setMessage(getThaiAuthError(error))
         setLoading(false)
         return
       }
+      const registration = await registerCurrentAppSession(supabase)
+      reportSessionRegistrationFailure('hash-session', registration)
       window.history.replaceState({}, document.title, window.location.pathname)
       const pendingResponse = await fetch('/api/invitations/pending')
       const pending = await pendingResponse.json() as { invitationId?: string | null }
@@ -141,10 +154,14 @@ export function AuthForm() {
             window.location.assign(`/auth/mfa?next=${encodeURIComponent(destination)}`)
             return
           }
+          const registration = await registerCurrentAppSession(supabase)
+          reportSessionRegistrationFailure('password-login', registration)
           window.location.assign(destination)
           return
         }
 
+        const registration = await registerCurrentAppSession(supabase)
+        reportSessionRegistrationFailure('password-login', registration)
         window.location.assign(nextPath)
       }
     } catch (error) {

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Inter, Noto_Sans_Thai } from 'next/font/google'
+import { SessionActivityHeartbeat } from '@/app/components/session-activity-heartbeat'
 import './globals.css'
 
 const inter = Inter({
@@ -22,7 +23,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="th">
-      <body className={`${inter.variable} ${notoSansThai.variable}`}>{children}</body>
+      <body className={`${inter.variable} ${notoSansThai.variable}`}>
+        <SessionActivityHeartbeat />
+        {children}
+      </body>
     </html>
   )
 }

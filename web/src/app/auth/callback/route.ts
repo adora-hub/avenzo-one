@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { EmailOtpType } from '@supabase/supabase-js'
+import { registerCurrentAppSession, reportSessionRegistrationFailure } from '@/lib/session-registration'
 import { createClient } from '@/lib/supabase/server'
 
 export async function GET(request: Request) {
@@ -9,15 +10,23 @@ export async function GET(request: Request) {
   const type = searchParams.get('type')
   const supabase = await createClient()
 
+  let authSucceeded = false
   if (code) {
-    await supabase.auth.exchangeCodeForSession(code)
+    const { error } = await supabase.auth.exchangeCodeForSession(code)
+    authSucceeded = !error
   } else if (tokenHash && type) {
     // Supabase invite/confirmation emails can return a token_hash instead
     // of a PKCE code. Verify it here so the invitee gets a session.
-    await supabase.auth.verifyOtp({
+    const { error } = await supabase.auth.verifyOtp({
       token_hash: tokenHash,
       type: type as EmailOtpType,
     })
+    authSucceeded = !error
+  }
+
+  if (authSucceeded) {
+    const registration = await registerCurrentAppSession(supabase)
+    reportSessionRegistrationFailure('auth-callback', registration)
   }
 
   const next = searchParams.get('next')
