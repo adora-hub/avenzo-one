@@ -13,6 +13,12 @@ import type { InvitationStatus, OrganizationInvitationHistoryResult } from '@/li
 import type { AuditCategory, OrganizationAuditLogResult } from '@/lib/organization-audit-log'
 import { branchEntitlementMessage, type OrganizationBranchEntitlement } from '@/lib/branch-entitlement'
 import { subscriptionAccessStateLabel } from '../../components/subscription-labels'
+import {
+  BillingTransferProofUpload,
+  type TransferChannelOption,
+  type TransferInvoiceOption,
+  type TransferProofSummary,
+} from '../../components/billing-transfer-proof-upload'
 
 type SearchParams = Record<string, string | string[] | undefined>
 type InvitationFilterStatus = 'all' | InvitationStatus
@@ -73,8 +79,9 @@ export default async function OrganizationPage({ params, searchParams }: Props) 
   const canManageRoles = permissions.has('role.manage')
   const canManageOwners = access?.roles.some((role) => role.code === 'owner') ?? false
   const canReadAudit = permissions.has('audit.read')
+  const canReadBilling = permissions.has('billing.read')
 
-  const [membersResult, invitationHistoryResult, rolesResult, auditResult] = await Promise.all([
+  const [membersResult, invitationHistoryResult, rolesResult, auditResult, invoicesResult, channelsResult, proofsResult] = await Promise.all([
     canReadMembers
       ? supabase.rpc('organization_member_directory', { p_organization_id: id })
       : Promise.resolve({ data: [] }),
@@ -99,6 +106,24 @@ export default async function OrganizationPage({ params, searchParams }: Props) 
           p_page_size: auditPageSize,
         })
       : Promise.resolve({ data: { items: [], total_count: 0 } }),
+    canReadBilling
+      ? supabase.from('billing_invoices')
+          .select('id, invoice_number, total_amount, currency, due_at')
+          .eq('organization_id', id)
+          .eq('status', 'pending')
+          .order('issued_at', { ascending: false })
+          .limit(20)
+      : Promise.resolve({ data: [] }),
+    canReadBilling
+      ? supabase.rpc('customer_active_billing_transfer_channels', { p_organization_id: id })
+      : Promise.resolve({ data: [] }),
+    canReadBilling
+      ? supabase.from('billing_transfer_proofs')
+          .select('id, invoice_id, original_file_name, claimed_amount, claimed_transfer_at, status, submitted_at, fulfilled_payment_id, fulfilled_at, fulfilled_payment:billing_payments!billing_transfer_proofs_fulfilled_payment_id_fkey(payment_number)')
+          .eq('organization_id', id)
+          .order('created_at', { ascending: false })
+          .limit(10)
+      : Promise.resolve({ data: [] }),
   ])
 
   if ('error' in membersResult && membersResult.error) {
@@ -137,6 +162,15 @@ export default async function OrganizationPage({ params, searchParams }: Props) 
     })
   }
   const auditHistory = (auditResult.data ?? { items: [], total_count: 0 }) as OrganizationAuditLogResult
+  const billingInvoices = (invoicesResult.data ?? []) as TransferInvoiceOption[]
+  const transferChannels = (channelsResult.data ?? []) as TransferChannelOption[]
+  const transferProofs = (proofsResult.data ?? []).map((proof) => {
+    const payment = Array.isArray(proof.fulfilled_payment) ? proof.fulfilled_payment[0] : proof.fulfilled_payment
+    return {
+      ...proof,
+      payment_number: payment?.payment_number ?? null,
+    }
+  }) as TransferProofSummary[]
   const invitationRoles = canManageOwners ? roles : roles.filter((role) => role.code !== 'owner')
   const hasManagementPermission = canCreateBranch || canInviteMembers || canReadMembers
 
@@ -191,6 +225,16 @@ export default async function OrganizationPage({ params, searchParams }: Props) 
             ? <OrganizationAccessSummaryCard access={access} />
             : <article className="card"><h2>ตำแหน่งและหน้าที่ของคุณ</h2><div className="empty">ไม่สามารถอ่านข้อมูล Role และ Permission ได้</div></article>}
         </div>
+
+        {canReadBilling && (
+          <div style={{ marginTop: 18 }}>
+            {'error' in invoicesResult && invoicesResult.error
+              ? <div className="error">ไม่สามารถโหลด Invoice ที่รอชำระได้ กรุณา Refresh อีกครั้ง</div>
+              : 'error' in channelsResult && channelsResult.error
+                ? <div className="error">ไม่สามารถโหลดช่องทางรับโอนได้ กรุณา Refresh อีกครั้ง</div>
+                : <BillingTransferProofUpload invoices={billingInvoices} channels={transferChannels} proofs={transferProofs} />}
+          </div>
+        )}
 
         {canInviteMembers && (
           <div className="card" style={{ marginTop: 18 }}>

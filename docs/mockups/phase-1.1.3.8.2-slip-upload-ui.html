@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AVENZO ONE — Slip Upload UI Prototype</title>
+  <style>
+    :root {
+      --ink: #101828;
+      --muted: #667085;
+      --line: #d8dfec;
+      --surface: #ffffff;
+      --page: #f4f6fa;
+      --primary: #315cf6;
+      --primary-hover: #274edb;
+      --primary-soft: #eef2ff;
+      --warning: #8a5a00;
+      --warning-bg: #fff9e8;
+      --warning-line: #f1d18a;
+      --success: #087443;
+      --success-bg: #eaf8f0;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--page);
+      color: var(--ink);
+      font-family: "Noto Sans Thai", Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.5;
+    }
+    button, input, select, textarea { font: inherit; }
+    .page { width: min(1080px, calc(100% - 32px)); margin: 42px auto; }
+    .eyebrow { color: var(--primary); font-size: 12px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+    h1 { margin: 8px 0 4px; font-size: clamp(28px, 4vw, 42px); line-height: 1.15; }
+    .subtitle { margin: 0 0 24px; color: var(--muted); }
+    .card { display: grid; gap: 22px; padding: 28px; border: 1px solid var(--line); border-radius: 22px; background: var(--surface); }
+    .heading-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .heading-row h2 { margin: 0; font-size: 24px; }
+    .status { padding: 5px 10px; border-radius: 999px; background: #fff4d6; color: var(--warning); font-size: 12px; font-weight: 800; }
+    .description { margin: -12px 0 0; color: var(--muted); }
+    .notice { display: grid; gap: 4px; padding: 15px 17px; border: 1px solid var(--warning-line); border-radius: 14px; background: var(--warning-bg); color: var(--warning); }
+    .notice span { color: #7c5a19; font-size: 13px; }
+    .form { display: grid; gap: 18px; }
+    .field { display: grid; gap: 8px; }
+    .field label, .field-label { font-size: 13px; font-weight: 800; }
+    .field-help { color: var(--muted); font-size: 12px; }
+    input, textarea, select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      color: var(--ink);
+      outline: none;
+      transition: border-color .15s ease, background-color .15s ease;
+    }
+    input, select { min-height: 46px; padding: 0 14px; }
+    textarea { min-height: 92px; padding: 13px 14px; resize: vertical; }
+    input:focus, textarea:focus, select:focus { border-color: var(--primary); }
+    .select-control { position: relative; }
+    .select-control select {
+      appearance: none;
+      padding-right: 58px;
+      cursor: pointer;
+    }
+    .select-arrow {
+      position: absolute;
+      top: 1px;
+      right: 1px;
+      display: grid;
+      width: 46px;
+      height: 44px;
+      place-items: center;
+      border-left: 1px solid var(--line);
+      border-radius: 0 11px 11px 0;
+      background: #fafbff;
+      color: #344054;
+      pointer-events: none;
+    }
+    .select-control:hover select { border-color: #b8c4dc; background: #fcfdff; }
+    .select-control:hover .select-arrow { background: var(--primary-soft); color: var(--primary); }
+    .account { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; padding: 18px; border: 1px solid #aebeff; border-radius: 15px; background: #f8faff; }
+    .account div { display: grid; gap: 3px; }
+    .account span { color: var(--muted); font-size: 12px; }
+    .account strong { font-size: 16px; }
+    .account p { grid-column: 1 / -1; margin: 0; color: var(--muted); }
+    .grid-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    .drop-zone {
+      display: grid;
+      min-height: 190px;
+      place-items: center;
+      padding: 24px;
+      border: 2px dashed #b9c5e5;
+      border-radius: 17px;
+      background: #fafbff;
+      cursor: pointer;
+      text-align: center;
+      transition: border-color .15s ease, background-color .15s ease;
+    }
+    .drop-zone:hover, .drop-zone.dragging { border-color: var(--primary); background: var(--primary-soft); }
+    .drop-zone input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+    .upload-icon { display: grid; width: 48px; height: 48px; margin: 0 auto 11px; place-items: center; border-radius: 14px; background: var(--primary-soft); color: var(--primary); }
+    .drop-zone strong { display: block; margin-bottom: 4px; font-size: 17px; }
+    .drop-zone p { margin: 0; color: var(--muted); font-size: 13px; }
+    .drop-zone .browse { color: var(--primary); font-weight: 800; }
+    .file-card { display: none; grid-template-columns: 54px minmax(0, 1fr) auto; align-items: center; gap: 13px; padding: 13px; border: 1px solid #b7e2ca; border-radius: 14px; background: var(--success-bg); }
+    .file-card.visible { display: grid; }
+    .file-preview { display: grid; width: 54px; height: 54px; place-items: center; overflow: hidden; border-radius: 10px; background: white; color: var(--success); font-weight: 900; }
+    .file-preview img { width: 100%; height: 100%; object-fit: cover; }
+    .file-info { min-width: 0; }
+    .file-name { overflow: hidden; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+    .file-meta { color: var(--muted); font-size: 12px; }
+    .remove { padding: 8px 11px; border: 0; border-radius: 10px; background: #fff; color: #b42318; cursor: pointer; font-weight: 800; }
+    .remove:hover { background: #feeaea; }
+    .primary { width: 100%; min-height: 48px; border: 0; border-radius: 12px; background: var(--primary); color: white; cursor: pointer; font-weight: 800; }
+    .primary:hover { background: var(--primary-hover); }
+    .prototype-note { margin-top: 14px; color: var(--muted); font-size: 12px; text-align: center; }
+
+    @media (max-width: 680px) {
+      .page { width: min(100% - 20px, 1080px); margin: 20px auto; }
+      .card { padding: 20px; border-radius: 18px; }
+      .grid-two, .account { grid-template-columns: 1fr; }
+      .account p { grid-column: auto; }
+      .file-card { grid-template-columns: 46px minmax(0, 1fr); }
+      .file-card .remove { grid-column: 1 / -1; width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div class="eyebrow">Phase 1.1.3.8.2 · UI Prototype</div>
+    <h1>หลักฐานการโอนเงิน</h1>
+    <p class="subtitle">ตัวอย่างหน้าจอก่อนนำไปปรับใช้ในระบบจริง</p>
+
+    <section class="card">
+      <div class="heading-row"><span class="status">รอชำระ</span><h2>แจ้งโอนและแนบหลักฐาน</h2></div>
+      <p class="description">ไฟล์เก็บในพื้นที่ Private และเปิดดูได้เฉพาะผู้มีสิทธิ์ของ Organization เท่านั้น</p>
+      <div class="notice"><strong>แนบหลักฐานแล้ว ≠ ชำระสำเร็จ</strong><span>Invoice จะยังคงเป็น “รอชำระ” จนกว่าเจ้าหน้าที่ตรวจสอบและอนุมัติ</span></div>
+
+      <div class="form">
+        <div class="field">
+          <label for="invoice">Invoice</label>
+          <div class="select-control">
+            <select id="invoice"><option>INV-202608-000060 · ฿1,605.00</option></select>
+            <span class="select-arrow" aria-hidden="true">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="m7 10 5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="channel">ช่องทางที่โอน</label>
+          <div class="select-control">
+            <select id="channel"><option>บัญชีชำระบริการ AVENZA ONE · ธนาคารไทยพาณิชย์</option></select>
+            <span class="select-arrow" aria-hidden="true">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="m7 10 5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+          </div>
+        </div>
+
+        <div class="account">
+          <div><span>ชื่อบัญชี</span><strong>นาย ธนาธิป ลิ่วเฉลิมวงศ์</strong></div>
+          <div><span>เลขบัญชี / พร้อมเพย์</span><strong>4085704479</strong></div>
+          <p>กรุณาโอนยอดให้ตรงกับ Invoice และแนบหลักฐานหลังโอน</p>
+        </div>
+
+        <div class="grid-two">
+          <div class="field"><label for="amount">ยอดที่โอน</label><input id="amount" value="1605" inputmode="decimal"></div>
+          <div class="field"><label for="time">วันและเวลาที่โอน</label><input id="time" type="datetime-local" value="2026-08-10T20:33"></div>
+        </div>
+
+        <div class="field">
+          <span class="field-label">ไฟล์หลักฐาน</span>
+          <span class="field-help">รองรับ JPG, PNG, WebP หรือ PDF · ไม่เกิน 5 MB</span>
+          <label class="drop-zone" id="dropZone" for="proofFile">
+            <input id="proofFile" type="file" accept="image/jpeg,image/png,image/webp,application/pdf">
+            <span>
+              <span class="upload-icon">
+                <svg width="25" height="25" viewBox="0 0 24 24" fill="none"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </span>
+              <strong>ลากไฟล์มาวางที่นี่</strong>
+              <p>หรือ <span class="browse">เลือกไฟล์จากเครื่อง</span></p>
+            </span>
+          </label>
+          <div class="file-card" id="fileCard">
+            <div class="file-preview" id="filePreview">FILE</div>
+            <div class="file-info"><div class="file-name" id="fileName"></div><div class="file-meta" id="fileMeta"></div></div>
+            <button class="remove" id="removeFile" type="button">เอาไฟล์ออก</button>
+          </div>
+        </div>
+
+        <div class="field"><label for="note">หมายเหตุ (ถ้ามี)</label><textarea id="note" placeholder="เช่น ชื่อผู้โอน หรือข้อมูลที่ช่วยตรวจสอบ"></textarea></div>
+        <button class="primary" type="button">ตรวจสอบก่อนส่งหลักฐาน</button>
+      </div>
+    </section>
+    <p class="prototype-note">Prototype เท่านั้น · ปุ่มนี้ยังไม่บันทึกข้อมูลจริง</p>
+  </main>
+
+  <script>
+    const input = document.getElementById('proofFile')
+    const dropZone = document.getElementById('dropZone')
+    const fileCard = document.getElementById('fileCard')
+    const fileName = document.getElementById('fileName')
+    const fileMeta = document.getElementById('fileMeta')
+    const filePreview = document.getElementById('filePreview')
+    const removeFile = document.getElementById('removeFile')
+    let previewUrl = ''
+
+    function clearPreview() {
+      if (previewUrl) URL.revokeObjectURL(previewUrl)
+      previewUrl = ''
+      input.value = ''
+      fileCard.classList.remove('visible')
+      filePreview.replaceChildren('FILE')
+    }
+
+    function showFile(file) {
+      if (!file) return
+      const accepted = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
+      if (!accepted.includes(file.type) || file.size > 5 * 1024 * 1024) {
+        alert('รองรับเฉพาะ JPG, PNG, WebP หรือ PDF และต้องไม่เกิน 5 MB')
+        clearPreview()
+        return
+      }
+      fileName.textContent = file.name
+      fileMeta.textContent = `${(file.size / 1024 / 1024).toFixed(2)} MB · พร้อมแนบ`
+      filePreview.replaceChildren(file.type === 'application/pdf' ? 'PDF' : 'IMG')
+      if (file.type.startsWith('image/')) {
+        previewUrl = URL.createObjectURL(file)
+        const image = document.createElement('img')
+        image.src = previewUrl
+        image.alt = 'ตัวอย่างหลักฐาน'
+        filePreview.replaceChildren(image)
+      }
+      fileCard.classList.add('visible')
+    }
+
+    input.addEventListener('change', () => showFile(input.files[0]))
+    ;['dragenter', 'dragover'].forEach((name) => dropZone.addEventListener(name, (event) => {
+      event.preventDefault()
+      dropZone.classList.add('dragging')
+    }))
+    ;['dragleave', 'drop'].forEach((name) => dropZone.addEventListener(name, (event) => {
+      event.preventDefault()
+      dropZone.classList.remove('dragging')
+    }))
+    dropZone.addEventListener('drop', (event) => showFile(event.dataTransfer.files[0]))
+    removeFile.addEventListener('click', clearPreview)
+  </script>
+</body>
+</html>
