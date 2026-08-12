@@ -1,6 +1,6 @@
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { BillingProductionReadinessReview } from '@/app/components/billing-production-readiness-review'
+import { ApplicationShell } from '@/app/components/application-shell'
 import { SignOutButton } from '@/app/components/sign-out-button'
 import { buildPaymentExceptions, type PaymentExceptionAttempt, type PaymentExceptionEvent, type PaymentExceptionInvoice } from '@/lib/billing/payment-exceptions'
 import { inspectBillingProductionEnvironment, type ReadinessCheck } from '@/lib/billing/production-readiness'
@@ -94,10 +94,10 @@ export default async function BillingProductionReadinessPage() {
   const manualCompleted = readinessManualItems.filter((item) => latestReview?.manual_checklist?.[item.key]).length
   const readyForControlledActivation = automaticPassed === automaticChecks.length && latestReview?.manual_status === 'manual_complete'
 
-  return <main className="dashboard">
+  return <ApplicationShell email={user.email ?? ''} isPlatformAdmin section="platform">
     <header className="topbar"><div className="brand">AVENZO ONE / Billing Readiness</div><div className="topbar-actions"><span>{user.email}</span><SignOutButton /></div></header>
     <section className="content platform-subscription-content">
-      <div className="hero"><div><div className="eyebrow">Phase 1.1.3.6</div><h1>ความพร้อมก่อนเปิดรับเงินจริง</h1><p>ตรวจระบบ หลักฐาน และผู้รับผิดชอบก่อนเสนอเปิด Stripe Live Mode</p></div><div className="button-row"><Link className="button secondary" href="/platform-admin/billing/live-control">ศูนย์ควบคุมการรับเงินจริง</Link><Link className="button secondary" href="/platform-admin/billing">กลับ Billing</Link><Link className="button secondary" href="/platform-admin">กลับ Platform Admin</Link></div></div>
+      <div className="hero"><div><div className="eyebrow">Phase 1.1.3.6</div><h1>ความพร้อมก่อนเปิดรับเงินจริง</h1><p>ตรวจระบบ หลักฐาน และผู้รับผิดชอบก่อนเสนอเปิด Stripe Live Mode</p></div></div>
       <div className={`readiness-decision ${readyForControlledActivation ? 'ready' : 'blocked'}`} role="status">
         <span aria-hidden="true">{readyForControlledActivation ? '✓' : '!'}</span>
         <div><strong>{readyForControlledActivation ? 'พร้อมเสนอเข้าสู่ขั้นเปิดแบบควบคุม' : 'ยังไม่พร้อมเปิดรับเงินจริง'}</strong><p>{readyForControlledActivation ? 'ผ่านระบบอัตโนมัติและรายการรับรองแล้ว แต่ยังต้องอนุมัติ Phase เปิด Live แยกต่างหาก' : 'Stripe ยังอยู่ใน Test Mode ให้แก้รายการที่ไม่ผ่านและบันทึกหลักฐานให้ครบ'}</p></div>
@@ -116,5 +116,5 @@ export default async function BillingProductionReadinessPage() {
       </>}
       <div className="readiness-safety-note"><strong>ขอบเขตความปลอดภัยของ Phase นี้</strong><p>หน้านี้มีไว้ตรวจและบันทึกหลักฐานเท่านั้น ไม่มีปุ่มเปิด Live Mode และโค้ด Checkout/Webhook ปัจจุบันยังปฏิเสธ Live Key กับ Live Event</p></div>
     </section>
-  </main>
+  </ApplicationShell>
 }

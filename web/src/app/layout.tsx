@@ -16,13 +16,13 @@ const notoSansThai = Noto_Sans_Thai({
 })
 
 export const metadata: Metadata = {
-  title: 'AVENZO ONE',
+  title: 'AVENZAONE',
   description: 'Multi-tenant organization and subscription workspace',
 }
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="th">
+    <html lang="th" suppressHydrationWarning>
       <body className={`${inter.variable} ${notoSansThai.variable}`}>
         <SessionActivityHeartbeat />
         {children}

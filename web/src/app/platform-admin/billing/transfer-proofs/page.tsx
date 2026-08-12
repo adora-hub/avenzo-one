@@ -1,6 +1,6 @@
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { BillingTransferProofFulfillment, type TransferProofFulfillmentItem } from '@/app/components/billing-transfer-proof-fulfillment'
+import { ApplicationShell } from '@/app/components/application-shell'
 import { BillingTransferApprovalPolicy, type TransferApprovalPolicy } from '@/app/components/billing-transfer-approval-policy'
 import { BillingTransferProofReview, type TransferProofReviewItem } from '@/app/components/billing-transfer-proof-review'
 import { SignOutButton } from '@/app/components/sign-out-button'
@@ -73,10 +73,10 @@ export default async function BillingTransferProofReviewPage() {
   const policyRow = (policyResult.data as TransferApprovalPolicy[] | null)?.[0]
   const policy = policyRow ? { ...policyRow, single_admin_limit: Number(policyRow.single_admin_limit), version: Number(policyRow.version) } : null
 
-  return <main className="dashboard">
+  return <ApplicationShell email={user.email ?? ''} isPlatformAdmin section="platform">
     <header className="topbar"><div className="brand">AVENZO ONE / ตรวจหลักฐานโอน</div><div className="topbar-actions"><span>{user.email}</span><SignOutButton /></div></header>
     <section className="content platform-subscription-content">
-      <div className="hero"><div><div className="eyebrow">Phase 1.1.3.8.5.3.3</div><h1>ตรวจหลักฐานและยืนยันรับชำระ</h1><p>ดูประวัติการอนุมัติแบบเรียงตามเวลา พร้อมสถานะและผู้ดำเนินการในแต่ละขั้น</p></div><div className="button-row"><Link className="button secondary" href="/platform-admin/billing">กลับ Billing</Link><Link className="button secondary" href="/platform-admin">กลับ Platform Admin</Link></div></div>
+      <div className="hero"><div><div className="eyebrow">Phase 1.1.3.8.5.3.3</div><h1>ตรวจหลักฐานและยืนยันรับชำระ</h1><p>ดูประวัติการอนุมัติแบบเรียงตามเวลา พร้อมสถานะและผู้ดำเนินการในแต่ละขั้น</p></div></div>
       {policyResult.error ? <div className="error">ไม่สามารถโหลดนโยบายอนุมัติได้: {policyResult.error.message}</div> : policy ? <BillingTransferApprovalPolicy initialPolicy={policy} canEdit={admin.data?.role_code === 'super_admin'} /> : <div className="error">ไม่พบการตั้งค่านโยบายอนุมัติ</div>}
       <section className="subscription-management-section">
         <div className="feature-list-heading"><div><div className="eyebrow">FULFILLMENT QUEUE</div><h2>หลักฐานที่รับรองแล้ว</h2><p>รายการปกติในวงเงินใช้ผู้ดูแล 1 คน ส่วนรายการเกินวงเงินหรือมีความเสี่ยงใช้ผู้ดูแล 2 คน</p></div><span className={`feature-count ${fulfillmentItems.length ? 'has-warning' : ''}`}>{fulfillmentItems.length} รายการ</span></div>
@@ -89,5 +89,5 @@ export default async function BillingTransferProofReviewPage() {
         {error ? <div className="error">ไม่สามารถโหลดคิวตรวจหลักฐานได้: {error.message}</div> : <BillingTransferProofReview initialItems={items} />}
       </section>
     </section>
-  </main>
+  </ApplicationShell>
 }

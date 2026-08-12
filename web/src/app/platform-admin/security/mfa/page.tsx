@@ -1,6 +1,6 @@
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { MfaEnrollment } from '@/app/components/mfa-enrollment'
+import { ApplicationShell } from '@/app/components/application-shell'
 import { SignOutButton } from '@/app/components/sign-out-button'
 import { createClient } from '@/lib/supabase/server'
 
@@ -20,7 +20,7 @@ export default async function PlatformAdminMfaPage() {
   }
 
   return (
-    <main className="dashboard">
+    <ApplicationShell email={user.email ?? ''} isPlatformAdmin section="platform">
       <header className="topbar">
         <div className="brand">AVENZO ONE / Platform Admin Security</div>
         <div className="topbar-actions"><span>{user.email}</span><SignOutButton /></div>
@@ -32,10 +32,9 @@ export default async function PlatformAdminMfaPage() {
             <h1>จัดการ TOTP MFA</h1>
             <p>กำหนดเครื่องหลัก เพิ่มเครื่องสำรอง ถอดอุปกรณ์ และยกเลิก Session อื่นอย่างปลอดภัย</p>
           </div>
-          <Link className="button secondary" href="/platform-admin">กลับ Platform Admin</Link>
         </div>
         <MfaEnrollment />
       </section>
-    </main>
+    </ApplicationShell>
   )
 }

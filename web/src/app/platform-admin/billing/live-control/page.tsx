@@ -1,6 +1,6 @@
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { BillingLiveApprovalControl } from '@/app/components/billing-live-approval-control'
+import { ApplicationShell } from '@/app/components/application-shell'
 import { BillingControlledLiveCheckoutPreview } from '@/app/components/billing-controlled-live-checkout-preview'
 import { BillingLiveEligibilityContractTests } from '@/app/components/billing-live-eligibility-contract-tests'
 import { BillingLiveExecutorDesign } from '@/app/components/billing-live-executor-design'
@@ -105,10 +105,10 @@ export default async function BillingLiveControlPage() {
   ]
   const allLocked = locks.every((item) => item.passed)
 
-  return <main className="dashboard">
+  return <ApplicationShell email={user.email ?? ''} isPlatformAdmin section="platform">
     <header className="topbar"><div className="brand">AVENZO ONE / ศูนย์ควบคุมการรับเงินจริง</div><div className="topbar-actions"><span>{user.email}</span><SignOutButton /></div></header>
     <section className="content platform-subscription-content">
-      <div className="hero"><div><div className="eyebrow">Phase 1.1.3.7.5.7</div><h1>ศูนย์ควบคุมการรับเงินจริง</h1><p>ตรวจหลักฐานการเชื่อมต่อ Stripe Live Webhook โดยยังไม่สร้าง Checkout ไม่เปลี่ยน Invoice/Subscription และไม่รับเงินจริง</p></div><div className="button-row"><Link className="button secondary" href="/platform-admin/billing/readiness">กลับความพร้อม Production</Link><Link className="button secondary" href="/platform-admin/billing">กลับ Billing</Link></div></div>
+      <div className="hero"><div><div className="eyebrow">Phase 1.1.3.7.5.7</div><h1>ศูนย์ควบคุมการรับเงินจริง</h1><p>ตรวจหลักฐานการเชื่อมต่อ Stripe Live Webhook โดยยังไม่สร้าง Checkout ไม่เปลี่ยน Invoice/Subscription และไม่รับเงินจริง</p></div></div>
       <div className={`readiness-decision ${allLocked ? 'ready' : 'blocked'}`} role="status"><span aria-hidden="true">{allLocked ? '✓' : '!'}</span><div><strong>{allLocked ? 'ระบบถูกล็อกอย่างปลอดภัย' : 'พบจุดที่ไม่อยู่ในสถานะล็อก'}</strong><p>{allLocked ? 'ทุกชั้นป้องกันยังปิดการรับเงินจริง สามารถทดสอบคำสั่ง Emergency Stop ได้' : 'หยุดการเตรียม Live และแก้รายการที่ไม่ผ่านก่อน'}</p></div><span className="status pending">ไม่รับเงินจริง</span></div>
       <LiveControlCardSearch>
       {firstError || !control ? <div className="error">ไม่สามารถอ่านศูนย์ควบคุมการรับเงินจริงได้: {firstError?.message ?? 'ไม่พบข้อมูล Safety Control'}</div> : <>
@@ -177,5 +177,5 @@ export default async function BillingLiveControlPage() {
       </LiveControlCardSearch>
       <div className="readiness-safety-note"><strong>ข้อจำกัดของ Phase 1.1.3.7.5.7</strong><p>ระบบอ่านและแสดงหลักฐาน Webhook เท่านั้น ยังคงบังคับ Pilot = ปิด, Emergency Stop = เปิด ไม่สร้าง Checkout ไม่เปลี่ยน Invoice/Subscription และไม่มีเงินจริงเคลื่อนย้าย</p></div>
     </section>
-  </main>
+  </ApplicationShell>
 }

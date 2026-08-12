@@ -1,6 +1,6 @@
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { PlansPricesManager } from '@/app/components/plans-prices-manager'
+import { ApplicationShell } from '@/app/components/application-shell'
 import type { CatalogFeatureRow, PlanFeatureRow, PlanPriceRow, PlanRow, PlanVersionRow } from '@/app/components/plans-prices-manager'
 import { SignOutButton } from '@/app/components/sign-out-button'
 import { createClient } from '@/lib/supabase/server'
@@ -27,7 +27,7 @@ export default async function PlatformAdminPlansPage() {
   const firstError = [plansResult, versionsResult, pricesResult, featuresResult, catalogResult].find((result) => result.error)?.error
 
   return (
-    <main className="dashboard">
+    <ApplicationShell email={user.email ?? ''} isPlatformAdmin section="platform">
       <header className="topbar">
         <div className="brand">AVENZO ONE / Plans & Prices</div>
         <div className="topbar-actions"><span>{user.email}</span><SignOutButton /></div>
@@ -35,7 +35,6 @@ export default async function PlatformAdminPlansPage() {
       <section className="content feature-catalog-content">
         <div className="hero">
           <div><div className="eyebrow">Phase 1.0.3.1</div><h1>Plans & Prices</h1><p>สร้างและแก้ไข Draft Version ก่อนล็อกเป็นรุ่นใช้งานจริงสำหรับ Subscription</p></div>
-          <Link className="button secondary" href="/platform-admin">กลับ Platform Admin</Link>
         </div>
         {firstError ? <div className="error">ไม่สามารถอ่าน Plans & Prices ได้: {firstError.message}</div> : <PlansPricesManager
           plans={(plansResult.data as PlanRow[] | null) ?? []}
@@ -45,6 +44,6 @@ export default async function PlatformAdminPlansPage() {
           catalog={(catalogResult.data as CatalogFeatureRow[] | null) ?? []}
         />}
       </section>
-    </main>
+    </ApplicationShell>
   )
 }

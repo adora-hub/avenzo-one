@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { SignOutButton } from '@/app/components/sign-out-button'
+import { ApplicationShell } from '@/app/components/application-shell'
 import { SubscriptionNotificationControls, type SubscriptionNotificationRule } from '@/app/components/subscription-notification-controls'
 import { RetryNotificationButton, SubscriptionNotificationWorkerControls } from '@/app/components/subscription-notification-worker-controls'
 import { createClient } from '@/lib/supabase/server'
@@ -132,7 +133,7 @@ export default async function SubscriptionNotificationsPage({ searchParams }: {
   const firstError = [healthResult, rulesResult, queueResult, organizationsResult, deliveriesResult, webhookEventsResult, suppressionsResult].find((result) => result.error)?.error
   const deliveryMode = process.env.SUBSCRIPTION_NOTIFICATION_DELIVERY_MODE === 'live' ? 'live' : 'preview'
 
-  return <main className="dashboard">
+  return <ApplicationShell email={user.email ?? ''} isPlatformAdmin section="platform">
     <header className="topbar">
       <div className="brand">AVENZO ONE / Subscription Notifications</div>
       <div className="topbar-actions"><span>{user.email}</span><SignOutButton /></div>
@@ -140,7 +141,6 @@ export default async function SubscriptionNotificationsPage({ searchParams }: {
     <section className="content notification-content">
       <div className="hero">
         <div><div className="eyebrow">Phase 1.0.6</div><h1>แจ้งเตือน Subscription</h1><p>ตรวจสุขภาพ Cron, Queue และผลการส่งจาก Resend พร้อมแจ้งเหตุที่ต้องดำเนินการ</p></div>
-        <Link className="button secondary" href="/platform-admin">กลับ Platform Admin</Link>
       </div>
       {firstError ? <div className="error">ไม่สามารถอ่านข้อมูลแจ้งเตือนได้: {firstError.message}</div> : <>
         {health ? <section className={`monitor-card monitor-${health.overall_status}`} aria-live="polite">
@@ -239,5 +239,5 @@ export default async function SubscriptionNotificationsPage({ searchParams }: {
         </section>
       </>}
     </section>
-  </main>
+  </ApplicationShell>
 }

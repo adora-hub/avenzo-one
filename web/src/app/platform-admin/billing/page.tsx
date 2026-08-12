@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { BillingInvoiceForm, type BillingOrganization, type BillingPrice, type BillingSubscription } from '@/app/components/billing-invoice-form'
+import { ApplicationShell } from '@/app/components/application-shell'
 import { BillingPaymentActions } from '@/app/components/billing-payment-actions'
 import { BillingGatewaySandbox, type BillingGatewayAttempt } from '@/app/components/billing-gateway-sandbox'
 import { StripeFeeSnapshot, StripeTestCheckout, type StripeFeeAttemptSnapshot } from '@/app/components/stripe-test-checkout'
@@ -179,10 +180,10 @@ export default async function PlatformAdminBillingPage({ searchParams }: { searc
   const currentAuditPage = Math.min(auditPage, auditTotalPages)
   if (auditPage > auditTotalPages) redirect(billingHref(query, { audit_page: String(auditTotalPages) }))
 
-  return <main className="dashboard">
+  return <ApplicationShell email={user.email ?? ''} isPlatformAdmin section="platform">
     <header className="topbar"><div className="brand">AVENZO ONE / Billing</div><div className="topbar-actions"><span>{user.email}</span><SignOutButton /></div></header>
     <section className="content platform-subscription-content">
-      <div className="hero"><div><div className="eyebrow">Phase 1.1.3.8.3</div><h1>Billing &amp; Payment Exceptions</h1><p>ตรวจรายการชำระเงินผิดปกติ ติดตามกำหนดเวลา และเก็บหลักฐานทุกคำสั่งแก้ไข</p></div><div className="button-row"><Link className="button secondary" href="/platform-admin/billing/transfer-proofs">ตรวจหลักฐานโอน</Link><Link className="button secondary" href="/platform-admin/billing/live-control">ศูนย์ควบคุมการรับเงินจริง</Link><Link className="button secondary" href="/platform-admin/billing/readiness">ตรวจความพร้อม Production</Link><Link className="button secondary" href="/platform-admin">กลับ Platform Admin</Link></div></div>
+      <div className="hero"><div><div className="eyebrow">Phase 1.1.3.8.3</div><h1>Billing &amp; Payment Exceptions</h1><p>ตรวจรายการชำระเงินผิดปกติ ติดตามกำหนดเวลา และเก็บหลักฐานทุกคำสั่งแก้ไข</p></div></div>
       {firstError ? <div className="error">ไม่สามารถอ่านข้อมูล Billing ได้: {firstError.message}</div> : <>
         <section className="subscription-management-section"><div className="feature-list-heading"><div><div className="eyebrow">ความพร้อมระบบรับชำระ</div><h2>สถานะระบบรับชำระเงิน</h2><p>เชื่อม Stripe โหมดทดสอบ โดยข้อมูลลับและการยืนยัน Webhook อยู่ฝั่ง Server เท่านั้น</p></div><span className="status active">Stripe Test Mode</span></div>
           <div className="gateway-readiness-grid"><div className="card"><span className="history-label">Provider หลัก</span><h3>Stripe Thailand</h3><p>Hosted Checkout รองรับบัตรและ PromptPay QR</p></div><div className="card"><span className="history-label">ค่าธรรมเนียมลูกค้า</span><h3>0 บาท</h3><p>รอบนี้ AVENZO ONE รับภาระค่าธรรมเนียมและเก็บ Fee Snapshot แยก</p></div><div className="card"><span className="history-label">Webhook ล่าสุด</span><h3>{gatewayEventsResult.data?.length ?? 0} Event</h3><p>ตรวจลายเซ็น เก็บ Event ID และ Hash เพื่อป้องกันการประมวลผลซ้ำ</p></div></div>
@@ -259,5 +260,5 @@ export default async function PlatformAdminBillingPage({ searchParams }: { searc
         </section>
       </>}
     </section>
-  </main>
+  </ApplicationShell>
 }
