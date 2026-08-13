@@ -12,6 +12,7 @@
 - Phase 1.3.6.2 — Shared UI Theme Migration: implemented; local UI verification in progress
 - Phase 1.3.6.3 — Page-specific Theme Migration and Visual QA: approved and completed; theme gates and production build passed
 - Phase 1.3.6.4 — Operations UI Foundation: approved and completed; component foundation and Billing Exceptions pilot passed Decision Gate
+- Phase 2.0 — Foundation Vertical Slice: approved plan split into Phase 2.0.1–2.0.7; only Discovery & Decisions may start first
 - Supabase project: `AVENZO ONE`
 - Database region: `ap-southeast-1`
 
@@ -25,6 +26,7 @@
 - [Phase 1.3.6.2 — Shared UI Theme Migration](docs/AVENZO_ONE_Phase_1.3.6.2_Shared_UI_Theme_Migration.md)
 - [Phase 1.3.6.3 — Page-specific Theme Migration and Visual QA](docs/AVENZO_ONE_Phase_1.3.6.3_Page_Specific_Theme_Visual_QA.md)
 - [Phase 1.3.6.4 — Operations UI Foundation](docs/AVENZO_ONE_Phase_1.3.6.4_Operations_UI_Foundation.md)
+- [Phase 2.0 — Foundation Vertical Slice Roadmap](docs/AVENZO_ONE_Phase_2.0_Foundation_Vertical_Slice_Roadmap.md)
 
 ## Web app
 

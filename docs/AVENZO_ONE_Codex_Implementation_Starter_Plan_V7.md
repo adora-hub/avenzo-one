@@ -1,10 +1,13 @@
-# AVENZO ONE Codex Implementation Starter Plan V7
+# AVENZO ONE Codex Implementation Starter Plan V7.1
 
 > แผนแม่บทฉบับอัปเดตสำหรับพัฒนา AVENZO ONE แบบ Vertical Slice โดยใช้ V6 เป็นฐาน และเพิ่ม Customer Platform, Loyalty, Community และ Referral Commerce
 
-**เวอร์ชัน:** 7.0  
-**วันที่:** 5 สิงหาคม 2026  
-**สถานะ:** พร้อมใช้วางสถาปัตยกรรมและแตกงานพัฒนา  
+**เวอร์ชัน:** 7.1
+
+**วันที่:** 13 สิงหาคม 2026
+
+**สถานะ:** พร้อมใช้วางสถาปัตยกรรมและแตกงานพัฒนา
+
 **ระบบเป้าหมาย:** Web Application แบบ Multi-tenant รองรับการขยายเป็น SaaS
 
 ---
@@ -512,6 +515,7 @@ Event ต้องมี `organization_id`, Actor, Customer, Source Entity, Corr
 | Phase 1.2.4.2.4 Production Password Gate | **Completed / Deferred by Owner / ยอมรับความเสี่ยงชั่วคราว** | Production `ACTIVE_HEALTHY`; Security Advisor ยังแจ้ง `auth_leaked_password_protection` เพราะ Leaked Password Protection ปิดอยู่; เจ้าของระบบยังไม่อัปเกรดจาก Free เป็น Pro จนกว่าฟีเจอร์หลักจะพร้อมมากขึ้น จึงคงมาตรการชดเชยเดิมและต้องนำ Gate นี้กลับมาพิจารณาก่อนเปิด Production เต็มรูปแบบ |
 | Phase 1.3.6.3 Page-specific Theme Migration & Visual QA | **Approved / Completed** | เก็บสีเฉพาะหน้าและสถานะธุรกิจที่ยังเป็นค่าตรง พร้อม Button Contrast Gate, Theme Persistence และ Visual QA; Contract Test 5/5, TypeScript และ Production Build 37 หน้าผ่าน โดยไม่เปลี่ยน Business Logic |
 | Phase 1.3.6.4 Operations UI Foundation | **Approved / Completed** | Component Foundation ครบ, Billing Exceptions Pilot ผ่าน Decision Gate, Contract 9/9, TypeScript, Production Build 37 หน้า และ Authenticated Visual QA ผ่าน โดย Business Logic, Permission, AAL2 และ Audit Contract เดิมไม่เปลี่ยน |
+| Phase 2.0 Foundation Vertical Slice | **Approved plan / ยังไม่เริ่ม Implement** | แบ่งเป็น Phase 2.0.1–2.0.7 ตั้งแต่ Discovery/Decision ถึง Hardening/Release Gate; อนุญาตให้เริ่มเฉพาะ Phase 2.0.1 ก่อน และห้ามแตะ Schema/Business Logic จน Decision ที่เกี่ยวข้องได้รับอนุมัติ |
 
 ห้ามเปิด Production หาก Phase 0.9 Production Security Gate ยังไม่ผ่าน แม้ระบบ Development จะใช้งานได้ครบตาม Acceptance Criteria แล้ว และต้องตรวจร่างประกาศความเป็นส่วนตัว/ข้อกำหนดการใช้งานโดยผู้เชี่ยวชาญด้านกฎหมายและ PDPA ก่อนเผยแพร่
 
@@ -616,24 +620,32 @@ Event ต้องมี `organization_id`, Actor, Customer, Source Entity, Corr
 
 ## 17. ลำดับรวมหลัง Sprint 1
 
-1. ปิด Phase 1.3.6.3 Theme Migration และ Visual QA ให้ผ่านเกณฑ์ก่อนเปลี่ยน Layout ระดับระบบ
-2. Phase 1.3.6.4 Operations UI Foundation: สร้าง Component กลางและทดลองเพียงหนึ่งหน้า โดยไม่เปลี่ยน Business Logic
-3. Foundation Vertical Slice ตาม V6
-4. Product/SKU, Warehouse, Stock Movement Ledger โดยใช้ Operations UI Foundation ที่ผ่าน Pilot แล้ว
-5. Live CF, Reservation, Waitlist และ Customer Chat Workspace
-6. Order Revision, Payment, Refund และ Customer Credit
-7. Promotion Engine, FF Benefit และ Group Repricing
-8. Picking, Packing, Shipping และ Return QC
-9. Customer Identity + Customer 360
-10. Purchase History + Loyalty Ledger
-11. Store Engagement + Notification Preference
-12. Verified Review + Public Profile + Moderation
-13. Referral Attribution + Commission Ledger
-14. Payout + Reconciliation
-15. Community Feed
-16. พิจารณา Multi-level Referral เฉพาะเมื่อผ่าน Decision Gate ใหม่
+1. Phase 1.3.6.3 Theme Migration และ Visual QA — Completed
+2. Phase 1.3.6.4 Operations UI Foundation — Completed
+3. Phase 2.0.1 Current-State Discovery & Decisions
+4. Phase 2.0.2 Domain Contract
+5. Phase 2.0.3 Database, RLS & Migration
+6. Phase 2.0.4 Server/Application Foundation
+7. Phase 2.0.5 Product/SKU Vertical Slice
+8. Phase 2.0.6 Warehouse & Stock Movement Slice
+9. Phase 2.0.7 Hardening & Release Gate
+10. Purchasing: Reorder Queue, Supplier และ Purchase Order lifecycle
+11. Live CF, Reservation, Waitlist และ Customer Chat Workspace
+12. Order Revision, Payment, Refund และ Customer Credit
+13. Promotion Engine, FF Benefit และ Group Repricing
+14. Picking, Packing, Shipping และ Return QC
+15. Customer Identity + Customer 360
+16. Purchase History + Loyalty Ledger
+17. Store Engagement + Notification Preference
+18. Verified Review + Public Profile + Moderation
+19. Referral Attribution + Commission Ledger
+20. Payout + Reconciliation
+21. Community Feed
+22. พิจารณา Multi-level Referral เฉพาะเมื่อผ่าน Decision Gate ใหม่
 
-สามารถขยับข้อ 9–11 ให้เร็วขึ้นหลัง Order/Customer Model เสถียร แต่ไม่ควรสร้าง Referral ก่อน Order Revision, Return และ Ledger พร้อม เพราะจะคำนวณและย้อนค่านายหน้าไม่ถูกต้อง
+สามารถขยับข้อ 15–17 ให้เร็วขึ้นหลัง Order/Customer Model เสถียร แต่ไม่ควรสร้าง Referral ก่อน Order Revision, Return และ Ledger พร้อม เพราะจะคำนวณและย้อนค่านายหน้าไม่ถูกต้อง
+
+Phase 2.0 แต่ละ Part ต้องมี Evidence และ Approval แยก ห้ามเริ่ม Migration ใน Phase 2.0.1, ห้ามเริ่ม Phase 2.0.3 ก่อน Domain Decision ผ่าน และห้ามเริ่ม Purchasing ก่อน Phase 2.0.7 Release Gate ได้รับอนุมัติ รายละเอียดอยู่ใน `AVENZO_ONE_Phase_2.0_Foundation_Vertical_Slice_Roadmap.md`
 
 Phase 1.3.6.4 อ้างอิงการวิเคราะห์ Surge Commerce ครบทุก Route ใน Sidebar แต่ให้นำมาเฉพาะ Design Pattern ที่เหมาะกับ AVENZO ONE ได้แก่ Page Header, Filter Bar, Data Grid, Status Badge, KPI Card, Form Section, Card List และ Detail Sheet ห้ามคัดลอก Navigation, Business Logic หรือ Source Code โดยไม่ตรวจ License และห้าม Rollout ทุกหน้าก่อน Pilot ผ่าน Decision Gate
 
@@ -680,6 +692,18 @@ Phase 1.3.6.4 อ้างอิงการวิเคราะห์ Surge Co
 ---
 
 ## Changelog
+
+### V7.1 — Foundation Vertical Slice Part Plan (13 สิงหาคม 2026)
+
+- เจ้าของระบบอนุมัติให้อัปเดต Plan และ Roadmap โดยแบ่ง Foundation Vertical Slice เป็น 7 Parts
+- เพิ่ม Phase 2.0.1 Current-State Discovery & Decisions โดยเป็น Part เดียวที่อนุญาตให้เริ่มก่อน
+- เพิ่ม Phase 2.0.2 Domain Contract และ Decision Gate สำหรับ Product/SKU, Warehouse, Unit, Balance และ Negative Stock
+- เพิ่ม Phase 2.0.3 Database/RLS/Migration และห้าม Apply Production โดยไม่มีอนุมัติแยก
+- เพิ่ม Phase 2.0.4 Server/Application Foundation พร้อม Idempotency, Authorization และ Concurrency Gate
+- เพิ่ม Phase 2.0.5 Product/SKU Vertical Slice และ Phase 2.0.6 Warehouse/Stock Movement Slice
+- เพิ่ม Phase 2.0.7 Hardening & Release Gate ก่อนเริ่ม Purchasing/Reorder Queue
+- กำหนด Commit, Test Evidence และ Approval แยกทุก Part เพื่อไม่ข้าม Decision Gate
+- เอกสาร: `AVENZO_ONE_Phase_2.0_Foundation_Vertical_Slice_Roadmap.md`
 
 ### Phase 1.3.6.4 — Operations UI Foundation (13 สิงหาคม 2026)
 
