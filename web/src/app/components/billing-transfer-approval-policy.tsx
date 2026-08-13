@@ -72,7 +72,7 @@ export function BillingTransferApprovalPolicy({ initialPolicy, canEdit }: { init
 
   return <section className="subscription-management-section" id="transfer-approval-policy">
     <div className="feature-list-heading"><div><div className="eyebrow">PHASE 1.1.3.8.5.1 · APPROVAL POLICY</div><div className="inline-title-row"><span className="status pending">ตั้งค่านโยบาย</span><h2>วงเงินอนุมัติรายการโอน</h2></div><p>กำหนดว่ารายการใดให้ผู้ดูแลคนเดียวจัดการได้ และรายการใดต้องใช้ผู้ดูแลสองคน</p></div><span className="feature-count">Version {policy.version}</span></div>
-    <div className="safety-note"><strong>ยังไม่เปลี่ยนขั้นตอนรับชำระใน Phase นี้</strong><p>ระบบจะเริ่มบังคับใช้นโยบายนี้ใน Phase 1.1.3.8.5.2 หลังทดสอบหน้าตั้งค่าผ่านแล้ว</p></div>
+    <div className="safety-note phase-notice-banner" role="note"><strong>ยังไม่เปลี่ยนขั้นตอนรับชำระใน Phase นี้</strong><p>ระบบจะเริ่มบังคับใช้นโยบายนี้ใน Phase 1.1.3.8.5.2 หลังทดสอบหน้าตั้งค่าผ่านแล้ว</p></div>
     {message && <div className={message.startsWith('บันทึก') ? 'success' : 'error'} role="status">{message}</div>}
     <div className="approval-policy-layout">
       <div className="card approval-policy-form">

@@ -8,6 +8,9 @@
 - Phase 0.2 — Role/Permission Core: completed and deployed to Supabase
 - Phase 0.3 — Platform Admin Control and Subscription/Expiry: completed and deployed to Supabase
 - Phase 0.4 — Auth/UI Foundation: build verified
+- Phase 1.3.6.1 — Design Token Foundation: implemented
+- Phase 1.3.6.2 — Shared UI Theme Migration: implemented; local UI verification in progress
+- Next: Phase 1.3.6.3 — migrate remaining page-specific and hard-coded business-status colors, then perform per-page Visual QA
 - Supabase project: `AVENZO ONE`
 - Database region: `ap-southeast-1`
 
@@ -17,6 +20,8 @@
 - [Implementation Starter Plan](docs/AVENZO_ONE_Codex_Implementation_Starter_Plan_V7.md)
 - [Design System and UI/UX Standards](docs/AVENZO_ONE_Design_System_and_UIUX_Standards_V1.md)
 - [Phase 0.4 — Auth & UI Foundation](docs/AVENZO_ONE_Phase_0.4_Auth_UI_Foundation.md)
+- [Phase 1.3.6.1 — Design Token Foundation](docs/AVENZO_ONE_Phase_1.3.6.1_Design_Tokens.md)
+- [Phase 1.3.6.2 — Shared UI Theme Migration](docs/AVENZO_ONE_Phase_1.3.6.2_Shared_UI_Theme_Migration.md)
 
 ## Web app
 

@@ -263,7 +263,7 @@ export function BillingLiveApprovalControl({
       <div className="button-row"><button className="button secondary" type="button" disabled={loading} onClick={() => setAction(null)}>ย้อนกลับแก้ไข</button><button className={`button ${action === 'reject' || action === 'cancel' ? 'danger' : ''}`} type="button" disabled={loading} onClick={confirm}>{loading ? 'กำลังบันทึก…' : confirmationTitle}</button></div>
     </section> : null}
 
-    <section className="live-approval-verification" id="two-person-verification">
+    <section className="live-approval-verification approval-verification-panel" id="two-person-verification">
       <div className="feature-list-heading"><div><div className="eyebrow">Phase 1.1.3.7.4.3 · End-to-end Verification</div><h3>ตรวจหลักฐานการอนุมัติสองคน</h3><p>ตรวจจากคำขอและ Audit Event จริง พร้อมยืนยันว่ายังไม่เปิดรับเงินจริง</p></div><span className={`status ${verificationPassed ? 'active' : 'pending'}`}>{verificationChecks.length ? `${verificationChecks.filter((item) => item.passed).length} / ${verificationChecks.length} ผ่าน` : 'รอทดสอบ'}</span></div>
       {latestReviewedRequest ? <>
         <div className={`readiness-decision ${verificationPassed ? 'ready' : 'blocked'}`} role="status"><span aria-hidden="true">{verificationPassed ? '✓' : '!'}</span><div><strong>{verificationPassed ? 'หลักฐาน Two-person Approval ครบ' : 'หลักฐานยังไม่ครบ'}</strong><p>ผลล่าสุด: {statusLabel(latestReviewedRequest.status)} · {dateTime(latestReviewedRequest.reviewed_at ?? latestReviewedRequest.requested_at)}</p></div></div>

@@ -29,7 +29,11 @@
     "test:session-device-revoke-all": "node --test scripts/test-session-device-revoke-all.mjs",
     "test:session-security-activity": "node --test scripts/test-session-security-activity.mjs",
     "test:session-security-email": "node --test scripts/test-session-security-email.mjs",
-    "test:password-recovery": "node --test scripts/test-password-recovery.mjs"
+    "test:password-recovery": "node --test scripts/test-password-recovery.mjs",
+    "test:session-security-regression": "node --experimental-strip-types --test scripts/test-session-policy-foundation.mjs scripts/test-session-registration.mjs scripts/test-session-activity-heartbeat.mjs scripts/test-session-expiry-warning.mjs scripts/test-session-enforcement.mjs scripts/test-session-device-management.mjs scripts/test-session-device-revoke.mjs scripts/test-session-device-revoke-all.mjs scripts/test-session-security-activity.mjs scripts/test-session-security-email.mjs scripts/test-password-recovery.mjs",
+    "test:supabase-function-permissions": "node --test scripts/test-supabase-function-permission-allowlist.mjs",
+    "test:supabase-anon-grants": "node --test scripts/test-supabase-anonymous-grant-hardening.mjs",
+    "test:supabase-rls-initplan": "node --test scripts/test-supabase-rls-initplan-optimization.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.7.0",

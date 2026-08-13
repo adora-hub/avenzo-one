@@ -52,6 +52,7 @@ export async function updateSession(request: NextRequest) {
     || pathname === '/privacy'
     || pathname === '/terms'
     || pathname.startsWith('/auth')
+    || pathname.startsWith('/ui-kit')
   const isApi = pathname.startsWith('/api/')
 
   if (!data?.claims && !isPublic && !isApi) {

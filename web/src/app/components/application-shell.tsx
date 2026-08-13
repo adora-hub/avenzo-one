@@ -64,12 +64,24 @@ function Icon({ name }: { name: 'home' | 'workspace' | 'shield' | 'menu' | 'clos
   return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1v-9Z" /></svg>
 }
 
+const platformNavigationLinks = [
+  platformOverviewLink,
+  ...platformNavigationGroups.flatMap((group) => group.links),
+]
+
+function currentNavigationHref(pathname: string) {
+  return platformNavigationLinks
+    .filter((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))
+    .sort((left, right) => right.href.length - left.href.length)[0]?.href ?? null
+}
+
 function isCurrent(pathname: string, href: string) {
-  return href === '/platform-admin' ? pathname === href : pathname.startsWith(href)
+  return currentNavigationHref(pathname) === href
 }
 
 function navigationGroupForPath(pathname: string) {
-  return platformNavigationGroups.find((group) => group.links.some((item) => isCurrent(pathname, item.href)))?.key
+  const activeHref = currentNavigationHref(pathname)
+  return platformNavigationGroups.find((group) => group.links.some((item) => item.href === activeHref))?.key
 }
 
 export function ApplicationShell({ email, isPlatformAdmin, section, children, displayName, roleLabel }: ApplicationShellProps) {
@@ -288,13 +300,13 @@ export function ApplicationShell({ email, isPlatformAdmin, section, children, di
                     </Link>
                   </div>
                   <div className="app-account-group">
-                    <ThemeToggle variant="account" />
-                  </div>
-                  <div className="app-account-group">
                     <span className="app-account-group-label">สลับพื้นที่ทำงาน</span>
                     {section === 'platform'
                       ? <Link role="menuitem" className="app-account-link" href="/dashboard"><Icon name="workspace" /><span><strong>กลับ Dashboard</strong><small>ไปยัง Workspace ของคุณ</small></span></Link>
                       : isPlatformAdmin && <Link role="menuitem" className="app-account-link" href="/platform-admin"><Icon name="shield" /><span><strong>ไปที่ Platform Admin</strong><small>จัดการระบบและ Billing</small></span></Link>}
+                  </div>
+                  <div className="app-account-group">
+                    <ThemeToggle variant="account" />
                   </div>
                   <div className="app-account-danger">
                     <SignOutButton className="app-account-logout-button" showIcon />

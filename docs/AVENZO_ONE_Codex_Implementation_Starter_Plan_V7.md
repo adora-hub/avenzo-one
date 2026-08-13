@@ -504,6 +504,12 @@ Event ต้องมี `organization_id`, Actor, Customer, Source Entity, Corr
 | Phase 1.2.2.5.3 Revoke All Other Device Sessions | Migration ใช้กับ Supabase แล้ว / Contract และ TypeScript ผ่าน / รอทดสอบ Local | ออกจากระบบอุปกรณ์อื่นทั้งหมดในคำสั่งเดียว โดยคงอุปกรณ์ปัจจุบันไว้ ตรวจสิทธิ์จาก auth.uid และ Session ปัจจุบันฝั่งฐานข้อมูล พร้อม Confirmation และ Private Audit Log แยกทุกอุปกรณ์ |
 | Phase 1.2.2.5.4 Session Security Activity | Migration ใช้กับ Supabase แล้ว / Contract และ TypeScript ผ่าน / รอทดสอบ Local | แสดงประวัติกิจกรรม Session ล่าสุดแก่เจ้าของบัญชีผ่าน RPC ที่ตรวจ auth.uid และคืนเฉพาะข้อมูลอุปกรณ์ เวลาและ Policy ที่ปลอดภัย โดยไม่คืน Session ID ดิบ, User ID, Event Metadata, Token หรือ IP |
 | Phase 1.2.2.5.5 Session Security Email Alerts | **Completed / ทดสอบผ่าน / พร้อม Production** | ส่งอีเมลผ่าน Resend เมื่อพบอุปกรณ์ใหม่และเมื่อออกจากระบบอุปกรณ์อื่นทั้งหมด โดยใช้ Security Event เป็น Idempotency Key, เก็บผลส่งใน private schema และไม่ให้ความผิดพลาดของอีเมลล้ม Login หรือคำสั่งเพิกถอน Session; ทดสอบ Password Recovery สำหรับบัญชีที่เปิด MFA โดยยืนยันรหัส 6 หลักและตั้งรหัสผ่านใหม่สำเร็จแล้ว |
+| Phase 1.2.3 Security Regression Test | Automated Regression ผ่าน 57/57 และ TypeScript ผ่าน / รอการทดสอบบัญชีจริง | รวม Contract Test ของ Session, MFA, Timeout, Device Revoke, Security Activity, Password Recovery และ Security Email เป็นคำสั่งเดียว พร้อม Runbook ภาษาไทยและเกณฑ์ผ่านที่ไม่ลดมาตรการความปลอดภัย |
+| Phase 1.2.4.1 Supabase Security Audit | **Completed / Read-only Audit / ไม่เปลี่ยน Production** | ตรวจ RLS, Policy, Grants, SECURITY DEFINER, View, Storage, Auth, Redirect URL, Secret Boundary และ Security/Performance Advisor แล้ว; ผ่านแบบมีเงื่อนไขสำหรับ Development/Controlled Testing แต่ยังต้องทำ Function Allowlist, ถอน Grant ของ anon, แก้ RLS InitPlan และเปิด Leaked Password Protection ก่อนผ่าน Production Security Gate |
+| Phase 1.2.4.2.1 Function Permission Allowlist | **Completed / Production Migration Applied / Verified** | จำแนก SECURITY DEFINER ครบ 56 ฟังก์ชันและบังคับ deny-by-default แล้ว: `authenticated` 42, Server-only 14, `service_role` 56, `anon`/`public` 0; Default Privilege จำกัดไว้ที่ `postgres` และ `service_role`; Security Advisor หลัง Migration ตรวจแล้ว โดย WARN 42 รายการเป็น Application Allowlist ที่ตั้งใจเปิดและอีก 1 รายการคือ Leaked Password Protection ที่รอ Supabase Pro |
+| Phase 1.2.4.2.2 Anonymous Grant Hardening | **Completed / Production Migration Applied / Verified** | ถอนสิทธิ์ `anon` จาก `branches`, `member_branches`, `organization_members`, `organizations` สำเร็จทั้ง 4 ตาราง (`anon` = 0) และปิด Default Privilege ของตาราง/sequence ใหม่; ยืนยันว่า RLS และ Policy เดิมยังอยู่ สิทธิ์ `authenticated`/`service_role` ไม่เปลี่ยน Migration History บันทึกแล้ว และ Security Advisor ไม่พบรายการใหม่ที่เกี่ยวกับตารางในขอบเขต |
+| Phase 1.2.4.2.3 RLS InitPlan Optimization | **Completed / Production Migration Applied / Verified** | ใช้ Migration กับ Supabase Production แล้ว; Policy ยังคงเป็น PERMISSIVE, Role `authenticated`, SELECT, Platform Admin และ AAL2 เดิม; Migration History บันทึกสำเร็จ และ Performance Advisor ไม่พบ `auth_rls_initplan` เหลืออยู่ (`0` รายการ) |
+| Phase 1.2.4.2.4 Production Password Gate | **Completed / Deferred by Owner / ยอมรับความเสี่ยงชั่วคราว** | Production `ACTIVE_HEALTHY`; Security Advisor ยังแจ้ง `auth_leaked_password_protection` เพราะ Leaked Password Protection ปิดอยู่; เจ้าของระบบยังไม่อัปเกรดจาก Free เป็น Pro จนกว่าฟีเจอร์หลักจะพร้อมมากขึ้น จึงคงมาตรการชดเชยเดิมและต้องนำ Gate นี้กลับมาพิจารณาก่อนเปิด Production เต็มรูปแบบ |
 
 ห้ามเปิด Production หาก Phase 0.9 Production Security Gate ยังไม่ผ่าน แม้ระบบ Development จะใช้งานได้ครบตาม Acceptance Criteria แล้ว และต้องตรวจร่างประกาศความเป็นส่วนตัว/ข้อกำหนดการใช้งานโดยผู้เชี่ยวชาญด้านกฎหมายและ PDPA ก่อนเผยแพร่
 
@@ -668,6 +674,26 @@ Event ต้องมี `organization_id`, Actor, Customer, Source Entity, Corr
 ---
 
 ## Changelog
+
+### Phase 1.3.6.2 — Shared UI Theme Migration (12 สิงหาคม 2026)
+
+- สถานะ: Implemented และรอตรวจ Local UI
+- ย้าย Application Shell, Header, Sidebar, Mobile Navigation และ Account Dropdown ไปใช้ Semantic Token
+- ย้าย Card, Form, Button, Focus, Overlay และ Shadow ส่วนกลางให้รองรับ Light/Dark สม่ำเสมอ
+- เพิ่ม Semantic Status Palette สำหรับ Success, Warning, Danger, Info และ Neutral โดยควบคุมพื้นหลัง เส้นขอบ และข้อความพร้อมกัน
+- แก้ Dark Mode Contrast ใน Plans, Feature/Rule Actions, Billing Exceptions, Approval Timeline, Transfer Policy, Production Readiness และ Live Control
+- คงโครงสร้าง Responsive เดิมสำหรับ Desktop, Tablet และ Mobile โดยไม่เปลี่ยน Business Logic
+- เอกสาร: `AVENZO_ONE_Phase_1.3.6.2_Shared_UI_Theme_Migration.md`
+- ขั้นถัดไป: Phase 1.3.6.3 ย้ายสีเฉพาะหน้าและสถานะธุรกิจที่ยังเป็นค่าสีตรง พร้อม Visual QA รายหน้า
+
+### Phase 1.3.6.1 — Design Token Foundation (12 สิงหาคม 2026)
+
+- สถานะ: Implemented และรอตรวจ Local UI
+- เพิ่มชุดสีมาตรฐาน Light/Dark แบบส่วนกลาง
+- เชื่อม Application Rail, Sidebar หลัก/รอง และปุ่ม Primary/Secondary เข้ากับ Semantic Token
+- เก็บ Compatibility Alias ไว้ชั่วคราว เพื่อทยอยย้ายหน้าระบบเดิมโดยไม่ทำให้ UI ทั้งระบบเสียพร้อมกัน
+- เอกสาร Token: `AVENZO_ONE_Phase_1.3.6.1_Design_Tokens.md`
+- ขั้นถัดไป: Phase 1.3.6.2 ย้าย Application Shell และ Shared Surface ไปใช้ Token พร้อมตรวจ Desktop, Tablet และ Mobile
 
 ### V7.0 — 5 สิงหาคม 2026
 

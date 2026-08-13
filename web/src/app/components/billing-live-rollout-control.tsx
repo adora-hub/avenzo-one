@@ -168,7 +168,7 @@ export function BillingLiveRolloutControl({
       </div>
       <label className="readiness-note">เหตุผลสำหรับ Audit Log<textarea value={testerReason} maxLength={2000} onChange={(event) => setTesterReason(event.target.value)} placeholder="เช่น เพิ่มบัญชีทีมการเงินสำหรับทดสอบวงเงินจำกัด" /></label>
       <button className="button" type="button" onClick={() => prepare('tester')}>ตรวจสอบก่อนบันทึกผู้ทดสอบ</button>
-      {testers.length ? <div className="live-rollout-testers">{testers.map((tester) => <article key={tester.id}><div><strong>{tester.email}</strong><span>แก้ไขโดย {tester.updated_by_email}</span></div><span className={`status ${tester.active ? 'active' : 'suspended'}`}>{tester.active ? 'อนุญาต' : 'พักสิทธิ์'}</span><p>{tester.reason}</p></article>)}</div> : <div className="empty-state">ยังไม่มีผู้ทดสอบในรายการอนุญาต</div>}
+      {testers.length ? <div className="live-rollout-testers">{testers.map((tester) => <article key={tester.id} className={tester.active ? 'semantic-panel-success' : 'semantic-panel-warning'}><div><strong>{tester.email}</strong><span>แก้ไขโดย {tester.updated_by_email}</span></div><span className={`status ${tester.active ? 'active' : 'suspended'}`}>{tester.active ? 'อนุญาต' : 'พักสิทธิ์'}</span><p>{tester.reason}</p></article>)}</div> : <div className="empty-state">ยังไม่มีผู้ทดสอบในรายการอนุญาต</div>}
     </section>
 
     <section className="readiness-review-card">

@@ -45,8 +45,8 @@ export function ThemeToggle({ variant = 'compact' }: ThemeToggleProps) {
         onClick={toggleTheme}
       >
         <span className="account-theme-copy">
-          <strong>โหมดมืด</strong>
-          <small>ใช้พื้นหลังสีเข้มและตัวอักษรสว่าง</small>
+          <strong>ธีมหน้าจอ</strong>
+          <small>{isDark ? 'กำลังใช้โหมดมืด' : 'กำลังใช้โหมดสว่าง'}</small>
         </span>
         <span className={`account-theme-switch ${isDark ? 'active' : ''}`} aria-hidden="true">
           <span />
