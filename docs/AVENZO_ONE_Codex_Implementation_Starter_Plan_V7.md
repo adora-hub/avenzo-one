@@ -510,6 +510,8 @@ Event ต้องมี `organization_id`, Actor, Customer, Source Entity, Corr
 | Phase 1.2.4.2.2 Anonymous Grant Hardening | **Completed / Production Migration Applied / Verified** | ถอนสิทธิ์ `anon` จาก `branches`, `member_branches`, `organization_members`, `organizations` สำเร็จทั้ง 4 ตาราง (`anon` = 0) และปิด Default Privilege ของตาราง/sequence ใหม่; ยืนยันว่า RLS และ Policy เดิมยังอยู่ สิทธิ์ `authenticated`/`service_role` ไม่เปลี่ยน Migration History บันทึกแล้ว และ Security Advisor ไม่พบรายการใหม่ที่เกี่ยวกับตารางในขอบเขต |
 | Phase 1.2.4.2.3 RLS InitPlan Optimization | **Completed / Production Migration Applied / Verified** | ใช้ Migration กับ Supabase Production แล้ว; Policy ยังคงเป็น PERMISSIVE, Role `authenticated`, SELECT, Platform Admin และ AAL2 เดิม; Migration History บันทึกสำเร็จ และ Performance Advisor ไม่พบ `auth_rls_initplan` เหลืออยู่ (`0` รายการ) |
 | Phase 1.2.4.2.4 Production Password Gate | **Completed / Deferred by Owner / ยอมรับความเสี่ยงชั่วคราว** | Production `ACTIVE_HEALTHY`; Security Advisor ยังแจ้ง `auth_leaked_password_protection` เพราะ Leaked Password Protection ปิดอยู่; เจ้าของระบบยังไม่อัปเกรดจาก Free เป็น Pro จนกว่าฟีเจอร์หลักจะพร้อมมากขึ้น จึงคงมาตรการชดเชยเดิมและต้องนำ Gate นี้กลับมาพิจารณาก่อนเปิด Production เต็มรูปแบบ |
+| Phase 1.3.6.3 Page-specific Theme Migration & Visual QA | **Approved / Completed** | เก็บสีเฉพาะหน้าและสถานะธุรกิจที่ยังเป็นค่าตรง พร้อม Button Contrast Gate, Theme Persistence และ Visual QA; Contract Test 5/5, TypeScript และ Production Build 37 หน้าผ่าน โดยไม่เปลี่ยน Business Logic |
+| Phase 1.3.6.4 Operations UI Foundation | **Approved / Completed** | Component Foundation ครบ, Billing Exceptions Pilot ผ่าน Decision Gate, Contract 9/9, TypeScript, Production Build 37 หน้า และ Authenticated Visual QA ผ่าน โดย Business Logic, Permission, AAL2 และ Audit Contract เดิมไม่เปลี่ยน |
 
 ห้ามเปิด Production หาก Phase 0.9 Production Security Gate ยังไม่ผ่าน แม้ระบบ Development จะใช้งานได้ครบตาม Acceptance Criteria แล้ว และต้องตรวจร่างประกาศความเป็นส่วนตัว/ข้อกำหนดการใช้งานโดยผู้เชี่ยวชาญด้านกฎหมายและ PDPA ก่อนเผยแพร่
 
@@ -614,22 +616,26 @@ Event ต้องมี `organization_id`, Actor, Customer, Source Entity, Corr
 
 ## 17. ลำดับรวมหลัง Sprint 1
 
-1. Foundation Vertical Slice ตาม V6
-2. Product/SKU, Warehouse, Stock Movement Ledger
-3. Live CF, Reservation, Waitlist และ Customer Chat Workspace
-4. Order Revision, Payment, Refund และ Customer Credit
-5. Promotion Engine, FF Benefit และ Group Repricing
-6. Picking, Packing, Shipping และ Return QC
-7. Customer Identity + Customer 360
-8. Purchase History + Loyalty Ledger
-9. Store Engagement + Notification Preference
-10. Verified Review + Public Profile + Moderation
-11. Referral Attribution + Commission Ledger
-12. Payout + Reconciliation
-13. Community Feed
-14. พิจารณา Multi-level Referral เฉพาะเมื่อผ่าน Decision Gate ใหม่
+1. ปิด Phase 1.3.6.3 Theme Migration และ Visual QA ให้ผ่านเกณฑ์ก่อนเปลี่ยน Layout ระดับระบบ
+2. Phase 1.3.6.4 Operations UI Foundation: สร้าง Component กลางและทดลองเพียงหนึ่งหน้า โดยไม่เปลี่ยน Business Logic
+3. Foundation Vertical Slice ตาม V6
+4. Product/SKU, Warehouse, Stock Movement Ledger โดยใช้ Operations UI Foundation ที่ผ่าน Pilot แล้ว
+5. Live CF, Reservation, Waitlist และ Customer Chat Workspace
+6. Order Revision, Payment, Refund และ Customer Credit
+7. Promotion Engine, FF Benefit และ Group Repricing
+8. Picking, Packing, Shipping และ Return QC
+9. Customer Identity + Customer 360
+10. Purchase History + Loyalty Ledger
+11. Store Engagement + Notification Preference
+12. Verified Review + Public Profile + Moderation
+13. Referral Attribution + Commission Ledger
+14. Payout + Reconciliation
+15. Community Feed
+16. พิจารณา Multi-level Referral เฉพาะเมื่อผ่าน Decision Gate ใหม่
 
-สามารถขยับข้อ 7–9 ให้เร็วขึ้นหลัง Order/Customer Model เสถียร แต่ไม่ควรสร้าง Referral ก่อน Order Revision, Return และ Ledger พร้อม เพราะจะคำนวณและย้อนค่านายหน้าไม่ถูกต้อง
+สามารถขยับข้อ 9–11 ให้เร็วขึ้นหลัง Order/Customer Model เสถียร แต่ไม่ควรสร้าง Referral ก่อน Order Revision, Return และ Ledger พร้อม เพราะจะคำนวณและย้อนค่านายหน้าไม่ถูกต้อง
+
+Phase 1.3.6.4 อ้างอิงการวิเคราะห์ Surge Commerce ครบทุก Route ใน Sidebar แต่ให้นำมาเฉพาะ Design Pattern ที่เหมาะกับ AVENZO ONE ได้แก่ Page Header, Filter Bar, Data Grid, Status Badge, KPI Card, Form Section, Card List และ Detail Sheet ห้ามคัดลอก Navigation, Business Logic หรือ Source Code โดยไม่ตรวจ License และห้าม Rollout ทุกหน้าก่อน Pilot ผ่าน Decision Gate
 
 ---
 
@@ -674,6 +680,32 @@ Event ต้องมี `organization_id`, Actor, Customer, Source Entity, Corr
 ---
 
 ## Changelog
+
+### Phase 1.3.6.4 — Operations UI Foundation (13 สิงหาคม 2026)
+
+- สถานะ: Approved / Completed หลัง Pilot Decision Gate ผ่าน
+- วิเคราะห์ Surge Commerce ครบ Dashboard, Orders, Products, Inventory, Customers, Categories, Promotions, Reviews, Analytics และ Settings ทุกเมนูย่อยใน Sidebar
+- กำหนด Component Foundation สำหรับ Page Header, Filter Bar, Data Grid, Status Badge, KPI, Form Section, Card List และ Detail Sheet
+- กำหนดให้เริ่มจาก Pilot เพียงหนึ่งหน้า โดยแนะนำ Billing Exceptions และห้ามเปลี่ยน Business Logic, RLS, Permission หรือ Audit Contract
+- วางลำดับ Rollout ไป Product/SKU, Warehouse/Stock, Purchasing, Customer, Order/Payment, Promotion และ Analytics ตามความพร้อมของ Domain
+- เพิ่มกฎภาษาไทย, Dark Mode, Responsive, Accessibility, License และ Decision Gate ก่อนขยายผล
+- เริ่ม Billing Exceptions Pilot ด้วย Page/Panel Header, Filter Bar, Status Badge, Data Grid และ Empty State กลาง โดยคง Payment Actions และ Server Contract เดิม
+- เพิ่ม Contract Test สำหรับ Component Foundation, Semantic Token, Accessible Name และ Pilot Integration
+- Contract 9/9, TypeScript และ Production Build 37 หน้าผ่าน; Authenticated Visual QA ผ่านบน Desktop Light/Dark, Tablet 1024px และ Mobile 390px โดยไม่พบ Overflow, Console Error หรือ Error Overlay
+- เจ้าของระบบอนุมัติ Billing Exceptions Pilot Decision Gate แล้ว โดยยืนยันให้ใช้ Operations UI Foundation ต่อหลังปิด Phase
+- ปิด Phase หลัง Component Foundation ครบ, Contract 9/9, TypeScript, Production Build 37 หน้า และ Authenticated Visual QA ผ่าน Desktop Light/Dark, Tablet และ Mobile
+- เอกสาร: `AVENZO_ONE_Phase_1.3.6.4_Operations_UI_Foundation.md`
+
+### Phase 1.3.6.3 — Page-specific Theme Migration & Visual QA (13 สิงหาคม 2026)
+
+- สถานะ: Approved / Completed
+- เพิ่มเกณฑ์ตรวจปุ่ม Primary, Secondary, Danger และ Disabled ว่าต้องแยกจากพื้น Card และพื้นหน้าใน Dark Mode
+- แก้ปุ่ม Primary ส่วนกลางที่ใช้พื้นสีเดียวกับ Card โดยใช้พื้นสีน้ำเงินใน Dark Mode และเพิ่ม Semantic Border Token สำหรับ Default, Hover และ Active State
+- เพิ่ม Automated Contract Test เพื่อป้องกัน `.button` กลับไปใช้ `border: 0` หรือไม่มี Dark-mode Border Token
+- แก้ Theme Persistence ให้ F5 และการเปิดหน้าใหม่ใช้ค่าที่บันทึกไว้ก่อน Hydration โดยไม่ต้องเปิดเมนูโปรไฟล์
+- เริ่ม Visual QA รายหน้าจาก Platform Admin Access แล้วขยายไป Billing, Live Control, Plans, Features, Transfer Proofs และ Production Readiness
+- ปิด Phase หลัง Dark Button Contrast 3/3, Theme Persistence 2/2, TypeScript และ Production Build 37 หน้าผ่าน
+- เอกสาร: `AVENZO_ONE_Phase_1.3.6.3_Page_Specific_Theme_Visual_QA.md`
 
 ### Phase 1.3.6.2 — Shared UI Theme Migration (12 สิงหาคม 2026)
 

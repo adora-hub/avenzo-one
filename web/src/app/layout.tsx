@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Inter, Noto_Sans_Thai } from 'next/font/google'
+import { cookies } from 'next/headers'
 import { SessionActivityHeartbeat } from '@/app/components/session-activity-heartbeat'
 import './globals.css'
 
@@ -20,9 +21,12 @@ export const metadata: Metadata = {
   description: 'Multi-tenant organization and subscription workspace',
 }
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const cookieStore = await cookies()
+  const initialTheme = cookieStore.get('avenzaone-theme')?.value === 'dark' ? 'dark' : 'light'
+
   return (
-    <html lang="th" suppressHydrationWarning>
+    <html lang="th" data-theme={initialTheme} suppressHydrationWarning>
       <body className={`${inter.variable} ${notoSansThai.variable}`}>
         <SessionActivityHeartbeat />
         {children}

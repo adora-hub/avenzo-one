@@ -10,6 +10,7 @@ import { BillingDocumentActions } from '@/app/components/billing-document-action
 import { BillingTransferChannelSettings, type BillingTransferChannel } from '@/app/components/billing-transfer-channel-settings'
 import { billingStatusLabels } from '@/app/components/billing-labels'
 import { PaymentExceptionActions } from '@/app/components/payment-exception-actions'
+import { OperationsCardList, OperationsDataGrid, OperationsEmptyState, OperationsFilterBar, OperationsPageHeader, OperationsPanelHeader, OperationsStatusBadge, OperationsSummaryCard } from '@/app/components/operations-ui'
 import { SignOutButton } from '@/app/components/sign-out-button'
 import { buildPaymentExceptions, type PaymentExceptionAttempt, type PaymentExceptionEvent, type PaymentExceptionInvoice, type PaymentExceptionSeverity, type PaymentExceptionSlaStatus } from '@/lib/billing/payment-exceptions'
 import { createClient } from '@/lib/supabase/server'
@@ -183,50 +184,58 @@ export default async function PlatformAdminBillingPage({ searchParams }: { searc
   return <ApplicationShell email={user.email ?? ''} isPlatformAdmin section="platform">
     <header className="topbar"><div className="brand">AVENZO ONE / Billing</div><div className="topbar-actions"><span>{user.email}</span><SignOutButton /></div></header>
     <section className="content platform-subscription-content">
-      <div className="hero"><div><div className="eyebrow">Phase 1.1.3.8.3</div><h1>Billing &amp; Payment Exceptions</h1><p>ตรวจรายการชำระเงินผิดปกติ ติดตามกำหนดเวลา และเก็บหลักฐานทุกคำสั่งแก้ไข</p></div></div>
+      <OperationsPageHeader eyebrow="Phase 1.3.6.4 · Operations UI Pilot" title="Billing & Payment Exceptions" description="ตรวจรายการชำระเงินผิดปกติ ติดตามกำหนดเวลา และเก็บหลักฐานทุกคำสั่งแก้ไข" actions={<OperationsStatusBadge tone="info">Pilot · Billing Exceptions</OperationsStatusBadge>} />
       {firstError ? <div className="error">ไม่สามารถอ่านข้อมูล Billing ได้: {firstError.message}</div> : <>
-        <section className="subscription-management-section"><div className="feature-list-heading"><div><div className="eyebrow">ความพร้อมระบบรับชำระ</div><h2>สถานะระบบรับชำระเงิน</h2><p>เชื่อม Stripe โหมดทดสอบ โดยข้อมูลลับและการยืนยัน Webhook อยู่ฝั่ง Server เท่านั้น</p></div><span className="status active">Stripe Test Mode</span></div>
-          <div className="gateway-readiness-grid"><div className="card"><span className="history-label">Provider หลัก</span><h3>Stripe Thailand</h3><p>Hosted Checkout รองรับบัตรและ PromptPay QR</p></div><div className="card"><span className="history-label">ค่าธรรมเนียมลูกค้า</span><h3>0 บาท</h3><p>รอบนี้ AVENZO ONE รับภาระค่าธรรมเนียมและเก็บ Fee Snapshot แยก</p></div><div className="card"><span className="history-label">Webhook ล่าสุด</span><h3>{gatewayEventsResult.data?.length ?? 0} Event</h3><p>ตรวจลายเซ็น เก็บ Event ID และ Hash เพื่อป้องกันการประมวลผลซ้ำ</p></div></div>
+        <section className="subscription-management-section"><div className="feature-list-heading gateway-readiness-heading"><div><div className="eyebrow">ความพร้อมระบบรับชำระ</div><h2>สถานะระบบรับชำระเงิน</h2><p>เชื่อม Stripe โหมดทดสอบ โดยข้อมูลลับและการยืนยัน Webhook อยู่ฝั่ง Server เท่านั้น</p></div><span className="status active">Stripe Test Mode</span></div>
+          <OperationsCardList label="สรุปความพร้อมระบบรับชำระ">
+            <OperationsSummaryCard label="Provider หลัก" value="Stripe Thailand" description="Hosted Checkout รองรับบัตรและ PromptPay QR" />
+            <OperationsSummaryCard label="ค่าธรรมเนียมลูกค้า" value="0 บาท" description="รอบนี้ AVENZO ONE รับภาระค่าธรรมเนียมและเก็บ Fee Snapshot แยก" />
+            <OperationsSummaryCard label="Webhook ล่าสุด" value={`${gatewayEventsResult.data?.length ?? 0} Event`} description="ตรวจลายเซ็น เก็บ Event ID และ Hash เพื่อป้องกันการประมวลผลซ้ำ" />
+          </OperationsCardList>
         </section>
         <section className="subscription-management-section payment-exception-section">
-          <div className="feature-list-heading"><div><div className="eyebrow">คิวตรวจสอบการชำระเงิน</div><h2>รายการชำระเงินที่ต้องตรวจสอบ <span className="term-help" tabIndex={0} aria-label="คำอธิบายกำหนดเวลาตรวจสอบ">i<span role="tooltip">กำหนดเวลาตรวจสอบ (SLA) คือเวลาเป้าหมายที่ผู้ดูแลควรเข้าตรวจปัญหา ระบบจะไม่แก้ไขรายการให้อัตโนมัติ</span></span></h2><p>รวมปัญหาจากรายการรับชำระ 100 รายการล่าสุด เรียงรายการที่เกินกำหนดก่อน และแสดงไม่เกิน 10 แถว</p></div><span className={`feature-count ${allPaymentExceptions.length ? 'has-warning' : ''}`}>{paymentExceptions.length} / {allPaymentExceptions.length} รายการ</span></div>
+          <OperationsPanelHeader eyebrow="คิวตรวจสอบการชำระเงิน" title={<>รายการชำระเงินที่ต้องตรวจสอบ <span className="term-help" tabIndex={0} aria-label="คำอธิบายกำหนดเวลาตรวจสอบ">i<span role="tooltip">กำหนดเวลาตรวจสอบ (SLA) คือเวลาเป้าหมายที่ผู้ดูแลควรเข้าตรวจปัญหา ระบบจะไม่แก้ไขรายการให้อัตโนมัติ</span></span></>} description="รวมปัญหาจากรายการรับชำระ 100 รายการล่าสุด เรียงรายการที่เกินกำหนดก่อน และแสดงไม่เกิน 10 แถว" count={<OperationsStatusBadge tone={allPaymentExceptions.length ? 'warning' : 'success'}>{paymentExceptions.length} / {allPaymentExceptions.length} รายการ</OperationsStatusBadge>} />
           {overdueExceptions.length ? <div className={`payment-sla-alert ${urgentOverdueCount ? 'critical' : 'warning'}`} role="alert"><span aria-hidden="true">!</span><div><strong>{urgentOverdueCount ? `มี ${urgentOverdueCount} รายการเร่งด่วนเกินกำหนด` : `มี ${overdueExceptions.length} รายการเกินกำหนดตรวจสอบ`}</strong><p>ให้ผู้ดูแลระบบเปิดตรวจหลักฐานและดำเนินการจากรายการด้านล่างก่อนงาน Billing ปกติ</p></div></div> : <div className="payment-sla-alert healthy"><span aria-hidden="true">✓</span><div><strong>ยังไม่มีรายการตรวจสอบที่เกินกำหนด</strong><p>รายการที่เปิดอยู่ยังอยู่ภายในเวลาตรวจสอบตามนโยบาย</p></div></div>}
-          <form className="payment-exception-filters" method="get">
+          <form method="get">
+            <OperationsFilterBar label="ตัวกรองรายการชำระเงินที่ต้องตรวจสอบ">
             <input name="exception_q" defaultValue={exceptionSearch} placeholder="ค้นหา Organization, Invoice หรือรหัสอ้างอิง" aria-label="ค้นหารายการผิดปกติ" />
             <select name="exception_severity" defaultValue={exceptionSeverity} aria-label="ระดับความสำคัญ"><option value="all">ทุกระดับ</option><option value="critical">เร่งด่วน</option><option value="warning">ควรตรวจสอบ</option><option value="info">ติดตาม</option></select>
             <select name="exception_sla" defaultValue={exceptionSla} aria-label="สถานะกำหนดเวลาตรวจสอบ"><option value="all">ทุกสถานะกำหนดเวลา</option><option value="overdue">เกินกำหนดตรวจสอบ</option><option value="due_soon">ใกล้ถึงกำหนดตรวจสอบ</option><option value="on_track">ยังอยู่ในกำหนด</option></select>
             <input type="hidden" name="audit_q" value={auditSearch} /><input type="hidden" name="audit_status" value={auditStatus} /><input type="hidden" name="audit_action" value={auditAction} />
             <button className="button secondary" type="submit">ค้นหา</button><Link className="button secondary" href={billingHref(query, { exception_q: undefined, exception_severity: undefined, exception_sla: undefined })}>ล้างตัวกรอง</Link>
+            </OperationsFilterBar>
           </form>
-          {paymentExceptions.length ? <div className="payment-exception-list">{paymentExceptions.slice(0, 10).map((exception) => {
+          {paymentExceptions.length ? <OperationsDataGrid label="รายการชำระเงินผิดปกติ" className="payment-exception-list">{paymentExceptions.slice(0, 10).map((exception) => {
             const timezone = organizationsById.get(exception.organizationId)?.timezone
-            return <article className={`payment-exception-row ${exception.severity}`} key={exception.attemptId}>
-              <div className="payment-exception-main"><span className={`exception-severity ${exception.severity}`}>{exception.severity === 'critical' ? 'เร่งด่วน' : exception.severity === 'warning' ? 'ควรตรวจสอบ' : 'ติดตาม'}</span><div><h3>{exception.title}</h3><p>{exception.description}</p></div><span className={`exception-sla ${exception.slaStatus}`}>{slaLabel(exception.slaStatus, exception.slaRemainingMinutes)}</span></div>
+            return <article className={`payment-exception-row ${exception.severity}`} role="listitem" key={exception.attemptId}>
+              <div className="payment-exception-main"><OperationsStatusBadge tone={exception.severity === 'critical' ? 'danger' : exception.severity}>{exception.severity === 'critical' ? 'เร่งด่วน' : exception.severity === 'warning' ? 'ควรตรวจสอบ' : 'ติดตาม'}</OperationsStatusBadge><div><h3>{exception.title}</h3><p>{exception.description}</p></div><OperationsStatusBadge tone={exception.slaStatus === 'overdue' ? 'danger' : exception.slaStatus === 'due_soon' ? 'warning' : 'success'} className="exception-sla">{slaLabel(exception.slaStatus, exception.slaRemainingMinutes)}</OperationsStatusBadge></div>
               <dl className="payment-exception-details"><div><dt>องค์กร</dt><dd>{exception.organizationName}</dd></div><div><dt>ใบแจ้งหนี้</dt><dd>{exception.invoiceNumber}</dd></div><div><dt>ช่องทาง</dt><dd>{exception.provider} · {paymentMethodLabel(exception.paymentMethod)}</dd></div><div><dt>ยอดชำระ</dt><dd>{formatMoney(exception.amount, exception.currency)}</dd></div><div><dt>เกิดเมื่อ</dt><dd>{formatDate(exception.occurredAt, timezone)}</dd></div><div><dt>ควรตรวจภายใน</dt><dd>{formatDate(exception.slaDueAt, timezone)} · เวลาตรวจเป้าหมาย {slaTargetLabel(exception.slaTargetMinutes)}</dd></div>{exception.failureCode ? <div><dt>รหัสอ้างอิง</dt><dd>{exception.failureCode}</dd></div> : null}</dl>
               <PaymentExceptionActions attemptId={exception.attemptId} kind={exception.kind} invoiceNumber={exception.invoiceNumber} paymentMethod={exception.paymentMethod} />
             </article>
-          })}</div> : <div className="payment-exception-empty"><span aria-hidden="true">✓</span><div><h3>{allPaymentExceptions.length ? 'ไม่พบรายการตามตัวกรอง' : 'ไม่มีรายการผิดปกติที่ต้องตรวจสอบ'}</h3><p>{allPaymentExceptions.length ? 'ลองเปลี่ยนคำค้นหา ระดับความสำคัญ หรือสถานะ SLA' : 'Payment, Webhook, Invoice และค่าธรรมเนียมอยู่ในสถานะสอดคล้องกัน'}</p></div></div>}
+          })}</OperationsDataGrid> : <OperationsEmptyState tone="success" icon="✓" title={allPaymentExceptions.length ? 'ไม่พบรายการตามตัวกรอง' : 'ไม่มีรายการผิดปกติที่ต้องตรวจสอบ'} description={allPaymentExceptions.length ? 'ลองเปลี่ยนคำค้นหา ระดับความสำคัญ หรือสถานะ SLA' : 'Payment, Webhook, Invoice และค่าธรรมเนียมอยู่ในสถานะสอดคล้องกัน'} />}
         </section>
         <section className="subscription-management-section">
-          <div className="feature-list-heading"><div><div className="eyebrow">ประวัติการดำเนินการ</div><h2>ประวัติคำสั่งแก้ไข</h2><p>เก็บผู้ดำเนินการ เหตุผล ผลลัพธ์ และเวลา แสดง 10 รายการต่อหน้า</p></div><span className="feature-count">{exceptionCommandsResult.count ?? 0} รายการ</span></div>
-          <form className="payment-exception-filters" method="get">
+          <OperationsPanelHeader eyebrow="ประวัติการดำเนินการ" title="ประวัติคำสั่งแก้ไข" description="เก็บผู้ดำเนินการ เหตุผล ผลลัพธ์ และเวลา แสดง 10 รายการต่อหน้า" count={<OperationsStatusBadge>{exceptionCommandsResult.count ?? 0} รายการ</OperationsStatusBadge>} />
+          <form method="get">
+            <OperationsFilterBar label="ตัวกรองประวัติคำสั่งแก้ไข">
             <input name="audit_q" defaultValue={auditSearch} placeholder="ค้นหาอีเมลผู้ดำเนินการหรือเหตุผล" aria-label="ค้นหาประวัติคำสั่ง" />
             <select name="audit_action" defaultValue={auditAction} aria-label="ประเภทคำสั่ง"><option value="all">ทุกคำสั่ง</option><option value="reconcile_fee">ตรวจค่าธรรมเนียม</option><option value="refresh_provider_status">ตรวจสถานะ Provider</option><option value="retry_checkout">สร้าง Checkout ใหม่</option></select>
             <select name="audit_status" defaultValue={auditStatus} aria-label="ผลคำสั่ง"><option value="all">ทุกผลลัพธ์</option><option value="succeeded">สำเร็จ</option><option value="failed">ไม่สำเร็จ</option><option value="pending">กำลังดำเนินการ</option></select>
             <input type="hidden" name="exception_q" value={exceptionSearch} /><input type="hidden" name="exception_severity" value={exceptionSeverity} /><input type="hidden" name="exception_sla" value={exceptionSla} />
             <button className="button secondary" type="submit">ค้นหา</button><Link className="button secondary" href={billingHref(query, { audit_page: undefined, audit_q: undefined, audit_status: undefined, audit_action: undefined })}>ล้างตัวกรอง</Link>
+            </OperationsFilterBar>
           </form>
-          {exceptionCommandsResult.data?.length ? <div className="payment-exception-command-history">{exceptionCommandsResult.data.map((command) => {
+          {exceptionCommandsResult.data?.length ? <OperationsDataGrid label="ประวัติคำสั่งแก้ไข" className="payment-exception-command-history">{exceptionCommandsResult.data.map((command) => {
             const status = exceptionCommandStatus(command.status)
             const organization = organizationsById.get(command.organization_id)
             const invoiceNumber = (exceptionInvoicesResult.data ?? []).find((invoice) => invoice.id === command.invoice_id)?.invoice_number ?? command.invoice_id
-            return <article key={command.id}>
-              <div><strong>{exceptionActionLabel(command.action)}</strong><span className={`status ${status.className}`}>{status.label}</span></div>
+            return <article role="listitem" key={command.id}>
+              <div><strong>{exceptionActionLabel(command.action)}</strong><OperationsStatusBadge tone={status.className === 'active' ? 'success' : status.className === 'suspended' ? 'danger' : 'warning'}>{status.label}</OperationsStatusBadge></div>
               <dl><div><dt>Organization</dt><dd>{organization?.name ?? command.organization_id}</dd></div><div><dt>Invoice</dt><dd>{invoiceNumber}</dd></div><div><dt>ผู้ดำเนินการ</dt><dd>{command.actor_email}</dd></div><div><dt>เวลา</dt><dd>{formatDate(command.completed_at ?? command.created_at, organization?.timezone)}</dd></div></dl>
               <p><strong>เหตุผล:</strong> {command.reason}</p>
               {command.error_code ? <p className="history-command-error">รหัสข้อผิดพลาด: {command.error_code}</p> : null}
             </article>
-          })}</div> : <div className="payment-exception-empty"><span aria-hidden="true">i</span><div><h3>{exceptionCommandsResult.count ? 'ไม่พบประวัติตามตัวกรอง' : 'ยังไม่มีประวัติคำสั่งแก้ไข'}</h3><p>{exceptionCommandsResult.count ? 'ลองเปลี่ยนคำค้นหา ประเภทคำสั่ง หรือผลลัพธ์' : 'ประวัติจะเริ่มแสดงหลังยืนยันดำเนินการจาก Exception Queue'}</p></div></div>}
+          })}</OperationsDataGrid> : <OperationsEmptyState title={exceptionCommandsResult.count ? 'ไม่พบประวัติตามตัวกรอง' : 'ยังไม่มีประวัติคำสั่งแก้ไข'} description={exceptionCommandsResult.count ? 'ลองเปลี่ยนคำค้นหา ประเภทคำสั่ง หรือผลลัพธ์' : 'ประวัติจะเริ่มแสดงหลังยืนยันดำเนินการจาก Exception Queue'} />}
           {auditTotalPages > 1 ? <nav className="pagination" aria-label="หน้าประวัติคำสั่งแก้ไข">
             <Link className={`pagination-link ${currentAuditPage <= 1 ? 'disabled' : ''}`} href={billingHref(query, { audit_page: String(Math.max(1, currentAuditPage - 1)) })}>ก่อนหน้า</Link>
             {pageNumbers(currentAuditPage, auditTotalPages).map((page, index, pages) => <span className="pagination-number-wrap" key={page}>{index > 0 && pages[index - 1] < page - 1 ? <span>…</span> : null}<Link className={`pagination-link ${page === currentAuditPage ? 'current' : ''}`} href={billingHref(query, { audit_page: String(page) })}>{page}</Link></span>)}

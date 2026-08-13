@@ -10,7 +10,8 @@
 - Phase 0.4 — Auth/UI Foundation: build verified
 - Phase 1.3.6.1 — Design Token Foundation: implemented
 - Phase 1.3.6.2 — Shared UI Theme Migration: implemented; local UI verification in progress
-- Next: Phase 1.3.6.3 — migrate remaining page-specific and hard-coded business-status colors, then perform per-page Visual QA
+- Phase 1.3.6.3 — Page-specific Theme Migration and Visual QA: approved and completed; theme gates and production build passed
+- Phase 1.3.6.4 — Operations UI Foundation: approved and completed; component foundation and Billing Exceptions pilot passed Decision Gate
 - Supabase project: `AVENZO ONE`
 - Database region: `ap-southeast-1`
 
@@ -22,6 +23,8 @@
 - [Phase 0.4 — Auth & UI Foundation](docs/AVENZO_ONE_Phase_0.4_Auth_UI_Foundation.md)
 - [Phase 1.3.6.1 — Design Token Foundation](docs/AVENZO_ONE_Phase_1.3.6.1_Design_Tokens.md)
 - [Phase 1.3.6.2 — Shared UI Theme Migration](docs/AVENZO_ONE_Phase_1.3.6.2_Shared_UI_Theme_Migration.md)
+- [Phase 1.3.6.3 — Page-specific Theme Migration and Visual QA](docs/AVENZO_ONE_Phase_1.3.6.3_Page_Specific_Theme_Visual_QA.md)
+- [Phase 1.3.6.4 — Operations UI Foundation](docs/AVENZO_ONE_Phase_1.3.6.4_Operations_UI_Foundation.md)
 
 ## Web app
 

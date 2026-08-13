@@ -12,22 +12,30 @@ type ThemeToggleProps = {
 
 function getStoredTheme(): Theme {
   if (typeof window === 'undefined') return 'light'
-  return window.localStorage.getItem(STORAGE_KEY) === 'dark' ? 'dark' : 'light'
+  const storedTheme = window.localStorage.getItem(STORAGE_KEY)
+  if (storedTheme === 'dark' || storedTheme === 'light') return storedTheme
+  return document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light'
+}
+
+function persistTheme(theme: Theme) {
+  window.localStorage.setItem(STORAGE_KEY, theme)
+  document.cookie = `${STORAGE_KEY}=${theme}; Path=/; Max-Age=31536000; SameSite=Lax`
 }
 
 export function ThemeToggle({ variant = 'compact' }: ThemeToggleProps) {
-  const [theme, setTheme] = useState<Theme>('light')
+  const [theme, setTheme] = useState<Theme>(() => getStoredTheme())
 
   useEffect(() => {
     const storedTheme = getStoredTheme()
     document.documentElement.dataset.theme = storedTheme
+    persistTheme(storedTheme)
     setTheme(storedTheme)
   }, [])
 
   function toggleTheme() {
     const nextTheme: Theme = theme === 'light' ? 'dark' : 'light'
     document.documentElement.dataset.theme = nextTheme
-    window.localStorage.setItem(STORAGE_KEY, nextTheme)
+    persistTheme(nextTheme)
     setTheme(nextTheme)
   }
 

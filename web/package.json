@@ -33,7 +33,10 @@
     "test:session-security-regression": "node --experimental-strip-types --test scripts/test-session-policy-foundation.mjs scripts/test-session-registration.mjs scripts/test-session-activity-heartbeat.mjs scripts/test-session-expiry-warning.mjs scripts/test-session-enforcement.mjs scripts/test-session-device-management.mjs scripts/test-session-device-revoke.mjs scripts/test-session-device-revoke-all.mjs scripts/test-session-security-activity.mjs scripts/test-session-security-email.mjs scripts/test-password-recovery.mjs",
     "test:supabase-function-permissions": "node --test scripts/test-supabase-function-permission-allowlist.mjs",
     "test:supabase-anon-grants": "node --test scripts/test-supabase-anonymous-grant-hardening.mjs",
-    "test:supabase-rls-initplan": "node --test scripts/test-supabase-rls-initplan-optimization.mjs"
+    "test:supabase-rls-initplan": "node --test scripts/test-supabase-rls-initplan-optimization.mjs",
+    "test:dark-button-contrast": "node --test scripts/test-dark-button-contrast.mjs",
+    "test:theme-persistence": "node --test scripts/test-theme-persistence.mjs",
+    "test:operations-ui-foundation": "node --test scripts/test-operations-ui-foundation.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.7.0",
