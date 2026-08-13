@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "supabase": "set \"PATH=%PATH%;C:\\Users\\Windows\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\" && supabase --workdir ..",
     "dev": "node scripts/dev.mjs",
     "build": "next build",
     "start": "next start",
@@ -36,7 +37,11 @@
     "test:supabase-rls-initplan": "node --test scripts/test-supabase-rls-initplan-optimization.mjs",
     "test:dark-button-contrast": "node --test scripts/test-dark-button-contrast.mjs",
     "test:theme-persistence": "node --test scripts/test-theme-persistence.mjs",
-    "test:operations-ui-foundation": "node --test scripts/test-operations-ui-foundation.mjs"
+    "test:operations-ui-foundation": "node --test scripts/test-operations-ui-foundation.mjs",
+    "test:foundation-application": "node --test scripts/test-foundation-application.mjs",
+    "test:product-sku-slice": "node --test scripts/test-product-sku-vertical-slice.mjs",
+    "test:warehouse-stock-slice": "node --test scripts/test-warehouse-stock-vertical-slice.mjs",
+    "test:foundation-release-gate": "node --test scripts/test-foundation-application.mjs scripts/test-product-sku-vertical-slice.mjs scripts/test-warehouse-stock-vertical-slice.mjs scripts/test-operations-ui-foundation.mjs scripts/test-foundation-release-gate.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.7.0",
@@ -51,6 +56,7 @@
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "supabase": "2.114.0",
     "typescript": "^5.9.0"
   }
 }

@@ -1,4 +1,5 @@
 import { notFound, redirect } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { SignOutButton } from '../../components/sign-out-button'
 import { CreateBranchForm } from '../../components/create-branch-form'
@@ -80,6 +81,8 @@ export default async function OrganizationPage({ params, searchParams }: Props) 
   const canManageOwners = access?.roles.some((role) => role.code === 'owner') ?? false
   const canReadAudit = permissions.has('audit.read')
   const canReadBilling = permissions.has('billing.read')
+  const canReadProducts = permissions.has('product.read')
+  const canReadWarehouse = permissions.has('warehouse.read') || permissions.has('inventory.read')
 
   const [membersResult, invitationHistoryResult, rolesResult, auditResult, invoicesResult, channelsResult, proofsResult] = await Promise.all([
     canReadMembers
@@ -187,7 +190,11 @@ export default async function OrganizationPage({ params, searchParams }: Props) 
             <h1>{organization.name}</h1>
             <p>/{organization.slug} · {organization.timezone} · {organization.currency}</p>
           </div>
-          <a className="button secondary" href="/dashboard">กลับ Dashboard</a>
+          <div className="button-row">
+            {canReadProducts ? <Link className="button" href={`/organizations/${id}/products`}>Product & SKU</Link> : null}
+            {canReadWarehouse ? <Link className="button" href={`/organizations/${id}/inventory`}>Warehouse & Stock</Link> : null}
+            <Link className="button secondary" href="/dashboard">กลับ Dashboard</Link>
+          </div>
         </div>
 
         <div className="grid">

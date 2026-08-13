@@ -13,6 +13,8 @@ type ApplicationShellProps = {
   children: ReactNode
   displayName?: string
   roleLabel?: string
+  organizationId?: string
+  organizationName?: string
 }
 
 const platformOverviewLink = {
@@ -84,7 +86,7 @@ function navigationGroupForPath(pathname: string) {
   return platformNavigationGroups.find((group) => group.links.some((item) => item.href === activeHref))?.key
 }
 
-export function ApplicationShell({ email, isPlatformAdmin, section, children, displayName, roleLabel }: ApplicationShellProps) {
+export function ApplicationShell({ email, isPlatformAdmin, section, children, displayName, roleLabel, organizationId, organizationName }: ApplicationShellProps) {
   const pathname = usePathname()
   const [isContextCollapsed, setIsContextCollapsed] = useState(false)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
@@ -97,7 +99,17 @@ export function ApplicationShell({ email, isPlatformAdmin, section, children, di
   const accountMenuRef = useRef<HTMLDivElement>(null)
   const accountTriggerRef = useRef<HTMLButtonElement>(null)
   const isAccountPage = pathname.startsWith('/account/security/sessions')
-  const workspaceLinks = [{ href: '/dashboard', label: 'ภาพรวม Workspace' }]
+  const workspaceLinks = [
+    { href: '/dashboard', label: 'ภาพรวม Workspace' },
+    ...(organizationId ? [
+      { href: `/organizations/${organizationId}`, label: organizationName || 'ตั้งค่า Organization' },
+      { href: `/organizations/${organizationId}/products`, label: 'Product & SKU' },
+      { href: `/organizations/${organizationId}/inventory`, label: 'Warehouse & Stock' },
+    ] : []),
+  ]
+  const currentWorkspaceHref = workspaceLinks
+    .filter((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))
+    .sort((left, right) => right.href.length - left.href.length)[0]?.href
   const accountName = displayName?.trim() || email.split('@')[0] || 'บัญชีของฉัน'
   const accountRole = roleLabel?.trim() || (isPlatformAdmin ? 'Platform Admin' : 'สมาชิก Workspace')
   const avatarLabel = Array.from(accountName)[0]?.toUpperCase() || 'A'
@@ -242,7 +254,7 @@ export function ApplicationShell({ email, isPlatformAdmin, section, children, di
               })}
             </>
             : workspaceLinks.map((item) => {
-              const active = isCurrent(pathname, item.href)
+              const active = currentWorkspaceHref === item.href
               return <Link key={item.href} className={active ? 'active' : ''} href={item.href} aria-current={active ? 'page' : undefined}>{item.label}</Link>
             })}
         </nav>

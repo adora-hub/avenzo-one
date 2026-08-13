@@ -436,7 +436,7 @@ Event ต้องมี `organization_id`, Actor, Customer, Source Entity, Corr
 
 ### 12.3 Platform Foundation Roadmap Status
 
-อัปเดตล่าสุด: 8 สิงหาคม 2026
+อัปเดตล่าสุด: 13 สิงหาคม 2026
 
 | ระยะ | สถานะ | หมายเหตุ |
 |---|---|---|
@@ -515,7 +515,19 @@ Event ต้องมี `organization_id`, Actor, Customer, Source Entity, Corr
 | Phase 1.2.4.2.4 Production Password Gate | **Completed / Deferred by Owner / ยอมรับความเสี่ยงชั่วคราว** | Production `ACTIVE_HEALTHY`; Security Advisor ยังแจ้ง `auth_leaked_password_protection` เพราะ Leaked Password Protection ปิดอยู่; เจ้าของระบบยังไม่อัปเกรดจาก Free เป็น Pro จนกว่าฟีเจอร์หลักจะพร้อมมากขึ้น จึงคงมาตรการชดเชยเดิมและต้องนำ Gate นี้กลับมาพิจารณาก่อนเปิด Production เต็มรูปแบบ |
 | Phase 1.3.6.3 Page-specific Theme Migration & Visual QA | **Approved / Completed** | เก็บสีเฉพาะหน้าและสถานะธุรกิจที่ยังเป็นค่าตรง พร้อม Button Contrast Gate, Theme Persistence และ Visual QA; Contract Test 5/5, TypeScript และ Production Build 37 หน้าผ่าน โดยไม่เปลี่ยน Business Logic |
 | Phase 1.3.6.4 Operations UI Foundation | **Approved / Completed** | Component Foundation ครบ, Billing Exceptions Pilot ผ่าน Decision Gate, Contract 9/9, TypeScript, Production Build 37 หน้า และ Authenticated Visual QA ผ่าน โดย Business Logic, Permission, AAL2 และ Audit Contract เดิมไม่เปลี่ยน |
-| Phase 2.0 Foundation Vertical Slice | **Approved plan / ยังไม่เริ่ม Implement** | แบ่งเป็น Phase 2.0.1–2.0.7 ตั้งแต่ Discovery/Decision ถึง Hardening/Release Gate; อนุญาตให้เริ่มเฉพาะ Phase 2.0.1 ก่อน และห้ามแตะ Schema/Business Logic จน Decision ที่เกี่ยวข้องได้รับอนุมัติ |
+| Phase 2.0 Foundation Vertical Slice | **In progress — Local Release Candidate Passed / Preview Pending** | Phase 2.0.1–2.0.6 ผ่านแล้ว และ Phase 2.0.7 ผ่าน clean replay, rollback, 91/91 contracts, build และ authenticated E2E ใน Local; ขั้นถัดไป Vercel Preview ต้องอนุมัติ deploy แยก และยังห้าม Apply Production |
+| Phase 2.0.1 Current-State Discovery & Decisions | **Approved / Completed** | ตรวจ Repository และ Supabase Production แบบ read-only แล้ว; ยืนยันว่า Product/Inventory domain ยังไม่มี, พบ Migration Baseline drift ระหว่าง Git 93 ไฟล์กับ Production history 90 รายการ, กำหนด blocker ก่อน Phase 2.0.3 และจัดทำ Decision Register D-201–D-216 โดยยังไม่มี Migration หรือ Business Logic change |
+| Phase 2.0.2 Product, Warehouse & Inventory Domain Contract | **Approved / Completed** | อนุมัติ D-201–D-217: Organization-owned Product/SKU, Branch → Warehouse → Location, base unit เดียว `numeric(20,6)`, immutable movement ledger, negative-stock deny-all, Server Command + Idempotency, 8 permission codes, Platform Admin read-only boundary และ identifier → `sku_id`; ไม่มี Migration หรือ code change |
+| Phase 2.0.3.1 Migration Baseline Recovery | **Owner Approved / Completed** | clean replay ผ่าน 90/90 canonical + 7 recovered bridges; normalized schema fingerprint ตรง Production 7/7 หมวด; ไม่มี Production mutation |
+| Phase 2.0.3.2 Product/SKU Schema | **Owner Approved / Completed Locally** | เพิ่ม `products`/`skus`, composite tenant FK, organization-scoped permanent identifiers, forward-only lifecycle, hard-delete guard และ RLS deny-by-default; invariant tests และ local Supabase Advisors ผ่าน; ไม่มี Production mutation |
+| Phase 2.0.3.3 Warehouse/Location Schema | **Owner Approved / Completed Locally** | เพิ่ม `warehouses`/`locations`, composite Organization/Branch/Warehouse FKs, Default Location อัตโนมัติและ deferred exactly-one-active-default invariant, lifecycle/hard-delete guards และ RLS deny-by-default; tests, FK indexes 9/9 และ Advisors ผ่าน; ไม่มี Production mutation |
+| Phase 2.0.3.4 Inventory Ledger & Balance | **Owner Approved / Completed Locally** | เพิ่ม `inventory_commands`, immutable `stock_movements`, derived `inventory_balances`, `inventory_domain_events` และ private atomic posting primitive; negative-stock deny-all, transfer pair, idempotency/replay, reconciliation, FK indexes 18/18 และ Advisors ผ่าน; ไม่มี Production mutation |
+| Phase 2.0.3.5 Permission, RLS & Security Tests | **Owner Approved / Completed Locally** | เพิ่ม permission 8 รายการ, Organization/Branch-scoped SELECT policies, direct-write denial, server-only inventory authorization boundary และ AAL2 Platform Admin evidence; security abuse tests ผ่าน; ไม่มี Production mutation |
+| Phase 2.0.3.6 Migration Verification | **Owner Approved / Completed Locally** | clean rebuild สองรอบผ่าน baseline 90/90 + bridges 7/7 + Phase migrations/tests 4/4; rollback rehearsal ผ่าน, fingerprint ตรงกันและ Advisors ไม่พบปัญหา; ไม่มี Production mutation |
+| Phase 2.0.4 Server/Application Foundation | **Owner Approved / Completed Locally** | เพิ่ม RLS read repositories, typed command/service boundary, durable idempotency, optimistic concurrency, service-role-only RPC, immutable event/audit และ safe error mapping; contract 3/3, TypeScript, SQL security test, DB lint และ Production Build 37 หน้า ผ่าน; ไม่มี Production mutation |
+| Phase 2.0.5 Product/SKU Vertical Slice | **Owner Approved / Completed Locally** | เพิ่ม Organization-scoped Product/SKU workspace, Search/Filter/Keyset Pagination, Create/Edit/Lifecycle, Detail Sheet, responsive/read-only/error states และ navigation; contract 3/3, Foundation regression 3/3, TypeScript, Build และ authenticated browser flow ผ่าน; ไม่มี Production mutation |
+| Phase 2.0.6 Warehouse & Stock Movement Slice | **Owner Approved / Completed Locally** | เพิ่ม Warehouse/Location workspace, Balance, immutable Ledger, Receive/Adjust/Transfer, lifecycle, low/out stock, negative-stock feedback และ inventory audit; contract 4/4, regression 10/10, SQL security test, TypeScript, Build, Local Advisors และ authenticated browser flow ผ่าน; ไม่มี Production mutation |
+| Phase 2.0.7 Hardening & Release Gate | **Owner Approved / Local Release Candidate Passed / Preview Pending** | clean baseline 90/90 + bridges 7/7, forward/rollback tests, Advisors, 91/91 application/security/theme contracts, TypeScript, Production Build และ authenticated Browser→Server→Database→UI reconciliation ผ่าน; ยังไม่มี commit/push/deploy/Production apply |
 
 ห้ามเปิด Production หาก Phase 0.9 Production Security Gate ยังไม่ผ่าน แม้ระบบ Development จะใช้งานได้ครบตาม Acceptance Criteria แล้ว และต้องตรวจร่างประกาศความเป็นส่วนตัว/ข้อกำหนดการใช้งานโดยผู้เชี่ยวชาญด้านกฎหมายและ PDPA ก่อนเผยแพร่
 
@@ -692,6 +704,148 @@ Phase 1.3.6.4 อ้างอิงการวิเคราะห์ Surge Co
 ---
 
 ## Changelog
+
+### Phase 2.0.2 — Product, Warehouse & Inventory Domain Contract (13 สิงหาคม 2026)
+
+- เจ้าของระบบอนุมัติให้เริ่ม Phase 2.0.2
+- จัดทำ entity/ownership contract สำหรับ Organization → Branch → Warehouse → Location และ Product → SKU
+- เสนอ SKU code/barcode unique ต่อ Organization, base unit เดียว, `numeric(20,6)` และยังไม่มี unit conversion ใน MVP
+- เสนอ immutable Stock Movement เป็น source of truth, Balance เป็น derived read model, allocated = 0 และ available = on_hand
+- เสนอ negative-stock deny-all, Receive/Adjust/Transfer ผ่าน Server Command พร้อม idempotency และ consistent lock order
+- เสนอ permission 8 codes และ Platform Admin evidence read-only โดยไม่มี tenant stock override
+- เจ้าของระบบเห็นชอบ D-217: `cf_code`, `sales_code`, `barcode` และ fulfillment code เป็น lookup เท่านั้น และต้อง resolve เป็น `sku_id` ก่อน Stock Command/Movement
+- คง Migration Baseline Gate เป็น blocker ก่อน Phase 2.0.3
+- เจ้าของระบบอนุมัติ Resolution D-201–D-217 และปิด Phase 2.0.2 เมื่อวันที่ 13 สิงหาคม 2026
+- Phase 2.0.1–2.0.6 ปิดครบและ Phase 2.0.7 ผ่าน Local Release Candidate Gate แล้ว; ขั้นถัดไปคือ commit/push และ Vercel Preview verification ซึ่งต้องอนุมัติแยก และยังไม่อนุญาต Production apply
+- เอกสาร: `AVENZO_ONE_Phase_2.0.2_Domain_Contract.md`
+
+### Phase 2.0.3.4 — Inventory Ledger & Balance (13 สิงหาคม 2026)
+
+- เจ้าของระบบอนุมัติให้เริ่ม Phase 2.0.3.4
+- สร้าง migration `20260813131250_phase_2_0_3_4_inventory_ledger_balance.sql` ด้วย Supabase CLI
+- เพิ่ม idempotent command envelope, immutable stock ledger, derived balance และ immutable domain event
+- เพิ่ม private atomic posting primitive สำหรับ Receive/Adjust/Transfer พร้อม deterministic balance locks
+- บังคับ negative-stock deny-all, transfer pair, request-hash conflict และ replay outcome เดิม
+- local flow/reconciliation tests, foreign-key indexes 18/18, RLS 4/4 และ Supabase Advisors ผ่าน
+- ไม่มี Production mutation; Phase 2.0.3.5 ต้องอนุมัติแยก
+- เอกสาร: `AVENZO_ONE_Phase_2.0.3.4_Inventory_Ledger_Balance.md`
+
+### Phase 2.0.3.5 — Permission, RLS & Security Tests (13 สิงหาคม 2026)
+
+- เจ้าของระบบอนุมัติให้เริ่ม Phase 2.0.3.5
+- เพิ่ม permission 8 รายการและ explicit Owner/Admin seed โดย Manager/Staff/Viewer ยัง deny-by-default
+- เพิ่ม reviewed SELECT policies ครบ 8 ตารางตาม Organization/Branch scope และปิด Data API mutation โดยตรง
+- เพิ่ม server-only inventory boundary ที่ตรวจ actor, tenant, membership, permission และ Transfer scope ทั้งต้นทาง/ปลายทาง
+- เพิ่ม AAL2 Platform Admin evidence RPC แบบ read-only โดยไม่ให้ tenant stock override
+- local security/abuse tests, database lint, baseline validator และ `git diff --check` ผ่าน
+- ไม่มี Production mutation; Phase 2.0.3.6 ต้องอนุมัติแยก
+- เอกสาร: `AVENZO_ONE_Phase_2.0.3.5_Permission_RLS_Security_Tests.md`
+
+### Phase 2.0.3.6 — Migration Verification (13 สิงหาคม 2026)
+
+- เจ้าของระบบอนุมัติให้เริ่ม Phase 2.0.3.6
+- เพิ่ม isolated local verification harness สำหรับ baseline + Phase migration set
+- clean rebuild สองรอบผ่าน canonical baseline 90/90, bridges 7/7 และ Phase migrations/tests 4/4
+- transactional rollback rehearsal ผ่านโดยไม่เหลือ Foundation objects
+- schema fingerprint ทั้งสองรอบตรงกันที่ `ac4edb9c3db0824b295ecdf98ff2d74cde5203aa3c8fdec6313814bbdee6f756`
+- Security/Performance Advisors ไม่พบปัญหา และ lint ไม่มี warning ใหม่จาก Phase นี้
+- กำหนด compensation เป็น application rollback + forward migration; ห้าม destructive down เมื่อมี ledger/data
+- ไม่มี Production mutation; Phase 2.0.4 ต้องอนุมัติแยก
+- เอกสาร: `AVENZO_ONE_Phase_2.0.3.6_Migration_Verification.md`
+
+### Phase 2.0.5 — Product/SKU Vertical Slice (13 สิงหาคม 2026)
+
+- เจ้าของระบบอนุมัติให้เริ่ม Phase 2.0.5 และปิด local gate แล้ว
+- เพิ่ม Organization-scoped Product/SKU Workspace พร้อม Product/SKU tabs, search, status filter และ keyset pagination
+- เพิ่ม detail sheet และ create/edit/activate/archive โดยส่งทุก mutationผ่าน Foundation Command Boundary ของ Phase 2.0.4
+- ใช้ RLS read repository และ application permission gate สำหรับ `product.read` / `product.manage` โดยไม่ใช้ admin client ใน read path
+- รองรับ Desktop table, Mobile card, Loading, Empty, Permission denied, Validation/Conflict feedback และ Light/Dark mode
+- contract test, Foundation regression, TypeScript และ Production Build 37 หน้า ผ่าน
+- Authenticated browser verification ผ่าน Empty/Create/Search/Filter/Detail/Dark persistence/Mobile และยืนยัน command/event/audit อย่างละ 2 records
+- ไม่มี Production mutation, commit, push หรือ deploy; Phase 2.0.6 ต้องอนุมัติแยก
+- เอกสาร: `AVENZO_ONE_Phase_2.0.5_Product_SKU_Vertical_Slice.md`
+
+### Phase 2.0.6 — Warehouse & Stock Movement Slice (13 สิงหาคม 2026)
+
+- เจ้าของระบบอนุมัติให้เริ่ม Phase 2.0.6 และปิด local gate แล้ว
+- เพิ่ม Organization-scoped Warehouse/Location, Balance และ immutable Movement Ledger views พร้อม URL filters และ keyset pagination
+- เพิ่ม Create/Edit/Inactive/Archive Warehouse, Create Location และ Receive/Adjust/Transfer ผ่าน Foundation Command Boundary
+- รักษา invariant: ทุกคำสั่ง resolve เป็น `sku_id`, idempotent command, branch/tenant authorization, negative-stock deny-all และ immutable evidence
+- harden deferred default-location trigger และเพิ่ม service-role-only fail-closed branch resolver โดยไม่เปิด direct table grants
+- เพิ่ม human-readable Organization Audit Log จาก inventory domain event แบบหนึ่งต่อหนึ่ง
+- Contract 4/4, Foundation/Product/Operations regression 10/10, SQL integration/security test, TypeScript, Production Build 37 static pages และ Local Advisors ผ่าน
+- Authenticated browser verification ผ่าน Empty/Create/Location/Receive/Adjust/Negative Stock/Transfer/Balance/Ledger/Filter/Dark persistence/Mobile โดยไม่พบ console error
+- ไม่มี Production mutation, commit, push หรือ deploy; Phase 2.0.7 ต้องอนุมัติแยก
+- เอกสาร: `AVENZO_ONE_Phase_2.0.6_Warehouse_Stock_Movement_Slice.md`
+
+### Phase 2.0.7 — Hardening & Release Gate (14 สิงหาคม 2026)
+
+- เจ้าของระบบอนุมัติให้เริ่ม Phase 2.0.7 แล้ว
+- เพิ่ม repeatable local release harness ที่ล็อกเฉพาะ `supabase_db_avenzo-one-local`
+- clean replay ผ่าน baseline 90/90, bridges 7/7, Phase migrations/tests และ transactional rollback rehearsal
+- final schema/security gate ผ่านด้วย fingerprint `576080ff1018957e7cbae31fa5aff8d3e2cdb9d3e63815eb7dbb8c7a57cc4404`
+- application/security/theme contracts 91/91, TypeScript, Supabase Advisors และ Production Build ผ่าน
+- authenticated E2E ผ่าน Product/SKU, Warehouse/Location, Receive, negative-stock rejection, Adjust, Transfer, Balance, Ledger และ Audit reconciliation
+- Local Release Candidate ผ่าน; Vercel Preview verification ยัง pending เพราะ commit/push/deploy ต้องอนุมัติแยก
+- ไม่มี Production mutation, commit, push หรือ deploy
+- เอกสาร: `AVENZO_ONE_Phase_2.0.7_Hardening_Release_Gate.md`
+
+### Phase 2.0.4 — Server/Application Foundation (13 สิงหาคม 2026)
+
+- เจ้าของระบบอนุมัติให้เริ่ม Phase 2.0.4 และปิด local gate แล้ว
+- เพิ่ม RLS read repository พร้อม keyset cursor สำหรับ SKU, Warehouse และ Stock Movement
+- เพิ่ม typed validation, Server Action, verified actor context, application permission/branch-scope gate และ safe error mapping
+- เพิ่ม durable entity command envelope, request hash, optimistic version, service-role-only RPC และ immutable event/audit transaction
+- contract test 3/3, TypeScript, SQL integration/security test, DB lint และ Production Build 37 หน้า ผ่าน
+- ไม่มี Production mutation, commit, push หรือ deploy; Phase 2.0.5 ต้องอนุมัติแยก
+- เอกสาร: `AVENZO_ONE_Phase_2.0.4_Server_Application_Foundation.md`
+
+### Phase 2.0.3.3 — Warehouse/Location Schema (13 สิงหาคม 2026)
+
+- เจ้าของระบบอนุมัติให้เริ่ม Phase 2.0.3.3
+- สร้าง migration `20260813130312_phase_2_0_3_3_warehouse_location_schema.sql` ด้วย Supabase CLI
+- เพิ่ม Branch-owned Warehouse/Location พร้อม composite tenant constraints ตาม D-201 และ D-205
+- สร้าง Default Location ใน transaction เดียวกับ Warehouse และบังคับ exactly one active default เมื่อจบ transaction
+- เพิ่ม lifecycle, immutable topology, hard-delete guards และ RLS deny-by-default
+- local topology tests, foreign-key indexes 9/9 และ Supabase Advisors ผ่าน
+- ไม่มี Production mutation; Phase 2.0.3.4 ได้รับอนุมัติและปิด local schema gate แล้ว
+- เอกสาร: `AVENZO_ONE_Phase_2.0.3.3_Warehouse_Location_Schema.md`
+
+### Phase 2.0.3.2 — Product/SKU Schema (13 สิงหาคม 2026)
+
+- เจ้าของระบบอนุมัติให้เริ่ม Phase 2.0.3.2
+- สร้าง migration `20260813124837_phase_2_0_3_2_product_sku_schema.sql` ด้วย Supabase CLI
+- เพิ่ม Product/SKU tenant keys, composite FK, identifier uniqueness, lifecycle และ immutable guards ตาม D-201–D-204, D-206, D-211 และ D-217
+- เพิ่ม foreign-key indexes ครบ 7/7 และใช้ partial unique indexes สำหรับ nullable barcode/sales code
+- เปิด RLS แบบ deny-by-default และยังไม่เพิ่ม Data API grants/policies ก่อน Phase 2.0.3.5
+- local invariant tests และ Supabase Advisors ผ่านโดยไม่พบ issue
+- ไม่มี Production mutation; Phase 2.0.3.3 ได้รับอนุมัติและปิด local schema gate แล้ว
+- เอกสาร: `AVENZO_ONE_Phase_2.0.3.2_Product_SKU_Schema.md`
+
+### Phase 2.0.3.1 — Migration Baseline Recovery (13 สิงหาคม 2026)
+
+- เจ้าของระบบอนุมัติให้เริ่ม Phase 2.0.3.1
+- Production history 90 รายการกับ Git migration เดิม 93 ไฟล์ไม่เป็น baseline เดียวกัน: ตรงชื่อ+timestamp 2, ชื่อเหมือนแต่ timestamp ต่าง 82, Production-only names 6 และ Git-only names 9
+- กู้ exact Production SQL แบบ read-only ไว้ใน `supabase/production-baseline/` ครบ 90/90
+- manifest canonical MD5 และ local validator ผ่าน 90/90
+- ไม่เปลี่ยน migration เดิม, ไม่แก้ Production history, ไม่ apply SQL และไม่เพิ่ม Product/Inventory schema
+- ติดตั้ง Docker Desktop/WSL 2, Supabase CLI `2.114.0` และ local Postgres 17 แล้ว
+- clean replay ผ่าน 90/90 canonical migrations + recovered bridges 7 รายการ
+- normalized schema fingerprint ตรง Production 7/7 หมวด และปิด Migration Baseline Gate
+- Phase 2.0.3.2 ได้รับอนุมัติและปิด local schema gate แล้ว; Production apply ยังไม่อนุญาต
+- เอกสาร: `AVENZO_ONE_Phase_2.0.3.1_Migration_Baseline_Recovery.md`
+
+### Phase 2.0.1 — Current-State Discovery & Decisions (13 สิงหาคม 2026)
+
+- เจ้าของระบบอนุมัติให้เริ่ม Phase 2.0.1
+- ตรวจ Repository, Production schema, Auth, Permission, AAL2, RLS, Audit, Idempotency, Operations UI และ Migration history แบบ read-only
+- ยืนยันว่า Product, SKU, Warehouse, Location, Inventory, Stock Movement, Supplier, Purchase Order และ Commerce Order domain ยังไม่มีในระบบจริง
+- พบ Migration Baseline drift: Git 93 ไฟล์กับ Production history 90 รายการไม่เป็น replayable baseline เดียวกัน จึงกำหนดเป็น blocker ก่อน Phase 2.0.3
+- กำหนด MVP boundary โดยยังไม่รวม Supplier/PO/Reorder, Order/Reservation, Costing, Lot/Serial และ Integration ภายนอก
+- เพิ่ม Decision Register D-201–D-216 และ Draft Acceptance/Test Matrix
+- เจ้าของระบบอนุมัติ Findings และปิด Phase 2.0.1 เมื่อวันที่ 13 สิงหาคม 2026
+- Phase 2.0.2 เป็นขั้นถัดไปที่เข้า Gate ได้แต่ต้องรับอนุมัติเริ่มงานแยก; ยังไม่อนุญาต Phase 2.0.3 หรือ Migration
+- เอกสาร: `AVENZO_ONE_Phase_2.0.1_Current_State_Discovery_and_Decisions.md`
 
 ### V7.1 — Foundation Vertical Slice Part Plan (13 สิงหาคม 2026)
 

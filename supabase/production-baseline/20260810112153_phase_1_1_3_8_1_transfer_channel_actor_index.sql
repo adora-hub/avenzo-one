@@ -1,0 +1,1 @@
+create index billing_transfer_channel_created_by_idx on public.billing_transfer_channels (created_by);
