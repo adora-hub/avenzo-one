@@ -2,10 +2,13 @@
 
 > มาตรฐานกลางสำหรับออกแบบ พัฒนา ตรวจสอบ และแก้ไขส่วนติดต่อผู้ใช้ของ AVENZO ONE โดยไม่ให้แต่ละหน้าหรือโมดูลค่อย ๆ เพี้ยนออกจากกัน
 
-**เวอร์ชัน:** 1.0  
-**วันที่:** 5 สิงหาคม 2026  
-**สถานะ:** มาตรฐานตั้งต้นสำหรับ Repository  
-**เอกสารที่เชื่อมโยง:** `AVENZO_ONE_Codex_Implementation_Starter_Plan_V3.md`
+**เวอร์ชัน:** 1.3
+
+**วันที่:** 15 สิงหาคม 2026
+
+**สถานะ:** มาตรฐานบังคับสำหรับ Repository
+
+**เอกสารที่เชื่อมโยง:** `AVENZO_ONE_UI_Mockup_First_Implementation_Guide_V1.md`, `AVENZO_ONE_Codex_Implementation_Starter_Plan_V7.md`
 
 ---
 
@@ -23,6 +26,17 @@
 - Definition of Done และ Checklist ก่อนส่งงาน
 
 หากตัวอย่างในหน้า Feature ขัดกับเอกสารนี้ ให้ยึด Shared Component และมาตรฐานฉบับล่าสุดก่อน แล้วบันทึก Decision หากต้องเปลี่ยนมาตรฐานระดับระบบ
+
+### 1.1 Mandatory Mockup-First Page Gate
+
+งาน UI ทุกหน้าและทุกการเปลี่ยนแปลงที่ผู้ใช้มองเห็นต้องปฏิบัติตาม `AVENZO_ONE_UI_Mockup_First_Implementation_Guide_V1.md`:
+
+- ต้องสร้างและอนุมัติ Mockup ก่อนเริ่ม Production UI
+- Approved Mockup เป็น Page-level Source of Truth สำหรับ Visual, Layout และ Interaction
+- Production implementation ต้องตรง Mockup ที่อนุมัติ 100% ในขอบเขตที่มองเห็นและใช้งานได้
+- ห้ามผู้พัฒนาหรือ Codex เปลี่ยนดีไซน์เอง หากติดข้อจำกัดต้องหยุดและขออนุมัติ Deviation ก่อน
+- Test หรือ Backend integration ที่ผ่านแล้วไม่ถือว่า UI เสร็จ หาก Visual Parity และ Owner approval ยังไม่ผ่าน
+- เมื่อพบ Diff หลังปิด Part ให้ Reopen Part เดิมและห้ามเริ่ม Part ถัดไป
 
 ---
 
@@ -454,6 +468,10 @@ Component ใหม่ยังไม่ถือว่าเสร็จจน�
 ## AVENZO UI/UX Rules
 
 - Read `docs/AVENZO_ONE_Design_System_and_UIUX_Standards_V1.md` before UI work.
+- Read and follow `docs/AVENZO_ONE_UI_Mockup_First_Implementation_Guide_V1.md` for every visible UI change.
+- Do not start production UI before the page mockup is owner-approved.
+- Treat the approved mockup as the page-level source of truth; do not redesign or simplify it.
+- If implementation constraints require a visible change, stop and request owner approval before coding the deviation.
 - Use existing design tokens, shared components, and page patterns.
 - Do not hard-code colors, spacing, border radius, or shadows in feature pages.
 - Search the component library and usages before creating or changing a component.
@@ -474,6 +492,9 @@ Component ใหม่ยังไม่ถือว่าเสร็จจน�
 
 งาน UI ถือว่าเสร็จเมื่อ:
 
+- [ ] Mockup ที่มีเวอร์ชันได้รับ Owner approval ก่อนเริ่ม Production UI
+- [ ] มี Mockup-to-Production mapping และไม่มี Design deviation ที่ไม่ได้อนุมัติ
+- [ ] Visual/Layout/Interaction ตรง Approved Mockup 100% ตามขอบเขตหน้า
 - [ ] ใช้ Token และ Shared Component ที่มีอยู่
 - [ ] ไม่มี Duplicate Component หรือ Hard-coded style ที่ไม่จำเป็น
 - [ ] Primary action และลำดับข้อมูลชัดเจน
@@ -484,6 +505,7 @@ Component ใหม่ยังไม่ถือว่าเสร็จจน�
 - [ ] Contrast และ Accessible Name ผ่านการตรวจ
 - [ ] Catalog/Story อัปเดตเมื่อ Component เปลี่ยน
 - [ ] Visual Regression ผ่าน หรือ Diff ได้รับการตรวจและอธิบาย
+- [ ] Owner ตรวจ Production visual parity และอนุมัติแล้ว
 - [ ] Shared Component change มีรายการ Usage ที่ได้รับผลกระทบ
 - [ ] Type check, lint และ Test ที่เกี่ยวข้องผ่าน
 
@@ -493,8 +515,10 @@ Component ใหม่ยังไม่ถือว่าเสร็จจน�
 
 ```text
 ก่อนแก้ UI ให้อ่าน:
-- AVENZO_ONE_Codex_Implementation_Starter_Plan_V3.md
+- AVENZO_ONE_Codex_Implementation_Starter_Plan_V7.md
 - AVENZO_ONE_Design_System_and_UIUX_Standards_V1.md
+- AVENZO_ONE_UI_Mockup_First_Implementation_Guide_V1.md
+- Approved Mockup เวอร์ชันล่าสุดของหน้าที่จะแก้
 - AGENTS.md
 
 จากนั้น:
@@ -502,9 +526,13 @@ Component ใหม่ยังไม่ถือว่าเสร็จจน�
 2. ค้นหา Usage ของ Component ที่คาดว่าจะเปลี่ยน
 3. ระบุว่าการเปลี่ยนครั้งนี้เป็น Feature-local, Shared Component, Token/System หรือ Pattern/UX
 4. เสนอไฟล์ที่จะแก้ ผลกระทบ และ Acceptance Criteria ก่อนลงมือ
+5. จับคู่ทุก Section/Interaction ใน Approved Mockup กับ Production component ก่อนเขียน UI
 
 กติกา:
 - ห้าม Hard-code สี ระยะห่าง Radius หรือ Shadow ในหน้า Feature
+- ห้ามเริ่ม Production UI หาก Mockup ยังไม่ผ่าน Owner approval
+- ห้ามเปลี่ยน ย้าย ลด หรือเพิ่มองค์ประกอบจาก Approved Mockup โดยไม่ได้รับอนุมัติ
+- หากติดข้อจำกัดทางเทคนิค ให้หยุดและเสนอ Deviation Request ก่อนแก้ดีไซน์
 - ห้ามสร้าง Component ซ้ำ ถ้าเพิ่ม Variant หรือ Compose ของเดิมได้
 - ห้ามเปลี่ยน Shared Component API โดยไม่รายงาน Usage ทั้งหมด
 - ทุกหน้าต้องรองรับ State ที่เกี่ยวข้อง
@@ -518,6 +546,8 @@ Component ใหม่ยังไม่ถือว่าเสร็จจน�
 - Usage ที่ได้รับผลกระทบ
 - State และ Viewport ที่ตรวจ
 - ผล Test และ Visual Diff
+- หลักฐาน Side-by-side/Overlay เทียบกับ Approved Mockup
+- สถานะ Owner production parity approval
 - ข้อจำกัดหรือ Decision ที่ต้องอัปเดตใน Design System
 ```
 
@@ -534,7 +564,7 @@ Component ใหม่ยังไม่ถือว่าเสร็จจน�
 7. สร้าง Component Catalog
 8. เพิ่ม Accessibility checks และ Playwright Screenshot Baselines
 9. เพิ่มกฎใน `AGENTS.md`
-10. เริ่ม Foundation Vertical Slice ตาม Implementation Plan V3
+10. เริ่ม Foundation Vertical Slice ตาม Implementation Plan V7
 
 Design System ควรพัฒนาเท่าที่ Vertical Slice ต้องใช้ ไม่จำเป็นต้องสร้างทุก Component ล่วงหน้า แต่ Component ที่สร้างแล้วต้องเป็นมาตรฐานที่นำกลับมาใช้ซ้ำได้
 
@@ -572,3 +602,10 @@ Design System ควรพัฒนาเท่าที่ Vertical Slice ต�
 
 - กำหนดความสูงมาตรฐานของปุ่มปกติและปุ่ม Compact
 - กำหนด Pattern `form-card-with-footer` ให้ Action หลักของการ์ดคู่กันอยู่แนวฐานเดียวกัน
+
+### V1.3 — 15 สิงหาคม 2026
+
+- เพิ่ม Mandatory Mockup-First Page Gate สำหรับทุก Visible UI change
+- กำหนด Approved Mockup เป็น Page-level Source of Truth และห้ามเปลี่ยนดีไซน์เอง
+- เพิ่ม Visual Parity และ Owner production approval เข้า UI Definition of Done
+- เชื่อมคู่มือ `AVENZO_ONE_UI_Mockup_First_Implementation_Guide_V1.md`

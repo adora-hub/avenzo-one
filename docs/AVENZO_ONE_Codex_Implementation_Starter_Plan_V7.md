@@ -613,6 +613,7 @@ Event ต้องมี `organization_id`, Actor, Customer, Source Entity, Corr
 
 ต้องตัดสินใจและบันทึกก่อน Implement:
 
+0. **UI Mockup Gate:** ทุกหน้าหรือ Visible interaction ต้องผ่าน Owner-approved Mockup ตาม `AVENZO_ONE_UI_Mockup_First_Implementation_Guide_V1.md` ก่อนเริ่ม Production UI และ Implementation ต้องผ่าน Visual Parity ก่อนปิด Part
 1. ร้านแรกจะเปิดสมัครด้วย Provider ใดก่อน
 2. วิธี Claim ออเดอร์เก่าและกฎ Merge Customer
 3. อัตราแต้ม วันหมดอายุ Tier และกฎคืนสินค้า
@@ -627,6 +628,8 @@ Event ต้องมี `organization_id`, Actor, Customer, Source Entity, Corr
 12. ข้อกำหนดภาษี เอกสารผู้รับค่านายหน้า และ PDPA
 
 ห้าม Codex เดาค่าทางธุรกิจที่มีผลต่อเงิน สิทธิ์ ความเป็นส่วนตัว หรือกฎหมายโดยไม่มี Decision Record
+
+ห้าม Codex เดาหรือเปลี่ยนดีไซน์ที่ผู้ใช้มองเห็นจาก Approved Mockup หากมีข้อจำกัดทางเทคนิคต้องหยุด ทำ Deviation Request และรอ Owner approval ก่อนแก้ Production UI การผ่าน Backend, TypeScript หรือ Test ไม่ถือว่า UI Gate ผ่านหากยังไม่มี Visual Parity และ Owner production approval
 
 ---
 

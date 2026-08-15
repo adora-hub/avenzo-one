@@ -24,6 +24,7 @@
 - Phase 2.0.5 — Product/SKU Vertical Slice: owner approved and completed locally; organization-scoped Product/SKU workspace, search/filter/keyset pagination, detail/create/edit/lifecycle actions, responsive light/dark UI and authenticated browser verification passed
 - Phase 2.0.6 — Warehouse & Stock Movement Slice: owner approved and completed locally; Warehouse/Location directory, balance and immutable ledger views, receive/adjust/transfer commands, negative-stock protection, inventory audit evidence and responsive browser verification passed
 - Phase 2.0.7 — Hardening & Release Gate: owner approved; Local Release Candidate passed clean replay, rollback, 91/91 application/security contracts, production build and authenticated E2E reconciliation; Vercel Preview remains pending separate deploy approval
+- Phase 2.1 — Product Workspace UI/UX Modernization: **R0–R7.3 ปิดแล้ว** ตาม Approved Mockup/Production truth; R7.3 ผ่าน Controlled Atomic/Recovery/Image/Cleanup E2E เฉพาะ AVENZO ONE PREVIEW, Product regression 171/171 และ TypeScript โดยไม่มี Stock write และไม่แตะ Supabase Production
 - Supabase project: `AVENZO ONE`
 - Database region: `ap-southeast-1`
 
@@ -32,6 +33,7 @@
 - [Phase 0.1 — Organization/Branch Core](docs/AVENZO_ONE_Phase_0.1_Organization_Branch_Core.md)
 - [Implementation Starter Plan](docs/AVENZO_ONE_Codex_Implementation_Starter_Plan_V7.md)
 - [Design System and UI/UX Standards](docs/AVENZO_ONE_Design_System_and_UIUX_Standards_V1.md)
+- [UI Mockup-First Implementation Guide](docs/AVENZO_ONE_UI_Mockup_First_Implementation_Guide_V1.md)
 - [Phase 0.4 — Auth & UI Foundation](docs/AVENZO_ONE_Phase_0.4_Auth_UI_Foundation.md)
 - [Phase 1.3.6.1 — Design Token Foundation](docs/AVENZO_ONE_Phase_1.3.6.1_Design_Tokens.md)
 - [Phase 1.3.6.2 — Shared UI Theme Migration](docs/AVENZO_ONE_Phase_1.3.6.2_Shared_UI_Theme_Migration.md)
@@ -50,6 +52,29 @@
 - [Phase 2.0.5 — Product/SKU Vertical Slice](docs/AVENZO_ONE_Phase_2.0.5_Product_SKU_Vertical_Slice.md)
 - [Phase 2.0.6 — Warehouse & Stock Movement Slice](docs/AVENZO_ONE_Phase_2.0.6_Warehouse_Stock_Movement_Slice.md)
 - [Phase 2.0.7 — Hardening & Release Gate](docs/AVENZO_ONE_Phase_2.0.7_Hardening_Release_Gate.md)
+- [Phase 2.1 — Product Workspace UI/UX Modernization](docs/AVENZO_ONE_Phase_2.1_Product_Workspace_UI_UX_Modernization.md)
+- [Phase 2.1.R6 — Product Image Gate](docs/AVENZO_ONE_Phase_2.1.R6_Product_Image_Gate.md)
+- [Phase 2.1.R7.0 — Products Visual Parity Gate](docs/AVENZO_ONE_Phase_2.1.R7.0_Products_Visual_Parity_Gate.md)
+- [Phase 2.1.R7.1 — Atomic Product Creation Contract](docs/AVENZO_ONE_Phase_2.1.R7.1_Atomic_Product_Creation_Contract.md)
+- [Phase 2.1.R7.2 — Unified Product Creation Form Integration](docs/AVENZO_ONE_Phase_2.1.R7.2_Unified_Product_Creation_Form_Integration.md)
+- [Phase 2.1.R7.2.1 — Visual Parity Audit](docs/AVENZO_ONE_Phase_2.1.R7.2.1_Visual_Parity_Audit.md)
+- [Phase 2.1.R7.2.2 — Page Structure](docs/AVENZO_ONE_Phase_2.1.R7.2.2_Page_Structure.md)
+- [Phase 2.1.R7.2.3A — General Form Components](docs/AVENZO_ONE_Phase_2.1.R7.2.3A_General_Form_Components.md)
+- [Phase 2.1.R7.2.3B — Image Form Components](docs/AVENZO_ONE_Phase_2.1.R7.2.3B_Image_Form_Components.md)
+- [Phase 2.1.R7.2.3C — SKU & Identifier Form Components](docs/AVENZO_ONE_Phase_2.1.R7.2.3C_SKU_Identifier_Form_Components.md)
+- [Phase 2.1.R7.2.3D — Pricing & Tax Form Components](docs/AVENZO_ONE_Phase_2.1.R7.2.3D_Pricing_Tax_Form_Components.md)
+- [Phase 2.1.R7.2.3E — Physical Form Components](docs/AVENZO_ONE_Phase_2.1.R7.2.3E_Physical_Form_Components.md)
+- [Phase 2.1.R7.2.3F — Packaging & Bundle Form Components](docs/AVENZO_ONE_Phase_2.1.R7.2.3F_Packaging_Bundle_Form_Components.md)
+- [Phase 2.1.R7.2.3G — Inventory Form Components](docs/AVENZO_ONE_Phase_2.1.R7.2.3G_Inventory_Form_Components.md)
+- [Phase 2.1.R7.2.3H — Metadata & Security Form Components](docs/AVENZO_ONE_Phase_2.1.R7.2.3H_Metadata_Security_Form_Components.md)
+- [Phase 2.1.R7.2.4A — Context Master Data Interaction](docs/AVENZO_ONE_Phase_2.1.R7.2.4A_Context_Master_Data_Interaction.md)
+- [Phase 2.1.R7.2.4B — Saved Tags Interaction](docs/AVENZO_ONE_Phase_2.1.R7.2.4B_Saved_Tags_Interaction.md)
+- [Phase 2.1.R7.2.4C — Identifier Assistant Interaction](docs/AVENZO_ONE_Phase_2.1.R7.2.4C_Identifier_Assistant_Interaction.md)
+- [Phase 2.1.R7.2.4D — SKU Staging Interaction](docs/AVENZO_ONE_Phase_2.1.R7.2.4D_SKU_Staging_Interaction.md)
+- [Phase 2.1.R7.2.4E — Validation Summary Interaction](docs/AVENZO_ONE_Phase_2.1.R7.2.4E_Validation_Summary_Interaction.md)
+- [Phase 2.1.R7.2.4F — Success & Recovery Interaction](docs/AVENZO_ONE_Phase_2.1.R7.2.4F_Success_Recovery_Interaction.md)
+- [Phase 2.1.R7.2.5 — Visual Parity & Responsive QA](docs/AVENZO_ONE_Phase_2.1.R7.2.5_Visual_Parity_Responsive_QA.md)
+- [Phase 2.1.R7.3 — Creation Recovery & E2E Gate](docs/AVENZO_ONE_Phase_2.1.R7.3_Creation_Recovery_E2E_Gate.md)
 
 ## Web app
 

@@ -12,6 +12,59 @@ export type ProductReadModel = {
   updatedAt: string
 }
 
+export type ProductWorkspaceSkuPreview = {
+  id: string
+  skuCode: string
+  name: string
+  barcode: string | null
+  salesCode: string | null
+  baseUnitCode: string
+  status: string
+}
+
+export type ProductWorkspaceStockSummary = {
+  mode: 'single-unit' | 'mixed-units' | 'no-balance' | 'not-authorized'
+  baseUnitCode: string | null
+  onHand: number | null
+  allocated: number | null
+  available: number | null
+  branchCodes: string[]
+}
+
+export type ProductImageReadModel = {
+  id: string
+  productId: string
+  signedUrl: string
+  altText: string | null
+  mimeType: 'image/jpeg' | 'image/png' | 'image/webp'
+  fileSizeBytes: number
+  sortOrder: number
+  isCover: boolean
+}
+
+export type ProductWorkspaceRow = ProductReadModel & {
+  createdAt: string
+  createdByUserId: string | null
+  skuCount: number
+  skuPreview: ProductWorkspaceSkuPreview[]
+  aggregateCapped: boolean
+  stock: ProductWorkspaceStockSummary
+  coverImage: ProductImageReadModel | null
+}
+
+export type ProductWorkspaceSkuDetail = ProductWorkspaceSkuPreview & {
+  productId: string
+  version: number
+  updatedAt: string
+  stock: ProductWorkspaceStockSummary
+}
+
+export type ProductWorkspaceDetail = ProductWorkspaceRow & {
+  skus: ProductWorkspaceSkuDetail[]
+  skuListCapped: boolean
+  images: ProductImageReadModel[]
+}
+
 export type SkuReadModel = {
   id: string
   organizationId: string
@@ -89,6 +142,20 @@ export type StockMovementReadModel = {
 }
 
 export interface FoundationReadRepository {
+  listProductWorkspaceRows(input: {
+    organizationId: string
+    status?: string
+    search?: string
+    cursor?: string | null
+    pageSize?: number
+    includeInventory?: boolean
+    sort?: 'updated_desc' | 'updated_asc'
+  }): Promise<PageResult<ProductWorkspaceRow>>
+  getProductWorkspaceDetail(input: {
+    organizationId: string
+    productId: string
+    includeInventory?: boolean
+  }): Promise<ProductWorkspaceDetail | null>
   listProducts(input: {
     organizationId: string
     status?: string
@@ -112,6 +179,11 @@ export interface FoundationReadRepository {
     organizationId: string
     skuId: string
   }): Promise<SkuReadModel | null>
+  getSkuWorkspaceDetail(input: {
+    organizationId: string
+    skuId: string
+    includeInventory?: boolean
+  }): Promise<ProductWorkspaceSkuDetail & { productName: string } | null>
   listWarehouses(input: {
     organizationId: string
     branchId?: string

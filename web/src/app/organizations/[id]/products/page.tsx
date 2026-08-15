@@ -1,17 +1,13 @@
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { ApplicationShell } from '@/app/components/application-shell'
-import {
-  OperationsCardList,
-  OperationsPageHeader,
-  OperationsStatusBadge,
-  OperationsSummaryCard,
-} from '@/app/components/operations-ui'
+import { OperationsPageHeader } from '@/app/components/operations-ui'
 import { createFoundationReadRepository } from '@/lib/foundation/server-read'
 import { createClient } from '@/lib/supabase/server'
 import type { OrganizationAccessSummary } from '@/lib/organization-access'
 import { ProductSkuWorkspace } from './product-sku-workspace'
 import { uuidPattern } from '@/lib/foundation/contracts'
-import type { ProductReadModel, SkuReadModel } from '@/lib/foundation/repositories'
+import type { ProductWorkspaceRow, SkuReadModel } from '@/lib/foundation/repositories'
 
 type SearchParams = Record<string, string | string[] | undefined>
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<SearchParams> }
@@ -25,11 +21,15 @@ function firstParam(value: string | string[] | undefined) {
 export default async function ProductSkuPage({ params, searchParams }: Props) {
   const [{ id: organizationId }, query] = await Promise.all([params, searchParams])
   const view = firstParam(query.view) === 'skus' ? 'skus' : 'products'
-  const search = firstParam(query.q).trim().slice(0, 160)
+  const search = firstParam(query.q).trim().slice(0, 400)
+  const bulkSearchActive = firstParam(query.bulk) === '1'
   const requestedStatus = firstParam(query.status).toLowerCase()
   const status = statuses.has(requestedStatus) ? requestedStatus : ''
   const cursor = firstParam(query.cursor) || null
+  const sort = firstParam(query.sort) === 'updated_asc' ? 'updated_asc' : 'updated_desc'
   const requestedProductId = firstParam(query.product)
+  const requestedProductAction = firstParam(query.action)
+  const productAction = requestedProductAction === 'edit' || requestedProductAction === 'skus' ? requestedProductAction : ''
   const requestedSkuId = firstParam(query.sku)
   const productId = uuidPattern.test(requestedProductId) ? requestedProductId : ''
   const skuId = uuidPattern.test(requestedSkuId) ? requestedSkuId : ''
@@ -50,6 +50,7 @@ export default async function ProductSkuPage({ params, searchParams }: Props) {
   const permissions = new Set(access.permissions.map((permission) => permission.code))
   const canRead = permissions.has('product.read')
   const canManage = permissions.has('product.manage')
+  const canReadInventory = permissions.has('inventory.read')
   const isPlatformAdmin = platformAdminResult.data?.status === 'active'
 
   if (!canRead) {
@@ -69,55 +70,59 @@ export default async function ProductSkuPage({ params, searchParams }: Props) {
 
   const repository = await createFoundationReadRepository()
   const listPromise = view === 'products'
-    ? repository.listProducts({ organizationId, search, status: status || undefined, cursor, pageSize: 20 })
+    ? repository.listProductWorkspaceRows({
+      organizationId,
+      search,
+      status: status || undefined,
+      cursor,
+      pageSize: 20,
+      includeInventory: canReadInventory,
+      sort,
+    })
     : repository.listSkus({ organizationId, search, status: status || undefined, cursor, pageSize: 20 })
   const [listResult, productOptionsResult, selectedProduct, selectedSku] = await Promise.all([
     listPromise,
     repository.listProducts({ organizationId, pageSize: 100 }),
-    productId ? repository.getProduct({ organizationId, productId }) : Promise.resolve(null),
-    skuId ? repository.getSku({ organizationId, skuId }) : Promise.resolve(null),
+    productId ? repository.getProductWorkspaceDetail({
+      organizationId, productId, includeInventory: canReadInventory,
+    }) : Promise.resolve(null),
+    skuId ? repository.getSkuWorkspaceDetail({
+      organizationId, skuId, includeInventory: canReadInventory,
+    }) : Promise.resolve(null),
   ])
-  const products = view === 'products' ? listResult.items as ProductReadModel[] : []
+  const productWorkspaceRows = view === 'products' ? listResult.items as ProductWorkspaceRow[] : []
   const skus = view === 'skus' ? listResult.items as SkuReadModel[] : []
-  const activeCount = listResult.items.filter((item) => item.status === 'active').length
-  const draftCount = listResult.items.filter((item) => item.status === 'draft').length
-
   return <ApplicationShell
     email={user.email ?? ''}
     isPlatformAdmin={isPlatformAdmin}
     section="workspace"
     organizationId={organizationId}
     organizationName={organization.name}
+    headerBreadcrumb={<nav className="product-header-breadcrumb" aria-label="Breadcrumb">
+      <Link href="/dashboard"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 9-7 9 7v9H3zM9 20v-6h6v6" /></svg><span>หน้าหลัก</span></Link><span aria-hidden="true">›</span>
+      <Link href={`/organizations/${organizationId}`}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h6v6H4zM14 5h6v6h-6zM4 15h6v5H4zM14 15h6v5h-6z" /></svg><span>พื้นที่ทำงาน</span></Link><span aria-hidden="true">›</span>
+      <span aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v13H4zM8 3v6M16 3v6M4 10h16" /></svg><span>สินค้า</span></span>
+    </nav>}
   >
     <section className="content product-workspace-page">
-      <OperationsPageHeader
-        eyebrow="Phase 2.0.5 · Foundation Vertical Slice"
-        title="Product & SKU"
-        description={`จัดการสินค้า รหัส SKU, Sales Code และ Barcode ของ ${organization.name} โดยทุกคำสั่งผ่าน Server authorization และ audit`}
-        actions={<OperationsStatusBadge tone={canManage ? 'success' : 'info'}>{canManage ? 'จัดการได้' : 'อ่านอย่างเดียว'}</OperationsStatusBadge>}
+      <ProductSkuWorkspace
+        organizationId={organizationId}
+        organizationName={organization.name}
+        skuCount={view === 'products' ? productWorkspaceRows.reduce((total, row) => total + row.skuCount, 0) : skus.length}
+        view={view}
+        search={search}
+        bulkSearchActive={bulkSearchActive}
+        status={status}
+        sort={sort}
+        productWorkspaceRows={productWorkspaceRows}
+        skus={skus}
+        productOptions={productOptionsResult.items}
+        selectedProduct={selectedProduct}
+        productAction={productAction}
+        selectedSku={selectedSku}
+        nextCursor={listResult.nextCursor}
+        canManage={canManage}
       />
-
-      <OperationsCardList label="สรุปรายการ Product และ SKU" columns={3}>
-        <OperationsSummaryCard label={`รายการ ${view === 'products' ? 'Product' : 'SKU'} ในหน้านี้`} value={listResult.items.length} description="แสดงสูงสุด 20 รายการต่อหน้า" />
-        <OperationsSummaryCard label="ใช้งาน" value={activeCount} description="นับจากรายการในหน้าปัจจุบัน" meta={<OperationsStatusBadge tone="success">Active</OperationsStatusBadge>} />
-        <OperationsSummaryCard label="ฉบับร่าง" value={draftCount} description="พร้อมตรวจสอบก่อนเปิดใช้งาน" meta={<OperationsStatusBadge tone="info">Draft</OperationsStatusBadge>} />
-      </OperationsCardList>
-
-      <section className="product-workspace-panel" aria-label="รายการ Product และ SKU">
-        <ProductSkuWorkspace
-          organizationId={organizationId}
-          view={view}
-          search={search}
-          status={status}
-          products={products}
-          skus={skus}
-          productOptions={productOptionsResult.items}
-          selectedProduct={selectedProduct}
-          selectedSku={selectedSku}
-          nextCursor={listResult.nextCursor}
-          canManage={canManage}
-        />
-      </section>
     </section>
   </ApplicationShell>
 }

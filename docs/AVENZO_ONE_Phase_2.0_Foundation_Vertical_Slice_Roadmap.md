@@ -310,3 +310,21 @@ Decision ที่ต้องอนุมัติอย่างน้อย:
 ## ขั้นถัดไปที่อนุญาต
 
 Phase 2.0.1–2.0.6 ปิดครบและ Phase 2.0.7 ผ่าน Local Release Candidate Gate แล้ว ขั้นถัดไปคือ **commit/push และสร้าง Vercel Preview เพื่อปิด Preview verification** ซึ่งต้องได้รับอนุมัติแยก การ apply Supabase Production หรือ Production deploy ยังไม่อนุญาต และยังห้ามเริ่ม Purchasing/Reorder Queue ก่อน final Release Gate
+
+## แผนต่อเนื่องจาก Usability Feedback
+
+วันที่ 14 สิงหาคม 2026 ได้บันทึก **Phase 2.1 — Product Workspace UI/UX Modernization** เป็น Living Plan สำหรับปรับหน้า Workspace Products ให้ใช้งานง่ายขึ้น โดยมี Data Grid พร้อมภาพปกสินค้าเป็นพื้นที่หลัก, ปุ่ม `สร้างสินค้า` เพียงจุดเริ่มเดียว และ Form หน้าเดียวสำหรับ Product + รูปภาพ 1–9 ภาพ + SKU แรก
+
+Phase 2.1 เริ่มต้นเป็นงาน UI/UX โดยห้ามเปลี่ยน Schema/Domain/Security โดยพลการ ต่อมา R5 และ R6 ได้รับอนุมัติแยกเป็น Domain/Data/Security gates แบบ additive พร้อมหลักฐานทดสอบ ส่วน Inventory Ledger และกฎ resolve identifier เป็น `sku_id` ยังคงไม่เปลี่ยน
+
+ข้อกำหนด Product Image ถูกบันทึกเป็น dependency ใหม่เมื่อ 14 สิงหาคม 2026 โดยในเวลานั้นยังไม่อนุมัติ Migration, Storage bucket หรือ RLS policy; gate นี้ได้รับอนุมัติและปิด Local Gate ภายหลังตามอัปเดตด้านล่าง
+
+อัปเดตวันที่ 15 สิงหาคม 2026: เจ้าของระบบอนุมัติและปิด **2.1.R6 — Product Image Gate** แล้ว มี private bucket, immutable tenant path, 1–9 ภาพ/5 MiB JPEG-PNG-WebP, cover/order, trusted lifecycle command, RLS/audit/compensation และ signed cover read model พร้อม `next/image` โดยผ่าน clean baseline replay 90/90 + 7 bridges, isolated replay ถึง R6, SQL behavior/RLS test, DB lint, targeted 5/5 และ TypeScript; R5/R6 apply เฉพาะ AVENZO ONE PREVIEW แล้ว และยังไม่ apply Supabase Production
+
+เอกสารแผน: `AVENZO_ONE_Phase_2.1_Product_Workspace_UI_UX_Modernization.md`
+
+สถานะล่าสุดวันที่ 15 สิงหาคม 2026: **Phase 2.1.R0–R7.3 ปิดแล้ว** R7.3 ผ่าน Controlled Atomic retry/duplicate rollback, image fail-retry-finalize, authenticated Products read model และ cleanup เฉพาะ AVENZO ONE PREVIEW พร้อม Product regression 171/171 และ TypeScript; ไม่มี Inventory Balance/Stock Movement และ Supabase Production ยังไม่ถูกแตะ งานถัดไปต้องเปิดแผนและขออนุมัติใหม่
+
+บันทึก Follow-up วันที่ 16 สิงหาคม 2026: ปิด Visible Interaction parity ของหน้า Products ตาม Approved Mockup สำหรับ Search/Multi-code Search, Excel Tools และ Customize Columns แล้ว โดย Product regression เพิ่มเป็น 172/172, Product/SKU slice 3/3, TypeScript และ authenticated browser verification ผ่าน; Excel Import ยังคงเป็น Preview-only และไม่มี Database write, Schema หรือ Inventory authority ใหม่
+
+อัปเดตวันที่ 15 สิงหาคม 2026: เจ้าของระบบอนุมัติและปิด Local Gate ของ **2.1.R5 — Product Domain Extension Gate** แล้ว Implementation แบบ additive เสร็จใน worktree พร้อม RLS, cost permission แยก, idempotent command, audit/event และ rollback/compensation record โดยผ่าน baseline verification 90/90 + 7 bridges, isolated replay ของ Phase 2.0.3.2–R5, behavioral/RLS rollback test, DB lint, targeted 4/4, regression 22/22 และ TypeScript ทั้งนี้ยังไม่ apply Supabase Production และยังไม่เริ่ม R6/R7

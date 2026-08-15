@@ -3,10 +3,31 @@ import { FoundationError } from './errors'
 export const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 export const foundationCommandTypes = [
-  'product.create', 'product.update', 'product.activate', 'product.archive',
+  'product.create', 'product.create_with_initial_sku',
+  'product.update', 'product.activate', 'product.archive',
   'sku.create', 'sku.update', 'sku.activate', 'sku.archive',
+  'product.master.upsert', 'product.metadata.update',
+  'sku.profile.upsert', 'sku.cost.upsert',
+  'sku.sell_units.replace', 'sku.bundle.replace',
+  'product.image.prepare', 'product.image.finalize', 'product.image.fail',
+  'product.image.archive', 'product.images.reorder',
   'warehouse.create', 'warehouse.update', 'warehouse.inactivate', 'warehouse.archive',
   'location.create', 'location.update', 'location.inactivate', 'location.archive',
+] as const
+
+export const productCreationCommandTypes = [
+  'product.create_with_initial_sku',
+] as const
+
+export const productDomainCommandTypes = [
+  'product.master.upsert', 'product.metadata.update',
+  'sku.profile.upsert', 'sku.cost.upsert',
+  'sku.sell_units.replace', 'sku.bundle.replace',
+] as const
+
+export const productImageCommandTypes = [
+  'product.image.prepare', 'product.image.finalize', 'product.image.fail',
+  'product.image.archive', 'product.images.reorder',
 ] as const
 
 export type FoundationCommandType = typeof foundationCommandTypes[number]
@@ -38,7 +59,7 @@ export type FoundationApplicationCommand = FoundationEntityCommand | InventoryCo
 
 export type FoundationCommandOutcome = {
   entity_id?: string
-  entity_type?: 'product' | 'sku' | 'warehouse' | 'location'
+  entity_type?: 'product' | 'product_image' | 'sku' | 'warehouse' | 'location' | 'category' | 'brand' | 'tag'
   status?: string
   version?: number
   command_id?: string
@@ -71,9 +92,40 @@ function optionalString(value: unknown, maxLength: number) {
   return value.trim()
 }
 
+function optionalUuid(value: unknown) {
+  if (value === undefined || value === null || value === '') return null
+  return requireUuid(value)
+}
+
+function requireVersion(value: unknown, allowZero = false) {
+  const minimum = allowZero ? 0 : 1
+  if (!Number.isSafeInteger(value) || Number(value) < minimum) {
+    throw new FoundationError('validation_failed', 400)
+  }
+  return Number(value)
+}
+
+function optionalNumber(value: unknown, maximum = 99_999_999_999_999.999999) {
+  if (value === undefined || value === null || value === '') return null
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > maximum) {
+    throw new FoundationError('validation_failed', 400)
+  }
+  return value
+}
+
 function validateEntityPayload(commandType: FoundationCommandType, payload: Record<string, unknown>) {
   const allowedKeys: Record<FoundationCommandType, string[]> = {
     'product.create': ['name', 'description'],
+    'product.create_with_initial_sku': [
+      'name', 'description', 'category_id', 'brand_id', 'structure_type',
+      'internal_note', 'tag_ids', 'sku_name', 'sku_code', 'barcode', 'sales_code',
+      'base_unit_code', 'quantity_behavior', 'sale_price', 'cost_price',
+      'currency_code', 'tax_category', 'tax_rate', 'product_weight_kg',
+      'product_length_cm', 'product_width_cm', 'product_height_cm',
+      'package_weight_kg', 'package_length_cm', 'package_width_cm',
+      'package_height_cm', 'safety_stock', 'reorder_min', 'reorder_max',
+      'sell_units', 'bundle_components',
+    ],
     'product.update': ['product_id', 'expected_version', 'name', 'description'],
     'product.activate': ['product_id', 'expected_version'],
     'product.archive': ['product_id', 'expected_version'],
@@ -81,6 +133,27 @@ function validateEntityPayload(commandType: FoundationCommandType, payload: Reco
     'sku.update': ['sku_id', 'expected_version', 'name', 'barcode', 'sales_code'],
     'sku.activate': ['sku_id', 'expected_version'],
     'sku.archive': ['sku_id', 'expected_version'],
+    'product.master.upsert': ['master_kind', 'master_id', 'expected_version', 'name', 'status'],
+    'product.metadata.update': [
+      'product_id', 'expected_version', 'category_id', 'brand_id',
+      'structure_type', 'internal_note', 'tag_ids',
+    ],
+    'sku.profile.upsert': [
+      'sku_id', 'expected_version', 'quantity_behavior', 'sale_price', 'currency_code',
+      'tax_category', 'tax_rate', 'product_weight_kg', 'product_length_cm',
+      'product_width_cm', 'product_height_cm', 'package_weight_kg', 'package_length_cm',
+      'package_width_cm', 'package_height_cm', 'safety_stock', 'reorder_min', 'reorder_max',
+    ],
+    'sku.cost.upsert': ['sku_id', 'expected_version', 'cost_price', 'currency_code'],
+    'sku.sell_units.replace': ['sku_id', 'units'],
+    'sku.bundle.replace': ['sku_id', 'components'],
+    'product.image.prepare': [
+      'product_id', 'original_file_name', 'mime_type', 'file_size_bytes', 'alt_text',
+    ],
+    'product.image.finalize': ['image_id', 'expected_version'],
+    'product.image.fail': ['image_id', 'expected_version', 'failure_reason'],
+    'product.image.archive': ['image_id', 'expected_version'],
+    'product.images.reorder': ['product_id', 'image_ids', 'cover_image_id'],
     'warehouse.create': ['branch_id', 'code', 'name'],
     'warehouse.update': ['warehouse_id', 'expected_version', 'name'],
     'warehouse.inactivate': ['warehouse_id', 'expected_version'],
@@ -92,6 +165,250 @@ function validateEntityPayload(commandType: FoundationCommandType, payload: Reco
   }
   if (Object.keys(payload).some((key) => !allowedKeys[commandType].includes(key))) {
     throw new FoundationError('validation_failed', 400)
+  }
+
+  if (productCreationCommandTypes.includes(
+    commandType as typeof productCreationCommandTypes[number],
+  )) {
+    if (!optionalString(payload.name, 160)
+      || !optionalString(payload.sku_name, 160)
+      || !optionalString(payload.sku_code, 80)
+      || !/^[a-z][a-z0-9_]{0,31}$/.test(String(payload.base_unit_code))) {
+      throw new FoundationError('validation_failed', 400)
+    }
+    optionalString(payload.description, 2000)
+    optionalString(payload.internal_note, 4000)
+    optionalString(payload.barcode, 128)
+    optionalString(payload.sales_code, 80)
+    requireUuid(payload.category_id)
+    optionalUuid(payload.brand_id)
+
+    const structureType = payload.structure_type ?? 'standard'
+    if (!['standard', 'variant', 'bundle'].includes(String(structureType))) {
+      throw new FoundationError('validation_failed', 400)
+    }
+    const quantityBehavior = payload.quantity_behavior ?? 'discrete'
+    if (!['discrete', 'weight', 'volume'].includes(String(quantityBehavior))) {
+      throw new FoundationError('validation_failed', 400)
+    }
+    if (payload.currency_code !== undefined
+      && !/^[A-Z]{3}$/.test(String(payload.currency_code))) {
+      throw new FoundationError('validation_failed', 400)
+    }
+    if (payload.tax_category !== undefined
+      && !['standard', 'zero', 'exempt', 'out_of_scope'].includes(String(payload.tax_category))) {
+      throw new FoundationError('validation_failed', 400)
+    }
+
+    const numericKeys = [
+      'sale_price', 'cost_price', 'tax_rate', 'product_weight_kg',
+      'product_length_cm', 'product_width_cm', 'product_height_cm',
+      'package_weight_kg', 'package_length_cm', 'package_width_cm',
+      'package_height_cm', 'safety_stock', 'reorder_min', 'reorder_max',
+    ] as const
+    numericKeys.forEach((key) => optionalNumber(payload[key]))
+    if (payload.tax_rate !== undefined && Number(payload.tax_rate) > 100) {
+      throw new FoundationError('validation_failed', 400)
+    }
+    if (payload.tax_category !== undefined && payload.tax_category !== 'standard'
+      && payload.tax_rate !== undefined && Number(payload.tax_rate) !== 0) {
+      throw new FoundationError('validation_failed', 400)
+    }
+    if (payload.reorder_min !== undefined && payload.reorder_max !== undefined
+      && Number(payload.reorder_max) < Number(payload.reorder_min)) {
+      throw new FoundationError('validation_failed', 400)
+    }
+
+    if (payload.tag_ids !== undefined) {
+      if (!Array.isArray(payload.tag_ids) || payload.tag_ids.length > 12) {
+        throw new FoundationError('validation_failed', 400)
+      }
+      payload.tag_ids.forEach(requireUuid)
+      if (new Set(payload.tag_ids).size !== payload.tag_ids.length) {
+        throw new FoundationError('validation_failed', 400)
+      }
+    }
+
+    if (payload.sell_units !== undefined) {
+      if (!Array.isArray(payload.sell_units) || payload.sell_units.length > 50) {
+        throw new FoundationError('validation_failed', 400)
+      }
+      payload.sell_units.forEach((value) => {
+        const unit = requireRecord(value)
+        if (Object.keys(unit).some((key) => ![
+          'unit_code', 'name', 'base_quantity', 'barcode',
+        ].includes(key))
+          || !/^[a-z][a-z0-9_]{0,31}$/.test(String(unit.unit_code))
+          || !optionalString(unit.name, 80)
+          || optionalNumber(unit.base_quantity) === null
+          || Number(unit.base_quantity) <= 0) {
+          throw new FoundationError('validation_failed', 400)
+        }
+        optionalString(unit.barcode, 128)
+      })
+    }
+
+    if (payload.bundle_components !== undefined) {
+      if (!Array.isArray(payload.bundle_components)
+        || payload.bundle_components.length > 100
+        || (structureType !== 'bundle' && payload.bundle_components.length > 0)) {
+        throw new FoundationError('validation_failed', 400)
+      }
+      payload.bundle_components.forEach((value) => {
+        const component = requireRecord(value)
+        if (Object.keys(component).some((key) => !['sku_id', 'quantity'].includes(key))) {
+          throw new FoundationError('validation_failed', 400)
+        }
+        requireUuid(component.sku_id)
+        if (optionalNumber(component.quantity) === null || Number(component.quantity) <= 0) {
+          throw new FoundationError('validation_failed', 400)
+        }
+      })
+    }
+    return
+  }
+
+  if (productDomainCommandTypes.includes(commandType as typeof productDomainCommandTypes[number])) {
+    if (commandType === 'product.master.upsert') {
+      if (!['category', 'brand', 'tag'].includes(String(payload.master_kind))) {
+        throw new FoundationError('validation_failed', 400)
+      }
+      const masterId = optionalUuid(payload.master_id)
+      if (masterId) requireVersion(payload.expected_version)
+      if (!optionalString(payload.name, payload.master_kind === 'tag' ? 80 : 120)) {
+        throw new FoundationError('validation_failed', 400)
+      }
+      if (payload.status !== undefined && !['active', 'archived'].includes(String(payload.status))) {
+        throw new FoundationError('validation_failed', 400)
+      }
+      return
+    }
+
+    if (commandType === 'product.metadata.update') {
+      requireUuid(payload.product_id)
+      requireVersion(payload.expected_version)
+      optionalUuid(payload.category_id)
+      optionalUuid(payload.brand_id)
+      optionalString(payload.internal_note, 4000)
+      if (payload.structure_type !== undefined
+        && !['standard', 'variant', 'bundle'].includes(String(payload.structure_type))) {
+        throw new FoundationError('validation_failed', 400)
+      }
+      if (payload.tag_ids !== undefined) {
+        if (!Array.isArray(payload.tag_ids) || payload.tag_ids.length > 40) {
+          throw new FoundationError('validation_failed', 400)
+        }
+        payload.tag_ids.forEach(requireUuid)
+      }
+      return
+    }
+
+    requireUuid(payload.sku_id)
+    if (commandType === 'sku.profile.upsert') {
+      requireVersion(payload.expected_version, true)
+      if (payload.quantity_behavior !== undefined
+        && !['discrete', 'weight', 'volume'].includes(String(payload.quantity_behavior))) {
+        throw new FoundationError('validation_failed', 400)
+      }
+      if (payload.currency_code !== undefined
+        && !/^[A-Z]{3}$/.test(String(payload.currency_code))) {
+        throw new FoundationError('validation_failed', 400)
+      }
+      if (payload.tax_category !== undefined
+        && !['standard', 'zero', 'exempt', 'out_of_scope'].includes(String(payload.tax_category))) {
+        throw new FoundationError('validation_failed', 400)
+      }
+      for (const key of allowedKeys[commandType].filter((key) => ![
+        'sku_id', 'expected_version', 'quantity_behavior', 'currency_code', 'tax_category',
+      ].includes(key))) {
+        optionalNumber(payload[key])
+      }
+      if (payload.tax_rate !== undefined && Number(payload.tax_rate) > 100) {
+        throw new FoundationError('validation_failed', 400)
+      }
+      if (payload.reorder_min !== undefined && payload.reorder_max !== undefined
+        && Number(payload.reorder_max) < Number(payload.reorder_min)) {
+        throw new FoundationError('validation_failed', 400)
+      }
+      return
+    }
+    if (commandType === 'sku.cost.upsert') {
+      requireVersion(payload.expected_version, true)
+      optionalNumber(payload.cost_price)
+      if (payload.currency_code !== undefined
+        && !/^[A-Z]{3}$/.test(String(payload.currency_code))) {
+        throw new FoundationError('validation_failed', 400)
+      }
+      return
+    }
+    if (commandType === 'sku.sell_units.replace') {
+      if (!Array.isArray(payload.units) || payload.units.length > 50) {
+        throw new FoundationError('validation_failed', 400)
+      }
+      payload.units.forEach((value) => {
+        const unit = requireRecord(value)
+        if (Object.keys(unit).some((key) => !['unit_code', 'name', 'base_quantity', 'barcode'].includes(key))
+          || !/^[a-z][a-z0-9_]{0,31}$/.test(String(unit.unit_code))
+          || !optionalString(unit.name, 80)
+          || optionalNumber(unit.base_quantity) === null
+          || Number(unit.base_quantity) <= 0) {
+          throw new FoundationError('validation_failed', 400)
+        }
+        optionalString(unit.barcode, 128)
+      })
+      return
+    }
+    if (!Array.isArray(payload.components) || payload.components.length > 100) {
+      throw new FoundationError('validation_failed', 400)
+    }
+    payload.components.forEach((value) => {
+      const component = requireRecord(value)
+      if (Object.keys(component).some((key) => !['sku_id', 'quantity'].includes(key))) {
+        throw new FoundationError('validation_failed', 400)
+      }
+      requireUuid(component.sku_id)
+      if (optionalNumber(component.quantity) === null || Number(component.quantity) <= 0) {
+        throw new FoundationError('validation_failed', 400)
+      }
+    })
+    return
+  }
+
+  if (productImageCommandTypes.includes(commandType as typeof productImageCommandTypes[number])) {
+    if (commandType === 'product.image.prepare') {
+      requireUuid(payload.product_id)
+      if (!optionalString(payload.original_file_name, 180)
+        || !['image/jpeg', 'image/png', 'image/webp'].includes(String(payload.mime_type))
+        || !Number.isSafeInteger(payload.file_size_bytes)
+        || Number(payload.file_size_bytes) < 1
+        || Number(payload.file_size_bytes) > 5_242_880) {
+        throw new FoundationError('validation_failed', 400)
+      }
+      optionalString(payload.alt_text, 160)
+      return
+    }
+    if (commandType === 'product.images.reorder') {
+      requireUuid(payload.product_id)
+      requireUuid(payload.cover_image_id)
+      if (!Array.isArray(payload.image_ids)
+        || payload.image_ids.length < 1
+        || payload.image_ids.length > 9) {
+        throw new FoundationError('validation_failed', 400)
+      }
+      payload.image_ids.forEach(requireUuid)
+      if (new Set(payload.image_ids).size !== payload.image_ids.length
+        || !payload.image_ids.includes(payload.cover_image_id)) {
+        throw new FoundationError('validation_failed', 400)
+      }
+      return
+    }
+    requireUuid(payload.image_id)
+    requireVersion(payload.expected_version)
+    if (commandType === 'product.image.fail'
+      && !optionalString(payload.failure_reason, 500)) {
+      throw new FoundationError('validation_failed', 400)
+    }
+    return
   }
 
   const createNameCommands = new Set<FoundationCommandType>([

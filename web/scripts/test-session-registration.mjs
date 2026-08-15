@@ -4,6 +4,8 @@ import test from 'node:test'
 
 const helper = await readFile('src/lib/session-registration.ts', 'utf8')
 const authForm = await readFile('src/app/components/auth-form.tsx', 'utf8')
+const passwordSignIn = await readFile('src/app/api/auth/sign-in/route.ts', 'utf8')
+const hashSession = await readFile('src/app/api/auth/session/route.ts', 'utf8')
 const mfaForm = await readFile('src/app/components/mfa-challenge-form.tsx', 'utf8')
 const callback = await readFile('src/app/auth/callback/route.ts', 'utf8')
 
@@ -14,9 +16,17 @@ test('shared helper registers the current authenticated session through the appr
 })
 
 test('password and hash-session login paths register before redirecting', () => {
-  assert.match(authForm, /reportSessionRegistrationFailure\('hash-session', registration\)/)
-  assert.match(authForm, /reportSessionRegistrationFailure\('password-login', registration\)/)
-  assert.match(authForm, /registerCurrentAppSession\(supabase\)[\s\S]*window\.location\.assign\(nextPath\)/)
+  assert.match(passwordSignIn, /supabase\.rpc\('app_register_current_session'\)/)
+  assert.match(passwordSignIn, /registered: !registration\.error/)
+  assert.match(hashSession, /supabase\.auth\.setSession/)
+  assert.match(hashSession, /supabase\.rpc\('app_register_current_session'\)/)
+  assert.match(authForm, /fetch\('\/api\/auth\/session'/)
+  assert.match(authForm, /if \(result\.registered\) \{[\s\S]*requestNewDeviceLoginNotification\(\)[\s\S]*window\.location\.assign\(result\.destination\)/)
+})
+
+test('password login does not misreport an auth network outage as invalid credentials', () => {
+  assert.match(passwordSignIn, /auth_service_unreachable/)
+  assert.match(passwordSignIn, /authServiceUnavailable \? 503 : 401/)
 })
 
 test('platform admin registers only after a successful MFA verification', () => {

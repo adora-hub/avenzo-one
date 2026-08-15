@@ -91,7 +91,7 @@ test('successful login paths await the notification request after session regist
       && mfaRedirectIndex > mfaNotificationIndex,
   )
   assert.match(mfaForm, /if \(registration\.registered\)[\s\S]*await requestNewDeviceLoginNotification\(\)/)
-  assert.match(authForm, /if \(registration\.registered\)[\s\S]*await requestNewDeviceLoginNotification\(\)/)
+  assert.match(authForm, /if \(result\.registered\)[\s\S]*await requestNewDeviceLoginNotification\(\)/)
 })
 
 test('revoke-all email is sent only after a successful non-empty revoke operation', () => {

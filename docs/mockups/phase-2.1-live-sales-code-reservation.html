@@ -1,0 +1,605 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AVENZO ONE — Live Sale Sales Code Prototype</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --page: #f5f6f8;
+        --surface: #ffffff;
+        --surface-soft: #f2f3f5;
+        --surface-hover: #e9ebef;
+        --text: #121318;
+        --text-soft: #555c68;
+        --text-muted: #7c8491;
+        --border: #dfe2e7;
+        --border-strong: #cbd0d8;
+        --brand: #111217;
+        --brand-text: #ffffff;
+        --focus: #2563eb;
+        --success: #087a55;
+        --success-bg: #e8f8f1;
+        --warning: #975a00;
+        --warning-bg: #fff6dc;
+        --danger: #bf2840;
+        --danger-bg: #fff0f3;
+        --shadow: 0 1px 2px rgb(0 0 0 / .04), 0 14px 42px rgb(0 0 0 / .06);
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --page: #0d0d0f;
+          --surface: #18181b;
+          --surface-soft: #212125;
+          --surface-hover: #29292e;
+          --text: #f7f7f8;
+          --text-soft: #babdc5;
+          --text-muted: #9096a1;
+          --border: #303238;
+          --border-strong: #44474f;
+          --brand: #f7f7f8;
+          --brand-text: #111217;
+          --focus: #78a8ff;
+          --success: #35d49a;
+          --success-bg: #0c3025;
+          --warning: #ffc45c;
+          --warning-bg: #34270b;
+          --danger: #ff8798;
+          --danger-bg: #3c1820;
+          --shadow: 0 18px 55px rgb(0 0 0 / .3);
+        }
+      }
+
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body {
+        margin: 0;
+        background: var(--page);
+        color: var(--text);
+        font-family: Inter, "Noto Sans Thai", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: 14px;
+        line-height: 1.48;
+      }
+      body.modal-open { overflow: hidden; }
+      button, input, select, textarea { font: inherit; }
+      button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible {
+        outline: 3px solid color-mix(in srgb, var(--focus) 30%, transparent);
+        outline-offset: 2px;
+      }
+
+      .app-shell { width: min(1240px, calc(100% - 32px)); margin: 0 auto; padding: 28px 0 64px; }
+      .breadcrumb { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; margin-bottom: 22px; color: var(--text-muted); font-size: 13px; }
+      .breadcrumb a { color: inherit; text-decoration: none; }
+      .breadcrumb a:hover { color: var(--text); }
+      .breadcrumb .current { color: var(--text); font-weight: 750; }
+      .page-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 14px; }
+      .eyebrow { margin-bottom: 5px; color: var(--text-muted); font-size: 11px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
+      .title-line { display: flex; align-items: center; gap: 10px; }
+      h1 { margin: 0; font-size: clamp(29px, 4vw, 40px); line-height: 1.1; letter-spacing: -.04em; }
+      .inverse-badge { padding: 4px 8px; border-radius: 999px; background: var(--text); color: var(--page); font-size: 10px; font-weight: 800; }
+      .page-heading p { margin: 6px 0 0; color: var(--text-soft); }
+      .heading-actions { display: flex; gap: 8px; }
+
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        min-height: 38px;
+        padding: 8px 13px;
+        border: 1px solid var(--border-strong);
+        border-radius: 9px;
+        background: var(--surface);
+        color: var(--text);
+        cursor: pointer;
+        font-weight: 740;
+        text-decoration: none;
+        white-space: nowrap;
+      }
+      .button:hover { background: var(--surface-hover); }
+      .button.primary { border-color: var(--brand); background: var(--brand); color: var(--brand-text); }
+      .button.primary:hover { opacity: .88; }
+      .button.small { min-height: 31px; padding: 5px 9px; font-size: 12px; }
+      .button.danger { color: var(--danger); }
+      .button:disabled { cursor: not-allowed; opacity: .5; }
+
+      .prototype-banner {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 16px;
+        padding: 10px 12px;
+        border: 1px solid color-mix(in srgb, var(--focus) 35%, var(--border));
+        border-radius: 10px;
+        background: color-mix(in srgb, var(--focus) 7%, var(--surface));
+        color: var(--text-soft);
+        font-size: 12px;
+      }
+      .prototype-banner strong { color: var(--text); }
+
+      .batch-card { margin-bottom: 16px; overflow: hidden; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); box-shadow: var(--shadow); }
+      .batch-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding: 20px; border-bottom: 1px solid var(--border); }
+      .batch-title { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+      .batch-title h2 { margin: 0; font-size: 19px; }
+      .status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 999px; background: var(--success-bg); color: var(--success); font-size: 11px; font-weight: 800; }
+      .status-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+      .batch-head p { margin: 5px 0 0; color: var(--text-soft); font-size: 12px; }
+      .batch-meta-wrap { display: flex; align-items: flex-end; flex-direction: column; gap: 8px; }
+      .batch-meta { color: var(--text-muted); font-size: 11px; text-align: right; }
+      .metric-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      .metric { padding: 17px 20px; border-right: 1px solid var(--border); }
+      .metric:last-child { border-right: 0; }
+      .metric span { display: block; color: var(--text-muted); font-size: 11px; font-weight: 700; }
+      .metric strong { display: block; margin-top: 4px; font-size: 22px; letter-spacing: -.025em; }
+      .metric strong.code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .03em; }
+      .progress-track { height: 6px; margin: 0 20px 18px; overflow: hidden; border-radius: 99px; background: var(--surface-soft); }
+      .progress-value { width: 1.43%; height: 100%; border-radius: inherit; background: var(--success); transition: width 180ms ease; }
+
+      .workspace { display: grid; grid-template-columns: minmax(320px, .82fr) minmax(0, 1.45fr); gap: 16px; align-items: start; }
+      .panel { overflow: hidden; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); box-shadow: var(--shadow); }
+      .panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 17px 18px; border-bottom: 1px solid var(--border); }
+      .panel-head h2 { margin: 0; font-size: 17px; }
+      .panel-head p { margin: 4px 0 0; color: var(--text-soft); font-size: 12px; }
+      .step-badge { display: inline-grid; min-width: 28px; min-height: 28px; place-items: center; border-radius: 50%; background: var(--text); color: var(--page); font-size: 11px; font-weight: 800; }
+      .panel-body { padding: 18px; }
+      .field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; }
+      .field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+      .field.span-2 { grid-column: 1 / -1; }
+      .field label { font-size: 12px; font-weight: 760; }
+      .required { color: var(--danger); }
+      .field-help { color: var(--text-muted); font-size: 11px; }
+      input, select, textarea {
+        width: 100%;
+        min-height: 39px;
+        padding: 8px 10px;
+        border: 1px solid var(--border-strong);
+        border-radius: 9px;
+        background: var(--surface);
+        color: var(--text);
+      }
+      input::placeholder, textarea::placeholder { color: var(--text-muted); }
+      input[readonly] { background: var(--surface-soft); color: var(--text-soft); }
+      .select-control { position: relative; display: block; }
+      .select-control select { appearance: none; padding-right: 36px; }
+      .select-control::after { position: absolute; top: 50%; right: 12px; width: 7px; height: 7px; border-right: 1.5px solid var(--text-muted); border-bottom: 1.5px solid var(--text-muted); content: ""; pointer-events: none; transform: translateY(-65%) rotate(45deg); }
+      .code-preview { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; border: 1px solid color-mix(in srgb, var(--focus) 30%, var(--border)); border-radius: 10px; background: color-mix(in srgb, var(--focus) 6%, var(--surface)); }
+      .code-preview span { display: block; color: var(--text-muted); font-size: 10px; font-weight: 700; }
+      .code-preview strong { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 24px; letter-spacing: .05em; }
+      .code-preview small { color: var(--text-soft); }
+      .code-lock { flex: none; padding: 4px 7px; border-radius: 999px; background: var(--surface); color: var(--text-soft); font-size: 10px; font-weight: 750; }
+      .quick-actions { display: grid; grid-template-columns: 1fr 1.5fr; gap: 8px; margin-top: 16px; }
+      .helper-note { margin-top: 13px; padding: 10px; border-radius: 9px; background: var(--surface-soft); color: var(--text-soft); font-size: 11px; }
+      .helper-note strong { color: var(--text); }
+      .inline-alert { display: none; gap: 8px; margin-top: 12px; padding: 9px 10px; border-radius: 8px; background: var(--danger-bg); color: var(--danger); font-size: 11px; }
+      .inline-alert.visible { display: flex; }
+
+      .toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+      .search { position: relative; flex: 1 1 230px; }
+      .search input { padding-left: 34px; }
+      .search::before { position: absolute; top: 50%; left: 12px; z-index: 1; color: var(--text-muted); content: "⌕"; transform: translateY(-54%); }
+      .toolbar .select-control { width: 145px; }
+      .table-wrap { max-height: 470px; overflow: auto; }
+      table { width: 100%; min-width: 740px; border-collapse: collapse; }
+      th, td { padding: 11px 13px; border-bottom: 1px solid var(--border); text-align: left; }
+      th { position: sticky; top: 0; z-index: 2; background: #111217; color: #fff; font-size: 10px; letter-spacing: .035em; text-transform: uppercase; }
+      td { font-size: 12px; }
+      .code-cell { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-weight: 800; letter-spacing: .035em; }
+      .row-state { display: inline-flex; align-items: center; gap: 6px; padding: 4px 7px; border-radius: 999px; background: var(--surface-soft); color: var(--text-soft); font-size: 10px; font-weight: 800; }
+      .row-state.used { background: var(--success-bg); color: var(--success); }
+      .row-state.next { background: color-mix(in srgb, var(--focus) 12%, var(--surface)); color: var(--focus); }
+      .row-state.skipped { background: var(--warning-bg); color: var(--warning); }
+      .copy-button { min-height: 29px; padding: 4px 8px; border: 1px solid var(--border); border-radius: 7px; background: transparent; color: var(--text-soft); cursor: pointer; font-size: 11px; }
+      .copy-button:hover { background: var(--surface-hover); color: var(--text); }
+      .table-empty { padding: 35px; color: var(--text-muted); text-align: center; }
+      .table-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 14px; color: var(--text-muted); font-size: 11px; }
+
+      .recent { margin-top: 16px; }
+      .recent h2 { margin: 0 0 10px; font-size: 15px; }
+      .recent-list { display: grid; gap: 7px; }
+      .recent-item { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 11px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); }
+      .recent-item code { font-weight: 800; }
+      .recent-item strong { display: block; font-size: 12px; }
+      .recent-item span { color: var(--text-muted); font-size: 10px; }
+
+      .modal-backdrop { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 20px; background: rgb(0 0 0 / .58); }
+      .modal { width: min(650px, 100%); max-height: calc(100dvh - 40px); overflow: auto; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); box-shadow: 0 24px 80px rgb(0 0 0 / .32); }
+      .modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 17px 18px; border-bottom: 1px solid var(--border); }
+      .modal-head h2 { margin: 0; font-size: 19px; }
+      .modal-head p { margin: 3px 0 0; color: var(--text-soft); font-size: 12px; }
+      .modal-close { display: grid; width: 34px; min-height: 34px; place-items: center; border: 0; border-radius: 8px; background: transparent; color: var(--text-muted); cursor: pointer; font-size: 20px; }
+      .modal-close:hover { background: var(--surface-hover); color: var(--text); }
+      .modal-body { padding: 18px; }
+      .range-preview { margin-top: 14px; padding: 13px; border-radius: 10px; background: var(--surface-soft); }
+      .range-preview span { display: block; color: var(--text-muted); font-size: 10px; }
+      .range-preview strong { display: block; margin-top: 3px; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 20px; }
+      .range-preview p { margin: 5px 0 0; color: var(--text-soft); font-size: 11px; }
+      .modal-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 13px 18px; border-top: 1px solid var(--border); }
+      .toast { position: fixed; right: 20px; bottom: 20px; z-index: 200; max-width: min(360px, calc(100vw - 40px)); padding: 11px 13px; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--text); color: var(--page); box-shadow: var(--shadow); font-size: 12px; opacity: 0; pointer-events: none; transform: translateY(8px); transition: 160ms ease; }
+      .toast.visible { opacity: 1; transform: translateY(0); }
+      [hidden] { display: none !important; }
+
+      @media (max-width: 900px) {
+        .workspace { grid-template-columns: 1fr; }
+        .metric-grid { grid-template-columns: repeat(2, 1fr); }
+        .metric:nth-child(2) { border-right: 0; }
+        .metric:nth-child(-n+2) { border-bottom: 1px solid var(--border); }
+      }
+      @media (max-width: 650px) {
+        .app-shell { width: min(100% - 24px, 1240px); padding-top: 20px; }
+        .page-heading, .batch-head { align-items: stretch; flex-direction: column; }
+        .heading-actions { display: grid; grid-template-columns: 1fr 1fr; }
+        .batch-meta-wrap { align-items: flex-start; }
+        .batch-meta { text-align: left; }
+        .field-grid { grid-template-columns: 1fr; }
+        .field.span-2 { grid-column: auto; }
+        .quick-actions { grid-template-columns: 1fr; }
+        .toolbar .select-control { width: 100%; }
+        .recent-item { grid-template-columns: 58px minmax(0, 1fr); }
+        .recent-item > span:last-child { grid-column: 2; }
+      }
+      @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; } }
+      @media (pointer: coarse) { .button, input, select, .copy-button, .modal-close { min-height: 44px; touch-action: manipulation; } }
+    </style>
+  </head>
+  <body>
+    <main class="app-shell">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href="phase-2.1-products-workspace-ui.html">Home</a><span>›</span>
+        <a href="phase-2.1-products-workspace-ui.html">Workspace</a><span>›</span>
+        <a href="phase-2.1-products-workspace-ui.html">Products</a><span>›</span>
+        <span class="current" aria-current="page">Live Sale</span>
+      </nav>
+
+      <header class="page-heading">
+        <div>
+          <div class="eyebrow">Part 2.1.4B · Rapid Product Entry</div>
+          <div class="title-line"><h1>ชุดรหัสขายด่วน</h1><span class="inverse-badge">PROTOTYPE</span></div>
+          <p>จอง Sales Code ล่วงหน้า แล้วสร้างสินค้ามาไว–ไปไวต่อเนื่องโดยไม่ต้องกรอกข้อมูลเต็มรูปแบบ</p>
+        </div>
+        <div class="heading-actions">
+          <a class="button" href="phase-2.1-products-workspace-ui.html">กลับ Products</a>
+          <button id="openReserveModal" class="button primary" type="button">+ จองชุดรหัส</button>
+        </div>
+      </header>
+
+      <div class="prototype-banner" role="note">
+        <span aria-hidden="true">ⓘ</span>
+        <span><strong>Interaction Prototype เท่านั้น</strong> — ข้อมูลทั้งหมดอยู่ในหน้านี้ชั่วคราว ไม่จองรหัส ไม่สร้าง Product/SKU และไม่ตัด Stock ในระบบจริง</span>
+      </div>
+
+      <section class="batch-card" aria-labelledby="activeBatchTitle">
+        <div class="batch-head">
+          <div>
+            <div class="batch-title"><h2 id="activeBatchTitle">Live 15 ส.ค. · เครื่องประดับรวม</h2><span class="status-badge"><span class="status-dot"></span>กำลังใช้งาน</span></div>
+            <p>ช่วงรหัส <strong id="batchRange">B001–B070</strong> · ผู้รับผิดชอบ <span id="batchAssignee">แม่ค้าออนไลน์ A</span> · สาขา <span id="batchBranch">BKK-01</span> · รอบขาย <span id="batchLiveDate">15 ส.ค. 2569</span></p>
+          </div>
+          <div class="batch-meta-wrap"><div class="batch-meta">สร้างโดย Platform Admin<br />15 ส.ค. 2569 10:30</div><button id="editBatchButton" class="button small" type="button" aria-haspopup="dialog">✎ แก้ไขรายละเอียด</button></div>
+        </div>
+        <div class="metric-grid">
+          <div class="metric"><span>รหัสทั้งหมด</span><strong id="totalMetric">70</strong></div>
+          <div class="metric"><span>ใช้แล้ว</span><strong id="usedMetric">1</strong></div>
+          <div class="metric"><span>คงเหลือ</span><strong id="remainingMetric">69</strong></div>
+          <div class="metric"><span>รหัสถัดไป</span><strong id="nextMetric" class="code">B002</strong></div>
+        </div>
+        <div class="progress-track" aria-label="ใช้รหัสแล้ว 1 จาก 70"><div id="progressValue" class="progress-value"></div></div>
+      </section>
+
+      <div class="workspace">
+        <section class="panel" aria-labelledby="quickCreateTitle">
+          <div class="panel-head">
+            <div><h2 id="quickCreateTitle">สร้างสินค้าขายด่วน</h2><p>กรอกเฉพาะข้อมูลที่จำเป็น แล้วไปยังรหัสถัดไปทันที</p></div>
+            <span class="step-badge" aria-label="ขั้นตอนที่ 1">1</span>
+          </div>
+          <div class="panel-body">
+            <form id="quickCreateForm" novalidate>
+              <div class="field-grid">
+                <div class="field span-2">
+                  <label>Sales Code ที่ระบบเตรียมไว้</label>
+                  <div class="code-preview"><div><span>รหัสถัดไปในชุด</span><strong id="reservedCode">B002</strong><small id="reservedCodeHint">ยืนยันจริงเมื่อกดบันทึก</small></div><span class="code-lock">🔒 จองชั่วคราว</span></div>
+                </div>
+                <div class="field span-2"><label for="quickName">ชื่อสินค้า <span class="required">*</span></label><input id="quickName" maxlength="120" value="ต่างหู Gucci สีเงิน" autocomplete="off" /><span class="field-help">ตัวอย่าง: ต่างหู Gucci สีเงิน</span></div>
+                <div class="field"><label for="quickPrice">ราคาขาย <span class="required">*</span></label><input id="quickPrice" type="number" min="0" max="99999999" step="0.01" value="590" inputmode="decimal" /></div>
+                <div class="field"><label for="quickQuantity">จำนวนเริ่มต้น <span class="required">*</span></label><input id="quickQuantity" type="number" min="0" max="999999" step="1" value="5" inputmode="numeric" /></div>
+                <div class="field"><label for="quickUnit">หน่วยขาย</label><span class="select-control"><select id="quickUnit"><option value="piece">ชิ้น</option><option value="pair" selected>คู่</option><option value="pack">แพ็ค</option><option value="set">ชุด</option><option value="box">กล่อง</option></select></span></div>
+                <div class="field"><label for="quickBranch">สาขา</label><span class="select-control"><select id="quickBranch"><option>BKK-01</option><option>PKT-01</option><option>ONLINE</option></select></span></div>
+                <div class="field span-2"><label for="quickNote">หมายเหตุ (ไม่บังคับ)</label><input id="quickNote" maxlength="240" placeholder="เช่น Live รอบ 19:00 หรือสินค้ามีตำหนิเล็กน้อย" /></div>
+              </div>
+              <div id="quickAlert" class="inline-alert" role="alert"><span>!</span><span id="quickAlertText"></span></div>
+              <div class="quick-actions">
+                <button id="saveAndClose" class="button" type="button">บันทึกและกลับ Products</button>
+                <button id="saveAndNext" class="button primary" type="submit">บันทึกและสร้างรายการถัดไป →</button>
+              </div>
+              <div class="helper-note"><strong>ระบบจริง:</strong> ผู้ใช้เห็น Sales Code เป็นหลัก แต่ระบบยังสร้าง Product ID และ SKU ID ภายใน และทุกคำสั่งขาย/ตัด Stock ต้อง resolve Sales Code ไปเป็น SKU ID ก่อนเสมอ</div>
+            </form>
+
+            <div class="recent" aria-live="polite">
+              <h2>รายการล่าสุดในชุด</h2>
+              <div id="recentList" class="recent-list">
+                <div class="recent-item"><code>B001</code><div><strong>ต่างหู Dior สีทอง</strong><span>฿550 · 5 คู่</span></div><span>บันทึกแล้ว</span></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel" aria-labelledby="poolTitle">
+          <div class="panel-head">
+            <div><h2 id="poolTitle">สถานะรหัสในชุด</h2><p>ตรวจว่ารหัสใดถูกใช้ กำลังรอ หรือถูกข้าม โดยไม่ควรนำรหัสที่เผยแพร่แล้วกลับมาใช้ซ้ำ</p></div>
+            <span class="step-badge" aria-label="ขั้นตอนที่ 2">2</span>
+          </div>
+          <div class="toolbar">
+            <label class="search"><span hidden>ค้นหารหัสหรือชื่อสินค้า</span><input id="poolSearch" maxlength="120" placeholder="ค้นหา B002 หรือชื่อสินค้า..." /></label>
+            <span class="select-control"><select id="statusFilter" aria-label="กรองสถานะ"><option value="all">ทุกสถานะ</option><option value="used">ใช้แล้ว</option><option value="next">รหัสถัดไป</option><option value="reserved">จองไว้</option><option value="skipped">ข้าม</option></select></span>
+          </div>
+          <div class="table-wrap" tabindex="0" aria-label="ตาราง Sales Code ในชุด">
+            <table>
+              <thead><tr><th>Sales Code</th><th>สถานะ</th><th>สินค้า / ผู้ใช้</th><th>สต็อกเริ่มต้น</th><th>เวลา</th><th>คำสั่ง</th></tr></thead>
+              <tbody id="poolRows"></tbody>
+            </table>
+            <div id="tableEmpty" class="table-empty" hidden>ไม่พบรหัสตามเงื่อนไข</div>
+          </div>
+          <div class="table-footer"><span id="tableSummary">แสดง 12 จาก 70 รหัส</span><span>รหัสที่เผยแพร่แล้วห้ามนำกลับมาใช้</span></div>
+        </section>
+      </div>
+    </main>
+
+    <div id="reserveModal" class="modal-backdrop" hidden>
+      <section class="modal" role="dialog" aria-modal="true" aria-labelledby="reserveModalTitle">
+        <div class="modal-head"><div><h2 id="reserveModalTitle">จองชุด Sales Code</h2><p>กำหนดช่วงรหัสสำหรับ Live, Campaign หรือผู้ขายแต่ละคน</p></div><button id="closeReserveModal" class="modal-close" type="button" aria-label="ปิด">×</button></div>
+        <div class="modal-body">
+          <div class="field-grid">
+            <div class="field span-2"><label for="batchName">ชื่อชุดรหัส <span class="required">*</span></label><input id="batchName" maxlength="100" value="Live 15 ส.ค. · เครื่องประดับรวม" /></div>
+            <div class="field"><label for="prefixInput">Prefix</label><input id="prefixInput" maxlength="8" value="B" autocomplete="off" /></div>
+            <div class="field"><label for="startInput">เลขเริ่มต้น</label><input id="startInput" type="number" min="0" max="999999" value="1" /></div>
+            <div class="field"><label for="countInput">จำนวนรหัส</label><input id="countInput" type="number" min="1" max="500" value="70" /></div>
+            <div class="field"><label for="digitsInput">จำนวนหลัก</label><span class="select-control"><select id="digitsInput"><option value="3" selected>3 หลัก (001)</option><option value="4">4 หลัก (0001)</option><option value="5">5 หลัก (00001)</option></select></span></div>
+            <div class="field"><label for="assigneeInput">มอบหมายให้</label><input id="assigneeInput" maxlength="100" value="แม่ค้าออนไลน์ A" /></div>
+            <div class="field"><label for="branchInput">สาขา</label><span class="select-control"><select id="branchInput"><option>BKK-01</option><option>PKT-01</option><option>ONLINE</option></select></span></div>
+          </div>
+          <div class="range-preview"><span>ตัวอย่างช่วงที่จะจอง</span><strong id="rangePreview">B001–B070</strong><p id="rangePolicy">70 รหัส · รหัสถัดไปหลังจบชุดคือ B071</p></div>
+          <div class="helper-note"><strong>ข้อกำหนดระบบจริง:</strong> ต้องตรวจช่วงซ้ำภายใน Organization และจองแบบ Atomic เพื่อไม่ให้แอดมินสองคนได้รหัสเดียวกัน</div>
+        </div>
+        <div class="modal-footer"><button id="cancelReserve" class="button" type="button">ยกเลิก</button><button id="confirmReserve" class="button primary" type="button">ทดลองจอง 70 รหัส</button></div>
+      </section>
+    </div>
+
+    <div id="editBatchModal" class="modal-backdrop" hidden>
+      <section class="modal" role="dialog" aria-modal="true" aria-labelledby="editBatchModalTitle">
+        <div class="modal-head"><div><h2 id="editBatchModalTitle">แก้ไขรายละเอียดชุดรหัส</h2><p>แก้ชื่อรอบ ผู้รับผิดชอบ และสาขาได้ โดยไม่เปลี่ยน Sales Code ที่จองไว้</p></div><button id="closeEditBatchModal" class="modal-close" type="button" aria-label="ปิดหน้าต่างแก้ไขรายละเอียด">×</button></div>
+        <div class="modal-body">
+          <div class="field-grid">
+            <div class="field span-2"><label for="editBatchName">ชื่อชุดรหัส <span class="required">*</span></label><input id="editBatchName" maxlength="100" value="Live 15 ส.ค. · เครื่องประดับรวม" /></div>
+            <div class="field"><label for="editAssignee">ผู้รับผิดชอบ</label><input id="editAssignee" maxlength="100" value="แม่ค้าออนไลน์ A" /></div>
+            <div class="field"><label for="editBranch">สาขา</label><span class="select-control"><select id="editBranch"><option>BKK-01</option><option>PKT-01</option><option>ONLINE</option></select></span></div>
+            <div class="field"><label for="editLiveDate">วันที่/รอบขาย</label><input id="editLiveDate" type="date" value="2026-08-15" /></div>
+            <div class="field"><label for="editCampaign">Campaign (ไม่บังคับ)</label><input id="editCampaign" maxlength="100" placeholder="เช่น Mid-month Live" /></div>
+            <div class="field span-2"><label for="editBatchNote">หมายเหตุ (ไม่บังคับ)</label><textarea id="editBatchNote" maxlength="300" placeholder="รายละเอียดสำหรับทีมงาน ไม่แสดงให้ลูกค้าเห็น"></textarea></div>
+          </div>
+          <div class="helper-note"><strong>ล็อกเพื่อความปลอดภัย:</strong> ช่วงรหัส <span id="lockedRangeText">B001–B070</span>, ผู้สร้าง และเวลาสร้างแก้ไขไม่ได้ เพราะชุดนี้เริ่มใช้รหัสแล้ว</div>
+        </div>
+        <div class="modal-footer"><button id="cancelEditBatch" class="button" type="button">ยกเลิก</button><button id="saveBatchDetails" class="button primary" type="button">บันทึกรายละเอียด</button></div>
+      </section>
+    </div>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <script>
+      (() => {
+        const state = {
+          prefix: "B",
+          start: 1,
+          count: 70,
+          digits: 3,
+          items: [{ code: "B001", name: "ต่างหู Dior สีทอง", price: 550, quantity: 5, unit: "คู่", time: "10:42", status: "used" }],
+          skipped: new Set(),
+          visibleLimit: 12,
+        };
+
+        const $ = (selector) => document.querySelector(selector);
+        const codeFor = (number) => `${state.prefix}${String(number).padStart(state.digits, "0")}`;
+        const usedCodes = () => new Set(state.items.map((item) => item.code));
+        const nextNumber = () => {
+          const used = usedCodes();
+          for (let number = state.start; number < state.start + state.count; number += 1) {
+            const code = codeFor(number);
+            if (!used.has(code) && !state.skipped.has(code)) return number;
+          }
+          return null;
+        };
+        const nextCode = () => nextNumber() === null ? "ครบชุด" : codeFor(nextNumber());
+
+        function showToast(message) {
+          const toast = $("#toast");
+          toast.textContent = message;
+          toast.classList.add("visible");
+          clearTimeout(showToast.timer);
+          showToast.timer = setTimeout(() => toast.classList.remove("visible"), 2200);
+        }
+
+        function updateMetrics() {
+          const used = state.items.length;
+          $("#totalMetric").textContent = state.count;
+          $("#usedMetric").textContent = used;
+          $("#remainingMetric").textContent = Math.max(0, state.count - used - state.skipped.size);
+          $("#nextMetric").textContent = nextCode();
+          $("#reservedCode").textContent = nextCode();
+          $("#progressValue").style.width = `${Math.min(100, (used / state.count) * 100)}%`;
+          $(".progress-track").setAttribute("aria-label", `ใช้รหัสแล้ว ${used} จาก ${state.count}`);
+        }
+
+        function getRows() {
+          const search = $("#poolSearch").value.trim().toLocaleLowerCase("th");
+          const filter = $("#statusFilter").value;
+          const next = nextCode();
+          const itemMap = new Map(state.items.map((item) => [item.code, item]));
+          const rows = [];
+          for (let number = state.start; number < state.start + state.count; number += 1) {
+            const code = codeFor(number);
+            const item = itemMap.get(code);
+            let status = "reserved";
+            if (item) status = "used";
+            else if (state.skipped.has(code)) status = "skipped";
+            else if (code === next) status = "next";
+            const label = { used: "ใช้แล้ว", next: "รหัสถัดไป", reserved: "จองไว้", skipped: "ข้าม" }[status];
+            const searchable = `${code} ${item?.name || ""} ${label}`.toLocaleLowerCase("th");
+            if (filter !== "all" && filter !== status) continue;
+            if (search && !searchable.includes(search)) continue;
+            rows.push({ code, item, status, label });
+          }
+          return rows;
+        }
+
+        function renderPool() {
+          const rows = getRows();
+          const visibleRows = rows.slice(0, state.visibleLimit);
+          $("#poolRows").innerHTML = visibleRows.map(({ code, item, status, label }) => `
+            <tr>
+              <td class="code-cell">${code}</td>
+              <td><span class="row-state ${status}"><span class="status-dot"></span>${label}</span></td>
+              <td>${item ? `<strong>${item.name}</strong>` : status === "next" ? "พร้อมสร้างรายการใหม่" : "—"}</td>
+              <td>${item ? `${item.quantity.toLocaleString("th-TH")} ${item.unit}` : "—"}</td>
+              <td>${item?.time || "—"}</td>
+              <td><button class="copy-button" type="button" data-copy="${code}">คัดลอก</button></td>
+            </tr>`).join("");
+          $("#tableEmpty").hidden = rows.length > 0;
+          $("#tableSummary").textContent = `แสดง ${visibleRows.length} จาก ${rows.length} รหัสที่ตรงเงื่อนไข`;
+          document.querySelectorAll("[data-copy]").forEach((button) => button.addEventListener("click", async () => {
+            try { await navigator.clipboard.writeText(button.dataset.copy); showToast(`คัดลอก ${button.dataset.copy} แล้ว`); }
+            catch { showToast(`รหัส ${button.dataset.copy}`); }
+          }));
+        }
+
+        function renderRecent() {
+          $("#recentList").innerHTML = [...state.items].reverse().slice(0, 5).map((item) => `
+            <div class="recent-item"><code>${item.code}</code><div><strong>${item.name}</strong><span>฿${Number(item.price).toLocaleString("th-TH")} · ${item.quantity} ${item.unit}</span></div><span>บันทึกแล้ว</span></div>`).join("");
+        }
+
+        function resetQuickForm() {
+          $("#quickName").value = "";
+          $("#quickPrice").value = "";
+          $("#quickQuantity").value = "1";
+          $("#quickNote").value = "";
+          $("#quickName").focus();
+        }
+
+        function submitQuick(destination) {
+          const code = nextCode();
+          const name = $("#quickName").value.trim();
+          const price = Number($("#quickPrice").value);
+          const quantity = Number($("#quickQuantity").value);
+          const unit = $("#quickUnit").selectedOptions[0].textContent;
+          const errors = [];
+          if (code === "ครบชุด") errors.push("ชุดรหัสนี้ถูกใช้ครบแล้ว");
+          if (!name) errors.push("กรุณากรอกชื่อสินค้า");
+          if (!Number.isFinite(price) || price < 0) errors.push("ราคาขายไม่ถูกต้อง");
+          if (!Number.isInteger(quantity) || quantity < 0) errors.push("จำนวนต้องเป็นจำนวนเต็มตั้งแต่ 0 ขึ้นไป");
+          if (errors.length) {
+            $("#quickAlertText").textContent = errors.join(" · ");
+            $("#quickAlert").classList.add("visible");
+            return;
+          }
+          $("#quickAlert").classList.remove("visible");
+          state.items.push({ code, name: name.slice(0, 120), price, quantity, unit, time: new Intl.DateTimeFormat("th-TH", { hour: "2-digit", minute: "2-digit" }).format(new Date()), status: "used" });
+          updateMetrics();
+          renderPool();
+          renderRecent();
+          showToast(`บันทึก ${code} ใน Prototype แล้ว · รหัสถัดไป ${nextCode()}`);
+          if (destination === "next") resetQuickForm();
+          if (destination === "products") {
+            showToast(`บันทึก ${code} แล้ว · กำลังกลับ Products`);
+            setTimeout(() => { window.location.href = "phase-2.1-products-workspace-ui.html"; }, 500);
+          }
+        }
+
+        function updateRangePreview() {
+          const prefix = $("#prefixInput").value.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "").slice(0, 8) || "B";
+          const start = Math.max(0, Math.min(999999, Number($("#startInput").value) || 0));
+          const count = Math.max(1, Math.min(500, Number($("#countInput").value) || 1));
+          const digits = Number($("#digitsInput").value);
+          const format = (number) => `${prefix}${String(number).padStart(digits, "0")}`;
+          $("#rangePreview").textContent = `${format(start)}–${format(start + count - 1)}`;
+          $("#rangePolicy").textContent = `${count} รหัส · รหัสถัดไปหลังจบชุดคือ ${format(start + count)}`;
+          $("#confirmReserve").textContent = `ทดลองจอง ${count} รหัส`;
+        }
+
+        function openModal() {
+          $("#reserveModal").hidden = false;
+          document.body.classList.add("modal-open");
+          $("#batchName").focus();
+        }
+        function closeModal() {
+          $("#reserveModal").hidden = true;
+          document.body.classList.remove("modal-open");
+          $("#openReserveModal").focus();
+        }
+
+        function openEditBatchModal() {
+          $("#editBatchName").value = $("#activeBatchTitle").textContent.trim();
+          $("#editAssignee").value = $("#batchAssignee").textContent.trim();
+          $("#editBranch").value = $("#batchBranch").textContent.trim();
+          $("#lockedRangeText").textContent = $("#batchRange").textContent.trim();
+          $("#editBatchModal").hidden = false;
+          document.body.classList.add("modal-open");
+          $("#editBatchName").focus();
+        }
+
+        function closeEditBatchModal() {
+          $("#editBatchModal").hidden = true;
+          document.body.classList.remove("modal-open");
+          $("#editBatchButton").focus();
+        }
+
+        $("#quickCreateForm").addEventListener("submit", (event) => { event.preventDefault(); submitQuick("next"); });
+        $("#saveAndClose").addEventListener("click", () => submitQuick("products"));
+        $("#poolSearch").addEventListener("input", renderPool);
+        $("#statusFilter").addEventListener("change", renderPool);
+        $("#openReserveModal").addEventListener("click", openModal);
+        $("#closeReserveModal").addEventListener("click", closeModal);
+        $("#cancelReserve").addEventListener("click", closeModal);
+        $("#reserveModal").addEventListener("click", (event) => { if (event.target === $("#reserveModal")) closeModal(); });
+        $("#editBatchButton").addEventListener("click", openEditBatchModal);
+        $("#closeEditBatchModal").addEventListener("click", closeEditBatchModal);
+        $("#cancelEditBatch").addEventListener("click", closeEditBatchModal);
+        $("#editBatchModal").addEventListener("click", (event) => { if (event.target === $("#editBatchModal")) closeEditBatchModal(); });
+        $("#saveBatchDetails").addEventListener("click", () => {
+          const name = $("#editBatchName").value.trim().slice(0, 100);
+          if (!name) { showToast("กรุณากรอกชื่อชุดรหัส"); $("#editBatchName").focus(); return; }
+          $("#activeBatchTitle").textContent = name;
+          $("#batchAssignee").textContent = $("#editAssignee").value.trim().slice(0, 100) || "ยังไม่ระบุ";
+          $("#batchBranch").textContent = $("#editBranch").value;
+          const dateValue = $("#editLiveDate").value;
+          $("#batchLiveDate").textContent = dateValue ? new Intl.DateTimeFormat("th-TH", { day: "numeric", month: "short", year: "numeric" }).format(new Date(`${dateValue}T00:00:00`)) : "ยังไม่ระบุ";
+          closeEditBatchModal();
+          showToast("บันทึกรายละเอียดชุดรหัสใน Prototype แล้ว");
+        });
+        ["#prefixInput", "#startInput", "#countInput", "#digitsInput"].forEach((selector) => $(selector).addEventListener("input", updateRangePreview));
+        $("#confirmReserve").addEventListener("click", () => {
+          const prefix = $("#prefixInput").value.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "").slice(0, 8) || "B";
+          state.prefix = prefix;
+          state.start = Math.max(0, Math.min(999999, Number($("#startInput").value) || 0));
+          state.count = Math.max(1, Math.min(500, Number($("#countInput").value) || 1));
+          state.digits = Number($("#digitsInput").value);
+          state.items = [];
+          state.skipped.clear();
+          $("#activeBatchTitle").textContent = $("#batchName").value.trim().slice(0, 100) || "ชุดรหัสใหม่";
+          $("#batchRange").textContent = `${codeFor(state.start)}–${codeFor(state.start + state.count - 1)}`;
+          updateMetrics();
+          renderPool();
+          renderRecent();
+          closeModal();
+          showToast(`ทดลองจอง ${state.count} รหัสแล้ว · เริ่มที่ ${nextCode()}`);
+        });
+        document.addEventListener("keydown", (event) => {
+          if (event.key !== "Escape") return;
+          if (!$("#editBatchModal").hidden) closeEditBatchModal();
+          else if (!$("#reserveModal").hidden) closeModal();
+        });
+
+        updateRangePreview();
+        updateMetrics();
+        renderPool();
+        renderRecent();
+      })();
+    </script>
+  </body>
+</html>

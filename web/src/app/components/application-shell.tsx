@@ -15,6 +15,7 @@ type ApplicationShellProps = {
   roleLabel?: string
   organizationId?: string
   organizationName?: string
+  headerBreadcrumb?: ReactNode
 }
 
 const platformOverviewLink = {
@@ -41,7 +42,7 @@ const platformNavigationGroups = [
   ] },
 ]
 
-function Icon({ name }: { name: 'home' | 'workspace' | 'shield' | 'menu' | 'close' | 'user' | 'chevron' | 'devices' }) {
+function Icon({ name }: { name: 'home' | 'workspace' | 'shield' | 'menu' | 'close' | 'user' | 'chevron' | 'devices' | 'bell' }) {
   if (name === 'menu') {
     return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
   }
@@ -59,6 +60,9 @@ function Icon({ name }: { name: 'home' | 'workspace' | 'shield' | 'menu' | 'clos
   }
   if (name === 'devices') {
     return <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="13" height="10" rx="2" /><path d="M7 19h5m-2-4v4" /><rect x="17" y="8" width="4" height="9" rx="1" /></svg>
+  }
+  if (name === 'bell') {
+    return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg>
   }
   if (name === 'workspace') {
     return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h6v6H4zM14 5h6v6h-6zM4 15h6v5H4zM14 15h6v5h-6z" /></svg>
@@ -86,9 +90,9 @@ function navigationGroupForPath(pathname: string) {
   return platformNavigationGroups.find((group) => group.links.some((item) => item.href === activeHref))?.key
 }
 
-export function ApplicationShell({ email, isPlatformAdmin, section, children, displayName, roleLabel, organizationId, organizationName }: ApplicationShellProps) {
+export function ApplicationShell({ email, isPlatformAdmin, section, children, displayName, roleLabel, organizationId, organizationName, headerBreadcrumb }: ApplicationShellProps) {
   const pathname = usePathname()
-  const [isContextCollapsed, setIsContextCollapsed] = useState(false)
+  const [isContextCollapsed, setIsContextCollapsed] = useState(true)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [isCompactLayout, setIsCompactLayout] = useState(false)
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false)
@@ -100,18 +104,18 @@ export function ApplicationShell({ email, isPlatformAdmin, section, children, di
   const accountTriggerRef = useRef<HTMLButtonElement>(null)
   const isAccountPage = pathname.startsWith('/account/security/sessions')
   const workspaceLinks = [
-    { href: '/dashboard', label: 'ภาพรวม Workspace' },
+    { href: '/dashboard', label: 'ภาพรวมพื้นที่ทำงาน' },
     ...(organizationId ? [
       { href: `/organizations/${organizationId}`, label: organizationName || 'ตั้งค่า Organization' },
-      { href: `/organizations/${organizationId}/products`, label: 'Product & SKU' },
-      { href: `/organizations/${organizationId}/inventory`, label: 'Warehouse & Stock' },
+      { href: `/organizations/${organizationId}/products`, label: 'สินค้าและ SKU' },
+      { href: `/organizations/${organizationId}/inventory`, label: 'คลังสินค้าและสต็อก' },
     ] : []),
   ]
   const currentWorkspaceHref = workspaceLinks
     .filter((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))
     .sort((left, right) => right.href.length - left.href.length)[0]?.href
   const accountName = displayName?.trim() || email.split('@')[0] || 'บัญชีของฉัน'
-  const accountRole = roleLabel?.trim() || (isPlatformAdmin ? 'Platform Admin' : 'สมาชิก Workspace')
+  const accountRole = roleLabel?.trim() || (isPlatformAdmin ? 'ผู้ดูแลแพลตฟอร์ม' : 'สมาชิกพื้นที่ทำงาน')
   const avatarLabel = Array.from(accountName)[0]?.toUpperCase() || 'A'
 
   useEffect(() => {
@@ -204,8 +208,8 @@ export function ApplicationShell({ email, isPlatformAdmin, section, children, di
           <Icon name="menu" />
         </button>
         <nav className="app-rail-nav">
-          <Link className={`app-rail-link ${section === 'workspace' ? 'active' : ''}`} href="/dashboard" aria-label="Workspace" aria-current={section === 'workspace' && !isAccountPage ? 'page' : undefined}><Icon name="home" /></Link>
-          {isPlatformAdmin && <Link className={`app-rail-link ${section === 'platform' ? 'active' : ''}`} href="/platform-admin" aria-label="Platform Admin" aria-current={section === 'platform' && !isAccountPage ? 'page' : undefined}><Icon name="shield" /></Link>}
+          <Link className={`app-rail-link ${section === 'workspace' ? 'active' : ''}`} href="/dashboard" aria-label="พื้นที่ทำงาน" aria-current={section === 'workspace' && !isAccountPage ? 'page' : undefined}><Icon name="home" /></Link>
+          {isPlatformAdmin && <Link className={`app-rail-link ${section === 'platform' ? 'active' : ''}`} href="/platform-admin" aria-label="ผู้ดูแลแพลตฟอร์ม" aria-current={section === 'platform' && !isAccountPage ? 'page' : undefined}><Icon name="shield" /></Link>}
         </nav>
         <Link className={`app-rail-account ${isAccountPage ? 'active' : ''}`} href="/account/security/sessions" aria-label="บัญชีของฉัน" aria-current={isAccountPage ? 'page' : undefined}>{avatarLabel}</Link>
       </aside>
@@ -215,7 +219,7 @@ export function ApplicationShell({ email, isPlatformAdmin, section, children, di
           <Link className="app-context-brand" href="/dashboard">AVENZAONE</Link>
           <button className="app-context-close" type="button" aria-label="ปิดเมนู" onClick={() => setIsDrawerOpen(false)}><Icon name="close" /></button>
         </div>
-        <div className="app-context-title">{section === 'platform' ? 'Platform Admin' : 'Workspace'}</div>
+        <div className="app-context-title">{section === 'platform' ? 'ผู้ดูแลแพลตฟอร์ม' : 'พื้นที่ทำงาน'}</div>
         <nav className="app-context-nav">
           {section === 'platform'
             ? <>
@@ -273,9 +277,13 @@ export function ApplicationShell({ email, isPlatformAdmin, section, children, di
             >
               <Icon name="menu" />
             </button>
-            <div className="app-header-title"><Icon name={section === 'platform' ? 'shield' : 'workspace'} /><span>{section === 'platform' ? 'Platform Admin' : 'Workspace'}</span></div>
+            {headerBreadcrumb ?? <div className="app-header-title"><Icon name={section === 'platform' ? 'shield' : 'workspace'} /><span>{section === 'platform' ? 'ผู้ดูแลแพลตฟอร์ม' : 'พื้นที่ทำงาน'}</span></div>}
           </div>
           <div className="app-header-actions">
+            <button className="app-notification-button" type="button" aria-label="การแจ้งเตือน" title="การแจ้งเตือน (กำลังพัฒนา)">
+              <Icon name="bell" />
+              <span className="app-notification-dot" aria-hidden="true" />
+            </button>
             <div className="app-account-menu" ref={accountMenuRef}>
               <button
                 ref={accountTriggerRef}

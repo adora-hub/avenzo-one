@@ -38,6 +38,6 @@ test('stock UX includes filters, immutable ledger, negative-stock feedback and r
 })
 
 test('Warehouse and Stock workspace is reachable from organization navigation', () => {
-  assert.match(shell, /\/inventory`.*, label: 'Warehouse & Stock'/)
+  assert.match(shell, /\/inventory`.*, label: 'คลังสินค้าและสต็อก'/)
   assert.match(page, /inventory\.read, warehouse\.read และ product\.read/)
 })

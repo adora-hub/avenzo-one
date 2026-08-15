@@ -45,8 +45,9 @@ test('all Product/SKU mutations use the authorized Foundation Server Action', as
 })
 
 test('slice includes responsive and non-happy-path UI contracts', async () => {
-  const [workspace, loading, error, css, shell] = await Promise.all([
+  const [workspace, detail, loading, error, css, shell] = await Promise.all([
     read('../src/app/organizations/[id]/products/product-sku-workspace.tsx'),
+    read('../src/app/organizations/[id]/products/product-detail-sheet.tsx'),
     read('../src/app/organizations/[id]/products/loading.tsx'),
     read('../src/app/organizations/[id]/products/error.tsx'),
     read('../src/app/globals.css'),
@@ -55,11 +56,13 @@ test('slice includes responsive and non-happy-path UI contracts', async () => {
 
   assert.match(workspace, /OperationsEmptyState/)
   assert.match(workspace, /product-mobile-list/)
-  assert.match(workspace, /OperationsDetailSheet/)
+  assert.match(workspace, /ProductDetailSheet/)
+  assert.match(detail, /OperationsDetailSheet/)
   assert.match(workspace, /role="dialog" aria-modal="true"/)
   assert.match(loading, /aria-busy="true"/)
   assert.match(error, /role="alert"/)
   assert.match(css, /@media \(max-width: 760px\)[\s\S]*\.product-table-wrap \{ display: none; \}/)
   assert.match(css, /\.product-mobile-list \{ display: grid; \}/)
-  assert.match(shell, /Product & SKU/)
+  assert.match(shell, /สินค้าและ SKU/)
+  assert.match(shell, /useState\(true\)/)
 })

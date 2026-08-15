@@ -7,7 +7,10 @@ export const foundationErrorCodes = [
   'entity_not_found',
   'entity_inactive',
   'duplicate_sku_code',
+  'duplicate_sales_code',
   'duplicate_barcode',
+  'duplicate_product_master',
+  'duplicate_sell_unit',
   'duplicate_warehouse_code',
   'duplicate_location_code',
   'unit_mismatch',
@@ -16,6 +19,7 @@ export const foundationErrorCodes = [
   'command_in_progress',
   'version_conflict',
   'invalid_state_transition',
+  'immutable_identifier',
   'foundation_command_failed',
 ] as const
 
@@ -44,6 +48,8 @@ const knownDatabaseMessages: Array<[string, FoundationErrorCode, number]> = [
   ['version_conflict', 'version_conflict', 409],
   ['invalid_product_status_transition', 'invalid_state_transition', 409],
   ['invalid_sku_status_transition', 'invalid_state_transition', 409],
+  ['sku_sales_code_is_permanent', 'immutable_identifier', 409],
+  ['sku_base_unit_is_immutable', 'immutable_identifier', 409],
   ['archived_product_is_immutable', 'invalid_state_transition', 409],
   ['archived_sku_is_immutable', 'invalid_state_transition', 409],
   ['archived_warehouse_is_immutable', 'invalid_state_transition', 409],
@@ -64,8 +70,20 @@ export function mapFoundationError(error: unknown, commandId?: string) {
     if (message.includes('skus_organization_sku_code_unique')) {
       return new FoundationError('duplicate_sku_code', 409, commandId)
     }
+    if (message.includes('skus_organization_sales_code_unique')) {
+      return new FoundationError('duplicate_sales_code', 409, commandId)
+    }
     if (message.includes('skus_organization_barcode_unique')) {
       return new FoundationError('duplicate_barcode', 409, commandId)
+    }
+    if (message.includes('product_categories_org_name_unique')
+      || message.includes('product_brands_org_name_unique')
+      || message.includes('product_tags_org_name_unique')) {
+      return new FoundationError('duplicate_product_master', 409, commandId)
+    }
+    if (message.includes('sku_sell_units_org_sku_code_unique')
+      || message.includes('sku_sell_units_org_barcode_unique')) {
+      return new FoundationError('duplicate_sell_unit', 409, commandId)
     }
     if (message.includes('warehouses_organization_code_unique')) {
       return new FoundationError('duplicate_warehouse_code', 409, commandId)
@@ -90,4 +108,3 @@ export function mapFoundationError(error: unknown, commandId?: string) {
 export type FoundationActionResult<T> =
   | { ok: true; data: T; commandId: string }
   | { ok: false; error: FoundationErrorCode; status: number; commandId?: string }
-
