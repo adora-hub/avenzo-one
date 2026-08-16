@@ -32,7 +32,7 @@ test('R7.4.3 renders price from the read-model summary without fake defaults', (
 
 test('R7.4.3 keeps approved stock and status semantics beside price', () => {
   assert.match(grid, /row\.stock\.mode === 'mixed-units'/)
-  assert.match(grid, /Available \{row\.stock\.available\}/)
+  assert.match(grid, /Available \$\{row\.stock\.available\}/)
   assert.match(grid, /className={`product-grid-status-select-shell \$\{row\.status\}`}/)
   assert.match(css, /\.product-grid-table th \{[\s\S]*?background: #0b0d10; color: #fff;/)
 })
@@ -42,4 +42,13 @@ test('R7.4.3 retains width persistence and keyboard resizing after adding price'
   assert.match(grid, /data-column-resizer=\{column\.key\}/)
   assert.match(grid, /event\.key === 'ArrowRight'/)
   assert.match(grid, /aria-valuenow=\{column\.width\}/)
+})
+
+test('product rows keep primary and secondary values on shared vertical tiers', () => {
+  assert.match(grid, /const stack = \(primary: ReactNode, secondary\?: ReactNode\)/)
+  assert.match(grid, /className="product-grid-cell-primary"/)
+  assert.match(grid, /className="product-grid-cell-secondary"/)
+  assert.match(css, /\.product-grid-cell-stack \{[^}]*height: 44px[^}]*grid-template-rows: 30px 14px/)
+  assert.match(css, /\.product-grid-cell-primary \{[^}]*align-items: center/)
+  assert.match(css, /\.product-grid-cell-secondary \{[^}]*line-height: 14px/)
 })
