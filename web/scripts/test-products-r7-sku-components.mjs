@@ -17,8 +17,8 @@ test('R7.2.3C renders the approved SKU heading and name assistant composition', 
 
 test('R7.2.3C adds the approved identifier information guides and modes', async () => {
   const form = await read(formPath)
-  for (const label of ['ชื่อรุ่นหรือตัวเลือกสินค้า', 'SKU Code', 'Sales Code', 'Barcode', 'Base Unit']) {
-    assert.match(form, new RegExp(`ProductInfoGuide label="${label}"`))
+  for (const label of ['ชื่อรุ่น / ตัวเลือกสินค้า', 'รหัสสินค้า (SKU)', 'รหัสขาย / รหัส CF ประจำสินค้า', 'Barcode / รหัสสแกน', 'หน่วยนับสต๊อก (Base Unit)']) {
+    assert.ok(form.includes(`ProductInfoGuide label="${label}"`))
   }
   for (const mode of ['manual', 'same-sku', 'sequence', 'manufacturer', 'internal-sku', 'internal-sales', 'none']) {
     assert.match(form, new RegExp(`value="${mode}"`))
@@ -46,8 +46,10 @@ test('R7.2.3C renders identifier advisory, Base Unit policy and truthful Draft s
   assert.match(form, /product-base-unit-policy/)
   assert.match(form, /value="set">set — ชุด/)
   assert.match(form, /value="case">case — ลัง/)
-  assert.match(form, /name="initialStatus" defaultValue="draft" disabled/)
-  assert.match(form, /Atomic Creation เริ่มเป็นฉบับร่างเสมอ/)
+  assert.match(form, /product-initial-status-summary/)
+  assert.match(form, /สถานะหลังสร้าง/)
+  assert.match(form, /ฉบับร่าง/)
+  assert.doesNotMatch(form, /name="initialStatus"/)
 })
 
 test('R7.2.3C renders the SKU staging surface while preserving the initial-SKU command boundary', async () => {

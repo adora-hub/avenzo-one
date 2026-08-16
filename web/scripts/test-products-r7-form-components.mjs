@@ -58,8 +58,10 @@ test('R7.2.3A uses edit-icon master controls and the approved select treatment',
 })
 
 test('R7.2.3A renders quantity guidance and examples from the approved mockup', async () => {
-  const form = await read(formPath)
+  const [form, styles] = await Promise.all([read(formPath), read('../src/app/globals.css')])
   assert.match(form, /product-quantity-examples/)
+  assert.match(styles, /\.product-field-heading-line \{[^}]*min-height: 31px/)
+  assert.match(styles, /\.product-base-unit-field > \.product-label-with-info \{ min-height: 31px; \}/)
   assert.match(form, /ต่างหู 1 คู่, เสื้อ 2 ชิ้น, สินค้า 3 แพ็ค/)
   assert.match(form, /ข้าวสาร 0\.50 kg/)
   assert.match(form, /น้ำหอม 1\.25 litre/)
@@ -85,4 +87,9 @@ test('R7.2.3A keeps the approved connected button group and mobile stacking', as
   assert.match(styles, /\.product-segmented-control \{[^}]*gap: 0/)
   assert.match(styles, /\.product-segmented-control label \+ label \{ margin-left: -1px; \}/)
   assert.match(styles, /\.product-segmented-control label \+ label \{ margin-top: -1px; margin-left: 0; \}/)
+})
+
+test('product and SKU names use the same readable input typography', async () => {
+  const styles = await read('../src/app/globals.css')
+  assert.match(styles, /\.product-form-grid #productName, \.product-form-grid #skuName \{ font-size: 16px; font-weight: 500; \}/)
 })

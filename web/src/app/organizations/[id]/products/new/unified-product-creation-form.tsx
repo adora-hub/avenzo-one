@@ -57,6 +57,9 @@ type SelectedImage = { id: string; file: File; previewUrl: string; stage: Upload
 type PendingDraft = { productId: string; skuId: string; productName: string; savedAt: string }
 type CreationSuccess = { productId: string; productName: string; skuCount: number }
 type Feedback = { tone: 'info' | 'success' | 'danger'; text: string }
+type IdentifierStatusKey = 'skuCode' | 'salesCode' | 'barcode'
+type IdentifierStatusMap = Record<IdentifierStatusKey, Feedback>
+type IdentifierCollision = { field: 'sku_code' | 'sales_code' | 'barcode'; value: string }
 type ValidationSectionId = 'general' | 'images' | 'sku' | 'pricing' | 'physical' | 'packaging' | 'inventory' | 'metadata'
 type ValidationIssue = {
   id: string
@@ -69,6 +72,8 @@ type ProductSummaryFields = {
   name: string
   skuName: string
   skuCode: string
+  salesCode: string
+  barcode: string
   salePrice: string
   baseUnitCode: string
   productWeightKg: string
@@ -83,6 +88,8 @@ const DRAFT_MAX_BYTES = 256 * 1024
 const PENDING_DRAFT_MAX_AGE_MS = 24 * 60 * 60 * 1000
 const SKU_DRAFT_MAX_ITEMS = 100
 const IDENTIFIER_CODE_PATTERN = /^[A-Z0-9][A-Z0-9._-]*$/
+const IDENTIFIER_AUTO_CHECK_DEBOUNCE_MS = 650
+const IDENTIFIER_AUTO_CHECK_MIN_INTERVAL_MS = 900
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const FORBIDDEN_CONTROL_CHARACTERS = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/
 const BASE_UNIT_CODES = new Set(['piece', 'pair', 'pack', 'box', 'set', 'case', 'kg', 'g', 'litre', 'ml'])
@@ -154,6 +161,20 @@ function generateCode(name: string, prefix: string) {
   return `${prefix}-${latin || crypto.randomUUID().slice(0, 6).toUpperCase()}-001`
 }
 
+function generatedCodeCandidate(baseCode: string, offset: number) {
+  const match = baseCode.match(/^(.*?)-(\d+)$/)
+  if (!match) return `${baseCode}-${String(offset + 1).padStart(3, '0')}`
+  const digits = Math.max(3, match[2].length)
+  return `${match[1]}-${String(Number(match[2]) + offset).padStart(digits, '0')}`
+}
+
+function nextIdentifierCode(value: string) {
+  const normalized = value.trim().toUpperCase()
+  const match = normalized.match(/^(.*?)(\d+)$/)
+  if (!match) return `${normalized}-002`
+  return `${match[1]}${String(Number(match[2]) + 1).padStart(match[2].length, '0')}`
+}
+
 function formatSalesSequence(prefix: string, start: number, digits: number, offset = 0) {
   const safePrefix = prefix.toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 10) || 'A'
   const safeStart = Math.max(0, Math.trunc(start || 0))
@@ -167,6 +188,8 @@ function readProductSummaryFields(form: HTMLFormElement): ProductSummaryFields {
     name: formString(data, 'name'),
     skuName: formString(data, 'skuName'),
     skuCode: formString(data, 'skuCode').toUpperCase(),
+    salesCode: formString(data, 'salesCode').toUpperCase(),
+    barcode: formString(data, 'barcode'),
     salePrice: formString(data, 'salePrice'),
     baseUnitCode: formString(data, 'baseUnitCode'),
     productWeightKg: formString(data, 'productWeightKg'),
@@ -829,6 +852,9 @@ export function UnifiedProductCreationForm({
   const successReturnFocusRef = useRef<HTMLElement | null>(null)
   const imageUrlsRef = useRef<string[]>([])
   const identifierCheckRequestRef = useRef(0)
+  const identifierAutoCheckTimerRef = useRef<number | null>(null)
+  const identifierAutoCheckLastSignatureRef = useRef('')
+  const identifierAutoCheckLastStartedAtRef = useRef(0)
   const skuDraftCheckRequestRef = useRef(0)
   const [isPending, startTransition] = useTransition()
   const [isIdentifierChecking, startIdentifierCheck] = useTransition()
@@ -844,8 +870,12 @@ export function UnifiedProductCreationForm({
   const [images, setImages] = useState<SelectedImage[]>([])
   const [imageFeedback, setImageFeedback] = useState<Feedback | null>(null)
   const [feedback, setFeedback] = useState<Feedback | null>(null)
+  const [draftSaveNotice, setDraftSaveNotice] = useState('')
+  const [draftSaveSeconds, setDraftSaveSeconds] = useState(0)
+  const [draftSaveRevision, setDraftSaveRevision] = useState(0)
   const [validationIssues, setValidationIssues] = useState<ValidationIssue[]>([])
   const [validationAttempted, setValidationAttempted] = useState(false)
+  const [validationNoticeVisible, setValidationNoticeVisible] = useState(false)
   const [pendingDraft, setPendingDraft] = useState<PendingDraft | null>(null)
   const [completedProductId, setCompletedProductId] = useState('')
   const [creationSuccess, setCreationSuccess] = useState<CreationSuccess | null>(null)
@@ -872,13 +902,26 @@ export function UnifiedProductCreationForm({
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>(() => branches.map((branch) => branch.id))
   const [inventoryFeedback, setInventoryFeedback] = useState<string[]>([])
   const [identifierFeedback, setIdentifierFeedback] = useState<Feedback>({ tone: 'info', text: 'ยังไม่ได้ตรวจ SKU Code, Sales Code และ Barcode' })
+  const [identifierStatuses, setIdentifierStatuses] = useState<IdentifierStatusMap>({
+    skuCode: { tone: 'info', text: 'ยังไม่ได้กรอกรหัสสินค้า' },
+    salesCode: { tone: 'info', text: 'ยังไม่ได้กรอกรหัสขาย / รหัส CF' },
+    barcode: { tone: 'info', text: 'ยังไม่ได้กำหนด Barcode' },
+  })
+  const [identifierSuggestions, setIdentifierSuggestions] = useState<Partial<Record<IdentifierStatusKey, string>>>({})
+  const [draftHydrated, setDraftHydrated] = useState(false)
   const [summaryFields, setSummaryFields] = useState<ProductSummaryFields>({
-    name: '', skuName: '', skuCode: '', salePrice: '', baseUnitCode: 'piece',
+    name: '', skuName: '', skuCode: '', salesCode: '', barcode: '', salePrice: '', baseUnitCode: 'piece',
     productWeightKg: '', productLengthCm: '', productWidthCm: '', productHeightCm: '', sellUnitName: '',
   })
 
   const localDraftKey = `avenzo:product-create:v${DRAFT_SCHEMA_VERSION}:${organizationId}`
   const pendingDraftKey = `${localDraftKey}:pending`
+
+  useEffect(() => {
+    if (!validationNoticeVisible) return
+    const timeoutId = window.setTimeout(() => setValidationNoticeVisible(false), 6000)
+    return () => window.clearTimeout(timeoutId)
+  }, [validationNoticeVisible, validationIssues])
 
   useEffect(() => {
     const form = formRef.current
@@ -925,10 +968,38 @@ export function UnifiedProductCreationForm({
     } catch {
       window.localStorage.removeItem(localDraftKey)
       window.localStorage.removeItem(pendingDraftKey)
+    } finally {
+      setDraftHydrated(true)
     }
   }, [localDraftKey, pendingDraftKey])
 
+  useEffect(() => {
+    if (!draftHydrated) return
+    saveBrowserDraft(false)
+  }, [
+    barcodeMode, brandId, bundleComponents, bundleStockMode, categoryId, draftHydrated,
+    packagingEnabled, salesCodeMode, salesSequenceDigits, salesSequenceOffset,
+    salesSequencePrefix, salesSequenceStart, selectedBranchIds, sellUnits, skuDrafts,
+    structure, summaryFields, tagIds, taxCategory, useProductNameForSku,
+    variantOptionOne, variantOptionTwo,
+  ])
+
+  useEffect(() => {
+    if (!draftSaveNotice) return
+    setDraftSaveSeconds(10)
+    const intervalId = window.setInterval(() => setDraftSaveSeconds((current) => Math.max(0, current - 1)), 1000)
+    const timeoutId = window.setTimeout(() => {
+      setDraftSaveNotice('')
+      setDraftSaveSeconds(0)
+    }, 10000)
+    return () => {
+      window.clearInterval(intervalId)
+      window.clearTimeout(timeoutId)
+    }
+  }, [draftSaveNotice, draftSaveRevision])
+
   useEffect(() => () => {
+    if (identifierAutoCheckTimerRef.current !== null) window.clearTimeout(identifierAutoCheckTimerRef.current)
     for (const url of imageUrlsRef.current) URL.revokeObjectURL(url)
   }, [])
 
@@ -936,7 +1007,7 @@ export function UnifiedProductCreationForm({
     if (!creationSuccess) return
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
-    requestAnimationFrame(() => successDialogRef.current?.querySelector<HTMLElement>('a, button')?.focus())
+    requestAnimationFrame(() => successDialogRef.current?.querySelector<HTMLElement>('.product-primary-action, a, button')?.focus())
     return () => {
       document.body.style.overflow = previousOverflow
       requestAnimationFrame(() => successReturnFocusRef.current?.focus())
@@ -967,7 +1038,12 @@ export function UnifiedProductCreationForm({
       return
     }
     window.localStorage.setItem(localDraftKey, serializedDraft)
-    if (message) setFeedback({ tone: 'success', text: 'บันทึกร่างไว้ในเบราว์เซอร์เครื่องนี้แล้ว (ยังไม่สร้างข้อมูลในระบบ)' })
+    if (message) {
+      const notice = 'บันทึกข้อมูลชั่วคราวในเครื่องนี้แล้ว · รูปภาพจะไม่ถูกเก็บและต้องเลือกใหม่หลัง F5'
+      setFeedback(null)
+      setDraftSaveNotice(notice)
+      setDraftSaveRevision((current) => current + 1)
+    }
   }
 
   function setFormFieldValue(name: string, value: string) {
@@ -988,9 +1064,122 @@ export function UnifiedProductCreationForm({
     }
   }
 
+  function identifierStatusForValue(value: string, emptyText: string, activeText: string, tone: Feedback['tone'] = 'info'): Feedback {
+    return value ? { tone, text: activeText } : { tone: 'info', text: emptyText }
+  }
+
+  function markIdentifierStatusesPending(text = 'รอตรวจสอบรหัส') {
+    const values = currentIdentifierValues()
+    setIdentifierStatuses({
+      skuCode: identifierStatusForValue(values.skuCode, 'ยังไม่ได้กรอกรหัสสินค้า', text),
+      salesCode: identifierStatusForValue(values.salesCode, 'ไม่ได้ใช้รหัสขาย / รหัส CF', text),
+      barcode: identifierStatusForValue(values.barcode, 'ไม่ได้ใช้ Barcode', text),
+    })
+  }
+
+  function markIdentifierStatusesChecking(values = currentIdentifierValues()) {
+    setIdentifierStatuses({
+      skuCode: identifierStatusForValue(values.skuCode, 'ยังไม่ได้กรอกรหัสสินค้า', 'กำลังตรวจสอบ…'),
+      salesCode: identifierStatusForValue(values.salesCode, 'ไม่ได้ใช้รหัสขาย / รหัส CF', 'กำลังตรวจสอบ…'),
+      barcode: identifierStatusForValue(values.barcode, 'ไม่ได้ใช้ Barcode', 'กำลังตรวจสอบ…'),
+    })
+  }
+
+  function applyIdentifierStatuses(values: ReturnType<typeof currentIdentifierValues>, collisions: IdentifierCollision[]) {
+    const collisionFields = new Set(collisions.map((collision) => collision.field))
+    setIdentifierStatuses({
+      skuCode: values.skuCode
+        ? { tone: collisionFields.has('sku_code') ? 'danger' : 'success', text: collisionFields.has('sku_code') ? `รหัส ${values.skuCode} ถูกใช้แล้ว` : `รหัส ${values.skuCode} สามารถใช้ได้` }
+        : { tone: 'danger', text: 'กรุณากรอกรหัสสินค้า' },
+      salesCode: identifierStatusForValue(values.salesCode, 'ไม่ได้ใช้รหัสขาย / รหัส CF', collisionFields.has('sales_code') ? `รหัส ${values.salesCode} ถูกใช้แล้ว` : `รหัส ${values.salesCode} สามารถใช้ขายและรับ CF ได้`, collisionFields.has('sales_code') ? 'danger' : 'success'),
+      barcode: identifierStatusForValue(values.barcode, 'ไม่ได้ใช้ Barcode', collisionFields.has('barcode') ? `Barcode ${values.barcode} ถูกใช้แล้ว` : `Barcode ${values.barcode} สามารถใช้ได้`, collisionFields.has('barcode') ? 'danger' : 'success'),
+    })
+    const suggestions: Partial<Record<IdentifierStatusKey, string>> = {}
+    for (const collision of collisions) {
+      const suggestionKey: IdentifierStatusKey = collision.field === 'sku_code'
+        ? 'skuCode'
+        : collision.field === 'sales_code'
+          ? salesCodeMode === 'same-sku' ? 'skuCode' : 'salesCode'
+          : barcodeMode === 'internal-sku'
+            ? 'skuCode'
+            : barcodeMode === 'internal-sales'
+              ? salesCodeMode === 'same-sku' ? 'skuCode' : 'salesCode'
+              : 'barcode'
+      suggestions[suggestionKey] = nextIdentifierCode(values[suggestionKey])
+    }
+    setIdentifierSuggestions(suggestions)
+  }
+
+  function useIdentifierSuggestion(field: IdentifierStatusKey) {
+    const suggestion = identifierSuggestions[field]
+    if (!suggestion) return
+    if (field === 'skuCode') applySkuCodeValue(suggestion)
+    else {
+      setFormFieldValue(field, suggestion)
+      if (field === 'salesCode' && salesCodeMode === 'sequence') setSalesSequenceOffset((current) => current + 1)
+      if (field === 'salesCode' && barcodeMode === 'internal-sales') setFormFieldValue('barcode', suggestion)
+      markIdentifierCheckStale()
+    }
+    scheduleIdentifierAutoCheck(0)
+  }
+
+  function markIdentifierStatusesFailed(message: string) {
+    const values = currentIdentifierValues()
+    setIdentifierStatuses({
+      skuCode: identifierStatusForValue(values.skuCode, 'ยังไม่ได้กรอกรหัสสินค้า', message, 'danger'),
+      salesCode: identifierStatusForValue(values.salesCode, 'ไม่ได้ใช้รหัสขาย / รหัส CF', message, 'danger'),
+      barcode: identifierStatusForValue(values.barcode, 'ไม่ได้ใช้ Barcode', message, 'danger'),
+    })
+  }
+
+  function identifierSignature(values = currentIdentifierValues()) {
+    return `${values.skuCode}\u0000${values.salesCode}\u0000${values.barcode}`
+  }
+
+  function canAutoCheckIdentifiers(values = currentIdentifierValues()) {
+    return Boolean(values.skuCode)
+      && IDENTIFIER_CODE_PATTERN.test(values.skuCode)
+      && (!values.salesCode || IDENTIFIER_CODE_PATTERN.test(values.salesCode))
+      && values.skuCode.length <= 80
+      && values.salesCode.length <= 80
+      && values.barcode.length <= 128
+      && ![values.skuCode, values.salesCode, values.barcode].filter(Boolean).some((value) => /[\u0000-\u001f\u007f]/.test(value))
+  }
+
+  function scheduleIdentifierAutoCheck(delay = IDENTIFIER_AUTO_CHECK_DEBOUNCE_MS) {
+    if (!canManage) return
+    if (identifierAutoCheckTimerRef.current !== null) window.clearTimeout(identifierAutoCheckTimerRef.current)
+    const values = currentIdentifierValues()
+    const signature = identifierSignature(values)
+    if (!canAutoCheckIdentifiers(values) || signature === identifierAutoCheckLastSignatureRef.current) return
+    const elapsed = Date.now() - identifierAutoCheckLastStartedAtRef.current
+    const boundedDelay = Math.max(delay, IDENTIFIER_AUTO_CHECK_MIN_INTERVAL_MS - elapsed, 0)
+    identifierAutoCheckTimerRef.current = window.setTimeout(() => {
+      identifierAutoCheckTimerRef.current = null
+      const latest = currentIdentifierValues()
+      const latestSignature = identifierSignature(latest)
+      if (!canAutoCheckIdentifiers(latest) || latestSignature === identifierAutoCheckLastSignatureRef.current) return
+      identifierAutoCheckLastSignatureRef.current = latestSignature
+      identifierAutoCheckLastStartedAtRef.current = Date.now()
+      checkIdentifiers('auto')
+    }, boundedDelay)
+  }
+
   function markIdentifierCheckStale() {
     identifierCheckRequestRef.current += 1
     setIdentifierFeedback({ tone: 'info', text: 'ข้อมูลรหัสเปลี่ยนแล้ว กรุณาตรวจสอบอีกครั้งก่อนบันทึก' })
+    setIdentifierSuggestions({})
+    markIdentifierStatusesPending()
+    scheduleIdentifierAutoCheck()
+  }
+
+  function clearIdentifierValidationIssue() {
+    const skuCodeField = formRef.current?.elements.namedItem('skuCode')
+    if (skuCodeField instanceof HTMLElement) {
+      skuCodeField.removeAttribute('data-validation-invalid')
+      skuCodeField.removeAttribute('aria-invalid')
+    }
+    setValidationIssues((current) => current.filter((issue) => !(issue.sectionId === 'sku' && issue.label === 'ตรวจสอบรหัส')))
   }
 
   function syncProductNameToSku() {
@@ -1005,6 +1194,71 @@ export function UnifiedProductCreationForm({
     if (barcodeMode === 'internal-sku') setFormFieldValue('barcode', value)
     if (barcodeMode === 'internal-sales' && salesCodeMode === 'same-sku') setFormFieldValue('barcode', value)
     markIdentifierCheckStale()
+  }
+
+  function generateAndCheckIdentifierGroup() {
+    if (!canManage || isIdentifierChecking) return
+    const generatedBase = generateCode(summaryFields.name, 'SKU')
+    const current = currentIdentifierValues()
+    const requestId = identifierCheckRequestRef.current + 1
+    identifierCheckRequestRef.current = requestId
+    setIdentifierFeedback({ tone: 'info', text: 'กำลังสร้างและตรวจสอบรหัสสินค้าที่ใช้ได้…' })
+
+    startIdentifierCheck(async () => {
+      for (let offset = 0; offset < 25; offset += 1) {
+        const skuCode = generatedCodeCandidate(generatedBase, offset)
+        const salesCode = salesCodeMode === 'same-sku'
+          ? skuCode
+          : salesCodeMode === 'sequence'
+            ? formatSalesSequence(salesSequencePrefix, salesSequenceStart, salesSequenceDigits, salesSequenceOffset)
+            : current.salesCode
+        const barcode = barcodeMode === 'internal-sku'
+          ? skuCode
+          : barcodeMode === 'internal-sales'
+            ? salesCode
+            : current.barcode
+        markIdentifierStatusesChecking({ skuCode, salesCode, barcode })
+        const result = await checkProductIdentifiersAction({ organizationId, skuCode, salesCode, barcode })
+        if (identifierCheckRequestRef.current !== requestId) return
+
+        if (!result.ok) {
+          markIdentifierStatusesFailed('ตรวจสอบรหัสไม่สำเร็จ กรุณาลองอีกครั้ง')
+          setIdentifierFeedback({
+            tone: 'danger',
+            text: result.error === 'authentication_required'
+              ? 'Session หมดอายุ กรุณาเข้าสู่ระบบใหม่แล้วลองสร้างรหัสอีกครั้ง'
+              : result.error === 'permission_denied' || result.error === 'tenant_access_denied'
+                ? 'บัญชีนี้ไม่มีสิทธิ์ตรวจรหัสของ Organization'
+                : result.error === 'validation_failed'
+                  ? 'ระบบสร้างรหัสที่มีรูปแบบไม่ถูกต้อง กรุณากรอกรหัสเองหรือลองใหม่'
+                  : 'สร้างและตรวจสอบรหัสไม่สำเร็จ กรุณาลองใหม่อีกครั้ง',
+          })
+          return
+        }
+
+        const derivedFields = new Set(['sku_code'])
+        if (salesCodeMode === 'same-sku') derivedFields.add('sales_code')
+        if (barcodeMode === 'internal-sku' || (barcodeMode === 'internal-sales' && salesCodeMode === 'same-sku')) derivedFields.add('barcode')
+        const independentCollisions = result.data.collisions.filter((collision) => !derivedFields.has(collision.field))
+        if (independentCollisions.length) {
+          applyIdentifierStatuses({ skuCode, salesCode, barcode }, result.data.collisions)
+          const collisions = independentCollisions.map((collision) => `${identifierFieldLabels[collision.field]} ${collision.value}`).join(', ')
+          setIdentifierFeedback({ tone: 'danger', text: `รหัสสินค้าสร้างได้ แต่พบรหัสที่กรอกแยกไว้ซ้ำ: ${collisions} กรุณาแก้รหัสดังกล่าวแล้วลองอีกครั้ง` })
+          return
+        }
+        if (result.data.collisions.length) continue
+
+        setFormFieldValue('skuCode', skuCode)
+        if (salesCodeMode === 'same-sku' || salesCodeMode === 'sequence') setFormFieldValue('salesCode', salesCode)
+        if (barcodeMode === 'internal-sku' || barcodeMode === 'internal-sales') setFormFieldValue('barcode', barcode)
+        applyIdentifierStatuses({ skuCode, salesCode, barcode }, [])
+        clearIdentifierValidationIssue()
+        setIdentifierFeedback({ tone: 'success', text: `สร้างและตรวจสอบรหัสทั้งหมดแล้ว · SKU ${skuCode}${salesCode ? ` · รหัสขาย/CF ${salesCode}` : ''}${barcode ? ` · Barcode ${barcode}` : ''} · ระบบจะตรวจซ้ำตอนบันทึกจริง` })
+        return
+      }
+      markIdentifierStatusesFailed('ระบบยังหารหัสที่ว่างไม่ได้ กรุณากรอกรหัสเอง')
+      setIdentifierFeedback({ tone: 'danger', text: 'รหัสที่ระบบลองสร้าง 25 รายการถูกใช้แล้ว กรุณากรอกรหัสสินค้าเองแล้วกดตรวจสอบรหัส' })
+    })
   }
 
   function applySkuNameSuggestion() {
@@ -1038,17 +1292,26 @@ export function UnifiedProductCreationForm({
     markIdentifierCheckStale()
   }
 
-  function checkIdentifiers() {
+  function checkIdentifiers(source: 'manual' | 'auto' = 'manual') {
+    if (source === 'manual' && identifierAutoCheckTimerRef.current !== null) {
+      window.clearTimeout(identifierAutoCheckTimerRef.current)
+      identifierAutoCheckTimerRef.current = null
+    }
     const { skuCode, salesCode, barcode } = currentIdentifierValues()
     const invalid = [skuCode, salesCode, barcode].filter(Boolean).some((value) => /[\u0000-\u001f\u007f]/.test(value))
     if (!skuCode) {
+      setIdentifierStatuses((current) => ({ ...current, skuCode: { tone: 'danger', text: 'กรุณากรอกรหัสสินค้า' } }))
       setIdentifierFeedback({ tone: 'danger', text: 'กรุณากรอก SKU Code ก่อนตรวจสอบรหัส' })
     } else if (invalid || !IDENTIFIER_CODE_PATTERN.test(skuCode) || (salesCode && !IDENTIFIER_CODE_PATTERN.test(salesCode)) || skuCode.length > 80 || salesCode.length > 80 || barcode.length > 128) {
+      markIdentifierStatusesFailed('รูปแบบหรือความยาวรหัสไม่ถูกต้อง')
       setIdentifierFeedback({ tone: 'danger', text: 'พบรูปแบบหรือความยาวรหัสที่ไม่อนุญาต กรุณาแก้ไขก่อนบันทึก' })
     } else {
+      identifierAutoCheckLastSignatureRef.current = identifierSignature({ skuCode, salesCode, barcode })
+      identifierAutoCheckLastStartedAtRef.current = Date.now()
       const requestId = identifierCheckRequestRef.current + 1
       identifierCheckRequestRef.current = requestId
       setIdentifierFeedback({ tone: 'info', text: 'กำลังตรวจรหัสกับข้อมูลของ Organization…' })
+      markIdentifierStatusesChecking({ skuCode, salesCode, barcode })
       startIdentifierCheck(async () => {
         const result = await checkProductIdentifiersAction({ organizationId, skuCode, salesCode, barcode })
         if (identifierCheckRequestRef.current !== requestId) return
@@ -1058,6 +1321,7 @@ export function UnifiedProductCreationForm({
           return
         }
         if (!result.ok) {
+          markIdentifierStatusesFailed('ตรวจสอบรหัสไม่สำเร็จ กรุณาลองอีกครั้ง')
           setIdentifierFeedback({
             tone: 'danger',
             text: result.error === 'authentication_required'
@@ -1071,12 +1335,15 @@ export function UnifiedProductCreationForm({
           return
         }
         if (result.data.collisions.length) {
+          applyIdentifierStatuses({ skuCode, salesCode, barcode }, result.data.collisions)
           const collisions = result.data.collisions
             .map((collision) => `${identifierFieldLabels[collision.field]} ${collision.value}`)
             .join(', ')
           setIdentifierFeedback({ tone: 'danger', text: `พบรหัสที่ถูกใช้แล้ว: ${collisions}` })
           return
         }
+        applyIdentifierStatuses({ skuCode, salesCode, barcode }, [])
+        clearIdentifierValidationIssue()
         setIdentifierFeedback({ tone: 'success', text: `ไม่พบรหัสซ้ำใน Organization ${result.data.checked} ค่า · Server transaction จะตรวจซ้ำตอนบันทึกจริง` })
       })
     }
@@ -1595,6 +1862,7 @@ export function UnifiedProductCreationForm({
     if (physicalErrors.length > 0) setPhysicalTab('box')
     setValidationAttempted(true)
     setValidationIssues(issues)
+    setValidationNoticeVisible(true)
     setFeedback(null)
     setPhysicalFeedback(physicalErrors)
     setInventoryFeedback(inventoryPolicyValidationErrors(data))
@@ -1603,10 +1871,6 @@ export function UnifiedProductCreationForm({
         const target = validationTarget(issue)
         target?.setAttribute('data-validation-invalid', 'true')
         if (target?.matches('input, select, textarea')) target.setAttribute('aria-invalid', 'true')
-      }
-      if (issues.length) {
-        validationSummaryRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-        validationSummaryRef.current?.focus({ preventScroll: true })
       }
     })
     return issues.length === 0
@@ -1620,6 +1884,11 @@ export function UnifiedProductCreationForm({
 
   function closeSuccessDialog() {
     setCreationSuccess(null)
+  }
+
+  function createNextProduct() {
+    setCreationSuccess(null)
+    window.location.assign(`/organizations/${organizationId}/products/new`)
   }
 
   function handleSuccessDialogKeyDown(event: KeyboardEvent<HTMLElement>) {
@@ -1755,10 +2024,17 @@ export function UnifiedProductCreationForm({
   const salesSequenceCurrent = formatSalesSequence(salesSequencePrefix, salesSequenceStart, salesSequenceDigits, salesSequenceOffset)
   const salesSequenceNext = formatSalesSequence(salesSequencePrefix, salesSequenceStart, salesSequenceDigits, salesSequenceOffset + 1)
   const skuNameSuggestion = [summaryFields.name, variantOptionOne.trim(), variantOptionTwo.trim()].filter(Boolean).join(' · ') || '—'
+  const barcodeSourceHelp = barcodeMode === 'internal-sku'
+    ? `ระบบจะใช้ ${summaryFields.skuCode || 'รหัสสินค้า (SKU) ที่กรอก'} เป็น Barcode และตรวจสอบไม่ให้ซ้ำภายใน Organization`
+    : barcodeMode === 'internal-sales'
+      ? `ระบบจะใช้ ${summaryFields.salesCode || 'รหัสขาย / รหัส CF ที่กรอก'} เป็น Barcode และตรวจสอบไม่ให้ซ้ำภายใน Organization`
+      : barcodeMode === 'none'
+        ? 'SKU นี้ยังไม่มี Barcode สามารถกลับมากำหนดภายหลังได้'
+        : 'กรอก Barcode จากฉลากหรือบรรจุภัณฑ์ของผู้ผลิต ระบบจะตรวจสอบไม่ให้ซ้ำภายใน Organization'
 
   return <>
     <header className="product-creation-heading">
-      <div><div className="product-creation-eyebrow">Part 2.1.4A · Unified Product Creation</div><div className="product-heading-title-row"><h1>สร้างสินค้า</h1><span className="product-count-badge">ฉบับร่าง</span></div><p>สร้าง Product, รูปภาพ, SKU แรก และข้อมูลการขายจากหน้าเดียว</p></div>
+      <div><div className="product-heading-title-row"><h1>สร้างสินค้า</h1><span className="product-count-badge">ฉบับร่าง</span></div><p>สร้าง Product, รูปภาพ, SKU แรก และข้อมูลการขายจากหน้าเดียว</p></div>
       <div className="button-row">
         <Link className="button secondary" href={productsHref}>ยกเลิก</Link>
         <button className="button secondary" type="button" onClick={() => saveBrowserDraft()} disabled={isPending}>บันทึกร่าง</button>
@@ -1773,13 +2049,23 @@ export function UnifiedProductCreationForm({
       {validationIssues.length ? <ol>{validationIssues.map((issue) => <li key={issue.id}><button type="button" onClick={() => focusValidationIssue(issue)}><span>{issue.label}</span><small>{issue.message}</small><span aria-hidden="true">ไปแก้ →</span></button></li>)}</ol> : null}
       <div className="product-validation-authority-note">UI Validation ช่วยนำทางเท่านั้น · Server transaction เป็น Authority ขั้นสุดท้ายเสมอ</div>
     </div> : null}
+    {validationAttempted && validationNoticeVisible ? <div className={`product-validation-floating-notice ${validationIssues.length ? 'danger' : 'success'}`} role={validationIssues.length ? 'alert' : 'status'} aria-live="assertive">
+      <span className="product-validation-summary-icon" aria-hidden="true">{validationIssues.length ? '!' : '✓'}</span>
+      <div>
+        <strong>{validationIssues.length ? `ตรวจพบ ${validationIssues.length} จุดที่ต้องแก้` : 'ข้อมูลผ่านการตรวจเบื้องต้นแล้ว'}</strong>
+        <p>{validationIssues.length ? 'กดข้อความนี้เพื่อไปยังจุดแรกที่ต้องแก้' : 'ระบบกำลังตรวจสิทธิ์ ความถูกต้อง และรหัสซ้ำกับ Server อีกครั้ง'}</p>
+      </div>
+      {validationIssues.length ? <button className="product-validation-floating-action" type="button" onClick={() => focusValidationIssue(validationIssues[0])} aria-label="ไปยังจุดแรกที่ต้องแก้">ไปแก้ →</button> : null}
+      <button className="product-validation-floating-close" type="button" onClick={() => setValidationNoticeVisible(false)} aria-label="ปิดการแจ้งเตือน">×</button>
+    </div> : null}
     {!canManage ? <div className="product-feedback danger" role="alert">บัญชีนี้อ่านข้อมูลได้ แต่ไม่มีสิทธิ์ product.manage สำหรับสร้างสินค้า</div> : null}
     {requiredMasterMissing ? <div className="product-feedback danger product-master-state-alert" role="alert"><span><strong>ยังไม่พร้อมสร้างสินค้า</strong><small>ยังไม่มีหมวดหมู่สินค้า ต้องเพิ่มหมวดหมู่อย่างน้อย 1 รายการก่อนสร้างสินค้า</small></span><MasterDataManager organizationId={organizationId} kind="category" items={categories} canManage={canManage} triggerLabel="จัดการหมวดหมู่" onSaved={(options) => { setCategories(options); const firstActive = options.find((option) => option.status !== 'archived'); if (firstActive) setCategoryId(firstActive.id) }} /></div> : null}
     {pendingDraft ? <div className="product-recovery-banner" role="status" aria-live="polite"><div className="product-recovery-heading"><span aria-hidden="true">↻</span><div><strong>กู้คืนงานสร้างสินค้าที่อัปโหลดภาพไม่ครบ</strong><span>{pendingDraft.productName} · บันทึกข้อมูลหลักเมื่อ {new Intl.DateTimeFormat('th-TH', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(pendingDraft.savedAt))}</span></div></div><p>Product และ SKU แรกถูกสร้างเป็นฉบับร่างแล้ว ระบบจะใช้ Product ID เดิมและไม่สร้างซ้ำ กรุณาเลือกภาพใหม่แล้วกด “อัปโหลดต่อ”</p><div className="product-recovery-actions"><button className="button compact secondary" type="button" onClick={focusRecoveryImages}>เลือกภาพใหม่</button><Link className="button compact secondary" href={`${productsHref}?product=${pendingDraft.productId}`}>เปิด Product Draft</Link></div></div> : null}
     {feedback ? <div className={`product-feedback ${feedback.tone === 'danger' ? 'danger' : 'success'}`} role={feedback.tone === 'danger' ? 'alert' : 'status'}>{feedback.text}</div> : null}
+    {draftSaveNotice ? <div className="product-draft-save-toast" role="status" aria-live="polite"><span aria-hidden="true">✓</span><span className="product-draft-save-message">{draftSaveNotice}</span><span className="product-draft-save-countdown">ปิดใน {draftSaveSeconds} วินาที</span><button type="button" onClick={() => setDraftSaveNotice('')} aria-label="ปิดข้อความบันทึกร่าง">×</button></div> : null}
     {progress ? <div className="product-creation-progress" role="status"><span aria-hidden="true" />{progress}</div> : null}
 
-    <form id="unified-product-form" ref={formRef} className="product-creation-layout" noValidate onSubmit={submit} onInput={(event) => {
+    <form id="unified-product-form" ref={formRef} className="product-creation-layout" noValidate onSubmit={submit} onChange={(event) => {
       const target = event.target
       if (target instanceof HTMLElement) {
         target.removeAttribute('data-validation-invalid')
@@ -1800,7 +2086,6 @@ export function UnifiedProductCreationForm({
         if (['productWeightKg', 'productLengthCm', 'productWidthCm', 'productHeightCm', 'packageWeightKg', 'packageLengthCm', 'packageWidthCm', 'packageHeightCm'].includes(target.name)) setPhysicalFeedback(physicalValidationErrors(new FormData(event.currentTarget)))
         if (['safetyStock', 'reorderMin', 'reorderMax'].includes(target.name)) setInventoryFeedback(inventoryPolicyValidationErrors(new FormData(event.currentTarget)))
       }
-      saveBrowserDraft(false)
       setSummaryFields(readProductSummaryFields(event.currentTarget))
     }}>
       <main className="product-creation-sections">
@@ -1812,6 +2097,7 @@ export function UnifiedProductCreationForm({
             <div className="product-form-field"><label htmlFor="productBrandId">แบรนด์</label><span className="product-field-with-action"><span className="product-select-control"><select id="productBrandId" name="brandId" value={brandId} onChange={(event) => setBrandId(event.target.value)}><option value="">ไม่มีแบรนด์</option>{activeBrands.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}</select></span><MasterDataManager organizationId={organizationId} kind="brand" items={brands} canManage={canManage} onSaved={(options) => { setBrands(options); if (!options.some((option) => option.id === brandId && option.status !== 'archived')) setBrandId('') }} /></span><small>อ้างอิง Brand master; ถ้าไม่มีแบรนด์ให้เลือก “ไม่มีแบรนด์”</small></div>
             <fieldset className="full product-segmented-control"><legend><span className="product-label-with-info"><span>รูปแบบสินค้า *</span><ProductInfoGuide label="รูปแบบสินค้า" description="เลือกสินค้าปกติเมื่อมี SKU เดียว, Variant เมื่อแยกสีหรือขนาด และ Bundle เมื่อนำหลาย SKU มารวมขาย" example="ตัวอย่าง: เสื้อรุ่นเดียวหลายสี → มีตัวเลือก / Variant" /></span></legend>{(['standard', 'variant', 'bundle'] as const).map((value) => <label key={value} className={structure === value ? 'active' : ''}><input type="radio" name="structureType" value={value} checked={structure === value} onChange={() => setStructure(value)} /><span>{value === 'standard' ? 'สินค้าปกติ' : value === 'variant' ? 'มีตัวเลือก / Variant' : 'Bundle / Kit'}</span></label>)}</fieldset>
             <div className="product-form-field product-quantity-field"><span className="product-field-heading-line"><span className="product-label-with-info"><label htmlFor="quantityBehavior">Stock ของสินค้านี้นับอย่างไร?</label><ProductInfoGuide label="Stock ของสินค้านี้นับอย่างไร?" description="เลือกจำนวนเต็มเมื่อ Stock ห้ามเป็นเศษ หรือเลือกทศนิยมเมื่อขายตามน้ำหนักหรือปริมาตร ช่องนี้ไม่ใช่ชื่อหน่วย เพราะชื่อหน่วยกำหนดใน Base Unit" example="ตัวอย่าง: ต่างหู 2 คู่ → จำนวนเต็ม / pair · ข้าวสาร 0.50 kg → ทศนิยมแบบน้ำหนัก / kg" /></span></span><span className="product-select-control"><select id="quantityBehavior" name="quantityBehavior" defaultValue="discrete"><option value="discrete">จำนวนเต็ม — ชิ้น / คู่ / แพ็ค / กล่อง</option><option value="weight">ทศนิยม — สินค้าชั่งน้ำหนัก</option><option value="volume">ทศนิยม — สินค้าวัดปริมาตร</option></select></span><small>เลือกว่าจำนวน Stock อนุญาตให้มีจุดทศนิยมหรือไม่ ส่วนหน่วยที่ใช้จริงเลือกใน Base Unit</small><span className="product-quantity-examples" role="note"><span><strong>จำนวนเต็ม:</strong> ต่างหู 1 คู่, เสื้อ 2 ชิ้น, สินค้า 3 แพ็ค</span><span><strong>น้ำหนัก:</strong> ข้าวสาร 0.50 kg</span><span><strong>ปริมาตร:</strong> น้ำหอม 1.25 litre</span></span></div>
+            <div className="product-base-unit-field"><span className="product-label-with-info"><label htmlFor="baseUnitCode">หน่วยนับสต๊อก (Base Unit) *</label><ProductInfoGuide label="หน่วยนับสต๊อก (Base Unit)" description="หน่วยเล็กที่สุดที่ Ledger ใช้บันทึก Stock หนึ่ง SKU มีได้หนึ่งค่า ส่วนหน่วยขายกำหนดอัตราแปลงภายหลัง" example="ตัวอย่าง: เก็บต่างหูเป็นคู่ → pair · เก็บทีละชิ้นแต่ขายแพ็ค 6 → piece และเพิ่ม 1 pack = 6 pieces" /></span><div className="product-select-with-policy"><span className="product-select-control"><select id="baseUnitCode" name="baseUnitCode" defaultValue="piece" required><option value="piece">piece — ชิ้น</option><option value="pair">pair — คู่</option><option value="pack">pack — แพ็ค</option><option value="box">box — กล่อง</option><option value="set">set — ชุด</option><option value="case">case — ลัง</option><option value="kg">kg — กิโลกรัม</option><option value="g">g — กรัม</option><option value="litre">litre — ลิตร</option><option value="ml">ml — มิลลิลิตร</option></select></span><details className="product-base-unit-policy"><summary className="product-policy-icon" title="ดูนโยบายหน่วยนับ" aria-label="ดูนโยบาย Base Unit"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg></summary><div><strong>นโยบาย Base Unit</strong><span>หน่วยเล็กที่สุดที่ Ledger ใช้เก็บและตัด Stock ควรล็อกหลังเริ่มมี Stock Movement</span><ul><li>ต่างหูขายเป็นคู่ ใช้ pair</li><li>เก็บทีละชิ้นแต่ขายแพ็ค ใช้ piece แล้วกำหนดหน่วยขายภายหลัง</li><li>ชั่งน้ำหนักใช้ kg/g และปริมาตรใช้ litre/ml</li></ul></div></details></div><small>เลือกคู่กับวิธีนับ Stock ด้านซ้าย และควรล็อกหลังเริ่มมี Stock Movement</small></div>
             <div className="product-tag-field"><div className="product-field-heading-line"><strong>ป้ายกำกับสินค้า (Tags)</strong><SavedTagsInteraction organizationId={organizationId} tags={activeTags} selectedIds={tagIds} canManage={canManage} onChange={setTagIds} onCreated={(option) => setTags((current) => [...current, option])} /></div><div className="product-field-with-action"><div className="product-tag-editor">{tagIds.map((id) => { const tag = activeTags.find((option) => option.id === id); return tag ? <span className="product-tag-chip" key={id}>{tag.name}<button type="button" aria-label={`นำ Tag ${tag.name} ออก`} onClick={() => setTagIds((current) => current.filter((tagId) => tagId !== id))}>×</button></span> : null })}<input value={tagInput} onChange={(event) => setTagInput(event.target.value.slice(0, 40))} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ',') { event.preventDefault(); selectSavedTagFromInput() } }} maxLength={40} placeholder="พิมพ์ Tag แล้วกด Enter" disabled={isTagPending} /></div><MasterDataManager organizationId={organizationId} kind="tag" items={tags} canManage={canManage} onSaved={(options) => { setTags(options); setTagIds((current) => current.filter((id) => options.some((option) => option.id === id && option.status !== 'archived'))) }} /></div>{suggestedTagNames.length ? <div className="product-tag-suggestions" aria-label="Tags ที่แนะนำจากชื่อสินค้า">{suggestedTagNames.map((name) => <button className="button compact secondary" type="button" key={name} disabled={isTagPending} onClick={() => createAndSelectTagNames([name])}>＋ {name}</button>)}{suggestedTagNames.length > 1 ? <button className="button compact secondary product-tag-add-all" type="button" disabled={isTagPending} onClick={suggestTags}>✦ {isTagPending ? 'กำลังเพิ่ม Tags…' : 'เพิ่มทั้งหมด'}</button> : null}</div> : <div className="product-tag-suggestions"><button className="button compact secondary" type="button" disabled={isTagPending || !summaryFields.name} onClick={suggestTags}>✦ แนะนำจากชื่อสินค้า</button></div>}<small>พิมพ์ Tag ใหม่แล้วกด Enter, เลือกคำแนะนำจากชื่อสินค้า หรือเลือก Tags ที่บันทึกไว้ · สูงสุด 12 Tags</small></div>
             <label className="full"><span>หมายเหตุสินค้า</span><textarea name="internalNote" maxLength={1000} rows={3} placeholder="หมายเหตุภายในสำหรับทีมงาน ไม่แสดงให้ลูกค้า" /></label>
           </div>
@@ -1838,19 +2124,17 @@ export function UnifiedProductCreationForm({
               {structure === 'variant' ? <div className="product-variant-name-assistant"><label><span>ตัวเลือกที่ 1</span><input name="variantOptionOne" value={variantOptionOne} onChange={(event) => setVariantOptionOne(event.target.value.slice(0, 60))} maxLength={60} placeholder="เช่น สีน้ำตาล" /></label><label><span>ตัวเลือกที่ 2</span><input name="variantOptionTwo" value={variantOptionTwo} onChange={(event) => setVariantOptionTwo(event.target.value.slice(0, 60))} maxLength={60} placeholder="เช่น ขนาด Mini" /></label><div className="product-sku-name-suggestion"><span>ชื่อที่ระบบแนะนำ<strong>{skuNameSuggestion}</strong></span><button className="button compact secondary" type="button" onClick={() => { setUseProductNameForSku(false); applySkuNameSuggestion() }}>ใช้คำแนะนำ</button></div></div> : null}
             </div>
 
-            <div className="product-form-field product-identifier-field"><span className="product-label-with-info"><label htmlFor="skuCode">SKU Code *</label><ProductInfoGuide label="SKU Code" description="รหัสหลักภายใน Organization ใช้เชื่อม Stock, Order และ Audit ต้องไม่ซ้ำ" example="ตัวอย่าง: BAG-MINI-TAN" /></span><input id="skuCode" name="skuCode" maxLength={80} required autoComplete="off" placeholder="BAG-MINI-TAN" onBlur={(event) => applySkuCodeValue(event.currentTarget.value)} /><button className="button compact secondary product-field-button" type="button" onClick={() => applySkuCodeValue(generateCode(summaryFields.name, 'SKU'))}>✦ แนะนำ SKU Code</button><small>รหัสหลักภายในระบบ · เปลี่ยนเป็นตัวพิมพ์ใหญ่</small></div>
+            <fieldset className="full product-identifier-zone"><legend>รหัสประจำสินค้า</legend><div className="product-identifier-zone-head"><span><strong>สร้างรหัสให้ครบในครั้งเดียว</strong><small>ระบบคำนวณรหัสตามโหมดที่เลือกและตรวจทุกค่ากับ Organization</small></span><button className="button compact secondary" type="button" onClick={generateAndCheckIdentifierGroup} disabled={!canManage || isIdentifierChecking} aria-busy={isIdentifierChecking}>✦ {isIdentifierChecking ? 'กำลังสร้างและตรวจสอบ…' : 'สร้างและตรวจสอบรหัสทั้งหมด'}</button></div><div className="product-form-grid two">
+            <div className="product-form-field product-identifier-field"><span className="product-label-with-info"><label htmlFor="skuCode">รหัสสินค้า (SKU) *</label><ProductInfoGuide label="รหัสสินค้า (SKU)" description="รหัสประจำสินค้าในระบบ ใช้เชื่อมข้อมูลสินค้า สต๊อก และคำสั่งซื้อ โดยรหัสของแต่ละสินค้าต้องไม่ซ้ำกัน" example="ตัวอย่าง: BAG-MINI-TAN" /></span><input id="skuCode" name="skuCode" maxLength={80} required autoComplete="off" placeholder="BAG-MINI-TAN" aria-describedby="skuCodeStatus skuCodeHelp" onBlur={(event) => { applySkuCodeValue(event.currentTarget.value); scheduleIdentifierAutoCheck(0) }} /><div id="skuCodeStatus" className={`product-identifier-field-status ${identifierStatuses.skuCode.tone}`} role="status" aria-live="polite" aria-atomic="true"><span aria-hidden="true" />{identifierStatuses.skuCode.text}</div>{identifierSuggestions.skuCode ? <button className="product-identifier-suggestion" type="button" onClick={() => useIdentifierSuggestion('skuCode')}>ใช้รหัสแนะนำ {identifierSuggestions.skuCode}</button> : null}<small id="skuCodeHelp">กรอกเองได้ หรือใช้ปุ่มด้านบนเพื่อให้ระบบสร้างและตรวจสอบทั้งกลุ่ม</small></div>
 
-            <div className="product-form-field product-identifier-field"><span className="product-label-with-info"><label htmlFor="salesCode">Sales Code</label><ProductInfoGuide label="Sales Code" description="รหัสสั้นสำหรับงานขายหรือ CF จะกรอกเอง ใช้ SKU Code หรือรันเลขต่อเนื่องก็ได้" example="ตัวอย่าง: A001" /></span><span className="product-select-control"><select name="salesCodeMode" value={salesCodeMode} onChange={(event) => applySalesCodeMode(event.target.value as SalesCodeMode)} aria-label="วิธีกำหนด Sales Code"><option value="manual">กรอก Sales Code เอง</option><option value="same-sku">ใช้รหัสเดียวกับ SKU Code</option><option value="sequence">รันเลขต่อเนื่องอัตโนมัติ</option></select></span><input id="salesCode" name="salesCode" maxLength={80} autoComplete="off" readOnly={salesCodeMode !== 'manual'} placeholder="A001" onBlur={(event) => { const value = event.currentTarget.value.trim().toUpperCase(); setFormFieldValue('salesCode', value); if (barcodeMode === 'internal-sales') setFormFieldValue('barcode', value) }} /><small>รหัสขายถาวร; CF Code สำหรับ Live Session กำหนดภายหลัง</small></div>
+            <div className="product-form-field product-identifier-field"><span className="product-label-with-info"><label htmlFor="salesCode">รหัสขาย / รหัส CF ประจำสินค้า</label><ProductInfoGuide label="รหัสขาย / รหัส CF ประจำสินค้า" description="รหัสสั้นที่ลูกค้าใช้ CF หรือพนักงานใช้ค้นหาสินค้าเพื่อเปิดบิล สามารถกรอกเอง ใช้รหัสเดียวกับ SKU หรือให้ระบบรันเลขต่อเนื่องได้" example="ตัวอย่าง: A001" /></span><span className="product-select-control"><select name="salesCodeMode" value={salesCodeMode} onChange={(event) => applySalesCodeMode(event.target.value as SalesCodeMode)} aria-label="วิธีกำหนดรหัสขายหรือรหัส CF ประจำสินค้า"><option value="manual">กรอกรหัสขาย / รหัส CF เอง</option><option value="same-sku">ใช้รหัสเดียวกับรหัสสินค้า (SKU)</option><option value="sequence">ให้ระบบรันเลขต่อเนื่อง</option></select></span><input id="salesCode" name="salesCode" maxLength={80} autoComplete="off" readOnly={salesCodeMode !== 'manual'} placeholder="A001" aria-describedby="salesCodeStatus salesCodeHelp" onBlur={(event) => { const value = event.currentTarget.value.trim().toUpperCase(); setFormFieldValue('salesCode', value); if (barcodeMode === 'internal-sales') setFormFieldValue('barcode', value); markIdentifierCheckStale(); scheduleIdentifierAutoCheck(0) }} /><div id="salesCodeStatus" className={`product-identifier-field-status ${identifierStatuses.salesCode.tone}`} role="status" aria-live="polite" aria-atomic="true"><span aria-hidden="true" />{identifierStatuses.salesCode.text}</div>{identifierSuggestions.salesCode ? <button className="product-identifier-suggestion" type="button" onClick={() => useIdentifierSuggestion('salesCode')}>ใช้รหัสแนะนำ {identifierSuggestions.salesCode}</button> : null}<small id="salesCodeHelp">ใช้เป็นรหัส CF ประจำสินค้าได้ · รหัส CF ชั่วคราวสำหรับแต่ละรอบไลฟ์กำหนดในเมนู Live Sale</small></div>
 
-            <div className="product-form-field product-identifier-field"><span className="product-label-with-info"><label htmlFor="barcode">Barcode / รหัสสแกน</label><ProductInfoGuide label="Barcode / รหัสสแกน" description="ใช้รหัสผู้ผลิตหรือรหัสภายในหนึ่งค่า ห้ามต่อหลายรหัสรวมกัน และทุกค่าต้องชี้ไป SKU เดียว" example="ตัวอย่าง: 8851234567890" /></span><span className="product-select-control"><select name="barcodeMode" value={barcodeMode} onChange={(event) => applyBarcodeMode(event.target.value as BarcodeMode)} aria-label="วิธีกำหนด Barcode"><option value="manufacturer">ใช้ Barcode จากผู้ผลิต</option><option value="internal-sku">สร้างรหัสภายในจาก SKU Code</option><option value="internal-sales">สร้างรหัสภายในจาก Sales Code</option><option value="none">ยังไม่มี Barcode</option></select></span><input id="barcode" name="barcode" maxLength={128} inputMode="text" autoComplete="off" readOnly={barcodeMode !== 'manufacturer'} placeholder="8851234567890" /><small>ห้ามผสมหลายรหัสเป็นข้อความเดียว; ทุกค่าที่สแกนต้อง resolve เป็น SKU เดียว</small></div>
-
-            <div className="product-base-unit-field"><span className="product-label-with-info"><label htmlFor="baseUnitCode">Base Unit *</label><ProductInfoGuide label="Base Unit" description="หน่วยเล็กที่สุดที่ Ledger ใช้บันทึก Stock หนึ่ง SKU มีได้หนึ่งค่า ส่วนหน่วยขายกำหนดอัตราแปลงภายหลัง" example="ตัวอย่าง: เก็บต่างหูเป็นคู่ → pair · เก็บทีละชิ้นแต่ขายแพ็ค 6 → piece และเพิ่ม 1 pack = 6 pieces" /></span><div className="product-select-with-policy"><span className="product-select-control"><select id="baseUnitCode" name="baseUnitCode" defaultValue="piece" required><option value="piece">piece — ชิ้น</option><option value="pair">pair — คู่</option><option value="pack">pack — แพ็ค</option><option value="box">box — กล่อง</option><option value="set">set — ชุด</option><option value="case">case — ลัง</option><option value="kg">kg — กิโลกรัม</option><option value="g">g — กรัม</option><option value="litre">litre — ลิตร</option><option value="ml">ml — มิลลิลิตร</option></select></span><details className="product-base-unit-policy"><summary className="product-policy-icon" title="ดูนโยบายหน่วยนับ" aria-label="ดูนโยบาย Base Unit"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg></summary><div><strong>นโยบาย Base Unit</strong><span>หน่วยเล็กที่สุดที่ Ledger ใช้เก็บและตัด Stock ควรล็อกหลังเริ่มมี Stock Movement</span><ul><li>ต่างหูขายเป็นคู่ ใช้ pair</li><li>เก็บทีละชิ้นแต่ขายแพ็ค ใช้ piece แล้วกำหนดหน่วยขายภายหลัง</li><li>ชั่งน้ำหนักใช้ kg/g และปริมาตรใช้ litre/ml</li></ul></div></details></div><small>หนึ่ง SKU ใช้ Base Unit เดียว และควรล็อกหลังเริ่มมี Stock Movement</small></div>
-
-            <label><span>สถานะเริ่มต้น</span><span className="product-select-control"><select name="initialStatus" defaultValue="draft" disabled><option value="draft">ฉบับร่าง</option><option value="active">ใช้งานอยู่</option></select></span><small>Atomic Creation เริ่มเป็นฉบับร่างเสมอ เปิดใช้งานได้หลังตรวจสอบ</small></label>
+            <div className="product-form-field product-identifier-field"><span className="product-label-with-info"><label htmlFor="barcode">Barcode / รหัสสแกน</label><ProductInfoGuide label="Barcode / รหัสสแกน" description="เลือกใช้ Barcode จากผู้ผลิต หรือใช้รหัสสินค้า/รหัสขายเป็นรหัสสแกน โดยหนึ่งรหัสต้องชี้ไปยัง SKU เดียว" example="ตัวอย่าง: 8851234567890 หรือ A003" /></span><span className="product-select-control"><select name="barcodeMode" value={barcodeMode} onChange={(event) => applyBarcodeMode(event.target.value as BarcodeMode)} aria-label="วิธีกำหนด Barcode"><option value="manufacturer">กรอก Barcode จากผู้ผลิต</option><option value="internal-sku" disabled={!summaryFields.skuCode}>ใช้รหัสสินค้า (SKU) เป็น Barcode</option><option value="internal-sales" disabled={!summaryFields.salesCode}>ใช้รหัสขาย / รหัส CF เป็น Barcode</option><option value="none">ยังไม่กำหนด Barcode</option></select></span><input id="barcode" name="barcode" maxLength={128} inputMode="text" autoComplete="off" readOnly={barcodeMode !== 'manufacturer'} placeholder={barcodeMode === 'internal-sku' ? 'กรอกรหัสสินค้า (SKU) ก่อน' : barcodeMode === 'internal-sales' ? 'กรอกรหัสขาย / รหัส CF ก่อน' : '8851234567890'} aria-describedby="barcodeStatus barcodeHelp" onBlur={() => scheduleIdentifierAutoCheck(0)} /><div id="barcodeStatus" className={`product-identifier-field-status ${identifierStatuses.barcode.tone}`} role="status" aria-live="polite" aria-atomic="true"><span aria-hidden="true" />{identifierStatuses.barcode.text}</div>{identifierSuggestions.barcode ? <button className="product-identifier-suggestion" type="button" onClick={() => useIdentifierSuggestion('barcode')}>ใช้รหัสแนะนำ {identifierSuggestions.barcode}</button> : null}<small id="barcodeHelp">{barcodeSourceHelp}</small></div>
 
             {salesCodeMode === 'sequence' ? <div className="full product-sales-sequence"><label><span>Prefix</span><input name="salesSequencePrefix" value={salesSequencePrefix} onChange={(event) => { setSalesSequencePrefix(event.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 10)); markIdentifierCheckStale() }} maxLength={10} placeholder="A" /></label><label><span>เลขเริ่มต้น</span><input name="salesSequenceStart" type="number" min="0" max="99999999" step="1" value={salesSequenceStart} onChange={(event) => { setSalesSequenceStart(Math.max(0, Math.trunc(Number(event.target.value) || 0))); markIdentifierCheckStale() }} /></label><label><span>จำนวนหลัก</span><input name="salesSequenceDigits" type="number" min="2" max="8" step="1" value={salesSequenceDigits} onChange={(event) => { setSalesSequenceDigits(Math.min(8, Math.max(2, Math.trunc(Number(event.target.value) || 3)))); markIdentifierCheckStale() }} /></label><div className="product-sequence-preview"><span>รหัสปัจจุบัน → รหัสถัดไป</span><strong>{salesSequenceCurrent} → {salesSequenceNext}</strong></div><div className="product-sequence-policy"><span aria-hidden="true">ⓘ</span><span>Preview ยังไม่จองเลข เมื่อบันทึก Server จะตรวจ Unique ใน transaction และไม่สร้างข้อมูลหากรหัสชนกัน</span></div></div> : null}
 
-            <div className="full product-identifier-assistant"><div className="product-identifier-assistant-head"><div><strong>ตรวจรหัสก่อนบันทึก</strong><span>ผลนี้อ่านข้อมูลจริงแบบ Advisory; Server transaction เป็นผู้ยืนยัน Unique ขั้นสุดท้าย</span></div><button className="button compact secondary" type="button" onClick={checkIdentifiers} disabled={!canManage || isIdentifierChecking} aria-busy={isIdentifierChecking}>{isIdentifierChecking ? 'กำลังตรวจรหัส…' : 'ตรวจสอบรหัส'}</button></div><div className={`product-identifier-result ${identifierFeedback.tone}`} role="status" aria-live="polite"><span aria-hidden="true">{identifierFeedback.tone === 'success' ? '✓' : identifierFeedback.tone === 'danger' ? '!' : identifierFeedback.text.startsWith('ข้อมูลรหัสเปลี่ยน') ? '!' : 'ⓘ'}</span><span>{identifierFeedback.text}</span></div></div>
+            <div className="full product-identifier-assistant"><div className="product-identifier-assistant-head"><div><strong>ตรวจรหัสก่อนบันทึก</strong><span>ระบบตรวจให้อัตโนมัติเมื่อหยุดพิมพ์หรือออกจากช่อง · Server transaction เป็นผู้ยืนยัน Unique ขั้นสุดท้าย</span></div><button className="button compact secondary" type="button" onClick={() => checkIdentifiers()} disabled={!canManage || isIdentifierChecking} aria-busy={isIdentifierChecking}>{isIdentifierChecking ? 'กำลังตรวจรหัส…' : 'ตรวจสอบอีกครั้ง'}</button></div><div className={`product-identifier-result ${identifierFeedback.tone}`} role="status" aria-live="polite"><span aria-hidden="true">{identifierFeedback.tone === 'success' ? '✓' : identifierFeedback.tone === 'danger' ? '!' : identifierFeedback.text.startsWith('ข้อมูลรหัสเปลี่ยน') ? '!' : 'ⓘ'}</span><span>{identifierFeedback.text}</span></div></div>
+            </div></fieldset>
 
             <div className="full product-sku-staging">
               <div className="product-sku-staging-head">
@@ -1986,15 +2270,16 @@ export function UnifiedProductCreationForm({
         <div className="product-summary-head"><h2>สรุปก่อนสร้าง</h2><p>กรอกข้อมูลแล้ว {completionPercent}%</p><div className="product-summary-progress" role="progressbar" aria-label="ความครบถ้วนของข้อมูล" aria-valuemin={0} aria-valuemax={100} aria-valuenow={completionPercent}><span style={{ width: `${completionPercent}%` }} /></div></div>
         <div className="product-summary-content"><div className="product-summary-product"><strong>{summaryFields.name || 'ยังไม่ได้ตั้งชื่อสินค้า'}</strong><span>{summaryCategory}</span></div><dl className="product-summary-list"><div><dt>รูปแบบ</dt><dd>{structure === 'standard' ? 'สินค้าปกติ' : structure === 'variant' ? 'มีตัวเลือก / Variant' : 'Bundle / Kit'}</dd></div><div><dt>SKU</dt><dd>{skuDrafts.length ? `${skuDrafts.length} รายการ · ${skuDrafts[0].skuCode}` : summaryFields.skuCode || '—'}</dd></div><div><dt>ราคา</dt><dd>{summaryPrice}</dd></div><div><dt>รูปภาพ</dt><dd>{images.length} / 9</dd></div><div><dt>สาขา</dt><dd>{summaryBranches}</dd></div><div><dt>หน่วยบรรจุ</dt><dd>{summaryPackaging}</dd></div><div><dt>Bundle</dt><dd>{summaryBundle}</dd></div></dl></div>
         <nav className="product-section-timeline" aria-label="ความคืบหน้าการสร้างสินค้า">{summarySections.map((section, index) => { const issueCount = validationIssueCountForSection(section.id); const complete = issueCount === 0 && sectionCompletion[section.id]; const current = section.id === currentSectionId; const firstIssue = validationIssues.find((issue) => issue.sectionId === section.id); return <a key={section.id} href={`#${section.id}`} data-complete={complete ? 'true' : 'false'} data-invalid={issueCount ? 'true' : 'false'} aria-current={current ? 'step' : undefined} aria-label={issueCount ? `${section.label} มี ${issueCount} จุดที่ต้องแก้` : undefined} onClick={firstIssue ? (event) => { event.preventDefault(); focusValidationIssue(firstIssue) } : undefined}><span className="product-timeline-marker">{issueCount ? '!' : complete ? '✓' : index + 1}</span><span>{section.label}</span><span className="product-timeline-state">{issueCount ? `${issueCount} จุดต้องแก้` : current && !complete ? 'กำลังกรอก' : complete ? 'เสร็จแล้ว' : section.optional ? 'ไม่บังคับ' : 'ยังไม่ครบ'}</span></a> })}</nav>
+        <div className="product-initial-status-summary" role="note"><span><strong>สถานะหลังสร้าง</strong><small>ตรวจสอบก่อนเปิดขายและรับ Stock</small></span><span className="product-status-pill draft"><i aria-hidden="true" />ฉบับร่าง</span></div>
         <div className="product-summary-actions">
           <button className="button product-primary-action" type="submit" disabled={!canManage || isPending}>{isPending ? 'กำลังบันทึก…' : pendingDraft ? 'อัปโหลดต่อ' : 'ตรวจสอบและสร้าง'}</button>
           <button className="button secondary" type="button" onClick={() => saveBrowserDraft()} disabled={isPending}>บันทึกร่าง</button>
           <Link className="button secondary" href={productsHref}>ยกเลิก</Link>
-          {completedProductId ? <Link className="product-created-link" href={`${productsHref}?product=${completedProductId}`}>เปิด Product ที่สร้างแล้ว →</Link> : null}
+          {completedProductId ? <Link className="product-created-link" href={`${productsHref}?product=${completedProductId}`}>ดูรายละเอียดสินค้าที่สร้าง →</Link> : null}
         </div>
       </aside>
     </form>
-    {creationSuccess ? <div className="product-success-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeSuccessDialog() }}><section ref={successDialogRef} className="product-success-dialog" role="dialog" aria-modal="true" aria-labelledby="productSuccessTitle" aria-describedby="productSuccessMessage" onKeyDown={handleSuccessDialogKeyDown}><div className="product-success-body"><div className="product-success-mark" aria-hidden="true">✓</div><h2 id="productSuccessTitle">สร้างสินค้าเรียบร้อยแล้ว</h2><p id="productSuccessMessage">{creationSuccess.productName} พร้อม {creationSuccess.skuCount} SKU ถูกสร้างเป็นฉบับร่าง และอัปโหลดรูปสินค้าครบแล้ว</p><span>ระบบยังไม่เปิดใช้งานสินค้าและยังไม่เพิ่ม Stock จนกว่าจะผ่านขั้นตอนที่เกี่ยวข้อง</span></div><footer><Link className="button secondary" href={`${productsHref}?product=${creationSuccess.productId}`}>เปิด Product ที่สร้าง</Link><Link className="button product-primary-action" href={productsHref}>กลับ Products Workspace</Link></footer></section></div> : null}
+    {creationSuccess ? <div className="product-success-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeSuccessDialog() }}><section ref={successDialogRef} className="product-success-dialog" role="dialog" aria-modal="true" aria-labelledby="productSuccessTitle" aria-describedby="productSuccessMessage" onKeyDown={handleSuccessDialogKeyDown}><div className="product-success-body"><div className="product-success-mark" aria-hidden="true">✓</div><h2 id="productSuccessTitle">สร้างสินค้าเรียบร้อยแล้ว</h2><p id="productSuccessMessage">{creationSuccess.productName} พร้อม {creationSuccess.skuCount} SKU ถูกสร้างเป็นฉบับร่าง และอัปโหลดรูปสินค้าครบแล้ว</p><span>ระบบยังไม่เปิดใช้งานสินค้าและยังไม่เพิ่ม Stock จนกว่าจะผ่านขั้นตอนที่เกี่ยวข้อง</span></div><footer><Link className="product-success-detail-link" href={`${productsHref}?product=${creationSuccess.productId}`}>ดูรายละเอียดสินค้าที่สร้าง</Link><div className="product-success-actions"><Link className="button secondary" href={productsHref}>กลับไปหน้ารายการสินค้า</Link><button className="button product-primary-action" type="button" onClick={createNextProduct}>สร้างสินค้ารายการถัดไป</button></div></footer></section></div> : null}
     <button className="product-back-to-top" type="button" aria-label="กลับด้านบน" title="กลับด้านบน" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>↑</button>
   </>
 }

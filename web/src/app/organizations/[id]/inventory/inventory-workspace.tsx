@@ -12,7 +12,7 @@ type DialogMode = 'create-warehouse' | 'edit-warehouse' | 'create-location' | 'r
 type Branch = { id: string; code: string; name: string; status: string }
 type Props = {
   organizationId: string; view: ViewMode; search: string; status: string; movement: string;
-  branchId: string; warehouseId: string; locationId: string; skuId: string;
+  branchId: string; warehouseId: string; locationId: string; skuId: string; initialDialog: 'adjust' | null;
   warehouses: WarehouseReadModel[]; balances: InventoryBalanceReadModel[]; movements: StockMovementReadModel[];
   warehouseOptions: WarehouseReadModel[]; locations: LocationReadModel[]; skuOptions: SkuReadModel[]; branches: Branch[];
   selectedWarehouse: WarehouseReadModel | null; nextCursor: string | null;
@@ -44,10 +44,10 @@ function buildHref(organizationId: string, values: Record<string, string | null 
 }
 
 export function InventoryWorkspace(props: Props) {
-  const { organizationId, view, search, status, movement, branchId, warehouseId, locationId, skuId, warehouses, balances, movements, warehouseOptions, locations, skuOptions, branches, selectedWarehouse, nextCursor, canManageWarehouse, canReceive, canAdjust, canTransfer } = props
+  const { organizationId, view, search, status, movement, branchId, warehouseId, locationId, skuId, initialDialog, warehouses, balances, movements, warehouseOptions, locations, skuOptions, branches, selectedWarehouse, nextCursor, canManageWarehouse, canReceive, canAdjust, canTransfer } = props
   const router = useRouter()
   const firstField = useRef<HTMLInputElement | HTMLSelectElement>(null)
-  const [dialog, setDialog] = useState<DialogMode>(null)
+  const [dialog, setDialog] = useState<DialogMode>(initialDialog)
   const [feedback, setFeedback] = useState<{ tone: 'success' | 'danger'; text: string } | null>(null)
   const [isPending, startTransition] = useTransition()
   const rows = view === 'warehouses' ? warehouses : view === 'balances' ? balances : movements
@@ -59,11 +59,14 @@ export function InventoryWorkspace(props: Props) {
 
   useEffect(() => {
     if (!dialog) return
+    if (dialog === 'adjust' && skuId && firstField.current instanceof HTMLSelectElement) {
+      firstField.current.value = skuId
+    }
     firstField.current?.focus()
     const close = (event: KeyboardEvent) => { if (event.key === 'Escape' && !isPending) setDialog(null) }
     window.addEventListener('keydown', close)
     return () => window.removeEventListener('keydown', close)
-  }, [dialog, isPending])
+  }, [dialog, isPending, skuId])
   useEffect(() => {
     if (feedback?.tone !== 'success') return
     const timer = window.setTimeout(() => setFeedback(null), 4000)

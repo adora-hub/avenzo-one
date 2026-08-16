@@ -20,6 +20,7 @@ export type ProductWorkspaceSkuPreview = {
   salesCode: string | null
   baseUnitCode: string
   status: string
+  profile: ProductWorkspaceSkuProfile | null
 }
 
 export type ProductWorkspaceNamedReference = {
@@ -42,6 +43,7 @@ export type ProductWorkspaceValueSummary = {
 }
 
 export type ProductWorkspaceSkuProfile = {
+  version: number
   quantityBehavior: string
   salePrice: number | null
   currencyCode: string

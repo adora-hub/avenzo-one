@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
 import { ApplicationShell } from '@/app/components/application-shell'
+import { ProductHeaderBreadcrumb } from '@/app/components/product-header-breadcrumb'
 import { OperationsPageHeader } from '@/app/components/operations-ui'
 import { createFoundationReadRepository } from '@/lib/foundation/server-read'
 import { createClient } from '@/lib/supabase/server'
@@ -33,7 +33,7 @@ export default async function ProductSkuPage({ params, searchParams }: Props) {
   const sort = firstParam(query.sort) === 'updated_asc' ? 'updated_asc' : 'updated_desc'
   const requestedProductId = firstParam(query.product)
   const requestedProductAction = firstParam(query.action)
-  const productAction = requestedProductAction === 'edit' || requestedProductAction === 'skus' ? requestedProductAction : ''
+  const productAction = requestedProductAction === 'edit' || requestedProductAction === 'skus' || requestedProductAction === 'price' ? requestedProductAction : ''
   const requestedSkuId = firstParam(query.sku)
   const productId = uuidPattern.test(requestedProductId) ? requestedProductId : ''
   const skuId = uuidPattern.test(requestedSkuId) ? requestedSkuId : ''
@@ -55,6 +55,7 @@ export default async function ProductSkuPage({ params, searchParams }: Props) {
   const canRead = permissions.has('product.read')
   const canManage = permissions.has('product.manage')
   const canReadInventory = permissions.has('inventory.read')
+  const canAdjustInventory = permissions.has('inventory.adjust')
   const canReadCost = permissions.has('product.cost.read')
   const isPlatformAdmin = platformAdminResult.data?.status === 'active'
 
@@ -86,7 +87,7 @@ export default async function ProductSkuPage({ params, searchParams }: Props) {
       sort,
     })
     : repository.listSkus({ organizationId, search, status: status || undefined, cursor, pageSize: 20 })
-  const [listResult, productOptionsResult, selectedProduct, selectedSku] = await Promise.all([
+  const [listResult, productOptionsResult, selectedProduct, selectedSku, inventoryLocationsResult, activeWarehousesResult] = await Promise.all([
     listPromise,
     repository.listProducts({ organizationId, pageSize: 100 }),
     productId ? repository.getProductWorkspaceDetail({
@@ -95,7 +96,13 @@ export default async function ProductSkuPage({ params, searchParams }: Props) {
     skuId ? repository.getSkuWorkspaceDetail({
       organizationId, skuId, includeInventory: canReadInventory,
     }) : Promise.resolve(null),
+    canAdjustInventory ? repository.listLocations({ organizationId, status: 'active', pageSize: 100 }) : Promise.resolve([]),
+    canAdjustInventory ? repository.listWarehouses({ organizationId, status: 'active', pageSize: 100 }) : Promise.resolve({ items: [], nextCursor: null }),
   ])
+  const activeWarehouseIds = new Set(activeWarehousesResult.items.map((warehouse) => warehouse.id))
+  const inventoryLocationOptions = inventoryLocationsResult
+    .filter((location) => activeWarehouseIds.has(location.warehouseId))
+    .map((location) => ({ id: location.id, name: location.name, code: location.code, warehouseName: location.warehouseName }))
   const productWorkspaceRows = view === 'products' ? listResult.items as ProductWorkspaceRow[] : []
   const skus = view === 'skus' ? listResult.items as SkuReadModel[] : []
   const productTotalCount = view === 'products' ? listResult.totalCount ?? productWorkspaceRows.length : 0
@@ -114,11 +121,7 @@ export default async function ProductSkuPage({ params, searchParams }: Props) {
     section="workspace"
     organizationId={organizationId}
     organizationName={organization.name}
-    headerBreadcrumb={<nav className="product-header-breadcrumb" aria-label="Breadcrumb">
-      <Link href="/dashboard"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 9-7 9 7v9H3zM9 20v-6h6v6" /></svg><span>หน้าหลัก</span></Link><span aria-hidden="true">›</span>
-      <Link href={`/organizations/${organizationId}`}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h6v6H4zM14 5h6v6h-6zM4 15h6v5H4zM14 15h6v5h-6z" /></svg><span>พื้นที่ทำงาน</span></Link><span aria-hidden="true">›</span>
-      <span aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v13H4zM8 3v6M16 3v6M4 10h16" /></svg><span>สินค้า</span></span>
-    </nav>}
+    headerBreadcrumb={<ProductHeaderBreadcrumb organizationId={organizationId} />}
   >
     <section className="content product-workspace-page">
       <ProductSkuWorkspace
@@ -141,6 +144,8 @@ export default async function ProductSkuPage({ params, searchParams }: Props) {
         selectedSku={selectedSku}
         nextCursor={listResult.nextCursor}
         canManage={canManage}
+        canAdjustInventory={canAdjustInventory}
+        inventoryLocationOptions={inventoryLocationOptions}
         canReadCost={canReadCost}
       />
     </section>

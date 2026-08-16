@@ -4,6 +4,7 @@ import test from 'node:test'
 
 const page = await readFile(new URL('../src/app/organizations/[id]/products/page.tsx', import.meta.url), 'utf8')
 const workspace = await readFile(new URL('../src/app/organizations/[id]/products/product-sku-workspace.tsx', import.meta.url), 'utf8')
+const breadcrumb = await readFile(new URL('../src/app/components/product-header-breadcrumb.tsx', import.meta.url), 'utf8')
 const css = await readFile(new URL('../src/app/globals.css', import.meta.url), 'utf8')
 
 test('R1 uses the production route, shell and permission boundary', () => {
@@ -14,8 +15,9 @@ test('R1 uses the production route, shell and permission boundary', () => {
 })
 
 test('R1 adds the approved breadcrumb and truthful page-count badge', () => {
-  assert.match(page, /headerBreadcrumb=\{<nav className="product-header-breadcrumb"/)
-  assert.match(page, /<svg[\s\S]*?aria-current="page"/)
+  assert.match(page, /headerBreadcrumb=\{<ProductHeaderBreadcrumb organizationId=\{organizationId\} \/>\}/)
+  assert.match(breadcrumb, /<nav className="product-header-breadcrumb"/)
+  assert.match(breadcrumb, /<svg[\s\S]*?aria-current="page"/)
   assert.match(workspace, /className="product-modern-heading"/)
   assert.match(workspace, /className="product-count-badge"/)
   assert.match(page, /skuCount=\{view === 'products' \? productWorkspaceRows\.reduce/)

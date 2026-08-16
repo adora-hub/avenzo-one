@@ -22,6 +22,17 @@ test('R7.2.4E lists every issue in an accessible top summary', async () => {
   assert.match(form, /ตรวจพบ \$\{validationIssues\.length\} จุดที่ต้องแก้/)
 })
 
+test('validation result also appears as a temporary fixed top-center notice without forcing page scroll', async () => {
+  const [form, styles] = await Promise.all([read(formPath), read(stylesPath)])
+  assert.match(form, /setValidationNoticeVisible\(true\)/)
+  assert.match(form, /product-validation-floating-notice/)
+  assert.match(form, /setValidationNoticeVisible\(false\), 6000/)
+  assert.doesNotMatch(form, /validationSummaryRef\.current\?\.scrollIntoView/)
+  assert.match(styles, /\.product-validation-floating-notice \{ position: fixed; z-index: 175; top: 18px; left: 50%/)
+  assert.match(styles, /animation: product-draft-toast-in/)
+  assert.match(styles, /width: min\(720px, calc\(100vw - 36px\)\)/)
+})
+
 test('R7.2.4E issue buttons scroll to, mark, and focus the matching control', async () => {
   const form = await read(formPath)
   assert.match(form, /function focusValidationIssue/)

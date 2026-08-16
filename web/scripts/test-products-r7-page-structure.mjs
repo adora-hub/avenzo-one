@@ -4,10 +4,14 @@ import test from 'node:test'
 
 const read = (path) => readFile(new URL(path, import.meta.url), 'utf8')
 const formPath = '../src/app/organizations/[id]/products/new/unified-product-creation-form.tsx'
+const pagePath = '../src/app/organizations/[id]/products/new/page.tsx'
 
 test('R7.2.2 keeps the approved heading, production note and required guide hierarchy', async () => {
-  const form = await read(formPath)
-  assert.match(form, /Part 2\.1\.4A · Unified Product Creation/)
+  const [form, page] = await Promise.all([read(formPath), read(pagePath)])
+  assert.doesNotMatch(form, /Part 2\.1\.4A · Unified Product Creation/)
+  assert.doesNotMatch(form, /product-creation-eyebrow/)
+  assert.match(page, /headerBreadcrumb=\{<ProductHeaderBreadcrumb organizationId=\{organizationId\} currentPage="create-product" \/>\}/)
+  assert.doesNotMatch(page, /className="product-breadcrumb"/)
   assert.match(form, /สร้าง Product, รูปภาพ, SKU แรก และข้อมูลการขายจากหน้าเดียว/)
   assert.match(form, /product-production-banner/)
   assert.match(form, /เชื่อมระบบจริงแล้ว/)

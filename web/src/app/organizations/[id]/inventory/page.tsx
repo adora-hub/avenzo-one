@@ -32,6 +32,7 @@ export default async function InventoryPage({ params, searchParams }: Props) {
   const warehouseId = optionalUuid(query.warehouse)
   const locationId = optionalUuid(query.location)
   const skuId = optionalUuid(query.sku)
+  const initialDialog = first(query.action) === 'adjust' && skuId ? 'adjust' as const : null
   const selectedWarehouseId = optionalUuid(query.detail)
   const cursor = first(query.cursor) || null
 
@@ -96,7 +97,7 @@ export default async function InventoryPage({ params, searchParams }: Props) {
         <OperationsSummaryCard label="แจ้งเตือน Stock" value={view === 'balances' ? lowStockCount + outOfStockCount : '—'} description={view === 'balances' ? `ใกล้หมด ${lowStockCount} · หมด ${outOfStockCount}` : 'ดูได้ในมุมมองยอดคงเหลือ'} />
       </OperationsCardList>
       <section className="inventory-workspace-panel" aria-label="Warehouse และ Stock workspace">
-        <InventoryWorkspace organizationId={organizationId} view={view} search={search} status={status} movement={movement} branchId={branchId} warehouseId={warehouseId} locationId={locationId} skuId={skuId} warehouses={warehouses} balances={balances} movements={movements} warehouseOptions={warehouseOptionsResult.items} locations={locations} skuOptions={skuOptionsResult.items} branches={branchesResult.data ?? []} selectedWarehouse={selectedWarehouse} nextCursor={listResult.nextCursor} canManageWarehouse={canManageWarehouse} canReceive={canReceive} canAdjust={canAdjust} canTransfer={canTransfer} />
+        <InventoryWorkspace organizationId={organizationId} view={view} search={search} status={status} movement={movement} branchId={branchId} warehouseId={warehouseId} locationId={locationId} skuId={skuId} initialDialog={canAdjust ? initialDialog : null} warehouses={warehouses} balances={balances} movements={movements} warehouseOptions={warehouseOptionsResult.items} locations={locations} skuOptions={skuOptionsResult.items} branches={branchesResult.data ?? []} selectedWarehouse={selectedWarehouse} nextCursor={listResult.nextCursor} canManageWarehouse={canManageWarehouse} canReceive={canReceive} canAdjust={canAdjust} canTransfer={canTransfer} />
       </section>
     </section>
   </ApplicationShell>

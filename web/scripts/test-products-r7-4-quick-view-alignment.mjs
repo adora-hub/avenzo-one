@@ -48,11 +48,11 @@ test('ready images retain sort order and cover indication', () => {
   assert.match(detailSource, /image\.signedUrl/)
 })
 
-test('safe lifecycle and immutable SKU protections remain intact', () => {
+test('quick view remains read-only and immutable SKU guidance remains visible', () => {
   assert.match(detailSource, /className="product-detail-close-icon"[\s\S]*aria-label="ปิดรายละเอียด"/)
   assert.doesNotMatch(detailSource, /aria-label="ปิดรายละเอียด">ปิด<\/Link>/)
-  assert.match(detailSource, /selectedProduct\.status !== 'archived'/)
-  assert.match(detailSource, /selectedSku\.status !== 'archived'/)
-  assert.match(detailSource, /skuCanArchive\(selectedSku\.stock\)/)
+  assert.doesNotMatch(detailSource, /product-detail-actions/)
+  assert.doesNotMatch(detailSource, /requestLifecycle/)
+  assert.doesNotMatch(detailSource, /openEditor/)
   assert.match(detailSource, /SKU Code และ Base Unit เปลี่ยนไม่ได้/)
 })

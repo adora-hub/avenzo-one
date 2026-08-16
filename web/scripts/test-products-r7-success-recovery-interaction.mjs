@@ -69,8 +69,11 @@ test('R7.2.4F traps dialog focus, supports Escape, and restores prior focus', as
 
 test('R7.2.4F offers truthful post-create destinations without stock side effects', async () => {
   const form = await read(formPath)
-  assert.match(form, /เปิด Product ที่สร้าง/)
-  assert.match(form, /กลับ Products Workspace/)
+  assert.match(form, /ดูรายละเอียดสินค้าที่สร้าง/)
+  assert.match(form, /กลับไปหน้ารายการสินค้า/)
+  assert.match(form, /สร้างสินค้ารายการถัดไป/)
+  assert.match(form, /function createNextProduct\(\)/)
+  assert.match(form, /window\.location\.assign\(`\/organizations\/\$\{organizationId\}\/products\/new`\)/)
   assert.match(form, /ยังไม่เพิ่ม Stock/)
   assert.doesNotMatch(form, /commandType: 'inventory\./)
 })
@@ -80,6 +83,8 @@ test('R7.2.4F uses approved semantic modal and responsive recovery styles', asyn
   assert.match(styles, /\.product-success-backdrop/)
   assert.match(styles, /\.product-success-dialog \{/)
   assert.match(styles, /\.product-success-mark/)
+  assert.match(styles, /\.product-success-actions/)
+  assert.match(styles, /\.product-success-detail-link/)
   assert.match(styles, /var\(--status-success-surface\)/)
   assert.match(styles, /\.product-recovery-actions/)
   assert.match(styles, /\.product-success-dialog footer \{ grid-template-columns: 1fr; \}/)

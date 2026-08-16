@@ -1,0 +1,274 @@
+# AVENZO ONE — Product Variant, Sales Code & Live CF Development Guide V1
+
+วันที่จัดทำ: 16 สิงหาคม 2026
+
+สถานะ: **Planning Baseline — รออนุมัติเริ่ม Part 1**
+
+เจ้าของการตัดสินใจ: Owner AVENZO ONE
+
+เอกสารที่เกี่ยวข้อง: `AVENZO_ONE_Phase_2.1_Product_Workspace_UI_UX_Modernization.md`
+
+## 1. วัตถุประสงค์
+
+เอกสารนี้เป็นแหล่งอ้างอิงหลักสำหรับการพัฒนา Product Variant, การรันรหัสขาย และ Live CF หลังจาก Owner ทดลองสร้างสินค้าจริงแล้วพบว่า:
+
+1. Sales Code แบบรันเลขต่อเนื่องยังเป็น Preview/Browser Draft และไม่สามารถรับประกันลำดับข้าม Product จากฐานข้อมูลจริง
+2. Product Variant ยังเก็บสีและไซซ์เป็นช่องตัวเลือกทั่วไป ไม่ได้เป็นข้อมูลที่ระบบเข้าใจอย่างมีโครงสร้าง
+3. ระบบยังไม่สามารถตีความข้อความ Live CF เช่น `B001 สีฟ้า S` แล้ว resolve เป็น SKU เดียวได้
+
+คู่มือนี้ใช้ป้องกันการหลงขอบเขต การเปลี่ยนความหมายของรหัสระหว่างพัฒนา และการเริ่ม UI จริงก่อน Mockup ผ่านการอนุมัติ
+
+## 2. กฎการทำงานร่วมกัน
+
+1. ทำงาน **ทีละ Part เท่านั้น** ห้ามเริ่มหลาย Part พร้อมกัน
+2. ทุก Part ต้องพัฒนา ทดสอบ ตรวจ UI/UX และสรุปหลักฐานให้ผ่านก่อนเริ่ม Part ถัดไป
+3. งานที่มี UI ใหม่ต้องทำ Mockup และให้ Owner อนุมัติก่อนนำไปใช้ในระบบจริง
+4. ระบบจริงต้องยึด Approved Mockup 100% ห้ามเปลี่ยนดีไซน์หรือพฤติกรรมโดยไม่ได้รับอนุมัติ
+5. Client validation เป็นเพียงผู้ช่วย; Database transaction เป็นผู้ยืนยัน Unique และผลการบันทึกขั้นสุดท้าย
+6. ทุกการขาย การจอง และการตัด Stock ต้อง resolve เป็น `sku_id` ก่อนเสมอ
+7. ห้ามตัด Stock จาก Product ID, ข้อความ CF, Sales Code หรือ Barcode โดยตรง
+8. หลังจบแต่ละ Part ให้หยุดเพื่อ Owner ทดสอบ เว้นแต่ Owner อนุมัติล่วงหน้าให้เดินต่อ
+9. Commit, Push, Deploy และ Production apply ต้องได้รับอนุมัติตามขอบเขตแยกจากการพัฒนา
+
+## 3. คำศัพท์และความหมายของรหัส
+
+| ชนิดรหัส | ตัวอย่าง | ขอบเขต | หน้าที่ |
+|---|---|---|---|
+| SKU Code | `TS-BLU-S` | Unique ภายใน Organization | รหัสถาวรภายในของ SKU แต่ละตัวเลือก |
+| Sales Code / รหัส CF ประจำสินค้า | `A001` | Unique ภายใน Organization และชี้ไปยัง SKU เดียว | ค้นหา สแกน รับ CF หรือเปิดบิลแบบถาวร |
+| Barcode | `8851234567890` | ตาม Identifier Contract และต้อง resolve เป็น SKU เดียว | สแกนสินค้า |
+| Live Code | `B001` | Unique ภายใน Live Session หรือชุดจองรหัส | รหัสชั่วคราวที่ใช้ร่วมกับสี/ไซซ์ในรอบ Live |
+
+ข้อห้ามสำคัญ: ห้ามใช้ `B001` เป็น Sales Code ถาวรของ SKU หลายรายการ เพราะรหัสเดียวจะ resolve ไม่ได้ว่าเป็น SKU ใด
+
+## 4. Product Variant Contract
+
+Product หนึ่งรายการสามารถมี Option Group ได้ เช่น:
+
+- สี: สีฟ้า, สีดำ
+- ไซซ์: S, M, L, XL
+
+ระบบสร้าง SKU Combination จากค่าที่เปิดขายจริง เช่น:
+
+| Product | Live Code | สี | ไซซ์ | SKU Code |
+|---|---|---|---|---|
+| เสื้อยืด Basic | B001 | สีฟ้า | S | `TS-BLU-S` |
+| เสื้อยืด Basic | B001 | สีฟ้า | M | `TS-BLU-M` |
+| เสื้อยืด Basic | B001 | สีฟ้า | L | `TS-BLU-L` |
+| เสื้อยืด Basic | B001 | สีฟ้า | XL | `TS-BLU-XL` |
+
+แต่ละ SKU Combination ต้องกำหนดหรือสืบทอดข้อมูลต่อไปนี้ได้:
+
+- SKU Code, Sales Code และ Barcode
+- ราคา ต้นทุน ภาษี และสถานะ
+- รูปภาพประจำ Variant
+- Base Unit และหน่วยขาย
+- Stock แยกตาม SKU และสาขา
+- ชื่อเรียกอื่นของ Option เช่น `ฟ้า`, `สีฟ้า`, `Blue`
+
+สี/ไซซ์เป็น Variant Option ส่วนคู่/ชิ้น/แพ็ค/กล่องเป็นหน่วยนับหรือหน่วยขาย ห้ามนำสองแนวคิดนี้มารวมเป็นข้อมูลเดียว
+
+## 5. Live CF Resolution Contract
+
+ตัวอย่างข้อความลูกค้า:
+
+```text
+CF B001 สีฟ้า S
+B001 ฟ้า s
+B001/S/BLUE
+B001 สีฟ้า S 2 ตัว
+```
+
+ลำดับการทำงานที่อนุญาต:
+
+```text
+Live Session + Live Code + Option tokens + Quantity
+                         ↓
+              Normalize และตรวจ Alias
+                         ↓
+             Resolve เป็น SKU เดียวเท่านั้น
+                         ↓
+                      sku_id
+                         ↓
+          ตรวจ Available Stock → จอง → เปิดบิล
+```
+
+หากข้อมูลไม่ครบหรือพบมากกว่าหนึ่ง SKU ระบบต้องแจ้งให้เลือก ห้ามเดา ห้ามจอง และห้ามตัด Stock
+
+## 6. แผนพัฒนาแบบ Sequential Gate
+
+### Part 1 — Identifier Contract Freeze
+
+กำหนดความหมาย ขอบเขต Unique ความแก้ไขได้ และ Lifecycle ของ SKU Code, Sales Code, Barcode และ Live Code
+
+เกณฑ์ผ่าน:
+
+- มีตาราง Contract ครบทุก Identifier
+- ระบุ Scope ของ Unique และกฎแก้ไขหลังบันทึก
+- ระบุความสัมพันธ์ Identifier → SKU ID
+- Owner อนุมัติ Contract ก่อนทำ Schema หรือ UI
+
+### Part 2 — Variant UX Mockup
+
+ออกแบบ Mockup สำหรับสินค้าปกติ, สินค้ามีตัวเลือก และ Bundle/Kit โดยเพิ่ม Option Group, Option Value และ Combination Matrix
+
+เกณฑ์ผ่าน:
+
+- เพิ่มสี ไซซ์ และตัวเลือกกำหนดเองได้
+- สร้าง/ปิด Combination ได้
+- Bulk fill SKU, ราคา, Barcode และสถานะได้
+- รองรับรูปประจำ Product และ Variant
+- Responsive, Light/Dark และ Keyboard ผ่าน
+- Owner อนุมัติ Mockup ก่อนเชื่อมระบบจริง
+
+### Part 3 — Variant Data Model
+
+เพิ่ม Schema สำหรับ Option Group, Option Value, SKU Option Assignment, Alias และ Display Order โดยไม่ทำลาย Product/SKU เดิม
+
+เกณฑ์ผ่าน:
+
+- Migration รองรับข้อมูลเดิมและ rollback ได้
+- Organization/RLS isolation ผ่าน
+- Unique combination และ validation ผ่าน
+- Alias มี normalization และจำกัดความยาว/จำนวน
+- Database tests ผ่าน
+
+### Part 4 — Atomic Sales Code Allocator
+
+เปลี่ยน Sequence จาก Preview-only เป็นการ allocate/join reservation จากฐานข้อมูลจริง
+
+ความสามารถ:
+
+- Prefix, Start number และ Digit count
+- Preview รหัสถัดไป
+- Atomic allocation ป้องกันผู้ใช้สองคนได้เลขเดียวกัน
+- จองช่วง เช่น `B001–B070`
+- สถานะ Available, Reserved, Used, Released/Expired
+- Audit Log และ idempotency
+
+เกณฑ์ผ่าน:
+
+- A001 → A002 → A003 ต่อเนื่องข้าม Product
+- Concurrency test ไม่เกิดรหัสซ้ำ
+- Draft ไม่ยึดรหัสถาวรโดยไม่มีนโยบายหมดอายุ
+- Owner ทดสอบการเพิ่มรายการต่อเนื่องผ่าน
+
+### Part 5 — Unified Variant Creation
+
+เชื่อม Approved Mockup กับ Atomic command เพื่อสร้าง Product, Variant combinations, SKU, Identifier, รูป และราคาภายใน Flow เดียว
+
+เกณฑ์ผ่าน:
+
+- All-or-nothing transaction หรือมี partial-failure contract ที่ Owner อนุมัติ
+- Validation ชี้ช่องที่ผิดและรักษาข้อมูลที่ผู้ใช้กรอก
+- สร้าง SKU หลาย Combination ได้จริง
+- Duplicate identifier และ stale response ปลอดภัย
+- Audit Log ครบ
+
+### Part 6 — Products Workspace Alignment
+
+ขยาย Read Model, Data Grid, Search, Customize Columns และ Quick View ให้รองรับ Variant จริง
+
+เกณฑ์ผ่าน:
+
+- แสดงสี ไซซ์ จำนวน Variant รูป ราคา และ Stock ถูกต้อง
+- ค้นจาก Product, SKU, Sales Code, Barcode และ Option Alias ได้
+- Grid/Quick View ตรง Approved Mockup
+- Pagination, resize, pin และ F5 persistence ไม่เสีย
+- Existing Product regression ผ่าน
+
+### Part 7 — Live Sale Reservation
+
+นำ Mockup ชุดรหัสขายด่วนมาเชื่อมระบบจริง โดยสร้าง Live Session และผูก Live Code กับ Product/Variant
+
+เกณฑ์ผ่าน:
+
+- จอง `B001–B070` ได้แบบ Atomic
+- กำหนดสาขา ผู้รับผิดชอบ เวลาเริ่ม/จบ และสถานะได้
+- Live Code เดิมใช้ซ้ำต่าง Session ได้ตาม Contract
+- ปิด/หมดอายุ Session แล้วจัดการรหัสอย่างปลอดภัย
+- ทุก mapping ชี้ไปยัง SKU ที่อนุญาตเท่านั้น
+
+### Part 8 — Deterministic Live CF Parser
+
+พัฒนา Parser แบบกฎที่ตรวจสอบได้ก่อนใช้ AI รองรับรหัส สี ไซซ์ จำนวน ลำดับคำ และ Alias ภาษาไทย/อังกฤษ
+
+เกณฑ์ผ่าน:
+
+- `B001 สีฟ้า S` resolve ถูก SKU
+- รองรับตัวพิมพ์ใหญ่/เล็ก ช่องว่าง comma และ slash
+- ข้อมูลกำกวมต้องถาม ไม่เดา
+- Unknown token และ duplicate message มีผลลัพธ์ชัดเจน
+- Rate limit, input length และ abuse tests ผ่าน
+
+### Part 9 — Reservation, Stock & Billing Integration
+
+เชื่อม CF → SKU → Available Stock → Reservation → Invoice โดยไม่ตัด Stock ซ้ำ
+
+เกณฑ์ผ่าน:
+
+- ป้องกัน oversell และ race condition
+- รองรับ timeout, cancel, waitlist และคืน Available Stock
+- ทุก Stock command บันทึกด้วย `sku_id`
+- Idempotency และ Audit Log ผ่าน
+- E2E ครบทั้งสำเร็จ ไม่ครบ กำกวม สินค้าหมด และยกเลิก
+
+### Part 10 — Migration, Rollout & E2E Gate
+
+ตรวจความเข้ากันได้กับข้อมูลเดิม เปิดใช้แบบควบคุม และปิดงานด้วยหลักฐาน E2E
+
+เกณฑ์ผ่าน:
+
+- Product เดิมที่ไม่มี Variant ยังใช้งานได้
+- Identifier เดิมไม่เปลี่ยนความหมายหรือเกิดรหัสซ้ำ
+- Feature flag/rollback plan พร้อม
+- Light/Dark, Desktop/Mobile, Keyboard และ Accessibility ผ่าน
+- Owner ทดสอบ Preview ผ่านก่อน Commit/Push/Deploy ตามลำดับอนุมัติ
+
+## 7. สิ่งที่ยังไม่รวมโดยอัตโนมัติ
+
+งานต่อไปนี้ต้องมีแผนและการอนุมัติแยก ห้ามถือว่ารวมอยู่ใน Part 1–10:
+
+- การเชื่อม TikTok Shop, Shopee หรือ Marketplace API จริง
+- AI ตีความข้อความอิสระแทน Deterministic Parser
+- การรับเงินจริงหรือเปิด Production Live
+- การแก้กฎบัญชี ภาษี Invoice หรือ Payment
+- การเปลี่ยนกฎ Stock Movement ที่อนุมัติแล้ว
+- การ Deploy Production
+
+## 8. Acceptance Scenarios หลัก
+
+1. สร้าง Product เสื้อยืด สีฟ้า/ดำ และไซซ์ S/M/L/XL ได้ครบ Combination
+2. เก็บ SKU A001 แล้วรายการใหม่แสดงและ allocate A002 อย่างถูกต้อง
+3. ผู้ใช้สองคนขอรหัสถัดไปพร้อมกันต้องได้คนละรหัส
+4. `B001 สีฟ้า S` resolve เป็น SKU เดียวและจอง Stock ถูกสาขา
+5. `B001` ที่มีหลาย Variant ต้องแจ้งให้ระบุสี/ไซซ์
+6. Alias `ฟ้า`, `สีฟ้า`, `Blue` ให้ผลเป็น Option Value เดียวกัน
+7. สินค้าหมดต้องไม่เปิด Reservation สำเร็จ
+8. ข้อความซ้ำต้องไม่จองหรือตัด Stock ซ้ำ
+9. Product เดิมที่ไม่มี Variant ยังค้นหา เปิดดู และขายได้
+10. ทุกคำสั่งสำคัญมี Organization scope, Permission, RLS และ Audit Log
+
+## 9. สถานะการดำเนินงาน
+
+| Part | สถานะ | หลักฐาน/หมายเหตุ |
+|---|---|---|
+| 1. Identifier Contract Freeze | Not started | รอ Owner อนุมัติเริ่ม |
+| 2. Variant UX Mockup | Not started | ต้องทำหลัง Part 1 ผ่าน |
+| 3. Variant Data Model | Not started | ต้องทำหลัง Mockup ผ่าน |
+| 4. Atomic Sales Code Allocator | Not started | แก้ Sequence Preview-only |
+| 5. Unified Variant Creation | Not started | เชื่อมระบบจริงหลัง Part 3–4 |
+| 6. Products Workspace Alignment | Not started | รักษา Approved Products UI |
+| 7. Live Sale Reservation | Not started | ใช้ Approved Live Sale concept |
+| 8. Deterministic Live CF Parser | Not started | ไม่ใช้ AI เป็น Authority |
+| 9. Reservation, Stock & Billing | Not started | ทุกคำสั่ง resolve เป็น sku_id |
+| 10. Migration, Rollout & E2E | Not started | ต้องหยุดให้ Owner ทดสอบ |
+
+## 10. Decision Log
+
+| วันที่ | การตัดสินใจ |
+|---|---|
+| 16 ส.ค. 2026 | แยก SKU Code, Sales Code ถาวร และ Live Code ออกจากกัน |
+| 16 ส.ค. 2026 | สีและไซซ์ต้องเป็น Structured Variant Option ไม่เก็บเฉพาะในชื่อสินค้า |
+| 16 ส.ค. 2026 | ข้อความ Live CF ต้อง resolve เป็น SKU ID เดียวก่อนจอง เปิดบิล หรือตัด Stock |
+| 16 ส.ค. 2026 | ทำ Mockup ก่อนระบบจริง และพัฒนาทีละ Part พร้อม Stop Gate |

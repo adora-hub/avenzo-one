@@ -68,6 +68,14 @@ test('R7.2.5 uses semantic surfaces for Light and Dark instead of white alert pa
   assert.match(styles, /\[data-theme="dark"\] \.product-creation-card > header > span/)
 })
 
+test('draft save confirmation stays visible at the top center of the viewport', async () => {
+  const [styles, form] = await Promise.all([read(stylesPath), read(formPath)])
+  assert.match(styles, /\.product-draft-save-toast \{[^}]*position: fixed;[^}]*top: 18px;[^}]*left: 50%;/)
+  assert.match(styles, /@keyframes product-draft-toast-in[^}]*translate\(-50%, -10px\)/)
+  assert.match(form, /window\.setTimeout\([\s\S]*?10000\)/)
+  assert.match(form, /product-draft-save-countdown/)
+})
+
 test('R7.2.5 production hierarchy matches approved mockup sections and actions', async () => {
   const [form, mockup] = await Promise.all([read(formPath), read(mockupPath)])
   for (const text of ['ข้อมูลทั่วไป', 'รูปสินค้า', 'SKU แรกและรหัสสินค้า', 'ราคาและภาษี', 'น้ำหนักและขนาด', 'หน่วยบรรจุและ Bundle', 'สาขาและนโยบายสต๊อก', 'ข้อมูลระบบ', 'สรุปก่อนสร้าง', 'ตรวจสอบและสร้าง', 'บันทึกร่าง', 'ยกเลิก']) {

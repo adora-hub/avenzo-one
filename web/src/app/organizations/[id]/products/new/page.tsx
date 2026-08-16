@@ -1,6 +1,6 @@
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { ApplicationShell } from '@/app/components/application-shell'
+import { ProductHeaderBreadcrumb } from '@/app/components/product-header-breadcrumb'
 import { createClient } from '@/lib/supabase/server'
 import type { OrganizationAccessSummary } from '@/lib/organization-access'
 import { UnifiedProductCreationForm } from './unified-product-creation-form'
@@ -58,15 +58,9 @@ export default async function NewProductPage({ params }: Props) {
     section="workspace"
     organizationId={organizationId}
     organizationName={organization.name}
+    headerBreadcrumb={<ProductHeaderBreadcrumb organizationId={organizationId} currentPage="create-product" />}
   >
     <section className="content product-workspace-page product-creation-page">
-      <nav className="product-breadcrumb" aria-label="Breadcrumb">
-        <Link href="/dashboard">Home</Link><span aria-hidden="true">›</span>
-        <Link href={`/organizations/${organizationId}`}>Workspace</Link><span aria-hidden="true">›</span>
-        <Link href={productsHref}>Products</Link><span aria-hidden="true">›</span>
-        <span aria-current="page">สร้างสินค้า</span>
-      </nav>
-
       <UnifiedProductCreationForm
         organizationId={organizationId}
         organizationName={organization.name}

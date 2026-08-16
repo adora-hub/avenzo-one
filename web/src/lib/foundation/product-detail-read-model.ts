@@ -145,7 +145,7 @@ export function buildProductWorkspaceDetail(input: {
     skuCount: input.skus.length,
     skuPreview: input.skus.slice(0, PRODUCT_DETAIL_SKU_PREVIEW_LIMIT).map((sku) => ({
       id: sku.id, skuCode: sku.skuCode, name: sku.name, barcode: sku.barcode,
-      salesCode: sku.salesCode, baseUnitCode: sku.baseUnitCode, status: sku.status,
+      salesCode: sku.salesCode, baseUnitCode: sku.baseUnitCode, status: sku.status, profile: sku.profile ?? null,
     })),
     price: summarizePrices(input.skus.map((sku) => ({ amount: sku.profile?.salePrice ?? null, currencyCode: sku.profile?.currencyCode ?? null }))),
     quantityBehavior: summarizeValues(input.skus.map((sku) => sku.profile?.quantityBehavior)),

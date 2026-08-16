@@ -45,8 +45,29 @@ test('R7.2 validates approved form limits and preserves draft recovery', async (
   assert.match(form, /PRODUCT_IMAGE_MAX_BYTES/)
   assert.match(form, /tagIds[\s\S]*slice\(0, 12\)/)
   assert.match(form, /localStorage\.setItem\(pendingDraftKey/)
+  assert.match(form, /product-draft-save-toast/)
+  assert.match(form, /setDraftSaveSeconds\(10\)/)
+  assert.match(form, /window\.setTimeout\([\s\S]*?10000\)/)
+  assert.match(form, /ปิดใน \{draftSaveSeconds\} วินาที/)
+  assert.match(form, /aria-label="ปิดข้อความบันทึกร่าง"/)
+  assert.doesNotMatch(form, /setFeedback\(\{ tone: 'success', text: notice \}\)/)
+  assert.match(form, /รูปภาพจะไม่ถูกเก็บและต้องเลือกใหม่หลัง F5/)
   assert.match(form, /อัปโหลดต่อ/)
   assert.match(form, /ยังคงสถานะฉบับร่าง/)
+})
+
+test('controlled selections persist only after React state hydration and updates settle', async () => {
+  const form = await read(formPath)
+  assert.match(form, /<form id="unified-product-form"[\s\S]*?onChange=\{\(event\) => \{/)
+  assert.doesNotMatch(form, /<form id="unified-product-form"[\s\S]*?onInput=\{\(event\) => \{/)
+  assert.match(form, /const \[draftHydrated, setDraftHydrated\] = useState\(false\)/)
+  assert.match(form, /finally \{\s*setDraftHydrated\(true\)\s*\}/)
+  assert.match(form, /useEffect\(\(\) => \{\s*if \(!draftHydrated\) return\s*saveBrowserDraft\(false\)/)
+  for (const dependency of ['categoryId', 'brandId', 'tagIds', 'structure', 'packagingEnabled', 'bundleStockMode', 'selectedBranchIds']) {
+    assert.match(form, new RegExp(`saveBrowserDraft\\(false\\)[\\s\\S]*?${dependency}`))
+  }
+  const formChange = form.slice(form.indexOf('onChange={(event) => {', form.indexOf('<form')), form.indexOf('setSummaryFields(readProductSummaryFields(event.currentTarget))'))
+  assert.doesNotMatch(formChange, /saveBrowserDraft\(false\)/)
 })
 
 test('R7.2 keeps stock writes outside product creation', async () => {

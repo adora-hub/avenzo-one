@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
 const page = await readFile(new URL('../src/app/organizations/[id]/products/page.tsx', import.meta.url), 'utf8')
+const breadcrumb = await readFile(new URL('../src/app/components/product-header-breadcrumb.tsx', import.meta.url), 'utf8')
 const workspace = await readFile(new URL('../src/app/organizations/[id]/products/product-sku-workspace.tsx', import.meta.url), 'utf8')
 const grid = await readFile(new URL('../src/app/organizations/[id]/products/products-data-grid.tsx', import.meta.url), 'utf8')
 const styles = await readFile(new URL('../src/app/globals.css', import.meta.url), 'utf8')
@@ -12,7 +13,8 @@ test('server page keeps auth/read boundaries and passes serializable heading dat
   assert.match(page, /createFoundationReadRepository/)
   assert.match(page, /organizationName=\{organization\.name\}/)
   assert.match(page, /skuCount=\{view === 'products' \? productWorkspaceRows\.reduce/)
-  assert.match(page, /headerBreadcrumb=\{<nav className="product-header-breadcrumb"/)
+  assert.match(page, /headerBreadcrumb=\{<ProductHeaderBreadcrumb organizationId=\{organizationId\} \/>\}/)
+  assert.match(breadcrumb, /className="product-header-breadcrumb"/)
   assert.match(page, /productAction=\{productAction\}/)
   assert.match(workspace, /productAction === 'edit' && canManage/)
   assert.match(workspace, /productAction === 'skus'/)
@@ -58,7 +60,7 @@ test('production grid matches approved toolbar without inventing data writes', (
   assert.match(grid, /M4 4h16l-6\.2 7\.2v5\.3l-3\.6 2v-7\.3z/)
   assert.match(grid, /M4 4h16v16H4z/)
   assert.match(grid, /M4 5h16M4 12h16M4 19h16/)
-  assert.equal((grid.match(/data-tooltip=/g) ?? []).length, 5)
+  assert.equal((grid.match(/data-tooltip=/g) ?? []).length, 7)
   assert.doesNotMatch(grid, />⌫<|>▣<|>☷</)
   assert.match(grid, /role="menubar"/)
   assert.match(grid, /aria-haspopup="menu"/)
@@ -85,6 +87,14 @@ test('production grid matches approved toolbar without inventing data writes', (
   assert.match(grid, /data-tooltip="คัดลอกรหัส CF"/)
   assert.match(grid, /data-tooltip="คัดลอก SKU"/)
   assert.match(grid, /id="product-grid-copy-tooltip"/)
+  assert.match(grid, /id="product-grid-image-preview"/)
+  assert.match(grid, /showImagePreview\(event\.currentTarget, row\)/)
+  assert.match(grid, /openQuickEdit\(event\.currentTarget, 'price'/)
+  assert.match(grid, /openQuickEdit\(event\.currentTarget, 'stock'/)
+  assert.match(grid, /commandType: 'sku\.profile\.upsert'/)
+  assert.match(grid, /'adjustment_in' \| 'adjustment_out'/)
+  assert.match(workspace, /runCommand\('sku\.profile\.upsert'/)
+  assert.match(workspace, /editorMode === 'edit-price'/)
   assert.match(grid, /showCopyTooltip\(event\.currentTarget/)
   assert.match(grid, /product-grid-bulk-active/)
   assert.match(grid, /className="product-grid-status-select"/)
@@ -120,6 +130,10 @@ test('visual parity styles cover compact toolbar, menus, status and responsive l
     '.product-grid-customize-panel',
     '.product-grid-customize-table-head',
     '.product-grid-customize-row',
+    '.product-grid-image-preview',
+    '.product-grid-inline-edit-cell',
+    '.product-grid-cell-edit-button',
+    '.product-grid-quick-editor',
   ]) assert.match(styles, new RegExp(selector.replace('.', '\\\.')))
   assert.match(styles, /\.product-grid-action-icons svg \{[^}]*stroke: currentColor/)
   assert.match(styles, /\.product-grid-table tbody tr\[data-selected="true"\] td \{[^}]*background: color-mix/)
@@ -129,6 +143,8 @@ test('visual parity styles cover compact toolbar, menus, status and responsive l
   assert.match(styles, /\.product-grid-code-line button:focus-visible \{[^}]*background: transparent[^}]*outline: 2px solid var\(--focus-ring\)/)
   assert.match(styles, /\.product-grid-copy-tooltip \{[^}]*position: fixed[^}]*z-index: 120[^}]*transform: translate\(-50%, -100%\)/)
   assert.match(styles, /\.product-grid-copy-tooltip::after \{[^}]*top: 100%[^}]*border-top-color: #111/)
+  assert.match(styles, /\.product-grid-image-preview \{[^}]*position: fixed[^}]*z-index: 150/)
+  assert.match(styles, /\.product-grid-quick-editor \{[^}]*position: fixed[^}]*z-index: 145/)
   assert.match(styles, /\.product-grid-icon-button:hover, \.product-grid-customize > summary:hover \{[^}]*background: transparent/)
   assert.match(styles, /grid-template-columns: minmax\(360px, 520px\) auto 146px/)
   assert.match(styles, /\.product-search-wrap input \{[^}]*min-height: 38px; height: 38px[^}]*padding: 8px 36px/)

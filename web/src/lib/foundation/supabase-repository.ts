@@ -48,6 +48,7 @@ function nullableNumber(value: unknown) {
 function mapSkuProfile(row: Record<string, unknown> | undefined): ProductWorkspaceSkuProfile | null {
   if (!row) return null
   return {
+    version: Number(row.version),
     quantityBehavior: String(row.quantity_behavior),
     salePrice: nullableNumber(row.sale_price),
     currencyCode: String(row.currency_code),
@@ -262,7 +263,7 @@ export class SupabaseFoundationReadRepository implements FoundationReadRepositor
         .eq('organization_id', input.organizationId).in('product_id', productIds)
         .limit(PRODUCT_WORKSPACE_TAG_AGGREGATE_LIMIT),
       skuIds.length > 0
-        ? this.client.from('sku_product_profiles').select('sku_id, quantity_behavior, sale_price, currency_code, tax_category, tax_rate, product_weight_kg, product_length_cm, product_width_cm, product_height_cm, package_weight_kg, package_length_cm, package_width_cm, package_height_cm, safety_stock, reorder_min, reorder_max')
+        ? this.client.from('sku_product_profiles').select('sku_id, version, quantity_behavior, sale_price, currency_code, tax_category, tax_rate, product_weight_kg, product_length_cm, product_width_cm, product_height_cm, package_weight_kg, package_length_cm, package_width_cm, package_height_cm, safety_stock, reorder_min, reorder_max')
           .eq('organization_id', input.organizationId).in('sku_id', skuIds)
         : Promise.resolve({ data: [], error: null }),
       input.includeCost && skuIds.length > 0
@@ -426,7 +427,7 @@ export class SupabaseFoundationReadRepository implements FoundationReadRepositor
         .eq('organization_id', input.organizationId).eq('product_id', input.productId)
         .limit(40),
       skuIds.length > 0
-        ? this.client.from('sku_product_profiles').select('sku_id, quantity_behavior, sale_price, currency_code, tax_category, tax_rate, product_weight_kg, product_length_cm, product_width_cm, product_height_cm, package_weight_kg, package_length_cm, package_width_cm, package_height_cm, safety_stock, reorder_min, reorder_max')
+        ? this.client.from('sku_product_profiles').select('sku_id, version, quantity_behavior, sale_price, currency_code, tax_category, tax_rate, product_weight_kg, product_length_cm, product_width_cm, product_height_cm, package_weight_kg, package_length_cm, package_width_cm, package_height_cm, safety_stock, reorder_min, reorder_max')
           .eq('organization_id', input.organizationId).in('sku_id', skuIds)
         : Promise.resolve({ data: [], error: null }),
       input.includeCost && skuIds.length > 0
@@ -713,6 +714,12 @@ export class SupabaseFoundationReadRepository implements FoundationReadRepositor
   }) {
     const sku = await this.getSku({ organizationId: input.organizationId, skuId: input.skuId })
     if (!sku) return null
+    const { data: profileRow, error: profileError } = await this.client.from('sku_product_profiles')
+      .select('sku_id, version, quantity_behavior, sale_price, currency_code, tax_category, tax_rate, product_weight_kg, product_length_cm, product_width_cm, product_height_cm, package_weight_kg, package_length_cm, package_width_cm, package_height_cm, safety_stock, reorder_min, reorder_max')
+      .eq('organization_id', input.organizationId)
+      .eq('sku_id', input.skuId)
+      .maybeSingle()
+    if (profileError) throw mapFoundationError(profileError)
     let stock: ProductWorkspaceStockSummary = {
       mode: input.includeInventory ? 'no-balance' : 'not-authorized',
       baseUnitCode: sku.baseUnitCode,
@@ -761,7 +768,7 @@ export class SupabaseFoundationReadRepository implements FoundationReadRepositor
       status: sku.status,
       version: sku.version,
       updatedAt: sku.updatedAt,
-      profile: null,
+      profile: mapSkuProfile(profileRow as Record<string, unknown> | undefined),
       cost: { mode: 'not-authorized' as const, costPrice: null, currencyCode: null },
       sellUnits: [],
       bundleComponents: [],

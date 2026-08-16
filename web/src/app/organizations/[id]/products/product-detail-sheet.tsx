@@ -3,7 +3,6 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { OperationsDetailSheet, OperationsStatusBadge } from '@/app/components/operations-ui'
-import { skuCanArchive } from '@/lib/foundation/product-detail-read-model'
 import type {
   ProductWorkspaceDetail,
   ProductWorkspacePriceSummary,
@@ -205,31 +204,15 @@ function ProductQuickView({ selectedProduct, canReadCost }: { selectedProduct: P
 }
 
 export function ProductDetailSheet({
-  organizationId,
   selectedProduct,
   selectedSku,
   closeHref,
-  canManage,
   canReadCost,
-  isPending,
-  openEditor,
-  requestLifecycle,
 }: {
-  organizationId: string
   selectedProduct: ProductWorkspaceDetail | null
   selectedSku: SkuDetail | null
   closeHref: string
-  canManage: boolean
   canReadCost: boolean
-  isPending: boolean
-  openEditor: (mode: 'edit-product' | 'edit-sku') => void
-  requestLifecycle: (input: {
-    commandType: 'product.activate' | 'product.archive' | 'sku.activate' | 'sku.archive'
-    idKey: 'product_id' | 'sku_id'
-    id: string
-    version: number
-    label: string
-  }) => void
 }) {
   const selectedEntity = selectedProduct ?? selectedSku
   if (!selectedEntity) return null
@@ -243,11 +226,6 @@ export function ProductDetailSheet({
       <div className="product-detail-stack">
         {selectedProduct ? <>
           <ProductQuickView selectedProduct={selectedProduct} canReadCost={canReadCost} />
-          {canManage && selectedProduct.status !== 'archived' ? <div className="button-row product-detail-actions">
-            <button className="button secondary" type="button" disabled={isPending} onClick={() => openEditor('edit-product')}>แก้ไข Product</button>
-            {selectedProduct.status === 'draft' ? <button className="button" type="button" disabled={isPending} onClick={() => requestLifecycle({ commandType: 'product.activate', idKey: 'product_id', id: selectedProduct.id, version: selectedProduct.version, label: selectedProduct.name })}>เปิดใช้งาน</button> : null}
-            <button className="button danger" type="button" disabled={isPending} onClick={() => requestLifecycle({ commandType: 'product.archive', idKey: 'product_id', id: selectedProduct.id, version: selectedProduct.version, label: selectedProduct.name })}>เก็บ Product ถาวร</button>
-          </div> : selectedProduct.status === 'archived' ? <div className="product-detail-readonly" role="note">Product ที่เก็บถาวรแล้วเป็นข้อมูลอ่านอย่างเดียวและจะไม่ถูกลบ</div> : null}
         </> : selectedSku ? <>
           <div className="product-detail-status"><OperationsStatusBadge tone={statusTone(selectedSku.status)}>{statusLabels[selectedSku.status] ?? selectedSku.status}</OperationsStatusBadge><span>Version {selectedSku.version}</span></div>
           <section className="product-detail-section" aria-labelledby="sku-detail-identifiers">
@@ -266,12 +244,6 @@ export function ProductDetailSheet({
             <h3 id="sku-detail-stock">Inventory summary</h3><p>{stockLabel(selectedSku)}</p>
             {selectedSku.stock.branchCodes.length ? <p className="product-detail-note">สาขา: {selectedSku.stock.branchCodes.join(', ')}</p> : null}
           </section>
-          {canManage && selectedSku.status !== 'archived' ? <div className="button-row product-detail-actions">
-            <button className="button secondary" type="button" disabled={isPending} onClick={() => openEditor('edit-sku')}>แก้ไข SKU</button>
-            {selectedSku.status === 'draft' ? <button className="button" type="button" disabled={isPending} onClick={() => requestLifecycle({ commandType: 'sku.activate', idKey: 'sku_id', id: selectedSku.id, version: selectedSku.version, label: selectedSku.skuCode })}>เปิดใช้งาน</button> : null}
-            <button className="button danger" type="button" disabled={isPending || !skuCanArchive(selectedSku.stock)} title={!skuCanArchive(selectedSku.stock) ? selectedSku.stock.mode === 'not-authorized' ? 'ต้องมีสิทธิ์อ่าน Stock ก่อน' : 'ต้องย้ายหรือปรับ Stock ให้ On hand เป็น 0 ก่อน' : undefined} onClick={() => requestLifecycle({ commandType: 'sku.archive', idKey: 'sku_id', id: selectedSku.id, version: selectedSku.version, label: selectedSku.skuCode })}>เก็บ SKU ถาวร</button>
-          </div> : selectedSku.status === 'archived' ? <div className="product-detail-readonly" role="note">SKU ที่เก็บถาวรแล้วเป็นข้อมูลอ่านอย่างเดียวและจะไม่ถูกลบ</div> : null}
-          {!skuCanArchive(selectedSku.stock) ? <div className="product-detail-blocked" role="note">{selectedSku.stock.mode === 'not-authorized' ? 'ยังเก็บ SKU ถาวรไม่ได้ เพราะบัญชีนี้ไม่มีสิทธิ์ตรวจสอบ Stock' : `ยังเก็บ SKU ถาวรไม่ได้ เพราะ On hand คงเหลือ ${selectedSku.stock.onHand} ${selectedSku.baseUnitCode}`}</div> : null}
         </> : null}
       </div>
     </OperationsDetailSheet>

@@ -4,12 +4,14 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import {
-  useEffect, useMemo, useRef, useState,
+  useEffect, useMemo, useRef, useState, useTransition,
   type DragEvent as ReactDragEvent,
+  type FormEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react'
+import { executeFoundationCommandAction } from '@/app/actions/foundation'
 import { OperationsEmptyState } from '@/app/components/operations-ui'
 import type { ProductWorkspaceRow } from '@/lib/foundation/repositories'
 import {
@@ -39,6 +41,13 @@ const PRODUCT_EXPORT_COLUMNS = [
 type ProductExportColumnKey = typeof PRODUCT_EXPORT_COLUMNS[number][0]
 
 type GridSort = { key: ProductGridColumnKey; direction: 'asc' | 'desc' }
+type QuickEditState = {
+  kind: 'price' | 'stock'
+  row: ProductWorkspaceRow
+  sku: ProductWorkspaceRow['skuPreview'][number]
+  left: number
+  top: number
+}
 
 const PRODUCT_GRID_SELECTION_WIDTH = 52
 const PRODUCT_GRID_PAGE_SIZES = [10, 25, 50, 100, 300, 400] as const
@@ -64,6 +73,10 @@ function ProductGridDragHandleIcon() {
     <circle cx="6" cy="9" r="1.25" /><circle cx="12" cy="9" r="1.25" />
     <circle cx="6" cy="14" r="1.25" /><circle cx="12" cy="14" r="1.25" />
   </svg>
+}
+
+function ProductGridEditIcon() {
+  return <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m13.8 3.2 3 3L7 16H4v-3Z" /><path d="m12.3 4.7 3 3" /></svg>
 }
 
 function statusLabel(status: string) {
@@ -104,19 +117,20 @@ function formatPriceSummary(summary: ProductWorkspaceRow['price'] | null) {
     : formatter.format(summary.minimum)
 }
 
-function detailHref(input: { organizationId: string; search: string; status: string; sort: string; productId: string; page: number; pageSize: number; bulkSearchActive: boolean; action?: 'edit' | 'skus' }) {
+function detailHref(input: { organizationId: string; search: string; status: string; sort: string; productId: string; skuId?: string; page: number; pageSize: number; bulkSearchActive: boolean; action?: 'edit' | 'skus' | 'price' }) {
   const params = new URLSearchParams({ view: 'products', product: input.productId, page: String(input.page), page_size: String(input.pageSize) })
   if (input.search) params.set('q', input.search)
   if (input.status) params.set('status', input.status)
   if (input.sort) params.set('sort', input.sort)
   if (input.bulkSearchActive) params.set('bulk', '1')
+  if (input.skuId) params.set('sku', input.skuId)
   if (input.action) params.set('action', input.action)
   return `/organizations/${input.organizationId}/products?${params}`
 }
 
 export function ProductsDataGrid({
   organizationId, rows, search, status, sort, toolbar, clearHref, bulkActiveCount, clearBulkHref, emptyState,
-  page, pageSize, totalCount, canManage, canReadCost, isPending, onRequestLifecycle,
+  page, pageSize, totalCount, canManage, canAdjustInventory, inventoryLocationOptions, canReadCost, isPending, onRequestLifecycle,
 }: {
   organizationId: string
   rows: ProductWorkspaceRow[]
@@ -132,6 +146,8 @@ export function ProductsDataGrid({
   pageSize: number
   totalCount: number
   canManage: boolean
+  canAdjustInventory: boolean
+  inventoryLocationOptions: Array<{ id: string; name: string; code: string; warehouseName: string }>
   canReadCost: boolean
   isPending: boolean
   onRequestLifecycle: (input: {
@@ -166,9 +182,14 @@ export function ProductsDataGrid({
   } | null>(null)
   const [gridToast, setGridToast] = useState<string | null>(null)
   const [rowMenu, setRowMenu] = useState<{ rowId: string; left: number; top: number } | null>(null)
+  const [imagePreview, setImagePreview] = useState<{ src: string; alt: string; name: string; left: number; top: number } | null>(null)
+  const [quickEdit, setQuickEdit] = useState<QuickEditState | null>(null)
+  const [quickEditError, setQuickEditError] = useState<string | null>(null)
+  const [quickEditPending, startQuickEditTransition] = useTransition()
   const selectAllRef = useRef<HTMLInputElement>(null)
   const rowMenuRef = useRef<HTMLDivElement>(null)
   const rowMenuTriggerRef = useRef<HTMLButtonElement>(null)
+  const quickEditRef = useRef<HTMLDivElement>(null)
   const excelMenuRef = useRef<HTMLDivElement>(null)
   const excelTriggerRef = useRef<HTMLButtonElement>(null)
   const excelImportRef = useRef<HTMLInputElement>(null)
@@ -253,6 +274,22 @@ export function ProductsDataGrid({
       window.removeEventListener('keydown', closeRowMenuOnEscape)
     }
   }, [rowMenu])
+
+  useEffect(() => {
+    if (!quickEdit) return
+    function closeQuickEdit(event: PointerEvent) {
+      if (!quickEditRef.current?.contains(event.target as Node)) setQuickEdit(null)
+    }
+    function closeQuickEditOnEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape' && !quickEditPending) setQuickEdit(null)
+    }
+    document.addEventListener('pointerdown', closeQuickEdit)
+    window.addEventListener('keydown', closeQuickEditOnEscape)
+    return () => {
+      document.removeEventListener('pointerdown', closeQuickEdit)
+      window.removeEventListener('keydown', closeQuickEditOnEscape)
+    }
+  }, [quickEdit, quickEditPending])
 
   useEffect(() => {
     if (!exportColumnsOpen) return
@@ -694,6 +731,101 @@ export function ProductsDataGrid({
     })
   }
 
+  function showImagePreview(target: HTMLElement, row: ProductWorkspaceRow) {
+    if (!row.coverImage) return
+    const rect = target.getBoundingClientRect()
+    const previewWidth = 260
+    const previewHeight = 316
+    let left = rect.right + 12
+    if (left + previewWidth > window.innerWidth - 8) left = rect.left - previewWidth - 12
+    const top = Math.max(8, Math.min(rect.top - 8, window.innerHeight - previewHeight - 8))
+    setImagePreview({
+      src: row.coverImage.signedUrl,
+      alt: row.coverImage.altText || row.name,
+      name: row.name,
+      left: Math.max(8, left),
+      top,
+    })
+  }
+
+  function openQuickEdit(target: HTMLButtonElement, kind: QuickEditState['kind'], row: ProductWorkspaceRow, sku: ProductWorkspaceRow['skuPreview'][number]) {
+    const rect = target.getBoundingClientRect()
+    const width = kind === 'stock' ? 360 : 320
+    const estimatedHeight = kind === 'stock' ? 390 : 245
+    const left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8))
+    const preferredTop = rect.bottom + 8
+    const top = preferredTop + estimatedHeight <= window.innerHeight - 8
+      ? preferredTop
+      : Math.max(8, rect.top - estimatedHeight - 8)
+    setQuickEditError(null)
+    setQuickEdit({ kind, row, sku, left, top })
+  }
+
+  function submitQuickEdit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!quickEdit) return
+    const data = new FormData(event.currentTarget)
+    const targetSku = quickEdit.row.skuPreview.find((sku) => sku.id === String(data.get('skuId') ?? quickEdit.sku.id)) ?? quickEdit.sku
+    const profile = targetSku.profile
+    const command = quickEdit.kind === 'price'
+      ? {
+          kind: 'entity' as const,
+          commandId: crypto.randomUUID(),
+          organizationId,
+          commandType: 'sku.profile.upsert',
+          payload: {
+            sku_id: targetSku.id,
+            expected_version: profile?.version ?? 0,
+            quantity_behavior: profile?.quantityBehavior ?? 'discrete',
+            sale_price: Number(data.get('salePrice')),
+            currency_code: profile?.currencyCode ?? 'THB',
+            tax_category: profile?.taxCategory ?? 'standard',
+            tax_rate: profile?.taxRate ?? 7,
+            product_weight_kg: profile?.productWeightKg ?? null,
+            product_length_cm: profile?.productLengthCm ?? null,
+            product_width_cm: profile?.productWidthCm ?? null,
+            product_height_cm: profile?.productHeightCm ?? null,
+            package_weight_kg: profile?.packageWeightKg ?? null,
+            package_length_cm: profile?.packageLengthCm ?? null,
+            package_width_cm: profile?.packageWidthCm ?? null,
+            package_height_cm: profile?.packageHeightCm ?? null,
+            safety_stock: profile?.safetyStock ?? null,
+            reorder_min: profile?.reorderMin ?? null,
+            reorder_max: profile?.reorderMax ?? null,
+          },
+        }
+      : {
+          kind: 'inventory' as const,
+          commandId: crypto.randomUUID(),
+          organizationId,
+          commandType: String(data.get('direction')) as 'adjustment_in' | 'adjustment_out',
+          skuId: targetSku.id,
+          sourceLocationId: data.get('direction') === 'adjustment_out' ? String(data.get('locationId')) : null,
+          destinationLocationId: data.get('direction') === 'adjustment_in' ? String(data.get('locationId')) : null,
+          quantity: Number(data.get('quantity')),
+          reasonCode: 'stock_count',
+          reasonNote: String(data.get('reasonNote') ?? '').trim(),
+        }
+    setQuickEditError(null)
+    startQuickEditTransition(async () => {
+      const result = await executeFoundationCommandAction(command)
+      if (!result.ok) {
+        const message = result.error === 'version_conflict'
+          ? 'ข้อมูลถูกแก้ไขแล้ว กรุณารีเฟรชและลองใหม่'
+          : result.error === 'insufficient_stock'
+            ? 'สต๊อกไม่เพียงพอสำหรับการปรับลด'
+            : result.error === 'permission_denied'
+              ? 'บัญชีนี้ไม่มีสิทธิ์แก้ไขรายการนี้'
+              : 'บันทึกไม่สำเร็จ กรุณาตรวจข้อมูลแล้วลองใหม่'
+        setQuickEditError(message)
+        return
+      }
+      setGridToast(quickEdit.kind === 'price' ? 'อัปเดตราคาขายเรียบร้อยแล้ว' : 'บันทึก Stock Movement เรียบร้อยแล้ว')
+      setQuickEdit(null)
+      router.refresh()
+    })
+  }
+
   function cell(row: ProductWorkspaceRow, key: ProductGridColumnKey) {
     const firstSku = row.skuPreview[0]
     const common = columns.find((column) => column.key === key)!
@@ -709,16 +841,27 @@ export function ProductsDataGrid({
     if (key === 'product') return <td key={key} className={className} style={style}>
       <div className="product-grid-product">
         {row.coverImage
-          ? <span className="product-grid-image"><Image src={row.coverImage.signedUrl} alt={row.coverImage.altText || row.name} fill sizes="42px" unoptimized /></span>
+          ? <button className="product-grid-image" type="button" aria-label={`ดูภาพขยาย ${row.name}`} aria-describedby={imagePreview?.src === row.coverImage.signedUrl ? 'product-grid-image-preview' : undefined} onMouseEnter={(event) => showImagePreview(event.currentTarget, row)} onMouseLeave={() => setImagePreview(null)} onFocus={(event) => showImagePreview(event.currentTarget, row)} onBlur={() => setImagePreview(null)}><Image src={row.coverImage.signedUrl} alt={row.coverImage.altText || row.name} fill sizes="42px" unoptimized /></button>
           : <span className="product-grid-placeholder" aria-hidden="true">{row.name.slice(0, 1).toUpperCase()}</span>}
         {stack(<strong>{row.name}</strong>, row.description || 'ไม่มีคำอธิบาย')}
       </div>
     </td>
     if (key === 'salesCode') return <td key={key} className={className} style={style}>{stack(firstSku?.salesCode ? <div className="product-grid-code-line"><code>{firstSku.salesCode}</code><button type="button" data-tooltip="คัดลอกรหัส CF" aria-label={`คัดลอกรหัส CF ${firstSku.salesCode}`} aria-describedby={copyTooltip?.key === `${row.id}:sales` ? 'product-grid-copy-tooltip' : undefined} onMouseEnter={(event) => showCopyTooltip(event.currentTarget, `${row.id}:sales`, 'คัดลอกรหัส CF')} onMouseLeave={() => setCopyTooltip(null)} onFocus={(event) => showCopyTooltip(event.currentTarget, `${row.id}:sales`, 'คัดลอกรหัส CF')} onBlur={() => setCopyTooltip(null)} onClick={() => copyCode(firstSku.salesCode!, `${row.id}:sales`)}>{copied === `${row.id}:sales` ? '✓' : '⧉'}</button></div> : <span className="product-grid-muted">—</span>, row.skuPreview.filter((sku) => sku.salesCode).length > 1 ? '+ รหัสอื่น' : undefined)}</td>
     if (key === 'sku') return <td key={key} className={className} style={style}>{stack(firstSku ? <div className="product-grid-code-line"><code>{firstSku.skuCode}</code><button type="button" data-tooltip="คัดลอก SKU" aria-label={`คัดลอก SKU Code ${firstSku.skuCode}`} aria-describedby={copyTooltip?.key === `${row.id}:sku` ? 'product-grid-copy-tooltip' : undefined} onMouseEnter={(event) => showCopyTooltip(event.currentTarget, `${row.id}:sku`, 'คัดลอก SKU')} onMouseLeave={() => setCopyTooltip(null)} onFocus={(event) => showCopyTooltip(event.currentTarget, `${row.id}:sku`, 'คัดลอก SKU')} onBlur={() => setCopyTooltip(null)} onClick={() => copyCode(firstSku.skuCode, `${row.id}:sku`)}>{copied === `${row.id}:sku` ? '✓' : '⧉'}</button></div> : <span className="product-grid-muted">ยังไม่มี SKU</span>, firstSku ? `${row.skuCount} ${row.skuCount === 1 ? 'SKU' : 'variants'}` : undefined)}</td>
-    if (key === 'stock') return <td key={key} className={className} style={style}>{row.stock.mode === 'single-unit' ? stack(<strong>{row.stock.onHand} in stock</strong>, `Available ${row.stock.available}`) : row.stock.mode === 'mixed-units' ? stack(<strong>หลายหน่วย</strong>, 'ไม่รวมยอดข้ามหน่วย') : row.stock.mode === 'not-authorized' ? stack(<span className="product-grid-muted">ไม่มีสิทธิ์ดู Stock</span>) : stack(<span className="product-grid-muted">ยังไม่มียอด Stock</span>)}</td>
+    if (key === 'stock') {
+      const content = row.stock.mode === 'single-unit' ? stack(<strong>{row.stock.onHand} in stock</strong>, `Available ${row.stock.available}`) : row.stock.mode === 'mixed-units' ? stack(<strong>หลายหน่วย</strong>, 'ไม่รวมยอดข้ามหน่วย') : row.stock.mode === 'not-authorized' ? stack(<span className="product-grid-muted">ไม่มีสิทธิ์ดู Stock</span>) : stack(<span className="product-grid-muted">ยังไม่มียอด Stock</span>)
+      const firstActiveSku = row.skuPreview.find((sku) => sku.status === 'active')
+      const stockSku = firstActiveSku ?? firstSku
+      return <td key={key} className={className} style={style}><div className="product-grid-inline-edit-cell">{content}{canAdjustInventory && stockSku && row.stock.mode !== 'not-authorized' ? <button className="product-grid-cell-edit-button" type="button" aria-disabled={!firstActiveSku} aria-label={firstActiveSku ? `แก้ไขจำนวนสต๊อก ${firstActiveSku.skuCode}` : `ต้องเปิดใช้งาน SKU ${stockSku.skuCode} ก่อนปรับสต๊อก`} data-tooltip={firstActiveSku ? 'แก้ไขจำนวนสต๊อก' : 'เปิดใช้งาน SKU ก่อนปรับสต๊อก'} onClick={(event) => {
+        if (firstActiveSku) openQuickEdit(event.currentTarget, 'stock', row, firstActiveSku)
+        else setGridToast('กรุณาเปลี่ยนสถานะ SKU เป็น “ใช้งานอยู่” ก่อนปรับจำนวนสต๊อก')
+      }}><ProductGridEditIcon /></button> : null}</div></td>
+    }
     if (key === 'baseUnit') return <td key={key} className={className} style={style}>{stack(<strong>{row.stock.baseUnitCode || (row.stock.mode === 'mixed-units' ? 'หลายหน่วย' : '—')}</strong>)}</td>
-    if (key === 'price') return <td key={key} className={className} style={style}>{stack(<strong>{formatPrice(row)}</strong>)}</td>
+    if (key === 'price') {
+      const content = stack(<strong>{formatPrice(row)}</strong>)
+      return <td key={key} className={className} style={style}><div className="product-grid-inline-edit-cell">{content}{canManage && firstSku ? <button className="product-grid-cell-edit-button" type="button" aria-label={`แก้ไขราคาขาย ${firstSku.skuCode}`} data-tooltip="แก้ไขราคาขาย" onClick={(event) => openQuickEdit(event.currentTarget, 'price', row, firstSku)}><ProductGridEditIcon /></button> : null}</div></td>
+    }
     if (key === 'category') return <td key={key} className={className} style={style}>{stack(row.category?.name ?? <span className="product-grid-muted">—</span>)}</td>
     if (key === 'brand') return <td key={key} className={className} style={style}>{stack(row.brand?.name ?? <span className="product-grid-muted">—</span>)}</td>
     if (key === 'tags') return <td key={key} className={className} style={style}>{stack(row.tags.length ? <span className="product-grid-tag-list">{row.tags.map((tag) => tag.name).join(', ')}</span> : <span className="product-grid-muted">—</span>)}</td>
@@ -908,7 +1051,26 @@ export function ProductsDataGrid({
       <Link role="menuitem" href={detailHref({ organizationId, search, status, sort, productId: rowMenu.rowId, page: currentPage, pageSize, bulkSearchActive, action: 'edit' })}>แก้ไขสินค้า</Link>
       <Link role="menuitem" href={detailHref({ organizationId, search, status, sort, productId: rowMenu.rowId, page: currentPage, pageSize, bulkSearchActive, action: 'skus' })}>จัดการ SKU</Link>
     </div> : null}
+    {quickEdit ? <div ref={quickEditRef} className="product-grid-quick-editor" role="dialog" aria-modal="false" aria-labelledby="product-grid-quick-editor-title" style={{ left: quickEdit.left, top: quickEdit.top }}>
+      <header><div><h2 id="product-grid-quick-editor-title">{quickEdit.kind === 'price' ? 'แก้ไขราคาขาย' : 'ปรับจำนวนสต๊อก'}</h2><p>{quickEdit.row.name} · <span className="product-code">{quickEdit.sku.skuCode}</span></p></div><button type="button" aria-label="ปิด" disabled={quickEditPending} onClick={() => setQuickEdit(null)}>×</button></header>
+      <form onSubmit={submitQuickEdit}>
+        {quickEdit.row.skuPreview.filter((sku) => quickEdit.kind === 'price' || sku.status === 'active').length > 1 ? <label className="field-stack">SKU / ตัวเลือก<select name="skuId" value={quickEdit.sku.id} onChange={(event) => setQuickEdit((current) => {
+          if (!current) return current
+          const sku = current.row.skuPreview.find((item) => item.id === event.target.value)
+          return sku ? { ...current, sku } : current
+        })}>{quickEdit.row.skuPreview.filter((sku) => quickEdit.kind === 'price' || sku.status === 'active').map((sku) => <option key={sku.id} value={sku.id}>{sku.skuCode}</option>)}</select></label> : <input name="skuId" type="hidden" value={quickEdit.sku.id} />}
+        {quickEdit.kind === 'price' ? <label className="field-stack">ราคาขาย (บาท)<input key={quickEdit.sku.id} name="salePrice" type="number" inputMode="decimal" min="0" step="0.01" required autoFocus defaultValue={quickEdit.sku.profile?.salePrice ?? ''} placeholder="0.00" /></label> : <>
+          <div className="product-grid-quick-stock-summary"><span>ยอดรวมปัจจุบัน</span><strong>{quickEdit.row.stock.mode === 'single-unit' ? `${quickEdit.row.stock.onHand ?? 0} ${quickEdit.sku.baseUnitCode}` : 'ยังไม่มียอด Stock'}</strong></div>
+          <div className="form-grid-two"><label className="field-stack">วิธีปรับ<select name="direction" defaultValue="adjustment_in" autoFocus><option value="adjustment_in">ปรับเพิ่ม</option><option value="adjustment_out">ปรับลด</option></select></label><label className="field-stack">จำนวน<input name="quantity" type="number" inputMode="decimal" min="0.000001" step="0.000001" required /></label></div>
+          <label className="field-stack">ตำแหน่งจัดเก็บ<select name="locationId" required defaultValue=""><option value="" disabled>เลือกตำแหน่ง</option>{inventoryLocationOptions.map((location) => <option key={location.id} value={location.id}>{location.warehouseName} · {location.code} · {location.name}</option>)}</select></label>
+          <label className="field-stack">เหตุผล<textarea name="reasonNote" required minLength={3} maxLength={500} placeholder="เช่น ตรวจนับสต๊อกหน้าร้าน" /></label>
+        </>}
+        {quickEditError ? <div className="product-grid-quick-edit-error" role="alert">{quickEditError}</div> : null}
+        <footer><button className="button secondary" type="button" disabled={quickEditPending} onClick={() => setQuickEdit(null)}>ยกเลิก</button><button className="button" type="submit" disabled={quickEditPending || (quickEdit.kind === 'stock' && !inventoryLocationOptions.length)}>{quickEditPending ? 'กำลังบันทึก…' : 'บันทึก'}</button></footer>
+      </form>
+    </div> : null}
     {copyTooltip ? <div id="product-grid-copy-tooltip" className="product-grid-copy-tooltip" role="tooltip" style={{ left: copyTooltip.left, top: copyTooltip.top }}>{copyTooltip.text}</div> : null}
+    {imagePreview ? <div id="product-grid-image-preview" className="product-grid-image-preview" role="tooltip" style={{ left: imagePreview.left, top: imagePreview.top }}><Image src={imagePreview.src} alt={imagePreview.alt} width={240} height={240} unoptimized /><strong>{imagePreview.name}</strong><span>ภาพสินค้า</span></div> : null}
     {orderTooltip ? <div id="product-grid-order-tooltip" className="product-grid-order-tooltip" role="tooltip" style={{ left: orderTooltip.left, top: orderTooltip.top }}>ลากเพื่อจัดลำดับ</div> : null}
     {exportColumnsOpen ? <div className="product-modal-backdrop product-export-columns-backdrop" role="presentation" onMouseDown={(event) => {
       if (event.target === event.currentTarget) setExportColumnsOpen(false)

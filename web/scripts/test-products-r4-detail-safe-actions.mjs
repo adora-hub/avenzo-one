@@ -72,9 +72,9 @@ test('safe action UI protects immutable identifiers and version conflicts', () =
   assert.match(workspaceSource, /feedback\.code === 'version_conflict'/)
   assert.match(workspaceSource, /role="alertdialog"/)
   assert.doesNotMatch(workspaceSource, /window\.confirm/)
-  assert.match(detailSource, /selectedProduct\.status !== 'archived'/)
-  assert.match(detailSource, /selectedSku\.status !== 'archived'/)
-  assert.match(detailSource, /skuCanArchive\(selectedSku\.stock\)/)
+  assert.doesNotMatch(detailSource, /product-detail-actions/)
+  assert.doesNotMatch(detailSource, /requestLifecycle/)
+  assert.doesNotMatch(detailSource, /openEditor/)
 })
 
 test('database permanence errors map to a specific safe UI error', () => {

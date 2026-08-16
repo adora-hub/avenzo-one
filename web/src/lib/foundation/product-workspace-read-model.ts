@@ -165,6 +165,7 @@ export function buildProductWorkspaceRows(input: {
         salesCode: sku.salesCode,
         baseUnitCode: sku.baseUnitCode,
         status: sku.status,
+        profile: sku.profile ?? null,
       })),
       price: summarizePrices(productSkus.map((sku) => ({
         amount: sku.profile?.salePrice ?? null,

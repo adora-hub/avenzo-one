@@ -35,6 +35,8 @@ test('stock UX includes filters, immutable ledger, negative-stock feedback and r
   assert.match(css, /\.inventory-mobile-list\s*\{\s*display:\s*none/)
   assert.match(css, /@media \(max-width: 760px\)[\s\S]*\.inventory-mobile-list\s*\{\s*display:\s*grid/)
   assert.match(workspace, /role="alert"/)
+  assert.match(page, /first\(query\.action\) === 'adjust'/)
+  assert.match(workspace, /dialog === 'adjust' && skuId/)
 })
 
 test('Warehouse and Stock workspace is reachable from organization navigation', () => {
