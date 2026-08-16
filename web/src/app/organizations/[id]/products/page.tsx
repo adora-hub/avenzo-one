@@ -13,6 +13,7 @@ type SearchParams = Record<string, string | string[] | undefined>
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<SearchParams> }
 
 const statuses = new Set(['', 'draft', 'active', 'archived'])
+const productPageSizes = new Set([10, 25, 50, 100, 300, 400])
 
 function firstParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] ?? '' : value ?? ''
@@ -26,6 +27,9 @@ export default async function ProductSkuPage({ params, searchParams }: Props) {
   const requestedStatus = firstParam(query.status).toLowerCase()
   const status = statuses.has(requestedStatus) ? requestedStatus : ''
   const cursor = firstParam(query.cursor) || null
+  const requestedProductPageSize = Number(firstParam(query.page_size))
+  const productPageSize = productPageSizes.has(requestedProductPageSize) ? requestedProductPageSize : 25
+  const productPage = Math.max(1, Math.trunc(Number(firstParam(query.page)) || 1))
   const sort = firstParam(query.sort) === 'updated_asc' ? 'updated_asc' : 'updated_desc'
   const requestedProductId = firstParam(query.product)
   const requestedProductAction = firstParam(query.action)
@@ -51,6 +55,7 @@ export default async function ProductSkuPage({ params, searchParams }: Props) {
   const canRead = permissions.has('product.read')
   const canManage = permissions.has('product.manage')
   const canReadInventory = permissions.has('inventory.read')
+  const canReadCost = permissions.has('product.cost.read')
   const isPlatformAdmin = platformAdminResult.data?.status === 'active'
 
   if (!canRead) {
@@ -74,9 +79,10 @@ export default async function ProductSkuPage({ params, searchParams }: Props) {
       organizationId,
       search,
       status: status || undefined,
-      cursor,
-      pageSize: 20,
+      page: productPage,
+      pageSize: productPageSize,
       includeInventory: canReadInventory,
+      includeCost: canReadCost,
       sort,
     })
     : repository.listSkus({ organizationId, search, status: status || undefined, cursor, pageSize: 20 })
@@ -84,7 +90,7 @@ export default async function ProductSkuPage({ params, searchParams }: Props) {
     listPromise,
     repository.listProducts({ organizationId, pageSize: 100 }),
     productId ? repository.getProductWorkspaceDetail({
-      organizationId, productId, includeInventory: canReadInventory,
+      organizationId, productId, includeInventory: canReadInventory, includeCost: canReadCost,
     }) : Promise.resolve(null),
     skuId ? repository.getSkuWorkspaceDetail({
       organizationId, skuId, includeInventory: canReadInventory,
@@ -92,6 +98,16 @@ export default async function ProductSkuPage({ params, searchParams }: Props) {
   ])
   const productWorkspaceRows = view === 'products' ? listResult.items as ProductWorkspaceRow[] : []
   const skus = view === 'skus' ? listResult.items as SkuReadModel[] : []
+  const productTotalCount = view === 'products' ? listResult.totalCount ?? productWorkspaceRows.length : 0
+  const productTotalPages = Math.max(1, Math.ceil(productTotalCount / productPageSize))
+  if (view === 'products' && productPage > productTotalPages) {
+    const normalizedQuery = new URLSearchParams({ view: 'products', page: String(productTotalPages), page_size: String(productPageSize) })
+    if (search) normalizedQuery.set('q', search)
+    if (bulkSearchActive) normalizedQuery.set('bulk', '1')
+    if (status) normalizedQuery.set('status', status)
+    if (sort) normalizedQuery.set('sort', sort)
+    redirect(`/organizations/${organizationId}/products?${normalizedQuery}`)
+  }
   return <ApplicationShell
     email={user.email ?? ''}
     isPlatformAdmin={isPlatformAdmin}
@@ -115,6 +131,9 @@ export default async function ProductSkuPage({ params, searchParams }: Props) {
         status={status}
         sort={sort}
         productWorkspaceRows={productWorkspaceRows}
+        productPage={productPage}
+        productPageSize={productPageSize}
+        productTotalCount={productTotalCount}
         skus={skus}
         productOptions={productOptionsResult.items}
         selectedProduct={selectedProduct}
@@ -122,6 +141,7 @@ export default async function ProductSkuPage({ params, searchParams }: Props) {
         selectedSku={selectedSku}
         nextCursor={listResult.nextCursor}
         canManage={canManage}
+        canReadCost={canReadCost}
       />
     </section>
   </ApplicationShell>

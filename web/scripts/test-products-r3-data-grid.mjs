@@ -35,11 +35,12 @@ test('R3 preserves a valid resized width for restoration after refresh', () => {
   assert.equal(normalized.find((column) => column.key === 'product')?.width, 318)
 })
 
-test('R3 renders the approved real-data default columns without fake price data', () => {
-  for (const label of ['สินค้า', 'รหัส CF', 'SKU / ตัวเลือก', 'สต็อก', 'หน่วยนับ', 'สถานะ', 'แก้ไขล่าสุด']) {
+test('R3 renders the approved real-data default columns and R7.4.3 price read model', () => {
+  for (const label of ['สินค้า', 'รหัส CF', 'SKU / ตัวเลือก', 'สต็อก', 'หน่วยนับ', 'ราคาขาย', 'สถานะ', 'แก้ไขล่าสุด']) {
     assert.match(grid, new RegExp(label.replace('/', '\\/')))
   }
-  assert.doesNotMatch(grid, /salePrice|productImage|costPrice/)
+  assert.doesNotMatch(grid, /costPrice/)
+  assert.match(grid, /row\.price\.mode/)
   assert.match(grid, /product-grid-placeholder/)
 })
 

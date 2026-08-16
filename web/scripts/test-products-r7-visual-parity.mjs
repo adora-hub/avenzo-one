@@ -71,7 +71,7 @@ test('production grid matches approved toolbar without inventing data writes', (
   assert.match(grid, /localStorage\.setItem\(exportStorageKey/)
   assert.doesNotMatch(grid, /Import \/ Export Gate ใน R8/)
   assert.doesNotMatch(grid, /role="menuitem" disabled/)
-  assert.match(grid, /product-grid-status-control/)
+  assert.match(grid, /product-grid-status-select-shell/)
   assert.match(grid, /product-grid-selection-active/)
   assert.match(grid, /className="product-grid-row-menu" role="menu"/)
   assert.match(grid, /aria-haspopup="menu" aria-expanded=/)
@@ -87,7 +87,11 @@ test('production grid matches approved toolbar without inventing data writes', (
   assert.match(grid, /id="product-grid-copy-tooltip"/)
   assert.match(grid, /showCopyTooltip\(event\.currentTarget/)
   assert.match(grid, /product-grid-bulk-active/)
-  assert.match(grid, /เปิดรายละเอียดเพื่อจัดการสถานะอย่างปลอดภัย/)
+  assert.match(grid, /className="product-grid-status-select"/)
+  assert.match(grid, /className="product-grid-status-chevron"/)
+  assert.match(grid, /ใช้งานอยู่/)
+  assert.match(grid, /ฉบับร่าง/)
+  assert.match(grid, /เก็บถาวร/)
   assert.doesNotMatch(grid, /฿2,890|กระเป๋าหนัง Mini/)
   assert.match(grid, /event\.key === 'Home' \|\| event\.key === 'End'/)
   assert.match(grid, /handleExportColumnsKeyDown/)
@@ -105,7 +109,7 @@ test('visual parity styles cover compact toolbar, menus, status and responsive l
     '.product-create-menu',
     '.product-grid-toolbar',
     '.product-grid-action-icons',
-    '.product-grid-status-control',
+    '.product-grid-status-select-shell',
     '.product-grid-row-menu',
     '.product-grid-selection-active',
     '.product-grid-footer',
@@ -150,8 +154,9 @@ test('visual parity styles cover compact toolbar, menus, status and responsive l
   assert.match(styles, /\.product-header-breadcrumb svg \{[^}]*width: 18px; height: 18px/)
   assert.match(styles, /\.product-grid-sort \{[^}]*gap: 10px/)
   assert.doesNotMatch(styles, /\.product-grid-sort:hover/)
-  assert.match(styles, /\.product-grid-status-control \{[^}]*grid-template-columns: 8px minmax\(0, 1fr\) 8px[^}]*padding: 7px 12px 7px 10px/)
-  assert.match(styles, /\.product-grid-status-control > span:last-child \{[^}]*background-size: 4px 4px, 4px 4px/)
+  assert.match(styles, /\.product-grid-status-select-shell \{[^}]*width: 120px[^}]*height: 30px/)
+  assert.match(styles, /\.product-grid-status-select \{[^}]*height: 30px[^}]*padding: 0 32px 0 27px/)
+  assert.match(styles, /\.product-grid-status-chevron \{[^}]*right: 12px[^}]*width: 14px[^}]*height: 14px/)
   assert.match(styles, /\.product-filter-bar input, \.product-filter-bar select \{[^}]*height: 36px/)
   assert.match(styles, /\.product-filter-bar input, \.product-filter-bar select \{[^}]*padding-top: 6px; padding-bottom: 6px; line-height: 1\.35/)
   assert.match(styles, /\.product-status-combobox-trigger \{[^}]*height: 36px/)

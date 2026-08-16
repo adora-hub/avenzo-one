@@ -38,6 +38,9 @@ type Props = {
   status: string
   sort: 'updated_desc' | 'updated_asc'
   productWorkspaceRows: ProductWorkspaceRow[]
+  productPage: number
+  productPageSize: number
+  productTotalCount: number
   skus: SkuReadModel[]
   productOptions: ProductReadModel[]
   selectedProduct: ProductWorkspaceDetail | null
@@ -45,6 +48,7 @@ type Props = {
   selectedSku: (ProductWorkspaceSkuDetail & { productName: string }) | null
   nextCursor: string | null
   canManage: boolean
+  canReadCost: boolean
 }
 
 const statusLabels: Record<string, string> = {
@@ -127,6 +131,9 @@ export function ProductSkuWorkspace({
   status,
   sort,
   productWorkspaceRows,
+  productPage,
+  productPageSize,
+  productTotalCount,
   skus,
   productOptions,
   selectedProduct,
@@ -134,6 +141,7 @@ export function ProductSkuWorkspace({
   selectedSku,
   nextCursor,
   canManage,
+  canReadCost,
 }: Props) {
   const router = useRouter()
   const firstFieldRef = useRef<HTMLInputElement>(null)
@@ -245,7 +253,14 @@ export function ProductSkuWorkspace({
 
   function navigateFilters(nextSearch: string, nextStatus: string, mode: 'push' | 'replace' = 'replace', nextBulkSearchActive = false) {
     clearSearchTimer()
-    const href = buildHref(organizationId, { view, q: nextSearch.trim(), status: nextStatus, sort, bulk: nextBulkSearchActive ? '1' : undefined })
+    const href = buildHref(organizationId, {
+      view,
+      q: nextSearch.trim(),
+      status: nextStatus,
+      sort,
+      page_size: view === 'products' ? String(productPageSize) : undefined,
+      bulk: nextBulkSearchActive ? '1' : undefined,
+    })
     startSearchTransition(() => {
       if (mode === 'push') router.push(href, { scroll: false })
       else router.replace(href, { scroll: false })
@@ -376,7 +391,15 @@ export function ProductSkuWorkspace({
     navigateFilters(codes.join(','), statusFilter, 'push', true)
   }
 
-  const closeDetailHref = buildHref(organizationId, { view, q: search, status, sort, bulk: bulkSearchActive ? '1' : undefined })
+  const closeDetailHref = buildHref(organizationId, {
+    view,
+    q: search,
+    status,
+    sort,
+    page: view === 'products' ? String(productPage) : undefined,
+    page_size: view === 'products' ? String(productPageSize) : undefined,
+    bulk: bulkSearchActive ? '1' : undefined,
+  })
   const nextHref = buildHref(organizationId, { view, q: search, status, sort, cursor: nextCursor, bulk: bulkSearchActive ? '1' : undefined })
 
   const filterForm = <form className="operations-filter-bar product-filter-bar" method="get" aria-label="ค้นหาและกรอง Product SKU" onSubmit={(event) => {
@@ -497,6 +520,9 @@ export function ProductSkuWorkspace({
     {view === 'products' ? <ProductsDataGrid
       organizationId={organizationId}
       rows={productWorkspaceRows}
+      page={productPage}
+      pageSize={productPageSize}
+      totalCount={productTotalCount}
       search={search}
       status={status}
       sort={sort}
@@ -511,6 +537,10 @@ export function ProductSkuWorkspace({
         title: 'ยังไม่มี Product',
         description: canManage ? 'เริ่มเพิ่มข้อมูลด้วยปุ่มสร้างสินค้า' : 'ติดต่อผู้ดูแล Organization เพื่อเพิ่มข้อมูล',
       }}
+      canManage={canManage}
+      canReadCost={canReadCost}
+      isPending={isPending}
+      onRequestLifecycle={requestLifecycle}
     /> : <>
       {filterForm}
       {!rows.length ? <OperationsEmptyState
@@ -556,6 +586,7 @@ export function ProductSkuWorkspace({
       selectedSku={selectedSku}
       closeHref={closeDetailHref}
       canManage={canManage}
+      canReadCost={canReadCost}
       isPending={isPending}
       openEditor={openEditor}
       requestLifecycle={requestLifecycle}

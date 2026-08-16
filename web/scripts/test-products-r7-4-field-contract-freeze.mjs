@@ -8,9 +8,9 @@ const formPath = '../src/app/organizations/[id]/products/new/unified-product-cre
 const atomicMigrationPath = '../../supabase/migrations/20260815103024_phase_2_1_r7_1_atomic_product_creation.sql'
 const productDomainMigrationPath = '../../supabase/migrations/20260815083258_phase_2_1_r5_product_domain_extension.sql'
 
-test('R7.4.1 freezes the approved sequential gate without starting R7.4.2', async () => {
+test('R7.4.1 retains the approved contract after its sequential gate passed', async () => {
   const contract = await read(contractPath)
-  assert.match(contract, /Awaiting Owner Review — R7\.4\.2 blocked/)
+  assert.match(contract, /Completed \/ Owner approved.*Sequential gate passed/)
   assert.match(contract, /ห้ามทำ Part พร้อมกัน/)
   assert.match(contract, /ไม่มี Migration, UI\/TSX, Database write หรือ Supabase Production apply/)
 })

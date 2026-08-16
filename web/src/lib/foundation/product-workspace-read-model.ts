@@ -1,7 +1,12 @@
 import type {
   ProductWorkspaceRow,
   ProductImageReadModel,
+  ProductWorkspacePriceSummary,
   ProductWorkspaceSkuPreview,
+  ProductWorkspaceSkuCost,
+  ProductWorkspaceSkuProfile,
+  ProductWorkspaceTag,
+  ProductWorkspaceValueSummary,
   ProductWorkspaceStockSummary,
 } from './repositories'
 
@@ -18,11 +23,19 @@ export type ProductWorkspaceProductSource = {
   version: number
   createdAt: string
   createdByUserId: string | null
+  createdByDisplayName?: string | null
+  category?: { id: string; name: string } | null
+  brand?: { id: string; name: string } | null
+  structureType?: string
+  internalNote?: string | null
+  tags?: ProductWorkspaceTag[]
   updatedAt: string
 }
 
 export type ProductWorkspaceSkuSource = ProductWorkspaceSkuPreview & {
   productId: string
+  profile?: ProductWorkspaceSkuProfile | null
+  cost?: ProductWorkspaceSkuCost
 }
 
 export type ProductWorkspaceBalanceSource = {
@@ -34,6 +47,39 @@ export type ProductWorkspaceBalanceSource = {
 }
 
 export type ProductWorkspaceImageSource = ProductImageReadModel
+
+function summarizeValues(values: Array<string | number | null | undefined>): ProductWorkspaceValueSummary {
+  const present = values.filter((value): value is string | number => value !== null && value !== undefined && value !== '')
+  if (present.length === 0) return { mode: 'not-set', value: null }
+  const distinct = Array.from(new Set(present.map((value) => `${typeof value}:${value}`)))
+  return distinct.length === 1
+    ? { mode: 'single', value: present[0] }
+    : { mode: 'mixed', value: null }
+}
+
+function summarizePrices(
+  prices: Array<{ amount: number | null; currencyCode: string | null }>,
+): ProductWorkspacePriceSummary {
+  const present = prices.filter((price): price is { amount: number; currencyCode: string } => (
+    price.amount !== null && Boolean(price.currencyCode)
+  ))
+  if (present.length === 0) {
+    return { mode: 'not-set', currencyCode: null, minimum: null, maximum: null }
+  }
+  const currencies = Array.from(new Set(present.map((price) => price.currencyCode)))
+  if (currencies.length !== 1) {
+    return { mode: 'mixed-currency', currencyCode: null, minimum: null, maximum: null }
+  }
+  const amounts = present.map((price) => price.amount)
+  const minimum = Math.min(...amounts)
+  const maximum = Math.max(...amounts)
+  return {
+    mode: minimum === maximum ? 'single' : 'range',
+    currencyCode: currencies[0],
+    minimum,
+    maximum,
+  }
+}
 
 export function buildProductWorkspaceRows(input: {
   products: ProductWorkspaceProductSource[]
@@ -105,6 +151,11 @@ export function buildProductWorkspaceRows(input: {
 
     return {
       ...product,
+      createdByDisplayName: product.createdByDisplayName ?? null,
+      category: product.category ?? null,
+      brand: product.brand ?? null,
+      structureType: product.structureType ?? 'standard',
+      tags: [...(product.tags ?? [])].sort((left, right) => left.name.localeCompare(right.name)),
       skuCount: productSkus.length,
       skuPreview: productSkus.slice(0, PRODUCT_WORKSPACE_SKU_PREVIEW_LIMIT).map((sku) => ({
         id: sku.id,
@@ -115,6 +166,22 @@ export function buildProductWorkspaceRows(input: {
         baseUnitCode: sku.baseUnitCode,
         status: sku.status,
       })),
+      price: summarizePrices(productSkus.map((sku) => ({
+        amount: sku.profile?.salePrice ?? null,
+        currencyCode: sku.profile?.currencyCode ?? null,
+      }))),
+      quantityBehavior: summarizeValues(productSkus.map((sku) => sku.profile?.quantityBehavior)),
+      taxCategory: summarizeValues(productSkus.map((sku) => sku.profile?.taxCategory)),
+      taxRate: summarizeValues(productSkus.map((sku) => sku.profile?.taxRate)),
+      safetyStock: summarizeValues(productSkus.map((sku) => sku.profile?.safetyStock)),
+      reorderMin: summarizeValues(productSkus.map((sku) => sku.profile?.reorderMin)),
+      reorderMax: summarizeValues(productSkus.map((sku) => sku.profile?.reorderMax)),
+      cost: productSkus.some((sku) => sku.cost?.mode === 'authorized')
+        ? summarizePrices(productSkus.map((sku) => ({
+          amount: sku.cost?.mode === 'authorized' ? sku.cost.costPrice : null,
+          currencyCode: sku.cost?.mode === 'authorized' ? sku.cost.currencyCode : null,
+        })))
+        : null,
       aggregateCapped: Boolean(input.aggregateCapped),
       stock,
       coverImage: coverImageByProduct.get(product.id) ?? null,

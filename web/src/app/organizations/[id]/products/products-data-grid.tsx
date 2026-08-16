@@ -2,13 +2,15 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
+import { useRouter } from 'next/navigation'
 import {
   useEffect, useMemo, useRef, useState,
+  type DragEvent as ReactDragEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react'
-import { OperationsEmptyState, OperationsStatusBadge } from '@/app/components/operations-ui'
+import { OperationsEmptyState } from '@/app/components/operations-ui'
 import type { ProductWorkspaceRow } from '@/lib/foundation/repositories'
 import {
   normalizeProductGridColumns,
@@ -19,7 +21,11 @@ import {
 
 const labels: Record<ProductGridColumnKey, string> = {
   product: 'สินค้า', salesCode: 'รหัส CF', sku: 'SKU / ตัวเลือก', stock: 'สต็อก',
-  baseUnit: 'หน่วยนับ', status: 'สถานะ', updatedAt: 'แก้ไขล่าสุด',
+  baseUnit: 'หน่วยนับ', price: 'ราคาขาย', status: 'สถานะ', updatedAt: 'แก้ไขล่าสุด',
+  category: 'หมวดหมู่', brand: 'แบรนด์', tags: 'ป้ายกำกับ', barcode: 'Barcode',
+  quantityBehavior: 'วิธีนับจำนวน', tax: 'ภาษี', safetyStock: 'Safety Stock',
+  reorder: 'Reorder Min / Max', branches: 'สาขาที่มีสต็อก', createdAt: 'วันที่สร้าง',
+  createdBy: 'ผู้สร้าง', cost: 'ราคาต้นทุน',
 }
 
 const PRODUCT_EXPORT_COLUMNS = [
@@ -34,10 +40,30 @@ type ProductExportColumnKey = typeof PRODUCT_EXPORT_COLUMNS[number][0]
 
 type GridSort = { key: ProductGridColumnKey; direction: 'asc' | 'desc' }
 
-function statusTone(status: string) {
-  if (status === 'active') return 'success' as const
-  if (status === 'draft') return 'info' as const
-  return 'neutral' as const
+const PRODUCT_GRID_SELECTION_WIDTH = 52
+const PRODUCT_GRID_PAGE_SIZES = [10, 25, 50, 100, 300, 400] as const
+
+function ProductGridPaginationIcon({ direction }: { direction: 'first' | 'previous' | 'next' | 'last' }) {
+  const isPrevious = direction === 'first' || direction === 'previous'
+  const isEdge = direction === 'first' || direction === 'last'
+  return <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    {isEdge ? <path d={direction === 'first' ? 'M5 4v12' : 'M15 4v12'} /> : null}
+    <path d={isPrevious ? 'm12.5 5-5 5 5 5' : 'm7.5 5 5 5-5 5'} />
+  </svg>
+}
+
+function ProductGridPinIcon() {
+  return <svg className="product-grid-pin-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <path d="M16 9V4h1V2H7v2h1v5c0 1.66-1.34 3-3 3v2h6v7h2v-7h6v-2c-1.66 0-3-1.34-3-3Z" transform="rotate(45 12 12)" />
+  </svg>
+}
+
+function ProductGridDragHandleIcon() {
+  return <svg viewBox="0 0 18 18" fill="currentColor" aria-hidden="true">
+    <circle cx="6" cy="4" r="1.25" /><circle cx="12" cy="4" r="1.25" />
+    <circle cx="6" cy="9" r="1.25" /><circle cx="12" cy="9" r="1.25" />
+    <circle cx="6" cy="14" r="1.25" /><circle cx="12" cy="14" r="1.25" />
+  </svg>
 }
 
 function statusLabel(status: string) {
@@ -50,17 +76,47 @@ function formatUpdatedAt(value: string) {
   }).format(new Date(value))
 }
 
-function detailHref(input: { organizationId: string; search: string; status: string; sort: string; productId: string; action?: 'edit' | 'skus' }) {
-  const params = new URLSearchParams({ view: 'products', product: input.productId })
+function formatPrice(row: ProductWorkspaceRow) {
+  if (row.price.mode === 'mixed-currency') return 'หลายสกุลเงิน'
+  if (row.price.mode === 'not-set' || row.price.minimum === null || !row.price.currencyCode) return 'ยังไม่กำหนดราคา'
+  const formatter = new Intl.NumberFormat('th-TH', {
+    style: 'currency', currency: row.price.currencyCode,
+    minimumFractionDigits: 2, maximumFractionDigits: 2,
+  })
+  if (row.price.mode === 'range' && row.price.maximum !== null) {
+    return `${formatter.format(row.price.minimum)} – ${formatter.format(row.price.maximum)}`
+  }
+  return formatter.format(row.price.minimum)
+}
+
+function formatSummary(summary: ProductWorkspaceRow['quantityBehavior'], suffix = '') {
+  if (summary.mode === 'mixed') return 'หลายค่า'
+  if (summary.mode === 'not-set' || summary.value === null) return '—'
+  return `${summary.value}${suffix}`
+}
+
+function formatPriceSummary(summary: ProductWorkspaceRow['price'] | null) {
+  if (!summary || summary.mode === 'not-set') return 'ยังไม่กำหนด'
+  if (summary.mode === 'mixed-currency' || !summary.currencyCode || summary.minimum === null) return 'หลายสกุลเงิน'
+  const formatter = new Intl.NumberFormat('th-TH', { style: 'currency', currency: summary.currencyCode, minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return summary.mode === 'range' && summary.maximum !== null
+    ? `${formatter.format(summary.minimum)} – ${formatter.format(summary.maximum)}`
+    : formatter.format(summary.minimum)
+}
+
+function detailHref(input: { organizationId: string; search: string; status: string; sort: string; productId: string; page: number; pageSize: number; bulkSearchActive: boolean; action?: 'edit' | 'skus' }) {
+  const params = new URLSearchParams({ view: 'products', product: input.productId, page: String(input.page), page_size: String(input.pageSize) })
   if (input.search) params.set('q', input.search)
   if (input.status) params.set('status', input.status)
   if (input.sort) params.set('sort', input.sort)
+  if (input.bulkSearchActive) params.set('bulk', '1')
   if (input.action) params.set('action', input.action)
   return `/organizations/${input.organizationId}/products?${params}`
 }
 
 export function ProductsDataGrid({
   organizationId, rows, search, status, sort, toolbar, clearHref, bulkActiveCount, clearBulkHref, emptyState,
+  page, pageSize, totalCount, canManage, canReadCost, isPending, onRequestLifecycle,
 }: {
   organizationId: string
   rows: ProductWorkspaceRow[]
@@ -72,7 +128,21 @@ export function ProductsDataGrid({
   bulkActiveCount: number
   clearBulkHref: string
   emptyState: { title: string; description: string }
+  page: number
+  pageSize: number
+  totalCount: number
+  canManage: boolean
+  canReadCost: boolean
+  isPending: boolean
+  onRequestLifecycle: (input: {
+    commandType: 'product.activate' | 'product.archive'
+    idKey: 'product_id'
+    id: string
+    version: number
+    label: string
+  }) => void
 }) {
+  const router = useRouter()
   const storageKey = `avenzo:products-grid:${organizationId}:v1`
   const exportStorageKey = `avenzo:products-export-columns:${organizationId}:v1`
   const [columns, setColumns] = useState<ProductGridColumnPreference[]>(PRODUCT_GRID_DEFAULT_COLUMNS)
@@ -88,6 +158,11 @@ export function ProductsDataGrid({
   const [customizeOpen, setCustomizeOpen] = useState(false)
   const [customizeDraft, setCustomizeDraft] = useState<ProductGridColumnPreference[]>(PRODUCT_GRID_DEFAULT_COLUMNS)
   const [customizePosition, setCustomizePosition] = useState({ left: 12, top: 12 })
+  const [customizeDrag, setCustomizeDrag] = useState<{
+    source: ProductGridColumnKey
+    target: ProductGridColumnKey | null
+    position: 'before' | 'after'
+  } | null>(null)
   const [gridToast, setGridToast] = useState<string | null>(null)
   const [rowMenu, setRowMenu] = useState<{ rowId: string; left: number; top: number } | null>(null)
   const selectAllRef = useRef<HTMLInputElement>(null)
@@ -201,7 +276,18 @@ export function ProductsDataGrid({
     }
   }, [customizeOpen])
 
-  const visibleColumns = useMemo(() => columns.filter((column) => column.visible), [columns])
+  const availableColumns = useMemo(() => columns.filter((column) => canReadCost || column.key !== 'cost'), [canReadCost, columns])
+  const visibleColumns = useMemo(() => {
+    const visible = availableColumns.filter((column) => column.visible)
+    return [...visible.filter((column) => column.pinned), ...visible.filter((column) => !column.pinned)]
+  }, [availableColumns])
+  const pinnedColumns = useMemo(() => visibleColumns.filter((column) => column.pinned), [visibleColumns])
+  const lastPinnedKey = pinnedColumns.at(-1)?.key ?? null
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
+  const currentPage = Math.min(Math.max(page, 1), totalPages)
+  const rangeStart = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1
+  const rangeEnd = Math.min(currentPage * pageSize, totalCount)
+  const bulkSearchActive = bulkActiveCount > 0
   const displayedRows = useMemo(() => [...rows].sort((left, right) => {
     const value = (row: ProductWorkspaceRow) => {
       if (gridSort.key === 'product') return row.name
@@ -209,6 +295,19 @@ export function ProductsDataGrid({
       if (gridSort.key === 'sku') return row.skuPreview[0]?.skuCode ?? ''
       if (gridSort.key === 'stock') return row.stock.available
       if (gridSort.key === 'baseUnit') return row.stock.baseUnitCode ?? ''
+      if (gridSort.key === 'price') return row.price.minimum ?? Number.POSITIVE_INFINITY
+      if (gridSort.key === 'category') return row.category?.name ?? ''
+      if (gridSort.key === 'brand') return row.brand?.name ?? ''
+      if (gridSort.key === 'tags') return row.tags.map((tag) => tag.name).join(' ')
+      if (gridSort.key === 'barcode') return row.skuPreview[0]?.barcode ?? ''
+      if (gridSort.key === 'quantityBehavior') return row.quantityBehavior.value ?? ''
+      if (gridSort.key === 'tax') return row.taxRate.value ?? Number.POSITIVE_INFINITY
+      if (gridSort.key === 'safetyStock') return row.safetyStock.value ?? Number.POSITIVE_INFINITY
+      if (gridSort.key === 'reorder') return row.reorderMin.value ?? Number.POSITIVE_INFINITY
+      if (gridSort.key === 'branches') return row.stock.branchCodes.join(' ')
+      if (gridSort.key === 'createdAt') return new Date(row.createdAt).getTime()
+      if (gridSort.key === 'createdBy') return row.createdByDisplayName ?? ''
+      if (gridSort.key === 'cost') return row.cost?.minimum ?? Number.POSITIVE_INFINITY
       if (gridSort.key === 'status') return row.status
       return new Date(row.updatedAt).getTime()
     }
@@ -232,18 +331,31 @@ export function ProductsDataGrid({
   }, [displayedRows.length, selectedRows])
   const pinnedOffsets = useMemo(() => {
     const offsets = new Map<ProductGridColumnKey, number>()
-    let left = 0
-    for (const column of visibleColumns.filter((item) => item.pinned)) {
+    let left = PRODUCT_GRID_SELECTION_WIDTH
+    for (const column of pinnedColumns) {
       offsets.set(column.key, left)
       left += column.width
     }
     return offsets
-  }, [visibleColumns])
+  }, [pinnedColumns])
   function toggleSort(key: ProductGridColumnKey) {
     setGridSort((current) => ({
       key,
       direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc',
     }))
+  }
+
+  function paginationHref(nextPage: number, nextPageSize = pageSize) {
+    const params = new URLSearchParams({
+      view: 'products',
+      page: String(nextPage),
+      page_size: String(nextPageSize),
+      sort,
+    })
+    if (search) params.set('q', search)
+    if (status) params.set('status', status)
+    if (bulkSearchActive) params.set('bulk', '1')
+    return `/organizations/${organizationId}/products?${params}`
   }
 
   function downloadProductTemplate() {
@@ -350,6 +462,52 @@ export function ProductsDataGrid({
     if (focusMenu) window.requestAnimationFrame(() => rowMenuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus())
   }
 
+  function statusTransitionReason(row: ProductWorkspaceRow, targetStatus: 'draft' | 'active' | 'archived') {
+    if (targetStatus === row.status) return null
+    if (!canManage) return 'บัญชีนี้ไม่มีสิทธิ์จัดการสถานะสินค้า'
+    if (row.status === 'archived') return 'สินค้าที่เก็บถาวรแล้วเปลี่ยนสถานะไม่ได้'
+    if (targetStatus === 'draft') return 'สินค้าที่เปิดใช้งานแล้วไม่สามารถย้อนกลับเป็นฉบับร่างได้'
+    return null
+  }
+
+  function chooseProductStatus(row: ProductWorkspaceRow, targetStatus: 'draft' | 'active' | 'archived') {
+    const reason = statusTransitionReason(row, targetStatus)
+    if (targetStatus === row.status) return
+    if (reason) {
+      setGridToast(reason)
+      return
+    }
+    onRequestLifecycle({
+      commandType: targetStatus === 'active' ? 'product.activate' : 'product.archive',
+      idKey: 'product_id', id: row.id, version: row.version, label: row.name,
+    })
+  }
+
+  function productStatusControl(row: ProductWorkspaceRow) {
+    const options = [
+      { value: 'active', label: 'ใช้งานอยู่' },
+      { value: 'draft', label: 'ฉบับร่าง' },
+      { value: 'archived', label: 'เก็บถาวร' },
+    ] as const
+    return <div className={`product-grid-status-select-shell ${row.status}`}>
+      <span className="product-grid-status-dot" aria-hidden="true" />
+      <select
+        className="product-grid-status-select"
+        aria-label={`สถานะ ${statusLabel(row.status)} ของ ${row.name}`}
+        value={row.status}
+        disabled={!canManage || isPending}
+        onChange={(event) => chooseProductStatus(row, event.currentTarget.value as 'draft' | 'active' | 'archived')}
+      >
+        {options.map((option) => <option
+          key={option.value}
+          value={option.value}
+          disabled={Boolean(statusTransitionReason(row, option.value))}
+        >{option.label}</option>)}
+      </select>
+      <svg className="product-grid-status-chevron" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="m6 8 4 4 4-4" /></svg>
+    </div>
+  }
+
   function commitColumns(next: ProductGridColumnPreference[]) {
     const normalized = normalizeProductGridColumns(next)
     columnsRef.current = normalized
@@ -385,6 +543,7 @@ export function ProductsDataGrid({
 
   function closeCustomizeColumns(restoreFocus = true) {
     setCustomizeOpen(false)
+    setCustomizeDrag(null)
     if (restoreFocus) window.requestAnimationFrame(() => customizeTriggerRef.current?.focus())
   }
 
@@ -407,15 +566,51 @@ export function ProductsDataGrid({
     })
   }
 
-  function moveCustomizeDraft(index: number, delta: -1 | 1) {
-    const target = index + delta
-    if (target < 0 || target >= customizeDraft.length) return
+  function reorderCustomizeDraft(sourceKey: ProductGridColumnKey, targetKey: ProductGridColumnKey, position: 'before' | 'after') {
+    if (sourceKey === targetKey) return
     setCustomizeDraft((current) => {
       const next = current.map((column) => ({ ...column }))
-      const [column] = next.splice(index, 1)
-      next.splice(target, 0, column)
+      const sourceIndex = next.findIndex((column) => column.key === sourceKey)
+      if (sourceIndex < 0) return current
+      const [column] = next.splice(sourceIndex, 1)
+      const targetIndex = next.findIndex((candidate) => candidate.key === targetKey)
+      if (targetIndex < 0) return current
+      next.splice(targetIndex + (position === 'after' ? 1 : 0), 0, column)
       return next
     })
+  }
+
+  function moveCustomizeDraft(key: ProductGridColumnKey, delta: -1 | 1) {
+    const displayedKeys = customizeDraft
+      .filter((column) => canReadCost || column.key !== 'cost')
+      .map((column) => column.key)
+    const index = displayedKeys.indexOf(key)
+    const targetKey = displayedKeys[index + delta]
+    if (!targetKey) return
+    reorderCustomizeDraft(key, targetKey, delta === -1 ? 'before' : 'after')
+  }
+
+  function startCustomizeDrag(event: ReactDragEvent<HTMLButtonElement>, key: ProductGridColumnKey) {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', key)
+    setCustomizeDrag({ source: key, target: null, position: 'before' })
+  }
+
+  function moveCustomizeDrag(event: ReactDragEvent<HTMLDivElement>, target: ProductGridColumnKey) {
+    event.preventDefault()
+    event.dataTransfer.dropEffect = 'move'
+    const bounds = event.currentTarget.getBoundingClientRect()
+    const position = event.clientY < bounds.top + bounds.height / 2 ? 'before' : 'after'
+    setCustomizeDrag((current) => current ? { ...current, target, position } : current)
+  }
+
+  function dropCustomizeDrag(event: ReactDragEvent<HTMLDivElement>, target: ProductGridColumnKey) {
+    event.preventDefault()
+    const source = customizeDrag?.source ?? event.dataTransfer.getData('text/plain') as ProductGridColumnKey
+    const bounds = event.currentTarget.getBoundingClientRect()
+    const position = event.clientY < bounds.top + bounds.height / 2 ? 'before' : 'after'
+    if (source) reorderCustomizeDraft(source, target, position)
+    setCustomizeDrag(null)
   }
 
   function restoreCustomizeDraft() {
@@ -495,7 +690,10 @@ export function ProductsDataGrid({
     const firstSku = row.skuPreview[0]
     const common = columns.find((column) => column.key === key)!
     const style = common.pinned ? { left: pinnedOffsets.get(key) ?? 0 } : undefined
-    const className = common.pinned ? 'product-grid-pinned' : undefined
+    const className = [
+      common.pinned ? 'product-grid-pinned' : '',
+      common.pinned && key === lastPinnedKey ? 'product-grid-pinned-boundary' : '',
+    ].filter(Boolean).join(' ') || undefined
     if (key === 'product') return <td key={key} className={className} style={style}>
       <div className="product-grid-product">
         {row.coverImage
@@ -508,7 +706,20 @@ export function ProductsDataGrid({
     if (key === 'sku') return <td key={key} className={className} style={style}>{firstSku ? <><div className="product-grid-code-line"><code>{firstSku.skuCode}</code><button type="button" data-tooltip="คัดลอก SKU" aria-label={`คัดลอก SKU Code ${firstSku.skuCode}`} aria-describedby={copyTooltip?.key === `${row.id}:sku` ? 'product-grid-copy-tooltip' : undefined} onMouseEnter={(event) => showCopyTooltip(event.currentTarget, `${row.id}:sku`, 'คัดลอก SKU')} onMouseLeave={() => setCopyTooltip(null)} onFocus={(event) => showCopyTooltip(event.currentTarget, `${row.id}:sku`, 'คัดลอก SKU')} onBlur={() => setCopyTooltip(null)} onClick={() => copyCode(firstSku.skuCode, `${row.id}:sku`)}>{copied === `${row.id}:sku` ? '✓' : '⧉'}</button></div><small>{row.skuCount} {row.skuCount === 1 ? 'SKU' : 'variants'}</small></> : <span className="product-grid-muted">ยังไม่มี SKU</span>}</td>
     if (key === 'stock') return <td key={key} className={className} style={style}>{row.stock.mode === 'single-unit' ? <><strong>{row.stock.onHand} in stock</strong><small>Available {row.stock.available}</small></> : row.stock.mode === 'mixed-units' ? <><strong>หลายหน่วย</strong><small>ไม่รวมยอดข้ามหน่วย</small></> : row.stock.mode === 'not-authorized' ? <span className="product-grid-muted">ไม่มีสิทธิ์ดู Stock</span> : <span className="product-grid-muted">ยังไม่มียอด Stock</span>}</td>
     if (key === 'baseUnit') return <td key={key} className={className} style={style}><strong>{row.stock.baseUnitCode || (row.stock.mode === 'mixed-units' ? 'หลายหน่วย' : '—')}</strong></td>
-    if (key === 'status') return <td key={key} className={className} style={style}><Link className={`product-grid-status-control ${row.status}`} title="เปิดรายละเอียดเพื่อจัดการสถานะอย่างปลอดภัย" aria-label={`${statusLabel(row.status)} เปิดรายละเอียดเพื่อจัดการสถานะ`} href={detailHref({ organizationId, search, status, sort, productId: row.id })}><span aria-hidden="true" />{statusLabel(row.status)}<span aria-hidden="true" /></Link></td>
+    if (key === 'price') return <td key={key} className={className} style={style}><strong>{formatPrice(row)}</strong></td>
+    if (key === 'category') return <td key={key} className={className} style={style}>{row.category?.name ?? <span className="product-grid-muted">—</span>}</td>
+    if (key === 'brand') return <td key={key} className={className} style={style}>{row.brand?.name ?? <span className="product-grid-muted">—</span>}</td>
+    if (key === 'tags') return <td key={key} className={className} style={style}>{row.tags.length ? <span className="product-grid-tag-list">{row.tags.map((tag) => tag.name).join(', ')}</span> : <span className="product-grid-muted">—</span>}</td>
+    if (key === 'barcode') return <td key={key} className={className} style={style}>{firstSku?.barcode ? <div className="product-grid-code-line"><code>{firstSku.barcode}</code><button type="button" aria-label={`คัดลอก Barcode ${firstSku.barcode}`} onClick={() => copyCode(firstSku.barcode!, `${row.id}:barcode`)}>{copied === `${row.id}:barcode` ? '✓' : '⧉'}</button></div> : <span className="product-grid-muted">—</span>}</td>
+    if (key === 'quantityBehavior') return <td key={key} className={className} style={style}>{formatSummary(row.quantityBehavior)}</td>
+    if (key === 'tax') return <td key={key} className={className} style={style}>{row.taxCategory.mode === 'mixed' || row.taxRate.mode === 'mixed' ? 'หลายค่า' : <><strong>{formatSummary(row.taxCategory)}</strong><small>{formatSummary(row.taxRate, '%')}</small></>}</td>
+    if (key === 'safetyStock') return <td key={key} className={className} style={style}>{formatSummary(row.safetyStock)}</td>
+    if (key === 'reorder') return <td key={key} className={className} style={style}><strong>{formatSummary(row.reorderMin)}</strong><small>Max {formatSummary(row.reorderMax)}</small></td>
+    if (key === 'branches') return <td key={key} className={className} style={style}>{row.stock.mode === 'not-authorized' ? <span className="product-grid-muted">ไม่มีสิทธิ์ดู Stock</span> : row.stock.branchCodes.length ? row.stock.branchCodes.join(', ') : <span className="product-grid-muted">—</span>}</td>
+    if (key === 'createdAt') return <td key={key} className={className} style={style}>{formatUpdatedAt(row.createdAt)}</td>
+    if (key === 'createdBy') return <td key={key} className={className} style={style}>{row.createdByDisplayName ?? <span className="product-grid-muted">—</span>}</td>
+    if (key === 'cost') return <td key={key} className={className} style={style}><strong>{formatPriceSummary(row.cost)}</strong></td>
+    if (key === 'status') return <td key={key} className={className} style={style}>{productStatusControl(row)}</td>
     return <td key={key} className={className} style={style}>{formatUpdatedAt(row.updatedAt)}</td>
   }
 
@@ -548,11 +759,31 @@ export function ProductsDataGrid({
           <header className="product-grid-customize-header"><div><h2 id="product-grid-customize-title">Customize Columns</h2><p>แสดง ซ่อน ปรับความกว้าง ปักหมุด และจัดลำดับคอลัมน์</p></div><button className="product-bulk-search-close" type="button" aria-label="ปิด Customize" onClick={() => closeCustomizeColumns()}>×</button></header>
           <div className="product-grid-customize-table-head" aria-hidden="true"><span>Column</span><span>Width</span><span>Pin</span><span>Order</span></div>
           <div className="product-grid-customize-list">
-            {customizeDraft.map((column, index) => <div className="product-grid-customize-row" key={column.key}>
+            {customizeDraft.filter((column) => canReadCost || column.key !== 'cost').map((column) => <div
+              className="product-grid-customize-row"
+              key={column.key}
+              data-dragging={customizeDrag?.source === column.key || undefined}
+              data-drop-position={customizeDrag?.target === column.key && customizeDrag.source !== column.key ? customizeDrag.position : undefined}
+              onDragOver={(event) => moveCustomizeDrag(event, column.key)}
+              onDrop={(event) => dropCustomizeDrag(event, column.key)}
+            >
               <label className="product-grid-customize-visible"><input type="checkbox" checked={column.visible} onChange={(event) => updateCustomizeDraft(column.key, { visible: event.target.checked })} /><span>{labels[column.key]}</span></label>
               <label><span className="sr-only">ความกว้าง {labels[column.key]}</span><input className="product-grid-customize-width" aria-label={`ความกว้าง ${labels[column.key]}`} type="number" min="96" max="520" step="1" value={column.width} onChange={(event) => updateCustomizeDraft(column.key, { width: Number(event.target.value) })} /></label>
-              <label className="product-grid-customize-pin"><input type="checkbox" checked={column.pinned} onChange={(event) => updateCustomizeDraft(column.key, { pinned: event.target.checked })} /> ปักหมุด</label>
-              <div className="product-grid-customize-order"><button className="button" type="button" aria-label={`เลื่อน ${labels[column.key]} ขึ้น`} disabled={index === 0} onClick={() => moveCustomizeDraft(index, -1)}>↑</button><button className="button" type="button" aria-label={`เลื่อน ${labels[column.key]} ลง`} disabled={index === customizeDraft.length - 1} onClick={() => moveCustomizeDraft(index, 1)}>↓</button></div>
+              <label className="product-grid-customize-pin" data-pinned={column.pinned}><input type="checkbox" checked={column.pinned} onChange={(event) => updateCustomizeDraft(column.key, { pinned: event.target.checked })} /><span>ปักหมุด</span><ProductGridPinIcon /></label>
+              <div className="product-grid-customize-order"><button
+                className="product-grid-customize-drag-handle"
+                type="button"
+                draggable
+                aria-label={`ลากเพื่อจัดลำดับ ${labels[column.key]} ใช้ลูกศรขึ้นหรือลงได้`}
+                title="ลากเพื่อจัดลำดับ"
+                onDragStart={(event) => startCustomizeDrag(event, column.key)}
+                onDragEnd={() => setCustomizeDrag(null)}
+                onKeyDown={(event) => {
+                  if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
+                  event.preventDefault()
+                  moveCustomizeDraft(column.key, event.key === 'ArrowUp' ? -1 : 1)
+                }}
+              ><ProductGridDragHandleIcon /></button></div>
             </div>)}
           </div>
           <footer className="product-grid-customize-footer"><button className="button secondary" type="button" onClick={restoreCustomizeDraft}>คืนค่าเดิม</button><button className="button secondary" type="button" onClick={() => closeCustomizeColumns()}>ยกเลิก</button><button className="button" type="button" onClick={saveCustomizeColumns}>บันทึก</button></footer>
@@ -571,10 +802,13 @@ export function ProductsDataGrid({
     {!rows.length ? <OperationsEmptyState icon="＋" title={emptyState.title} description={emptyState.description} /> : <>
     <div className="product-table-wrap product-grid-wrap">
       <table className="product-data-table product-grid-table">
-        <colgroup><col style={{ width: 52 }} />{visibleColumns.map((column) => <col key={column.key} style={{ width: column.width }} />)}<col style={{ width: 72 }} /></colgroup>
-        <thead><tr><th className="product-grid-selection"><input ref={selectAllRef} type="checkbox" aria-label="เลือกสินค้าทั้งหมด" checked={displayedRows.length > 0 && selectedRows.size === displayedRows.length} onChange={(event) => toggleAllRows(event.target.checked)} /></th>{visibleColumns.map((column) => <th key={column.key} className={column.pinned ? 'product-grid-pinned' : undefined} style={column.pinned ? { left: 52 + (pinnedOffsets.get(column.key) ?? 0) } : undefined}>
+        <colgroup><col style={{ width: PRODUCT_GRID_SELECTION_WIDTH }} />{visibleColumns.map((column) => <col key={column.key} style={{ width: column.width }} />)}<col style={{ width: 72 }} /></colgroup>
+        <thead><tr><th className={`product-grid-selection product-grid-selection-pinned${lastPinnedKey ? '' : ' product-grid-pinned-boundary'}`}><input ref={selectAllRef} type="checkbox" aria-label="เลือกสินค้าทั้งหมด" checked={displayedRows.length > 0 && selectedRows.size === displayedRows.length} onChange={(event) => toggleAllRows(event.target.checked)} /></th>{visibleColumns.map((column) => <th key={column.key} className={[
+          column.pinned ? 'product-grid-pinned' : '',
+          column.pinned && column.key === lastPinnedKey ? 'product-grid-pinned-boundary' : '',
+        ].filter(Boolean).join(' ') || undefined} style={column.pinned ? { left: pinnedOffsets.get(column.key) ?? PRODUCT_GRID_SELECTION_WIDTH } : undefined}>
           <button className="product-grid-sort" type="button" onClick={() => toggleSort(column.key)} aria-label={`จัดเรียงตาม${labels[column.key]}`}>
-            <span>{labels[column.key]}</span><span aria-hidden="true">{gridSort.key === column.key ? (gridSort.direction === 'asc' ? '↑' : '↓') : '↕'}</span>
+            <span>{labels[column.key]}</span>{column.pinned ? <span className="product-grid-header-pin" title="ปักหมุดแล้ว"><ProductGridPinIcon /></span> : null}<span aria-hidden="true">{gridSort.key === column.key ? (gridSort.direction === 'asc' ? '↑' : '↓') : '↕'}</span>
           </button>
           <span
             className="product-grid-column-resizer"
@@ -594,7 +828,7 @@ export function ProductsDataGrid({
             onKeyDown={(event) => resizeColumnWithKeyboard(event, column)}
           />
         </th>)}<th><span className="sr-only">รายละเอียด</span></th></tr></thead>
-        <tbody>{displayedRows.map((row) => <tr key={row.id} data-selected={selectedRows.has(row.id)}><td className="product-grid-selection"><input type="checkbox" aria-label={`เลือก ${row.name}`} checked={selectedRows.has(row.id)} onChange={(event) => toggleRow(row.id, event.target.checked)} /></td>{visibleColumns.map((column) => cell(row, column.key))}<td><button className="product-grid-row-action" type="button" aria-label={`เปิดเมนู ${row.name}`} aria-haspopup="menu" aria-expanded={rowMenu?.rowId === row.id} onClick={(event) => rowMenu?.rowId === row.id ? setRowMenu(null) : openRowMenu(event.currentTarget, row.id)} onKeyDown={(event) => {
+        <tbody>{displayedRows.map((row) => <tr key={row.id} data-selected={selectedRows.has(row.id)}><td className={`product-grid-selection product-grid-selection-pinned${lastPinnedKey ? '' : ' product-grid-pinned-boundary'}`}><input type="checkbox" aria-label={`เลือก ${row.name}`} checked={selectedRows.has(row.id)} onChange={(event) => toggleRow(row.id, event.target.checked)} /></td>{visibleColumns.map((column) => cell(row, column.key))}<td><button className="product-grid-row-action" type="button" aria-label={`เปิดเมนู ${row.name}`} aria-haspopup="menu" aria-expanded={rowMenu?.rowId === row.id} onClick={(event) => rowMenu?.rowId === row.id ? setRowMenu(null) : openRowMenu(event.currentTarget, row.id)} onKeyDown={(event) => {
           if (!['ArrowDown', 'Enter', ' '].includes(event.key)) return
           event.preventDefault()
           openRowMenu(event.currentTarget, row.id, true)
@@ -603,14 +837,40 @@ export function ProductsDataGrid({
     </div>
     <div className="product-mobile-list product-grid-mobile" role="list" aria-label="รายการ Product">
       {rows.map((row) => <article className="product-mobile-card" role="listitem" key={row.id}>
-        <div><strong>{row.name}</strong><OperationsStatusBadge tone={statusTone(row.status)}>{statusLabel(row.status)}</OperationsStatusBadge></div>
+        <div><strong>{row.name}</strong>{productStatusControl(row)}</div>
         <p>{row.skuPreview[0]?.salesCode || 'ไม่มีรหัส CF'} · {row.skuCount} SKU</p>
         <small>{row.stock.mode === 'single-unit' ? `Stock ${row.stock.onHand} · Available ${row.stock.available}` : row.stock.mode === 'mixed-units' ? 'Stock หลายหน่วย' : 'ยังไม่มียอด Stock'}</small>
-        <Link className="product-row-link" href={detailHref({ organizationId, search, status, sort, productId: row.id })}>ดูรายละเอียด</Link>
+        <Link className="product-row-link" href={detailHref({ organizationId, search, status, sort, productId: row.id, page: currentPage, pageSize, bulkSearchActive })}>ดูรายละเอียด</Link>
       </article>)}
     </div>
     </>}
-    <div className="product-grid-footer"><span>{rows.length} รายการในหน้าปัจจุบัน</span><span>การตั้งค่าคอลัมน์บันทึกในอุปกรณ์นี้</span></div>
+    <footer className="product-grid-footer product-grid-pagination-footer" aria-label="การแบ่งหน้ารายการสินค้า">
+      <label className="product-grid-page-size">
+        <span>Rows per page</span>
+        <select
+          aria-label="จำนวนแถวต่อหน้า"
+          value={pageSize}
+          onChange={(event) => router.push(paginationHref(1, Number(event.target.value)), { scroll: false })}
+        >
+          {PRODUCT_GRID_PAGE_SIZES.map((size) => <option value={size} key={size}>{size}</option>)}
+        </select>
+      </label>
+      <span className="product-grid-page-range" aria-live="polite">{rangeStart}–{rangeEnd} of {totalCount}</span>
+      <nav className="product-grid-page-actions" aria-label="เปลี่ยนหน้ารายการสินค้า">
+        {currentPage <= 1
+          ? <span className="product-grid-page-button" aria-label="หน้าแรก" aria-disabled="true"><ProductGridPaginationIcon direction="first" /></span>
+          : <Link className="product-grid-page-button" href={paginationHref(1)} aria-label="หน้าแรก" scroll={false}><ProductGridPaginationIcon direction="first" /></Link>}
+        {currentPage <= 1
+          ? <span className="product-grid-page-button" aria-label="หน้าก่อนหน้า" aria-disabled="true"><ProductGridPaginationIcon direction="previous" /></span>
+          : <Link className="product-grid-page-button" href={paginationHref(currentPage - 1)} aria-label="หน้าก่อนหน้า" scroll={false}><ProductGridPaginationIcon direction="previous" /></Link>}
+        {currentPage >= totalPages
+          ? <span className="product-grid-page-button" aria-label="หน้าถัดไป" aria-disabled="true"><ProductGridPaginationIcon direction="next" /></span>
+          : <Link className="product-grid-page-button" href={paginationHref(currentPage + 1)} aria-label="หน้าถัดไป" scroll={false}><ProductGridPaginationIcon direction="next" /></Link>}
+        {currentPage >= totalPages
+          ? <span className="product-grid-page-button" aria-label="หน้าสุดท้าย" aria-disabled="true"><ProductGridPaginationIcon direction="last" /></span>
+          : <Link className="product-grid-page-button" href={paginationHref(totalPages)} aria-label="หน้าสุดท้าย" scroll={false}><ProductGridPaginationIcon direction="last" /></Link>}
+      </nav>
+    </footer>
     {rowMenu ? <div ref={rowMenuRef} className="product-grid-row-menu" role="menu" aria-label="เมนูสินค้า" style={{ left: rowMenu.left, top: rowMenu.top }} onKeyDown={(event) => {
       const items = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('[role="menuitem"]'))
       const currentIndex = items.indexOf(document.activeElement as HTMLElement)
@@ -628,9 +888,9 @@ export function ProductsDataGrid({
       event.preventDefault()
       items[(Math.max(currentIndex, 0) + delta + items.length) % items.length]?.focus()
     }}>
-      <Link role="menuitem" href={detailHref({ organizationId, search, status, sort, productId: rowMenu.rowId })}>ดูรายละเอียดแบบ Quick View</Link>
-      <Link role="menuitem" href={detailHref({ organizationId, search, status, sort, productId: rowMenu.rowId, action: 'edit' })}>แก้ไขสินค้า</Link>
-      <Link role="menuitem" href={detailHref({ organizationId, search, status, sort, productId: rowMenu.rowId, action: 'skus' })}>จัดการ SKU</Link>
+      <Link role="menuitem" href={detailHref({ organizationId, search, status, sort, productId: rowMenu.rowId, page: currentPage, pageSize, bulkSearchActive })}>ดูรายละเอียดแบบ Quick View</Link>
+      <Link role="menuitem" href={detailHref({ organizationId, search, status, sort, productId: rowMenu.rowId, page: currentPage, pageSize, bulkSearchActive, action: 'edit' })}>แก้ไขสินค้า</Link>
+      <Link role="menuitem" href={detailHref({ organizationId, search, status, sort, productId: rowMenu.rowId, page: currentPage, pageSize, bulkSearchActive, action: 'skus' })}>จัดการ SKU</Link>
     </div> : null}
     {copyTooltip ? <div id="product-grid-copy-tooltip" className="product-grid-copy-tooltip" role="tooltip" style={{ left: copyTooltip.left, top: copyTooltip.top }}>{copyTooltip.text}</div> : null}
     {exportColumnsOpen ? <div className="product-modal-backdrop product-export-columns-backdrop" role="presentation" onMouseDown={(event) => {
