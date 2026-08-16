@@ -226,6 +226,9 @@ export interface FoundationReadRepository {
     organizationId: string
     status?: string
     search?: string
+    dateField?: 'created' | 'updated'
+    dateFrom?: string
+    dateTo?: string
     cursor?: string | null
     page?: number
     pageSize?: number

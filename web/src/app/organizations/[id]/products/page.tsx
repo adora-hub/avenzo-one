@@ -19,6 +19,12 @@ function firstParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] ?? '' : value ?? ''
 }
 
+function validDateParam(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return ''
+  const parsed = new Date(`${value}T00:00:00Z`)
+  return Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value ? '' : value
+}
+
 export default async function ProductSkuPage({ params, searchParams }: Props) {
   const [{ id: organizationId }, query] = await Promise.all([params, searchParams])
   const view = firstParam(query.view) === 'skus' ? 'skus' : 'products'
@@ -26,6 +32,9 @@ export default async function ProductSkuPage({ params, searchParams }: Props) {
   const bulkSearchActive = firstParam(query.bulk) === '1'
   const requestedStatus = firstParam(query.status).toLowerCase()
   const status = statuses.has(requestedStatus) ? requestedStatus : ''
+  const dateField = firstParam(query.date_by) === 'updated' ? 'updated' : 'created'
+  const dateFrom = validDateParam(firstParam(query.date_from))
+  const dateTo = validDateParam(firstParam(query.date_to))
   const cursor = firstParam(query.cursor) || null
   const requestedProductPageSize = Number(firstParam(query.page_size))
   const productPageSize = productPageSizes.has(requestedProductPageSize) ? requestedProductPageSize : 25
@@ -80,6 +89,9 @@ export default async function ProductSkuPage({ params, searchParams }: Props) {
       organizationId,
       search,
       status: status || undefined,
+      dateField,
+      dateFrom: dateFrom || undefined,
+      dateTo: dateTo || undefined,
       page: productPage,
       pageSize: productPageSize,
       includeInventory: canReadInventory,
@@ -112,6 +124,9 @@ export default async function ProductSkuPage({ params, searchParams }: Props) {
     if (search) normalizedQuery.set('q', search)
     if (bulkSearchActive) normalizedQuery.set('bulk', '1')
     if (status) normalizedQuery.set('status', status)
+    if (dateFrom || dateTo) normalizedQuery.set('date_by', dateField)
+    if (dateFrom) normalizedQuery.set('date_from', dateFrom)
+    if (dateTo) normalizedQuery.set('date_to', dateTo)
     if (sort) normalizedQuery.set('sort', sort)
     redirect(`/organizations/${organizationId}/products?${normalizedQuery}`)
   }
@@ -132,6 +147,9 @@ export default async function ProductSkuPage({ params, searchParams }: Props) {
         search={search}
         bulkSearchActive={bulkSearchActive}
         status={status}
+        dateField={dateField}
+        dateFrom={dateFrom}
+        dateTo={dateTo}
         sort={sort}
         productWorkspaceRows={productWorkspaceRows}
         productPage={productPage}

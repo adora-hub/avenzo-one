@@ -311,3 +311,123 @@ final result: blocked
 - ไม่สามารถจับภาพ Hover state จาก Browser เพื่อทำ pixel-level comparison ได้ใน session นี้
 
 final result: blocked
+
+---
+
+# Design QA — Products Advanced Filter Bar Scaffold
+
+วันที่ตรวจ: 17 สิงหาคม 2026
+
+## Source visual truth
+
+- ภาพอ้างอิง: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-adb3ccc4-a9d6-436c-a5b9-0b9d019cc42f.png`
+- Source pixels: 1773 × 95 px
+- เป้าหมาย: ใช้พื้นที่ว่างถัดจากสถานะเป็นโครงตัวกรองเพิ่มเติม โดยไม่รบกวนช่องค้นหาเดิมและเครื่องมือตารางทางขวา
+- State: Products Data Grid · desktop · light theme · filter panel closed/open
+
+## Implementation evidence
+
+- Component: `web/src/app/organizations/[id]/products/product-sku-workspace.tsx`
+- Styles: `web/src/app/globals.css`
+- Regression test: `web/scripts/test-products-r7-visual-parity.mjs`
+- Browser-rendered screenshot: unavailable
+- Implementation pixels / CSS viewport / device density: unavailable เพราะทั้ง in-app Browser และ Windows Computer Use เริ่มทำงานไม่ได้จาก Windows sandbox (`apply deny-read ACLs`)
+
+## Full-view comparison evidence
+
+- Blocked: ไม่สามารถจับภาพ implementation ที่ viewport และ state เดียวกับภาพอ้างอิง จึงยังยืนยันระยะจริงระหว่างสถานะ ปุ่มตัวกรองเพิ่มเติม และไอคอนเครื่องมือตารางไม่ได้
+
+## Focused region comparison evidence
+
+- Static structure ยืนยันว่า Filter Bar มีสาม track: Search Button Group 420px, สถานะ 146px และพื้นที่ตัวกรองเพิ่มเติมที่ยืดได้
+- ปุ่มเปิด–ปิดใช้ความสูง 36px, border radius 9px และ token เดียวกับ Combobox สถานะ
+- แผงตัวกรองมีหัวข้อ คำอธิบาย empty state และ footer เตรียมไว้ โดยยังไม่เพิ่ม field ของข้อ 2–6
+- หน้าจอไม่เกิน 760px เปลี่ยนเป็นหนึ่งคอลัมน์และปุ่ม/แผงกว้างเต็มพื้นที่
+- Focused visual comparison ยังถูกบล็อกเพราะไม่มี browser-rendered screenshot
+
+## Required fidelity surfaces
+
+- Fonts and typography: ใช้ font inheritance และขนาด 12–15px ตามระบบ Products เดิม; ยังต้องยืนยันการ wrap จากภาพจริง
+- Spacing and layout rhythm: ใช้ความสูง 36px และระยะ 4–16px ตาม toolbar เดิม; pixel comparison ยังถูกบล็อก
+- Colors and visual tokens: ใช้ `surface`, `border`, `text`, `focus` tokens เดิม รองรับ light/dark โดยไม่เพิ่มค่าสีใหม่
+- Image quality and asset fidelity: ไม่มี raster asset ใหม่; คง search และ table action icons เดิม
+- Copy and content: ใช้คำว่า “ตัวกรองเพิ่มเติม” และอธิบายว่าต้องเลือกเงื่อนไขให้ครบก่อนค้นหา
+
+## Primary interactions checked
+
+- Click เปิด/ปิดแผง, click นอกพื้นที่ปิด, Escape ปิดและคืน focus: มี implementation และ TypeScript ผ่าน
+- เปิดตัวกรองสถานะจะปิดแผงตัวกรองเพิ่มเติม และเปิดแผงเพิ่มเติมจะปิดสถานะ: มี implementation
+- Visual Parity: 5/5 passed
+- Product Data Grid: 7/7 passed
+- Page Structure: 4/4 passed
+- TypeScript: passed
+- Console errors: ตรวจไม่ได้เพราะ browser runtime ถูกบล็อก
+
+## Findings
+
+- [P2] ยังไม่มี browser-rendered evidence สำหรับระยะและสถานะเปิดจริง
+  - Location: Products toolbar / `.product-advanced-filter-panel`
+  - Evidence: source เปิดอ่านได้เฉพาะ metadata แต่ Browser และ Computer Use จบด้วย Windows ACL error
+  - Impact: ยังไม่สามารถยืนยัน pixel-level alignment, clipping, stacking และ dark mode จากภาพจริง
+  - Fix: เปิด browser runtime ได้แล้วจับ desktop light/dark และ mobile open state จาก route ที่ล็อกอิน
+
+## Comparison history
+
+- รอบแรก: implementation และ automated gates ผ่าน แต่ visual comparison ถูกบล็อกก่อนมีภาพ implementation; ยังไม่มี P0/P1 และไม่มี visual fix ที่อ้างจากภาพจริง
+
+final result: blocked
+---
+
+# Design QA — Products Advanced Filter Step 2
+
+วันที่ตรวจ: 17 สิงหาคม 2026
+
+## Source visual truth
+
+- ภาพอ้างอิงสถานะเปิด: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-1d26cb46-9a2d-46bc-9949-34342d78df2f.png`
+- Source pixels: 1793 × 603 px
+- เป้าหมาย: ขยายแผงเป็น 680px เพิ่มวันที่สร้าง/วันที่แก้ไขและช่วงวันที่ โดยสถานะกับวันที่รอใช้พร้อมกันเมื่อกดค้นหา
+
+## Implementation evidence
+
+- Component: `web/src/app/organizations/[id]/products/product-sku-workspace.tsx`
+- Server route: `web/src/app/organizations/[id]/products/page.tsx`
+- Repository: `web/src/lib/foundation/supabase-repository.ts`
+- Styles: `web/src/app/globals.css`
+- Regression test: `web/scripts/test-products-r7-visual-parity.mjs`
+- Browser-rendered screenshot: unavailable เพราะ session ไม่มี Browser/Chrome/Computer tool ที่เรียกใช้งานได้
+
+## Interaction verification
+
+- สถานะในหน้า Products เปลี่ยนเป็น draft และเปิดแผงเพื่อให้ผู้ใช้เห็นปุ่มค้นหา
+- เลือกวันที่สร้างหรือวันที่แก้ไข พร้อมระบุเฉพาะวันเริ่ม วันสิ้นสุด หรือทั้งคู่ได้
+- ช่วงวันที่ผิดลำดับแสดงข้อความเตือนก่อนส่ง URL
+- ปุ่มล้างทั้งหมดล้างสถานะและวันที่ใน draft; ปุ่มค้นหาส่งสถานะและวันที่ครั้งเดียว
+- URL ใช้ `date_by`, `date_from`, `date_to` และรักษาค่าเมื่อค้นหาหลายรหัส เปิด Quick View หรือเปลี่ยนหน้า
+- Repository กรอง tenant-scoped products ด้วย `created_at` หรือ `updated_at` ตามเวลา Asia/Bangkok
+- Panel desktop กว้างสูงสุด 680px; หน้าจอไม่เกิน 760px เรียงหนึ่งคอลัมน์
+
+## Automated checks
+
+- TypeScript: passed
+- Visual Parity: 5/5 passed
+- Product Data Grid: 7/7 passed
+- Product Page Structure: 4/4 passed
+- Responsive Visual Matrix: 13/13 passed
+- Pagination: 4/4 passed
+- `git diff --check`: passed
+
+## Evidence limits
+
+- ยังยืนยัน pixel-level alignment, native date-picker appearance, dark mode และ keyboard focus order จาก browser จริงไม่ได้
+- ต้องรับภาพ F5 จากผู้ใช้ในสถานะเปิดแผงเพื่อปิด visual gate
+
+final result: blocked
+
+## Owner production parity approval
+
+- Screenshot: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-36327a17-22bc-4a4c-a496-66f34a1bb035.png`
+- Owner ยืนยันข้อ 1–2 และปุ่มที่แก้ไขผ่านเมื่อ 17 สิงหาคม 2026
+- ปุ่มใช้ Products standard: Secondary แบบ outline และ Primary สีดำพร้อม hover สีเทา
+
+final result: passed

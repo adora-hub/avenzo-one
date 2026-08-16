@@ -19,6 +19,8 @@ import { ProductDetailSheet } from './product-detail-sheet'
 import { ProductsDataGrid } from './products-data-grid'
 
 type ViewMode = 'products' | 'skus'
+type DateFilterField = 'created' | 'updated'
+
 type EditorMode = 'create-product' | 'create-sku' | 'edit-product' | 'edit-sku' | 'edit-price' | null
 type PendingLifecycle = {
   commandType: 'product.archive' | 'sku.archive'
@@ -36,6 +38,9 @@ type Props = {
   search: string
   bulkSearchActive: boolean
   status: string
+  dateField: DateFilterField
+  dateFrom: string
+  dateTo: string
   sort: 'updated_desc' | 'updated_asc'
   productWorkspaceRows: ProductWorkspaceRow[]
   productPage: number
@@ -131,6 +136,9 @@ export function ProductSkuWorkspace({
   search,
   bulkSearchActive,
   status,
+  dateField,
+  dateFrom,
+  dateTo,
   sort,
   productWorkspaceRows,
   productPage,
@@ -153,6 +161,8 @@ export function ProductSkuWorkspace({
   const createMenuRef = useRef<HTMLDetailsElement>(null)
   const statusFilterRef = useRef<HTMLDivElement>(null)
   const statusFilterButtonRef = useRef<HTMLButtonElement>(null)
+  const advancedFilterRef = useRef<HTMLDivElement>(null)
+  const advancedFilterButtonRef = useRef<HTMLButtonElement>(null)
   const [editorMode, setEditorMode] = useState<EditorMode>(null)
   const [bulkSearchOpen, setBulkSearchOpen] = useState(false)
   const [bulkCodes, setBulkCodes] = useState(bulkSearchActive ? search.replaceAll(',', '\n') : '')
@@ -160,6 +170,11 @@ export function ProductSkuWorkspace({
   const [searchInput, setSearchInput] = useState(bulkSearchActive ? '' : search)
   const [statusFilter, setStatusFilter] = useState(status)
   const [statusFilterOpen, setStatusFilterOpen] = useState(false)
+  const [advancedFilterOpen, setAdvancedFilterOpen] = useState(false)
+  const [dateFieldFilter, setDateFieldFilter] = useState<DateFilterField>(dateField)
+  const [dateFromFilter, setDateFromFilter] = useState(dateFrom)
+  const [dateToFilter, setDateToFilter] = useState(dateTo)
+  const [advancedFilterError, setAdvancedFilterError] = useState('')
   const [feedback, setFeedback] = useState<{ tone: 'success' | 'danger' | 'info'; text: string; code?: string } | null>(null)
   const [pendingLifecycle, setPendingLifecycle] = useState<PendingLifecycle | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -223,6 +238,25 @@ export function ProductSkuWorkspace({
   }, [statusFilterOpen])
 
   useEffect(() => {
+    if (!advancedFilterOpen) return
+    function closeAdvancedFilter(event: PointerEvent) {
+      if (!advancedFilterRef.current?.contains(event.target as Node)) setAdvancedFilterOpen(false)
+    }
+    function closeAdvancedFilterOnEscape(event: KeyboardEvent) {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      setAdvancedFilterOpen(false)
+      advancedFilterButtonRef.current?.focus()
+    }
+    document.addEventListener('pointerdown', closeAdvancedFilter)
+    window.addEventListener('keydown', closeAdvancedFilterOnEscape)
+    return () => {
+      document.removeEventListener('pointerdown', closeAdvancedFilter)
+      window.removeEventListener('keydown', closeAdvancedFilterOnEscape)
+    }
+  }, [advancedFilterOpen])
+
+  useEffect(() => {
     function closeCreateMenu(event: PointerEvent) {
       if (createMenuRef.current?.open && !createMenuRef.current.contains(event.target as Node)) {
         createMenuRef.current.open = false
@@ -244,8 +278,11 @@ export function ProductSkuWorkspace({
   useEffect(() => {
     setSearchInput(bulkSearchActive ? '' : search)
     setStatusFilter(status)
+    setDateFieldFilter(dateField)
+    setDateFromFilter(dateFrom)
+    setDateToFilter(dateTo)
     if (bulkSearchActive) setBulkCodes(search.replaceAll(',', '\n'))
-  }, [bulkSearchActive, search, status])
+  }, [bulkSearchActive, dateField, dateFrom, dateTo, search, status])
 
   useEffect(() => () => {
     if (searchTimerRef.current !== null) window.clearTimeout(searchTimerRef.current)
@@ -257,12 +294,23 @@ export function ProductSkuWorkspace({
     searchTimerRef.current = null
   }
 
-  function navigateFilters(nextSearch: string, nextStatus: string, mode: 'push' | 'replace' = 'replace', nextBulkSearchActive = false) {
+  function navigateFilters(
+    nextSearch: string,
+    nextStatus: string,
+    mode: 'push' | 'replace' = 'replace',
+    nextBulkSearchActive = false,
+    nextDateField: DateFilterField = dateField,
+    nextDateFrom = dateFrom,
+    nextDateTo = dateTo,
+  ) {
     clearSearchTimer()
     const href = buildHref(organizationId, {
       view,
       q: nextSearch.trim(),
       status: nextStatus,
+      date_by: nextDateFrom || nextDateTo ? nextDateField : undefined,
+      date_from: nextDateFrom,
+      date_to: nextDateTo,
       sort,
       page_size: view === 'products' ? String(productPageSize) : undefined,
       bulk: nextBulkSearchActive ? '1' : undefined,
@@ -277,7 +325,7 @@ export function ProductSkuWorkspace({
     clearSearchTimer()
     searchTimerRef.current = window.setTimeout(() => {
       searchTimerRef.current = null
-      navigateFilters(nextSearch, statusFilter)
+      navigateFilters(nextSearch, status)
     }, 250)
   }
 
@@ -299,6 +347,7 @@ export function ProductSkuWorkspace({
   }
 
   function openStatusFilter(target: 'selected' | 'first' | 'last' = 'selected') {
+    setAdvancedFilterOpen(false)
     setStatusFilterOpen(true)
     focusStatusOption(target)
   }
@@ -306,8 +355,33 @@ export function ProductSkuWorkspace({
   function chooseStatusFilter(nextStatus: string) {
     setStatusFilter(nextStatus)
     setStatusFilterOpen(false)
-    statusFilterButtonRef.current?.focus()
-    navigateFilters(bulkSearchActive ? search : searchInput, nextStatus, 'replace', bulkSearchActive)
+    if (view === 'products') {
+      setAdvancedFilterError('')
+      setAdvancedFilterOpen(true)
+      window.requestAnimationFrame(() => advancedFilterButtonRef.current?.focus())
+    } else {
+      statusFilterButtonRef.current?.focus()
+      navigateFilters(bulkSearchActive ? search : searchInput, nextStatus, 'replace', bulkSearchActive)
+    }
+  }
+
+  function clearAdvancedFilterDraft() {
+    setStatusFilter('')
+    setDateFieldFilter('created')
+    setDateFromFilter('')
+    setDateToFilter('')
+    setAdvancedFilterError('')
+  }
+
+  function applyAdvancedFilters() {
+    if (dateFromFilter && dateToFilter && dateFromFilter > dateToFilter) {
+      setAdvancedFilterError('วันที่เริ่มต้นต้องไม่อยู่หลังวันที่สิ้นสุด')
+      return
+    }
+    setAdvancedFilterError('')
+    setAdvancedFilterOpen(false)
+    navigateFilters(bulkSearchActive ? search : searchInput, statusFilter, 'replace', bulkSearchActive, dateFieldFilter, dateFromFilter, dateToFilter)
+    advancedFilterButtonRef.current?.focus()
   }
 
   function openEditor(mode: Exclude<EditorMode, null>) {
@@ -416,19 +490,36 @@ export function ProductSkuWorkspace({
     if (!codes.length) return
     setBulkSearchOpen(false)
     setSearchInput('')
-    navigateFilters(codes.join(','), statusFilter, 'push', true)
+    navigateFilters(codes.join(','), status, 'push', true)
   }
 
   const closeDetailHref = buildHref(organizationId, {
     view,
     q: search,
     status,
+    date_by: dateFrom || dateTo ? dateField : undefined,
+    date_from: dateFrom,
+    date_to: dateTo,
     sort,
     page: view === 'products' ? String(productPage) : undefined,
     page_size: view === 'products' ? String(productPageSize) : undefined,
     bulk: bulkSearchActive ? '1' : undefined,
   })
-  const nextHref = buildHref(organizationId, { view, q: search, status, sort, cursor: nextCursor, bulk: bulkSearchActive ? '1' : undefined })
+  const nextHref = buildHref(organizationId, {
+    view,
+    q: search,
+    status,
+    date_by: dateFrom || dateTo ? dateField : undefined,
+    date_from: dateFrom,
+    date_to: dateTo,
+    sort,
+    cursor: nextCursor,
+    bulk: bulkSearchActive ? '1' : undefined,
+  })
+
+
+  const advancedFilterDirty = statusFilter !== status || dateFieldFilter !== dateField || dateFromFilter !== dateFrom || dateToFilter !== dateTo
+  const hasAdvancedFilterDraft = Boolean(statusFilter || dateFromFilter || dateToFilter)
 
   const filterForm = <form className="operations-filter-bar product-filter-bar" method="get" aria-label="ค้นหาและกรอง Product SKU" onSubmit={(event) => {
     if (view === 'products') {
@@ -454,7 +545,7 @@ export function ProductSkuWorkspace({
         }} />
         {searchInput ? <button className="product-search-clear" type="button" aria-label="ล้างคำค้นหา" onClick={() => {
           setSearchInput('')
-          navigateFilters('', statusFilter)
+          navigateFilters('', status)
         }}>×</button> : null}
       </div>
       {view === 'products' ? <button className="button secondary product-bulk-search-trigger" type="button" onClick={() => openBulkSearch()}><span aria-hidden="true">⌘</span> ค้นหาหลายรหัส</button> : null}
@@ -517,6 +608,76 @@ export function ProductSkuWorkspace({
         >{option.label}</button>)}
       </div> : null}
     </div>
+    {view === 'products' ? <div className="product-advanced-filter-slot">
+      <div className="product-advanced-filter" ref={advancedFilterRef}>
+        <button
+          ref={advancedFilterButtonRef}
+          className="product-advanced-filter-trigger"
+          type="button"
+          aria-haspopup="dialog"
+          aria-controls="product-advanced-filter-panel"
+          aria-expanded={advancedFilterOpen}
+          onClick={() => {
+            setStatusFilterOpen(false)
+            setAdvancedFilterOpen((open) => !open)
+          }}
+        >
+          <span>ตัวกรองเพิ่มเติม</span>
+          <span className="product-status-combobox-arrow" aria-hidden="true" />
+        </button>
+        {advancedFilterOpen ? <section id="product-advanced-filter-panel" className="product-advanced-filter-panel" role="dialog" aria-modal="false" aria-labelledby="product-advanced-filter-title">
+          <header>
+            <div><h2 id="product-advanced-filter-title">ตัวกรองเพิ่มเติม</h2><p>เลือกเงื่อนไขให้ครบ แล้วกดค้นหาเพียงครั้งเดียว</p></div>
+            <button className="product-advanced-filter-close" type="button" aria-label="ปิดตัวกรองเพิ่มเติม" onClick={() => {
+              setAdvancedFilterOpen(false)
+              advancedFilterButtonRef.current?.focus()
+            }}>×</button>
+          </header>
+          <div className="product-advanced-filter-body">
+            <div className="product-advanced-filter-selection" aria-live="polite">
+              <span>สถานะที่เลือก</span>
+              <strong>{statusFilterOptions.find((option) => option.value === statusFilter)?.label ?? 'ทุกสถานะ'}</strong>
+              <small>สถานะและช่วงวันที่จะเริ่มกรองพร้อมกันเมื่อกดค้นหา</small>
+            </div>
+            <fieldset className="product-date-filter-fieldset">
+              <legend>วันที่สร้าง / วันที่แก้ไข</legend>
+              <p id="product-date-filter-help">เลือกประเภทวันที่และช่วงเวลาที่ต้องการค้นหา โดยเว้นช่องใดช่องหนึ่งได้</p>
+              <div className="product-date-filter-grid">
+                <label>
+                  <span>อ้างอิงวันที่</span>
+                  <select value={dateFieldFilter} onChange={(event) => {
+                    setDateFieldFilter(event.target.value as DateFilterField)
+                    setAdvancedFilterError('')
+                  }}>
+                    <option value="created">วันที่สร้าง</option>
+                    <option value="updated">วันที่แก้ไข</option>
+                  </select>
+                </label>
+                <label>
+                  <span>วันที่เริ่มต้น</span>
+                  <input type="date" value={dateFromFilter} max={dateToFilter || undefined} aria-describedby="product-date-filter-help" onChange={(event) => {
+                    setDateFromFilter(event.target.value)
+                    setAdvancedFilterError('')
+                  }} />
+                </label>
+                <label>
+                  <span>วันที่สิ้นสุด</span>
+                  <input type="date" value={dateToFilter} min={dateFromFilter || undefined} aria-describedby="product-date-filter-help" onChange={(event) => {
+                    setDateToFilter(event.target.value)
+                    setAdvancedFilterError('')
+                  }} />
+                </label>
+              </div>
+            </fieldset>
+            {advancedFilterError ? <p className="product-advanced-filter-error" role="alert">{advancedFilterError}</p> : null}
+          </div>
+          <footer>
+            <button className="button product-grid-button-secondary" type="button" disabled={!hasAdvancedFilterDraft} onClick={clearAdvancedFilterDraft}>ล้างทั้งหมด</button>
+            <button className="button product-grid-button-primary" type="button" disabled={!advancedFilterDirty} onClick={applyAdvancedFilters}>ค้นหา</button>
+          </footer>
+        </section> : null}
+      </div>
+    </div> : null}
     {view === 'skus' ? <button className="button product-search-submit" type="submit" title="ค้นหา · Ctrl+Enter">ค้นหา</button> : <button className="sr-only" type="submit">ค้นหา</button>}
   </form>
 
@@ -555,14 +716,17 @@ export function ProductSkuWorkspace({
       totalCount={productTotalCount}
       search={search}
       status={status}
+      dateField={dateField}
+      dateFrom={dateFrom}
+      dateTo={dateTo}
       sort={sort}
       toolbar={filterForm}
       clearHref={buildHref(organizationId, { view })}
       bulkActiveCount={activeBulkCodes.length}
-      clearBulkHref={buildHref(organizationId, { view, status, sort })}
-      emptyState={search || status ? {
+      clearBulkHref={buildHref(organizationId, { view, status, date_by: dateFrom || dateTo ? dateField : undefined, date_from: dateFrom, date_to: dateTo, sort })}
+      emptyState={search || status || dateFrom || dateTo ? {
         title: 'ไม่พบรายการตามตัวกรอง',
-        description: 'ลองเปลี่ยนคำค้นหาหรือสถานะ',
+        description: 'ลองเปลี่ยนคำค้นหา สถานะ หรือช่วงวันที่',
       } : {
         title: 'ยังไม่มี Product',
         description: canManage ? 'เริ่มเพิ่มข้อมูลด้วยปุ่มสร้างสินค้า' : 'ติดต่อผู้ดูแล Organization เพื่อเพิ่มข้อมูล',

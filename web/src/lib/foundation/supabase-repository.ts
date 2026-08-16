@@ -178,6 +178,9 @@ export class SupabaseFoundationReadRepository implements FoundationReadRepositor
     organizationId: string
     status?: string
     search?: string
+    dateField?: 'created' | 'updated'
+    dateFrom?: string
+    dateTo?: string
     cursor?: string | null
     page?: number
     pageSize?: number
@@ -215,6 +218,13 @@ export class SupabaseFoundationReadRepository implements FoundationReadRepositor
       .order('updated_at', { ascending: sortAscending })
       .order('id', { ascending: sortAscending })
     if (input.status) productQuery = productQuery.eq('status', input.status)
+    const dateColumn = input.dateField === 'created' ? 'created_at' : 'updated_at'
+    if (input.dateFrom) {
+      productQuery = productQuery.gte(dateColumn, `${input.dateFrom}T00:00:00+07:00`)
+    }
+    if (input.dateTo) {
+      productQuery = productQuery.lte(dateColumn, `${input.dateTo}T23:59:59.999+07:00`)
+    }
     if (search) {
       productQuery = matchingProductIds.length > 0
         ? productQuery.or(`name.ilike.%${search}%,id.in.(${matchingProductIds.join(',')})`)
