@@ -59,8 +59,8 @@ test('R3 provides copy, column customization, persistent preferences and safe st
   assert.match(grid, /function toggleSort/)
   assert.match(grid, /จัดเรียงตาม\$\{labels\[column\.key\]\}/)
   assert.match(grid, /ไม่รวมยอดข้ามหน่วย/)
-  assert.match(grid, /aria-label={`คัดลอกรหัส CF/)
-  assert.match(grid, /aria-label={`คัดลอก SKU Code/)
+  assert.match(grid, /copyButton\(firstSku\.salesCode, `\$\{row\.id\}:sales`, 'คัดลอกรหัส CF'\)/)
+  assert.match(grid, /copyButton\(firstSku\.skuCode, `\$\{row\.id\}:sku`, 'คัดลอก SKU'\)/)
 })
 
 test('R3 keeps URL search, keyboard search and responsive table semantics', () => {
@@ -73,4 +73,13 @@ test('R3 keeps URL search, keyboard search and responsive table semantics', () =
   assert.match(grid, /updated_desc.*updated_asc|updated_asc.*updated_desc/s)
   assert.match(css, /\.product-grid-table th \{[\s\S]*?background: #0b0d10; color: #fff;/)
   assert.match(css, /html\[data-theme="dark"\] \.product-grid-table th/)
+})
+
+test('R3 keeps the actions column visible at the right edge', () => {
+  assert.match(grid, /product-grid-actions-column product-grid-actions-column-header/)
+  assert.match(grid, /<span className="sr-only">การดำเนินการ<\/span>/)
+  assert.match(grid, /<td className="product-grid-actions-column"><button className="product-grid-row-action"/)
+  assert.match(css, /\.product-grid-table \.product-grid-actions-column \{[\s\S]*position: sticky;[\s\S]*right: 0;/)
+  assert.match(grid, /showCopyTooltip\(event\.currentTarget, `\$\{row\.id\}:actions`, 'การดำเนินการ'\)/)
+  assert.match(css, /\.product-grid-row-action:hover \{[^}]*background: transparent;[^}]*outline: 0;/)
 })

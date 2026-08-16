@@ -18,6 +18,15 @@ import {
   validateProductImageFile,
   type PreparedProductImage,
 } from '@/lib/foundation/product-image-upload'
+import {
+  DEFAULT_VARIANT_GROUPS,
+  VariantCreationBuilder,
+  sanitizeVariantCombinations,
+  sanitizeVariantGroups,
+  synchronizeVariantCombinations,
+  type VariantCombinationDraft,
+  type VariantOptionGroupDraft,
+} from './variant-creation-builder'
 type ProductMasterOption = { id: string; name: string; status?: 'active' | 'archived'; version?: number }
 type ProductBranchOption = Pick<ProductMasterOption, 'id' | 'name'> & { code: string }
 type ProductBundleSkuOption = Pick<ProductMasterOption, 'id' | 'name'> & { skuCode: string }
@@ -54,7 +63,8 @@ type SkuDraft = {
 }
 type UploadStage = 'selected' | 'preparing' | 'uploading' | 'finalizing' | 'ready' | 'failed'
 type SelectedImage = { id: string; file: File; previewUrl: string; stage: UploadStage }
-type PendingDraft = { productId: string; skuId: string; productName: string; savedAt: string }
+type VariantSkuMapping = { key: string; skuId: string; imageId: string }
+type PendingDraft = { productId: string; skuId?: string; variantSkus?: VariantSkuMapping[]; readyImageIdsByClientId?: Record<string, string>; productName: string; savedAt: string }
 type CreationSuccess = { productId: string; productName: string; skuCount: number }
 type Feedback = { tone: 'info' | 'success' | 'danger'; text: string }
 type IdentifierStatusKey = 'skuCode' | 'salesCode' | 'barcode'
@@ -83,7 +93,7 @@ type ProductSummaryFields = {
   sellUnitName: string
 }
 
-const DRAFT_SCHEMA_VERSION = 1
+const DRAFT_SCHEMA_VERSION = 2
 const DRAFT_MAX_BYTES = 256 * 1024
 const PENDING_DRAFT_MAX_AGE_MS = 24 * 60 * 60 * 1000
 const SKU_DRAFT_MAX_ITEMS = 100
@@ -290,12 +300,23 @@ function sanitizePendingDraft(value: unknown): PendingDraft | null {
   const record = value as Record<string, unknown>
   const productId = String(record.productId ?? '')
   const skuId = String(record.skuId ?? '')
+  const variantSkus = Array.isArray(record.variantSkus) ? record.variantSkus.slice(0, 100).flatMap((entry) => {
+    if (!entry || typeof entry !== 'object') return []
+    const mapping = entry as Record<string, unknown>
+    const key = String(mapping.key ?? '').slice(0, 500)
+    const mappedSkuId = String(mapping.skuId ?? '')
+    const imageId = String(mapping.imageId ?? '').slice(0, 80)
+    return key && UUID_PATTERN.test(mappedSkuId) ? [{ key, skuId: mappedSkuId, imageId }] : []
+  }) : []
   const productName = String(record.productName ?? '').normalize('NFKC').trim().slice(0, 160)
+  const readyImageIdsByClientId = record.readyImageIdsByClientId && typeof record.readyImageIdsByClientId === 'object'
+    ? Object.fromEntries(Object.entries(record.readyImageIdsByClientId as Record<string, unknown>).flatMap(([clientId, imageId]) => clientId.slice(0, 80) && UUID_PATTERN.test(String(imageId)) ? [[clientId.slice(0, 80), String(imageId)]] : []))
+    : {}
   const savedAt = String(record.savedAt ?? '')
   const savedAtTimestamp = Date.parse(savedAt)
-  if (!UUID_PATTERN.test(productId) || !UUID_PATTERN.test(skuId) || !productName || FORBIDDEN_CONTROL_CHARACTERS.test(productName) || !Number.isFinite(savedAtTimestamp)) return null
+  if (!UUID_PATTERN.test(productId) || (!UUID_PATTERN.test(skuId) && variantSkus.length === 0) || !productName || FORBIDDEN_CONTROL_CHARACTERS.test(productName) || !Number.isFinite(savedAtTimestamp)) return null
   if (savedAtTimestamp > Date.now() + 60_000 || Date.now() - savedAtTimestamp > PENDING_DRAFT_MAX_AGE_MS) return null
-  return { productId, skuId, productName, savedAt }
+  return { productId, skuId: UUID_PATTERN.test(skuId) ? skuId : undefined, variantSkus: variantSkus.length ? variantSkus : undefined, readyImageIdsByClientId, productName, savedAt }
 }
 
 const PRODUCT_INFO_GUIDE_OPEN_EVENT = 'avenzo:product-info-guide-open'
@@ -884,6 +905,9 @@ export function UnifiedProductCreationForm({
   const [useProductNameForSku, setUseProductNameForSku] = useState(true)
   const [variantOptionOne, setVariantOptionOne] = useState('')
   const [variantOptionTwo, setVariantOptionTwo] = useState('')
+  const [variantGroups, setVariantGroups] = useState<VariantOptionGroupDraft[]>(() => sanitizeVariantGroups(structuredClone(DEFAULT_VARIANT_GROUPS)))
+  const [variantCombinations, setVariantCombinations] = useState<VariantCombinationDraft[]>(() => synchronizeVariantCombinations(structuredClone(DEFAULT_VARIANT_GROUPS), [], 'TS'))
+  const [variantIdentifiersReady, setVariantIdentifiersReady] = useState(false)
   const [salesCodeMode, setSalesCodeMode] = useState<SalesCodeMode>('manual')
   const [barcodeMode, setBarcodeMode] = useState<BarcodeMode>('manufacturer')
   const [salesSequencePrefix, setSalesSequencePrefix] = useState('A')
@@ -929,7 +953,7 @@ export function UnifiedProductCreationForm({
     try {
       const raw = window.localStorage.getItem(localDraftKey)
       if (raw) {
-        const saved = JSON.parse(raw) as { fields?: Record<string, string>; categoryId?: string; brandId?: string; tagIds?: string[]; structure?: StructureType; useProductNameForSku?: boolean; packagingEnabled?: boolean; sellUnits?: unknown; bundleStockMode?: BundleStockMode; bundleComponents?: unknown; selectedBranchIds?: unknown; skuDrafts?: unknown; salesSequenceOffset?: unknown }
+        const saved = JSON.parse(raw) as { fields?: Record<string, string>; categoryId?: string; brandId?: string; tagIds?: string[]; structure?: StructureType; useProductNameForSku?: boolean; packagingEnabled?: boolean; sellUnits?: unknown; bundleStockMode?: BundleStockMode; bundleComponents?: unknown; selectedBranchIds?: unknown; skuDrafts?: unknown; salesSequenceOffset?: unknown; variantGroups?: unknown; variantCombinations?: unknown }
         for (const [name, value] of Object.entries(saved.fields ?? {})) {
           const field = form.elements.namedItem(name)
           if (field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement || field instanceof HTMLSelectElement) field.value = value
@@ -941,6 +965,9 @@ export function UnifiedProductCreationForm({
         if (typeof saved.useProductNameForSku === 'boolean') setUseProductNameForSku(saved.useProductNameForSku)
         if (saved.fields?.variantOptionOne) setVariantOptionOne(saved.fields.variantOptionOne.slice(0, 60))
         if (saved.fields?.variantOptionTwo) setVariantOptionTwo(saved.fields.variantOptionTwo.slice(0, 60))
+        const restoredVariantGroups = sanitizeVariantGroups(saved.variantGroups)
+        setVariantGroups(restoredVariantGroups)
+        setVariantCombinations(synchronizeVariantCombinations(restoredVariantGroups, sanitizeVariantCombinations(saved.variantCombinations), 'TS'))
         if (['manual', 'same-sku', 'sequence'].includes(saved.fields?.salesCodeMode ?? '')) setSalesCodeMode(saved.fields?.salesCodeMode as SalesCodeMode)
         if (['manufacturer', 'internal-sku', 'internal-sales', 'none'].includes(saved.fields?.barcodeMode ?? '')) setBarcodeMode(saved.fields?.barcodeMode as BarcodeMode)
         if (saved.fields?.salesSequencePrefix) setSalesSequencePrefix(saved.fields.salesSequencePrefix.slice(0, 10))
@@ -981,7 +1008,7 @@ export function UnifiedProductCreationForm({
     packagingEnabled, salesCodeMode, salesSequenceDigits, salesSequenceOffset,
     salesSequencePrefix, salesSequenceStart, selectedBranchIds, sellUnits, skuDrafts,
     structure, summaryFields, tagIds, taxCategory, useProductNameForSku,
-    variantOptionOne, variantOptionTwo,
+    variantCombinations, variantGroups, variantOptionOne, variantOptionTwo,
   ])
 
   useEffect(() => {
@@ -1031,7 +1058,8 @@ export function UnifiedProductCreationForm({
     const serializedDraft = JSON.stringify({
       fields, categoryId, brandId, tagIds, structure, useProductNameForSku: skuNameAuto,
       packagingEnabled, sellUnits, bundleStockMode, bundleComponents, selectedBranchIds: branchIds,
-      skuDrafts: stagedSkus, salesSequenceOffset: sequenceOffset, savedAt: new Date().toISOString(),
+      skuDrafts: stagedSkus, salesSequenceOffset: sequenceOffset,
+      variantGroups, variantCombinations, savedAt: new Date().toISOString(),
     })
     if (new TextEncoder().encode(serializedDraft).byteLength > DRAFT_MAX_BYTES) {
       setFeedback({ tone: 'danger', text: 'Browser Draft มีขนาดเกิน 256 KB กรุณาลดข้อมูลก่อนบันทึกร่าง' })
@@ -1534,6 +1562,7 @@ export function UnifiedProductCreationForm({
       if (found) URL.revokeObjectURL(found.previewUrl)
       return current.filter((image) => image.id !== id)
     })
+    setVariantCombinations((current) => current.map((item) => item.imageId === id ? { ...item, imageId: '' } : item))
     setImageFeedback({ tone: 'info', text: remaining ? `เหลือรูปสินค้า ${remaining} ภาพ` : 'นำรูปสินค้าออกแล้ว กรุณาเลือกอย่างน้อย 1 ภาพ' })
   }
 
@@ -1617,13 +1646,18 @@ export function UnifiedProductCreationForm({
     setImages((current) => current.map((image) => image.id === id ? { ...image, stage } : image))
   }
 
-  async function uploadImages(productId: string, productName: string) {
+  async function uploadImages(productId: string, productName: string, existingReadyImageIds: Record<string, string> = {}) {
     const supabase = createClient()
-    const readyIds: string[] = []
+    const readyIds: string[] = Object.values(existingReadyImageIds)
+    const readyImageIdsByClientId: Record<string, string> = { ...existingReadyImageIds }
     let failedCount = 0
 
     for (let index = 0; index < images.length; index += 1) {
       const image = images[index]
+      if (readyImageIdsByClientId[image.id]) {
+        setImageStage(image.id, 'ready')
+        continue
+      }
       let reservation: PreparedProductImage | null = null
       setProgress(`กำลังอัปโหลดรูป ${index + 1} จาก ${images.length}`)
       setImageStage(image.id, 'preparing')
@@ -1651,6 +1685,7 @@ export function UnifiedProductCreationForm({
         })
         if (!finalize.ok) throw new Error(finalize.error)
         readyIds.push(reservation.entity_id)
+        readyImageIdsByClientId[image.id] = reservation.entity_id
         setImageStage(image.id, 'ready')
       } catch (error) {
         failedCount += 1
@@ -1676,7 +1711,25 @@ export function UnifiedProductCreationForm({
         payload: { product_id: productId, image_ids: readyIds, cover_image_id: readyIds[0] },
       })
     }
-    return failedCount
+    return { failedCount, readyImageIdsByClientId }
+  }
+
+  async function assignVariantImages(recovery: PendingDraft, readyImageIdsByClientId: Record<string, string>) {
+    const assignments = (recovery.variantSkus ?? []).flatMap((variant) => {
+      const productImageId = readyImageIdsByClientId[variant.imageId]
+      return productImageId ? [{ sku_id: variant.skuId, product_image_id: productImageId }] : []
+    })
+    if (assignments.length === 0) return true
+    const commandIdKey = `${localDraftKey}:variant-image-command-id`
+    const commandId = window.localStorage.getItem(commandIdKey) ?? crypto.randomUUID()
+    window.localStorage.setItem(commandIdKey, commandId)
+    const result = await executeFoundationCommandAction({
+      kind: 'entity', commandId, organizationId,
+      commandType: 'product.variant_images.assign',
+      payload: { product_id: recovery.productId, assignments },
+    })
+    if (result.ok) window.localStorage.removeItem(commandIdKey)
+    return result.ok
   }
 
   function addSellUnitPreset(kind: 'pair' | 'pack' | 'box' | 'case' | 'custom') {
@@ -1742,7 +1795,7 @@ export function UnifiedProductCreationForm({
 
   function buildPayload(data: FormData) {
     const initialSku = skuDrafts[0]
-    return {
+    const commonPayload = {
       name: formString(data, 'name'),
       description: formString(data, 'description'),
       category_id: categoryId,
@@ -1750,13 +1803,11 @@ export function UnifiedProductCreationForm({
       structure_type: structure,
       internal_note: formString(data, 'internalNote'),
       tag_ids: tagIds,
-      sku_name: initialSku?.name ?? formString(data, 'skuName'),
-      sku_code: initialSku?.skuCode ?? formString(data, 'skuCode').toUpperCase(),
-      sales_code: initialSku?.salesCode ?? formString(data, 'salesCode').toUpperCase(),
-      barcode: initialSku?.barcode ?? formString(data, 'barcode'),
-      base_unit_code: initialSku?.baseUnitCode ?? formString(data, 'baseUnitCode'),
+      base_unit_code: structure === 'variant' ? formString(data, 'baseUnitCode') : initialSku?.baseUnitCode ?? formString(data, 'baseUnitCode'),
       quantity_behavior: formString(data, 'quantityBehavior'),
-      sale_price: optionalNumber(data.get('salePrice')),
+      sale_price: structure === 'variant'
+        ? optionalNumber(variantCombinations.find((variant) => variant.enabled)?.price ?? null)
+        : optionalNumber(data.get('salePrice')),
       cost_price: optionalNumber(data.get('costPrice')),
       currency_code: 'THB',
       tax_category: formString(data, 'taxCategory'),
@@ -1776,6 +1827,40 @@ export function UnifiedProductCreationForm({
         unit_code: unit.unitCode.toLowerCase(), name: unit.name.trim(),
         base_quantity: unit.baseQuantity, barcode: unit.barcode.trim() || undefined,
       })) : [],
+    }
+    if (structure === 'variant') {
+      const valuesById = new Map(variantGroups.flatMap((group) => group.values.map((value) => [value.id, value])))
+      return {
+        ...commonPayload,
+        structure_type: 'variant' as const,
+        option_groups: variantGroups.map((group) => ({
+          name: group.name.trim(),
+          kind: group.kind,
+          values: group.values.map((value) => ({ name: value.name.trim(), code: value.code, aliases: [value.name.trim()] })),
+        })),
+        variants: variantCombinations.filter((variant) => variant.enabled).map((variant) => {
+          const selectedValues = variant.optionValueIds.flatMap((id) => valuesById.get(id) ? [valuesById.get(id)!] : [])
+          return {
+            key: variant.key,
+            name: [formString(data, 'name'), ...selectedValues.map((value) => value.name)].filter(Boolean).join(' · ').slice(0, 160),
+            sku_code: variant.skuCode.toUpperCase(),
+            sales_code: variant.salesCode || undefined,
+            barcode: variant.barcode || undefined,
+            status: variant.status,
+            sale_price: Number(variant.price),
+            cost_price: optionalNumber(data.get('costPrice')),
+            option_codes: selectedValues.map((value) => value.code),
+            image_client_id: variant.imageId || undefined,
+          }
+        }),
+      }
+    }
+    return {
+      ...commonPayload,
+      sku_name: initialSku?.name ?? formString(data, 'skuName'),
+      sku_code: initialSku?.skuCode ?? formString(data, 'skuCode').toUpperCase(),
+      sales_code: initialSku?.salesCode ?? formString(data, 'salesCode').toUpperCase(),
+      barcode: initialSku?.barcode ?? formString(data, 'barcode'),
       bundle_components: structure === 'bundle' ? bundleComponents.map((component) => ({
         sku_id: component.skuId, quantity: component.quantity,
       })) : [],
@@ -1792,7 +1877,7 @@ export function UnifiedProductCreationForm({
     }
     const section = document.getElementById(issue.sectionId)
     if (!section) return null
-    return section.querySelector<HTMLElement>('input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])') ?? section
+    return section.querySelector<HTMLElement>('input:not([disabled]), select:not([disabled]), textarea:not([disabled])') ?? section
   }
 
   function clearValidationMarkers() {
@@ -1833,17 +1918,48 @@ export function UnifiedProductCreationForm({
     if (images.length < 1) add('images', 'รูปสินค้า', 'กรุณาเลือกรูปสินค้าอย่างน้อย 1 ภาพ')
     if (images.some((image) => image.stage === 'failed')) add('images', 'รูปสินค้า', 'มีรูปที่อัปโหลดไม่สำเร็จ กรุณาเลือกไฟล์ใหม่')
 
-    if (editingSkuDraftId) add('sku', 'รายการ SKU', 'กรุณาบันทึกหรือยกเลิก SKU ที่กำลังแก้ไขก่อนสร้าง', 'skuName')
-    if (skuDrafts.length > 1) add('sku', 'รายการ SKU', `เก็บ SKU ไว้ ${skuDrafts.length} รายการแล้ว แต่ Atomic command ปัจจุบันสร้างได้ครั้งละ 1 SKU จึงยังไม่ส่งข้อมูล เพื่อป้องกันรายการสูญหาย`)
-    const currentSku = currentSkuDraft()
-    if (skuDrafts.length === 1 && currentSku.skuCode) add('sku', 'SKU ที่ยังไม่เก็บ', 'กดเก็บ SKU ที่กำลังกรอกหรือเคลียร์ SKU Code ก่อนสร้าง', 'skuCode')
-    if (skuDrafts.length === 0) {
-      for (const error of skuDraftValidationErrors(currentSku)) add('sku', 'SKU แรก', error, error.includes('ชื่อ') ? 'skuName' : error.includes('Base Unit') ? 'baseUnitCode' : error.includes('Sales') ? 'salesCode' : error.includes('Barcode') ? 'barcode' : 'skuCode')
-    }
-    if (identifierFeedback.tone !== 'success') add('sku', 'ตรวจสอบรหัส', identifierFeedback.tone === 'danger' ? identifierFeedback.text : 'กรุณากด “ตรวจสอบรหัส” หรือเก็บ SKU ให้ผ่านก่อนสร้าง', 'skuCode')
+    if (structure === 'variant') {
+      const enabledVariants = variantCombinations.filter((variant) => variant.enabled)
+      const groupNames = variantGroups.map((group) => group.name.trim().toLocaleLowerCase('th-TH'))
+      if (variantGroups.length < 1 || variantGroups.length > 3) add('sku', 'กลุ่มตัวเลือก', 'Variant ต้องมีกลุ่มตัวเลือก 1–3 กลุ่ม')
+      if (variantGroups.some((group) => !group.name.trim() || group.values.length < 1)) add('sku', 'กลุ่มตัวเลือก', 'ทุกกลุ่มต้องมีชื่อและค่าตัวเลือกอย่างน้อย 1 ค่า')
+      if (new Set(groupNames).size !== groupNames.length) add('sku', 'กลุ่มตัวเลือก', 'ชื่อกลุ่มตัวเลือกต้องไม่ซ้ำกัน')
+      if (variantGroups.some((group) => new Set(group.values.map((value) => value.code)).size !== group.values.length)) add('sku', 'ค่าตัวเลือก', 'รหัสค่าตัวเลือกภายในกลุ่มเดียวกันต้องไม่ซ้ำกัน')
+      if (enabledVariants.length < 1) add('sku', 'SKU Combination', 'ต้องเปิดใช้อย่างน้อย 1 Combination')
+      if (enabledVariants.some((variant) => !variant.skuCode || !IDENTIFIER_CODE_PATTERN.test(variant.skuCode))) add('sku', 'SKU Code', 'ทุก Combination ต้องมี SKU Code ที่ใช้ A–Z, 0–9, จุด, ขีดกลาง หรือขีดล่าง')
+      if (enabledVariants.some((variant) => !variant.salesCode || !IDENTIFIER_CODE_PATTERN.test(variant.salesCode))) add('sku', 'รหัสขาย / รหัส CF', 'ทุก Combination ต้องมีรหัสขาย / รหัส CF ที่ถูกต้อง')
+      if (enabledVariants.some((variant) => variant.price === '' || !Number.isFinite(Number(variant.price)) || Number(variant.price) < 0)) add('pricing', 'ราคาขาย', 'ทุก Combination ต้องมีราคาขายตั้งแต่ 0 ขึ้นไป')
+      const skuCodes = enabledVariants.map((variant) => variant.skuCode.toUpperCase())
+      const salesCodes = enabledVariants.map((variant) => variant.salesCode.toUpperCase())
+      const identifierVariantKeys = new Map<string, Set<string>>()
+      enabledVariants.forEach((variant) => {
+        for (const value of [variant.skuCode, variant.salesCode, variant.barcode].filter(Boolean)) {
+          const normalized = value.toUpperCase()
+          const variantKeys = identifierVariantKeys.get(normalized) ?? new Set<string>()
+          variantKeys.add(variant.key)
+          identifierVariantKeys.set(normalized, variantKeys)
+        }
+      })
+      const barcodes = enabledVariants.map((variant) => variant.barcode.trim().toUpperCase()).filter(Boolean)
+      if (new Set(skuCodes).size !== skuCodes.length) add('sku', 'SKU Code', 'พบ SKU Code ซ้ำในตาราง Combination')
+      if (new Set(salesCodes).size !== salesCodes.length) add('sku', 'รหัสขาย / รหัส CF', 'พบรหัสขาย / รหัส CF ซ้ำในตาราง Combination')
+      if ([...identifierVariantKeys.values()].some((variantKeys) => variantKeys.size > 1)) add('sku', 'รหัสสินค้า', 'รหัสเดียวกันใช้ซ้ำได้ภายใน Variant เดียว แต่ห้ามชี้ไปคนละ Variant')
+      if (!variantIdentifiersReady) add('sku', 'ตรวจสอบรหัส', 'กรุณารอให้ระบบตรวจรหัสของทุก Variant ผ่านก่อนสร้าง')
+      if (new Set(barcodes).size !== barcodes.length) add('sku', 'Barcode', 'พบ Barcode ซ้ำในตาราง Combination')
+      if (enabledVariants.some((variant) => variant.imageId && !images.some((image) => image.id === variant.imageId))) add('images', 'รูปประจำ Variant', 'มี Combination อ้างอิงรูปที่ถูกนำออกแล้ว กรุณาเลือกรูปใหม่')
+    } else {
+      if (editingSkuDraftId) add('sku', 'รายการ SKU', 'กรุณาบันทึกหรือยกเลิก SKU ที่กำลังแก้ไขก่อนสร้าง', 'skuName')
+      if (skuDrafts.length > 1) add('sku', 'รายการ SKU', `เก็บ SKU ไว้ ${skuDrafts.length} รายการแล้ว แต่ Atomic command ปัจจุบันสร้างได้ครั้งละ 1 SKU จึงยังไม่ส่งข้อมูล เพื่อป้องกันรายการสูญหาย`)
+      const currentSku = currentSkuDraft()
+      if (skuDrafts.length === 1 && currentSku.skuCode) add('sku', 'SKU ที่ยังไม่เก็บ', 'กดเก็บ SKU ที่กำลังกรอกหรือเคลียร์ SKU Code ก่อนสร้าง', 'skuCode')
+      if (skuDrafts.length === 0) {
+        for (const error of skuDraftValidationErrors(currentSku)) add('sku', 'SKU แรก', error, error.includes('ชื่อ') ? 'skuName' : error.includes('Base Unit') ? 'baseUnitCode' : error.includes('Sales') ? 'salesCode' : error.includes('Barcode') ? 'barcode' : 'skuCode')
+      }
+      if (identifierFeedback.tone !== 'success') add('sku', 'ตรวจสอบรหัส', identifierFeedback.tone === 'danger' ? identifierFeedback.text : 'กรุณากด “ตรวจสอบรหัส” หรือเก็บ SKU ให้ผ่านก่อนสร้าง', 'skuCode')
 
-    const salePrice = optionalNumber(data.get('salePrice'))
-    if (salePrice === undefined || salePrice < 0) add('pricing', 'ราคาขาย', 'กรุณากรอกราคาขายเป็นตัวเลขตั้งแต่ 0 ขึ้นไป', 'salePrice')
+      const salePrice = optionalNumber(data.get('salePrice'))
+      if (salePrice === undefined || salePrice < 0) add('pricing', 'ราคาขาย', 'กรุณากรอกราคาขายเป็นตัวเลขตั้งแต่ 0 ขึ้นไป', 'salePrice')
+    }
 
     for (const error of physicalValidationErrors(data)) add('physical', 'น้ำหนักและขนาด', error, 'packageWeightKg')
     for (const error of packagingBundleValidationErrors(payload.quantity_behavior)) add('packaging', 'หน่วยบรรจุและ Bundle', error)
@@ -1924,27 +2040,37 @@ export function UnifiedProductCreationForm({
     startTransition(async () => {
       let recovery = pendingDraft
       if (!recovery) {
-        setProgress('กำลังสร้าง Product และ SKU แรกแบบ Atomic…')
+        const isVariantCreation = structure === 'variant'
+        setProgress(isVariantCreation ? 'กำลังสร้าง Product และ SKU Variant ทั้งหมดแบบ Atomic…' : 'กำลังสร้าง Product และ SKU แรกแบบ Atomic…')
         const commandIdKey = `${localDraftKey}:command-id`
         const commandId = window.localStorage.getItem(commandIdKey) ?? crypto.randomUUID()
         window.localStorage.setItem(commandIdKey, commandId)
         const result = await executeFoundationCommandAction({
           kind: 'entity', commandId, organizationId,
-          commandType: 'product.create_with_initial_sku', payload,
+          commandType: isVariantCreation ? 'product.create_with_variants' : 'product.create_with_initial_sku', payload,
         })
         if (!result.ok) {
           setProgress('')
           setFeedback({ tone: 'danger', text: errorLabels[result.error] ?? errorLabels.foundation_command_failed })
           return
         }
-        if (typeof result.data.product_id !== 'string' || typeof result.data.sku_id !== 'string') {
+        const resultVariants = Array.isArray(result.data.variants) ? result.data.variants.flatMap((entry) => {
+          if (!entry || typeof entry !== 'object') return []
+          const item = entry as Record<string, unknown>
+          const key = String(item.key ?? '').slice(0, 500)
+          const skuId = String(item.sku_id ?? '')
+          const imageId = String(item.image_client_id ?? '').slice(0, 80)
+          return key && UUID_PATTERN.test(skuId) ? [{ key, skuId, imageId }] : []
+        }) : []
+        if (typeof result.data.product_id !== 'string' || (isVariantCreation ? resultVariants.length < 1 : typeof result.data.sku_id !== 'string')) {
           setProgress('')
           setFeedback({ tone: 'danger', text: errorLabels.foundation_command_failed })
           return
         }
         recovery = {
           productId: result.data.product_id,
-          skuId: result.data.sku_id,
+          skuId: typeof result.data.sku_id === 'string' ? result.data.sku_id : undefined,
+          variantSkus: resultVariants.length ? resultVariants : undefined,
           productName: payload.name,
           savedAt: new Date().toISOString(),
         }
@@ -1952,10 +2078,17 @@ export function UnifiedProductCreationForm({
         window.localStorage.setItem(pendingDraftKey, JSON.stringify(recovery))
       }
 
-      const failedCount = await uploadImages(recovery.productId, recovery.productName)
+      const uploadResult = await uploadImages(recovery.productId, recovery.productName, recovery.readyImageIdsByClientId)
+      recovery = { ...recovery, readyImageIdsByClientId: uploadResult.readyImageIdsByClientId }
+      setPendingDraft(recovery)
+      window.localStorage.setItem(pendingDraftKey, JSON.stringify(recovery))
       setProgress('')
-      if (failedCount > 0) {
-        setFeedback({ tone: 'danger', text: `ข้อมูลหลักถูกบันทึกเป็น Draft แล้ว แต่อัปโหลดรูปไม่สำเร็จ ${failedCount} ภาพ เลือกไฟล์ใหม่แล้วกด “อัปโหลดต่อ” ได้โดยไม่สร้างสินค้าซ้ำ` })
+      if (uploadResult.failedCount > 0) {
+        setFeedback({ tone: 'danger', text: `ข้อมูลหลักถูกบันทึกเป็น Draft แล้ว แต่อัปโหลดรูปไม่สำเร็จ ${uploadResult.failedCount} ภาพ เลือกไฟล์ใหม่แล้วกด “อัปโหลดต่อ” ได้โดยไม่สร้างสินค้าซ้ำ` })
+        return
+      }
+      if (!(await assignVariantImages(recovery, uploadResult.readyImageIdsByClientId))) {
+        setFeedback({ tone: 'danger', text: 'Product และ SKU Variant ถูกสร้างแล้ว แต่เชื่อมรูปประจำ Variant ไม่สำเร็จ กรุณากด “อัปโหลดต่อ” เพื่อทำรายการเดิมต่อโดยไม่สร้าง SKU ซ้ำ' })
         return
       }
 
@@ -1964,8 +2097,9 @@ export function UnifiedProductCreationForm({
       window.localStorage.removeItem(pendingDraftKey)
       setCompletedProductId(recovery.productId)
       setPendingDraft(null)
-      setCreationSuccess({ productId: recovery.productId, productName: recovery.productName, skuCount: 1 })
-      setFeedback({ tone: 'success', text: 'สร้าง Product, SKU แรก และรูปสินค้าเรียบร้อยแล้ว โดยยังคงสถานะฉบับร่างเพื่อให้ตรวจสอบก่อนเปิดใช้งาน' })
+      const createdSkuCount = recovery.variantSkus?.length ?? 1
+      setCreationSuccess({ productId: recovery.productId, productName: recovery.productName, skuCount: createdSkuCount })
+      setFeedback({ tone: 'success', text: structure === 'variant' ? `สร้าง Product, SKU Variant ${createdSkuCount} รายการ และรูปสินค้าเรียบร้อยแล้ว` : 'สร้าง Product, SKU แรก และรูปสินค้าเรียบร้อยแล้ว โดยยังคงสถานะฉบับร่างเพื่อให้ตรวจสอบก่อนเปิดใช้งาน' })
       router.refresh()
     })
   }
@@ -1980,17 +2114,33 @@ export function UnifiedProductCreationForm({
   const suggestedTagNames = suggestedTagNamesFromProductName(summaryFields.name, selectedTagNames, activeTags.map((tag) => tag.name))
   const requiredMasterMissing = activeCategories.length === 0
   const summaryCategory = activeCategories.find((option) => option.id === categoryId)?.name ?? 'ยังไม่เลือกหมวดหมู่'
-  const summaryPrice = summaryFields.salePrice
-    ? new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB' }).format(Number(summaryFields.salePrice))
-    : '—'
+  const enabledVariantCombinations = variantCombinations.filter((combination) => combination.enabled)
+  const variantPrices = enabledVariantCombinations
+    .filter((combination) => combination.price.trim() !== '')
+    .map((combination) => Number(combination.price))
+    .filter((price) => Number.isFinite(price) && price >= 0)
+  const summaryPrice = structure === 'variant' && variantPrices.length
+    ? (() => {
+        const minimum = Math.min(...variantPrices)
+        const maximum = Math.max(...variantPrices)
+        const formatter = new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB' })
+        return minimum === maximum ? formatter.format(minimum) : `${formatter.format(minimum)} – ${formatter.format(maximum)}`
+      })()
+    : summaryFields.salePrice
+      ? new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB' }).format(Number(summaryFields.salePrice))
+      : '—'
   const summaryBranches = branches.filter((branch) => selectedBranchIds.includes(branch.id)).map((branch) => branch.code).join(', ') || 'ยังไม่เปิดขาย'
   const summaryPackaging = packagingEnabled ? `${sellUnits.length} หน่วยขาย` : 'หน่วยฐาน'
   const summaryBundle = structure === 'bundle' ? `${bundleComponents.length} Components · ${bundleStockMode === 'assembled' ? 'Pre-assembled' : 'Virtual'}` : 'ไม่ใช่ Bundle'
   const sectionCompletion = {
     general: Boolean(summaryFields.name && categoryId),
     images: images.length > 0,
-    sku: Boolean(skuDrafts.length > 0 || (summaryFields.skuName && summaryFields.skuCode)),
-    pricing: Boolean(summaryFields.salePrice),
+    sku: structure === 'variant'
+      ? variantIdentifiersReady && enabledVariantCombinations.length > 0 && enabledVariantCombinations.every((combination) => combination.skuCode.trim() && combination.salesCode.trim())
+      : Boolean(skuDrafts.length > 0 || (summaryFields.skuName && summaryFields.skuCode)),
+    pricing: structure === 'variant'
+      ? enabledVariantCombinations.length > 0 && enabledVariantCombinations.every((combination) => combination.price.trim())
+      : Boolean(summaryFields.salePrice),
     physical: Boolean(summaryFields.productWeightKg && summaryFields.productLengthCm && summaryFields.productWidthCm && summaryFields.productHeightCm),
     packaging: !packagingEnabled || sellUnits.length > 0,
     inventory: selectedBranchIds.length > 0,
@@ -2001,7 +2151,7 @@ export function UnifiedProductCreationForm({
   const summarySections = [
     { id: 'general', label: 'ข้อมูลทั่วไป', optional: false },
     { id: 'images', label: 'รูปสินค้า', optional: false },
-    { id: 'sku', label: 'SKU แรก', optional: false },
+    { id: 'sku', label: structure === 'variant' ? 'SKU Variant' : 'SKU แรก', optional: false },
     { id: 'pricing', label: 'ราคาและภาษี', optional: false },
     { id: 'physical', label: 'น้ำหนักและขนาด', optional: true },
     { id: 'packaging', label: 'Packaging / Bundle', optional: true },
@@ -2034,7 +2184,7 @@ export function UnifiedProductCreationForm({
 
   return <>
     <header className="product-creation-heading">
-      <div><div className="product-heading-title-row"><h1>สร้างสินค้า</h1><span className="product-count-badge">ฉบับร่าง</span></div><p>สร้าง Product, รูปภาพ, SKU แรก และข้อมูลการขายจากหน้าเดียว</p></div>
+      <div><div className="product-heading-title-row"><h1>สร้างสินค้า</h1><span className="product-count-badge">ฉบับร่าง</span></div><p>{structure === 'variant' ? 'สร้าง Product, รูปภาพ, SKU Variant และข้อมูลการขายจากหน้าเดียว' : 'สร้าง Product, รูปภาพ, SKU แรก และข้อมูลการขายจากหน้าเดียว'}</p></div>
       <div className="button-row">
         <Link className="button secondary" href={productsHref}>ยกเลิก</Link>
         <button className="button secondary" type="button" onClick={() => saveBrowserDraft()} disabled={isPending}>บันทึกร่าง</button>
@@ -2042,7 +2192,7 @@ export function UnifiedProductCreationForm({
       </div>
     </header>
 
-    <div className="product-production-banner" role="note"><span aria-hidden="true">ⓘ</span><span><strong>เชื่อมระบบจริงแล้ว</strong> — Product และ SKU แรกสร้างผ่าน Atomic command, รูปภาพผ่าน Image Gate และยังไม่เขียน Stock ในขั้นตอนนี้</span></div>
+    <div className="product-production-banner" role="note"><span aria-hidden="true">ⓘ</span><span><strong>เชื่อมระบบจริงแล้ว</strong> — {structure === 'variant' ? 'Product และ SKU Variant สร้างพร้อมกันผ่าน Atomic command' : 'Product และ SKU แรกสร้างผ่าน Atomic command'}, รูปภาพผ่าน Image Gate และยังไม่เขียน Stock ในขั้นตอนนี้</span></div>
     <div className="product-required-guide" role="note"><span aria-hidden="true">＊</span><span><strong>ช่องที่มีเครื่องหมาย * จำเป็นต้องกรอก</strong> · ระบบจะตรวจข้อมูลอีกครั้งก่อนสร้างสินค้า</span></div>
     {validationAttempted ? <div ref={validationSummaryRef} className={`product-validation-summary ${validationIssues.length ? 'danger' : 'success'}`} role={validationIssues.length ? 'alert' : 'status'} aria-live="assertive" tabIndex={-1}>
       <div className="product-validation-summary-heading"><span className="product-validation-summary-icon" aria-hidden="true">{validationIssues.length ? '!' : '✓'}</span><div><strong>{validationIssues.length ? `ตรวจพบ ${validationIssues.length} จุดที่ต้องแก้` : 'ข้อมูลผ่านการตรวจเบื้องต้นแล้ว'}</strong><p>{validationIssues.length ? 'เลือกแต่ละรายการเพื่อไปยังช่องที่ต้องแก้ ระบบจะไม่สร้างข้อมูลจนกว่าจะผ่านครบ' : 'กำลังส่งคำสั่งให้ Server ตรวจสิทธิ์ ความถูกต้อง และ Unique อีกครั้ง'}</p></div></div>
@@ -2115,13 +2265,23 @@ export function UnifiedProductCreationForm({
         </section>
 
         <section id="sku" className="product-creation-card">
-          <header><span>3</span><div><h2>SKU แรกและรหัสสินค้า</h2><p>SKU คือรายการที่ขายและนับ Stock จริง</p></div><small>SKU</small></header>
+          <header><span>3</span><div><h2>{structure === 'variant' ? 'SKU Variant และตัวเลือกสินค้า' : 'SKU แรกและรหัสสินค้า'}</h2><p>{structure === 'variant' ? 'แต่ละ Combination คือ SKU ที่ขายและนับ Stock แยกกัน' : 'SKU คือรายการที่ขายและนับ Stock จริง'}</p></div><small>{structure === 'variant' ? `${enabledVariantCombinations.length} SKU` : 'SKU'}</small></header>
           <div className="product-form-grid two">
+            {structure === 'variant' ? <div className="full"><VariantCreationBuilder
+              organizationId={organizationId}
+              groups={variantGroups}
+              setGroups={setVariantGroups}
+              combinations={variantCombinations}
+              setCombinations={setVariantCombinations}
+              images={images.map((image) => ({ id: image.id, name: image.file.name }))}
+              onIdentifierCheckChange={setVariantIdentifiersReady}
+              disabled={isPending}
+            /></div> : null}
+            {structure !== 'variant' ? <>
             <div className="full product-sku-name-field">
               <div className="product-field-heading-line"><span className="product-label-with-info"><label htmlFor="skuName">ชื่อรุ่น / ตัวเลือกสินค้า *</label><ProductInfoGuide label="ชื่อรุ่น / ตัวเลือกสินค้า" description="ชื่อของรายการที่ขายจริง ให้ใส่เฉพาะสิ่งที่ทำให้ SKU นี้ต่างจากรายการอื่น" example="ตัวอย่าง: กระเป๋าหนัง Mini · สีน้ำตาล" /></span><label className="product-auto-fill-choice"><input name="useProductNameForSku" type="checkbox" value="true" checked={useProductNameForSku} onChange={(event) => { setUseProductNameForSku(event.target.checked); if (event.target.checked) syncProductNameToSku() }} /><span>ใช้ชื่อเดียวกับสินค้า</span></label></div>
               <input id="skuName" name="skuName" maxLength={160} required placeholder="ระบบจะนำชื่อสินค้ามาใส่ให้อัตโนมัติ" onInput={() => { if (useProductNameForSku) setUseProductNameForSku(false) }} />
               <small>สินค้าปกติใช้ชื่อเดียวกับสินค้าได้ เพื่อไม่ต้องกรอกข้อมูลซ้ำ</small>
-              {structure === 'variant' ? <div className="product-variant-name-assistant"><label><span>ตัวเลือกที่ 1</span><input name="variantOptionOne" value={variantOptionOne} onChange={(event) => setVariantOptionOne(event.target.value.slice(0, 60))} maxLength={60} placeholder="เช่น สีน้ำตาล" /></label><label><span>ตัวเลือกที่ 2</span><input name="variantOptionTwo" value={variantOptionTwo} onChange={(event) => setVariantOptionTwo(event.target.value.slice(0, 60))} maxLength={60} placeholder="เช่น ขนาด Mini" /></label><div className="product-sku-name-suggestion"><span>ชื่อที่ระบบแนะนำ<strong>{skuNameSuggestion}</strong></span><button className="button compact secondary" type="button" onClick={() => { setUseProductNameForSku(false); applySkuNameSuggestion() }}>ใช้คำแนะนำ</button></div></div> : null}
             </div>
 
             <fieldset className="full product-identifier-zone"><legend>รหัสประจำสินค้า</legend><div className="product-identifier-zone-head"><span><strong>สร้างรหัสให้ครบในครั้งเดียว</strong><small>ระบบคำนวณรหัสตามโหมดที่เลือกและตรวจทุกค่ากับ Organization</small></span><button className="button compact secondary" type="button" onClick={generateAndCheckIdentifierGroup} disabled={!canManage || isIdentifierChecking} aria-busy={isIdentifierChecking}>✦ {isIdentifierChecking ? 'กำลังสร้างและตรวจสอบ…' : 'สร้างและตรวจสอบรหัสทั้งหมด'}</button></div><div className="product-form-grid two">
@@ -2152,25 +2312,26 @@ export function UnifiedProductCreationForm({
                 </table>
               </div>
             </div>
+            </> : null}
           </div>
         </section>
 
         <section id="pricing" className="product-creation-card">
-          <header><span>4</span><div><h2>ราคาและภาษี</h2><p>ราคานี้เป็น Default price ของ SKU แรก ไม่ใช่ราคาทุกสาขาตลอดไป</p></div><small>Pricing</small></header>
-          <div className="product-form-grid three product-pricing-grid">
-            <div className="product-form-field">
+          <header><span>4</span><div><h2>{structure === 'variant' ? 'ภาษีและต้นทุนร่วม' : 'ราคาและภาษี'}</h2><p>{structure === 'variant' ? 'ราคาขายกำหนดต่อ SKU ในตาราง Combination ส่วนภาษีและต้นทุนใช้ร่วมกันเป็นค่าเริ่มต้น' : 'ราคานี้เป็น Default price ของ SKU แรก ไม่ใช่ราคาทุกสาขาตลอดไป'}</p></div><small>Pricing</small></header>
+          <div className={`product-form-grid ${structure === 'variant' ? 'two product-variant-shared-pricing-grid' : 'three product-pricing-grid'}`}>
+                        {structure === 'variant' ? <div className="full product-variant-price-summary" role="status"><span aria-hidden="true">✓</span><span><strong>ราคาขายกำหนดในตาราง SKU Combination แล้ว</strong><small>{enabledVariantCombinations.length} SKU · {summaryPrice} · แก้ราคาแต่ละ SKU ได้จากตารางด้านบน</small></span></div> : <div className="product-form-field">
               <span className="product-label-with-info"><label htmlFor="salePrice">ราคาขาย *</label><ProductInfoGuide label="ราคาขาย" description="ราคาเริ่มต้นของ SKU; ระบบจริงอาจถูกแทนด้วยราคาตามสาขา ช่องทาง หรือช่วงเวลา" example="ตัวอย่าง: 1,290.00 THB" /></span>
               <span className="product-input-with-suffix"><input id="salePrice" name="salePrice" type="number" min="0" max="999999999.99" step="0.01" inputMode="decimal" placeholder="0.00" required /><span>THB</span></span>
-            </div>
+            </div>}
             <label>
-              <span>ราคาต้นทุน</span>
+              <span>{structure === 'variant' ? 'ราคาต้นทุนร่วม (ไม่บังคับ)' : 'ราคาต้นทุน'}</span>
               <span className="product-input-with-suffix"><input name="costPrice" type="number" min="0" max="999999999.99" step="0.01" inputMode="decimal" placeholder="0.00" /><span>THB</span></span>
-              <small>ข้อมูลจำกัดสิทธิ์; ไม่ใช่ต้นทุนบัญชีจริง</small>
+              <small>{structure === 'variant' ? 'ใช้เป็นต้นทุนเริ่มต้นของทุก Variant; ไม่ใช่ต้นทุนบัญชีจริง' : 'ข้อมูลจำกัดสิทธิ์; ไม่ใช่ต้นทุนบัญชีจริง'}</small>
             </label>
             <label>
-              <span>อัตราภาษี</span>
+              <span>{structure === 'variant' ? 'อัตราภาษีร่วม *' : 'อัตราภาษี *'}</span>
               <span className="product-select-control"><select name="taxCategory" value={taxCategory} onChange={(event) => setTaxCategory(event.target.value as TaxCategory)}><option value="standard">VAT 7%</option><option value="zero">อัตรา 0%</option><option value="exempt">ยกเว้นภาษี</option></select></span>
-              <small>ระบบเก็บ Tax Category และ Tax rate ของ SKU</small>
+              <small>{structure === 'variant' ? 'ใช้ Tax Category และ Tax rate เดียวกันกับทุก Variant' : 'ระบบเก็บ Tax Category และ Tax rate ของ SKU'}</small>
             </label>
             <input type="hidden" name="taxRate" value={taxCategory === 'standard' ? '7' : '0'} />
             <label className="product-tax-inclusive"><input name="taxInclusive" type="checkbox" defaultChecked /><span><strong>ราคาขายรวมภาษีแล้ว</strong><small>Invoice จะเก็บ Tax snapshot ณ เวลาขาย</small></span></label>
@@ -2268,7 +2429,7 @@ export function UnifiedProductCreationForm({
 
       <aside className="product-creation-summary" aria-label="สรุปก่อนสร้าง">
         <div className="product-summary-head"><h2>สรุปก่อนสร้าง</h2><p>กรอกข้อมูลแล้ว {completionPercent}%</p><div className="product-summary-progress" role="progressbar" aria-label="ความครบถ้วนของข้อมูล" aria-valuemin={0} aria-valuemax={100} aria-valuenow={completionPercent}><span style={{ width: `${completionPercent}%` }} /></div></div>
-        <div className="product-summary-content"><div className="product-summary-product"><strong>{summaryFields.name || 'ยังไม่ได้ตั้งชื่อสินค้า'}</strong><span>{summaryCategory}</span></div><dl className="product-summary-list"><div><dt>รูปแบบ</dt><dd>{structure === 'standard' ? 'สินค้าปกติ' : structure === 'variant' ? 'มีตัวเลือก / Variant' : 'Bundle / Kit'}</dd></div><div><dt>SKU</dt><dd>{skuDrafts.length ? `${skuDrafts.length} รายการ · ${skuDrafts[0].skuCode}` : summaryFields.skuCode || '—'}</dd></div><div><dt>ราคา</dt><dd>{summaryPrice}</dd></div><div><dt>รูปภาพ</dt><dd>{images.length} / 9</dd></div><div><dt>สาขา</dt><dd>{summaryBranches}</dd></div><div><dt>หน่วยบรรจุ</dt><dd>{summaryPackaging}</dd></div><div><dt>Bundle</dt><dd>{summaryBundle}</dd></div></dl></div>
+        <div className="product-summary-content"><div className="product-summary-product"><strong>{summaryFields.name || 'ยังไม่ได้ตั้งชื่อสินค้า'}</strong><span>{summaryCategory}</span></div><dl className="product-summary-list"><div><dt>รูปแบบ</dt><dd>{structure === 'standard' ? 'สินค้าปกติ' : structure === 'variant' ? 'มีตัวเลือก / Variant' : 'Bundle / Kit'}</dd></div><div><dt>SKU</dt><dd>{structure === 'variant' ? `${enabledVariantCombinations.length} Combination` : skuDrafts.length ? `${skuDrafts.length} รายการ · ${skuDrafts[0].skuCode}` : summaryFields.skuCode || '—'}</dd></div><div><dt>ราคา</dt><dd>{summaryPrice}</dd></div><div><dt>รูปภาพ</dt><dd>{images.length} / 9</dd></div><div><dt>สาขา</dt><dd>{summaryBranches}</dd></div><div><dt>หน่วยบรรจุ</dt><dd>{summaryPackaging}</dd></div><div><dt>Bundle</dt><dd>{summaryBundle}</dd></div></dl></div>
         <nav className="product-section-timeline" aria-label="ความคืบหน้าการสร้างสินค้า">{summarySections.map((section, index) => { const issueCount = validationIssueCountForSection(section.id); const complete = issueCount === 0 && sectionCompletion[section.id]; const current = section.id === currentSectionId; const firstIssue = validationIssues.find((issue) => issue.sectionId === section.id); return <a key={section.id} href={`#${section.id}`} data-complete={complete ? 'true' : 'false'} data-invalid={issueCount ? 'true' : 'false'} aria-current={current ? 'step' : undefined} aria-label={issueCount ? `${section.label} มี ${issueCount} จุดที่ต้องแก้` : undefined} onClick={firstIssue ? (event) => { event.preventDefault(); focusValidationIssue(firstIssue) } : undefined}><span className="product-timeline-marker">{issueCount ? '!' : complete ? '✓' : index + 1}</span><span>{section.label}</span><span className="product-timeline-state">{issueCount ? `${issueCount} จุดต้องแก้` : current && !complete ? 'กำลังกรอก' : complete ? 'เสร็จแล้ว' : section.optional ? 'ไม่บังคับ' : 'ยังไม่ครบ'}</span></a> })}</nav>
         <div className="product-initial-status-summary" role="note"><span><strong>สถานะหลังสร้าง</strong><small>ตรวจสอบก่อนเปิดขายและรับ Stock</small></span><span className="product-status-pill draft"><i aria-hidden="true" />ฉบับร่าง</span></div>
         <div className="product-summary-actions">
@@ -2279,7 +2440,7 @@ export function UnifiedProductCreationForm({
         </div>
       </aside>
     </form>
-    {creationSuccess ? <div className="product-success-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeSuccessDialog() }}><section ref={successDialogRef} className="product-success-dialog" role="dialog" aria-modal="true" aria-labelledby="productSuccessTitle" aria-describedby="productSuccessMessage" onKeyDown={handleSuccessDialogKeyDown}><div className="product-success-body"><div className="product-success-mark" aria-hidden="true">✓</div><h2 id="productSuccessTitle">สร้างสินค้าเรียบร้อยแล้ว</h2><p id="productSuccessMessage">{creationSuccess.productName} พร้อม {creationSuccess.skuCount} SKU ถูกสร้างเป็นฉบับร่าง และอัปโหลดรูปสินค้าครบแล้ว</p><span>ระบบยังไม่เปิดใช้งานสินค้าและยังไม่เพิ่ม Stock จนกว่าจะผ่านขั้นตอนที่เกี่ยวข้อง</span></div><footer><Link className="product-success-detail-link" href={`${productsHref}?product=${creationSuccess.productId}`}>ดูรายละเอียดสินค้าที่สร้าง</Link><div className="product-success-actions"><Link className="button secondary" href={productsHref}>กลับไปหน้ารายการสินค้า</Link><button className="button product-primary-action" type="button" onClick={createNextProduct}>สร้างสินค้ารายการถัดไป</button></div></footer></section></div> : null}
+    {creationSuccess ? <div className="product-success-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeSuccessDialog() }}><section ref={successDialogRef} className="product-success-dialog" role="dialog" aria-modal="true" aria-labelledby="productSuccessTitle" aria-describedby="productSuccessMessage" onKeyDown={handleSuccessDialogKeyDown}><div className="product-success-body"><div className="product-success-mark" aria-hidden="true">✓</div><h2 id="productSuccessTitle">สร้างสินค้าเรียบร้อยแล้ว</h2><p id="productSuccessMessage">{creationSuccess.productName} พร้อม {creationSuccess.skuCount} SKU ถูกสร้างเป็นฉบับร่าง และอัปโหลดรูปสินค้าครบแล้ว</p><span>ระบบยังไม่เปิดใช้งานสินค้าและยังไม่เพิ่ม Stock จนกว่าจะผ่านขั้นตอนที่เกี่ยวข้อง</span></div><footer><div className="product-success-actions"><Link className="button secondary" href={productsHref}>กลับหน้ารายการสินค้า</Link><button className="button product-primary-action" type="button" onClick={createNextProduct}>สร้างสินค้ารายการถัดไป</button></div><Link className="product-success-detail-link" href={`${productsHref}?product=${creationSuccess.productId}`}>ดูรายละเอียดสินค้านี้ →</Link></footer></section></div> : null}
     <button className="product-back-to-top" type="button" aria-label="กลับด้านบน" title="กลับด้านบน" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>↑</button>
   </>
 }

@@ -19,7 +19,7 @@ test('R7.2 exposes one governed unified creation route from Products', async () 
 
 test('R7.2 submits Product and first SKU only through the R7.1 atomic command', async () => {
   const form = await read(formPath)
-  assert.match(form, /commandType: 'product\.create_with_initial_sku'/)
+  assert.match(form, /commandType: isVariantCreation \? 'product\.create_with_variants' : 'product\.create_with_initial_sku'/)
   assert.match(form, /product_id[\s\S]*sku_id/)
   assert.doesNotMatch(form, /commandType: 'product\.create'/)
   assert.doesNotMatch(form, /commandType: 'sku\.create'/)

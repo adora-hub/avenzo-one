@@ -3,7 +3,8 @@ import { FoundationError } from './errors'
 export const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 export const foundationCommandTypes = [
-  'product.create', 'product.create_with_initial_sku',
+  'product.create', 'product.create_with_initial_sku', 'product.create_with_variants',
+  'product.variant_images.assign',
   'product.update', 'product.activate', 'product.archive',
   'sku.create', 'sku.update', 'sku.activate', 'sku.archive',
   'product.master.upsert', 'product.metadata.update',
@@ -17,6 +18,10 @@ export const foundationCommandTypes = [
 
 export const productCreationCommandTypes = [
   'product.create_with_initial_sku',
+] as const
+
+export const productVariantCreationCommandTypes = [
+  'product.create_with_variants', 'product.variant_images.assign',
 ] as const
 
 export const productDomainCommandTypes = [
@@ -126,6 +131,16 @@ function validateEntityPayload(commandType: FoundationCommandType, payload: Reco
       'package_height_cm', 'safety_stock', 'reorder_min', 'reorder_max',
       'sell_units', 'bundle_components',
     ],
+    'product.create_with_variants': [
+      'name', 'description', 'category_id', 'brand_id', 'structure_type',
+      'internal_note', 'tag_ids', 'base_unit_code', 'quantity_behavior',
+      'sale_price', 'cost_price', 'currency_code', 'tax_category', 'tax_rate',
+      'product_weight_kg', 'product_length_cm', 'product_width_cm',
+      'product_height_cm', 'package_weight_kg', 'package_length_cm',
+      'package_width_cm', 'package_height_cm', 'safety_stock', 'reorder_min',
+      'reorder_max', 'sell_units', 'option_groups', 'variants',
+    ],
+    'product.variant_images.assign': ['product_id', 'assignments'],
     'product.update': ['product_id', 'expected_version', 'name', 'description'],
     'product.activate': ['product_id', 'expected_version'],
     'product.archive': ['product_id', 'expected_version'],
@@ -165,6 +180,152 @@ function validateEntityPayload(commandType: FoundationCommandType, payload: Reco
   }
   if (Object.keys(payload).some((key) => !allowedKeys[commandType].includes(key))) {
     throw new FoundationError('validation_failed', 400)
+  }
+
+  if (commandType === 'product.variant_images.assign') {
+    requireUuid(payload.product_id)
+    if (!Array.isArray(payload.assignments) || payload.assignments.length > 100) {
+      throw new FoundationError('validation_failed', 400)
+    }
+    payload.assignments.forEach((value) => {
+      const assignment = requireRecord(value)
+      if (Object.keys(assignment).some((key) => !['sku_id', 'product_image_id'].includes(key))) {
+        throw new FoundationError('validation_failed', 400)
+      }
+      requireUuid(assignment.sku_id)
+      requireUuid(assignment.product_image_id)
+    })
+    return
+  }
+
+  if (commandType === 'product.create_with_variants') {
+    if (!optionalString(payload.name, 160)
+      || payload.structure_type !== 'variant'
+      || !/^[a-z][a-z0-9_]{0,31}$/.test(String(payload.base_unit_code))) {
+      throw new FoundationError('validation_failed', 400)
+    }
+    optionalString(payload.description, 2000)
+    optionalString(payload.internal_note, 4000)
+    requireUuid(payload.category_id)
+    optionalUuid(payload.brand_id)
+    if (payload.currency_code !== undefined && !/^[A-Z]{3}$/.test(String(payload.currency_code))) {
+      throw new FoundationError('validation_failed', 400)
+    }
+    if (payload.quantity_behavior !== undefined
+      && !['discrete', 'weight', 'volume'].includes(String(payload.quantity_behavior))) {
+      throw new FoundationError('validation_failed', 400)
+    }
+    if (payload.tax_category !== undefined
+      && !['standard', 'zero', 'exempt', 'out_of_scope'].includes(String(payload.tax_category))) {
+      throw new FoundationError('validation_failed', 400)
+    }
+    const numericKeys = [
+      'sale_price', 'cost_price', 'tax_rate', 'product_weight_kg',
+      'product_length_cm', 'product_width_cm', 'product_height_cm',
+      'package_weight_kg', 'package_length_cm', 'package_width_cm',
+      'package_height_cm', 'safety_stock', 'reorder_min', 'reorder_max',
+    ] as const
+    numericKeys.forEach((key) => optionalNumber(payload[key]))
+    if (payload.tax_rate !== undefined && Number(payload.tax_rate) > 100) {
+      throw new FoundationError('validation_failed', 400)
+    }
+    if (payload.tax_category !== undefined && payload.tax_category !== 'standard'
+      && payload.tax_rate !== undefined && Number(payload.tax_rate) !== 0) {
+      throw new FoundationError('validation_failed', 400)
+    }
+    if (payload.reorder_min !== undefined && payload.reorder_max !== undefined
+      && Number(payload.reorder_max) < Number(payload.reorder_min)) {
+      throw new FoundationError('validation_failed', 400)
+    }
+    if (payload.tag_ids !== undefined) {
+      if (!Array.isArray(payload.tag_ids) || payload.tag_ids.length > 12
+        || new Set(payload.tag_ids).size !== payload.tag_ids.length) {
+        throw new FoundationError('validation_failed', 400)
+      }
+      payload.tag_ids.forEach(requireUuid)
+    }
+    if (payload.sell_units !== undefined) {
+      if (!Array.isArray(payload.sell_units) || payload.sell_units.length > 50) {
+        throw new FoundationError('validation_failed', 400)
+      }
+      payload.sell_units.forEach((value) => {
+        const unit = requireRecord(value)
+        if (Object.keys(unit).some((key) => !['unit_code', 'name', 'base_quantity', 'barcode'].includes(key))
+          || !/^[a-z][a-z0-9_]{0,31}$/.test(String(unit.unit_code))
+          || !optionalString(unit.name, 80)
+          || optionalNumber(unit.base_quantity) === null
+          || Number(unit.base_quantity) <= 0) {
+          throw new FoundationError('validation_failed', 400)
+        }
+        optionalString(unit.barcode, 128)
+      })
+    }
+    if (!Array.isArray(payload.option_groups)
+      || payload.option_groups.length < 1 || payload.option_groups.length > 3) {
+      throw new FoundationError('validation_failed', 400)
+    }
+    const optionGroups = payload.option_groups
+    optionGroups.forEach((value) => {
+      const group = requireRecord(value)
+      if (Object.keys(group).some((key) => !['name', 'kind', 'values'].includes(key))
+        || !optionalString(group.name, 40)
+        || !['color', 'size', 'custom'].includes(String(group.kind ?? 'custom'))
+        || !Array.isArray(group.values)
+        || group.values.length < 1 || group.values.length > 12) {
+        throw new FoundationError('validation_failed', 400)
+      }
+      group.values.forEach((entry) => {
+        const option = requireRecord(entry)
+        if (Object.keys(option).some((key) => !['name', 'code', 'color_hex', 'aliases'].includes(key))
+          || !optionalString(option.name, 40)
+          || !/^[A-Z0-9][A-Z0-9_-]{0,11}$/.test(String(option.code))) {
+          throw new FoundationError('validation_failed', 400)
+        }
+        if (option.color_hex !== undefined && !/^#[0-9A-Fa-f]{6}$/.test(String(option.color_hex))) {
+          throw new FoundationError('validation_failed', 400)
+        }
+        if (option.aliases !== undefined) {
+          if (!Array.isArray(option.aliases) || option.aliases.length > 12) {
+            throw new FoundationError('validation_failed', 400)
+          }
+          option.aliases.forEach((alias) => optionalString(alias, 40))
+        }
+      })
+    })
+    if (!Array.isArray(payload.variants)
+      || payload.variants.length < 1 || payload.variants.length > 100) {
+      throw new FoundationError('validation_failed', 400)
+    }
+    payload.variants.forEach((value) => {
+      const variant = requireRecord(value)
+      if (Object.keys(variant).some((key) => ![
+        'key', 'name', 'sku_code', 'sales_code', 'barcode', 'base_unit_code',
+        'status', 'sale_price', 'cost_price', 'option_codes', 'image_client_id',
+      ].includes(key))
+        || !optionalString(variant.key, 500)
+        || !optionalString(variant.name, 160)
+        || !optionalString(variant.sku_code, 80)
+        || !Array.isArray(variant.option_codes)
+        || variant.option_codes.length !== optionGroups.length
+        || !['draft', 'active'].includes(String(variant.status ?? 'draft'))
+        || optionalNumber(variant.sale_price ?? payload.sale_price) === null) {
+        throw new FoundationError('validation_failed', 400)
+      }
+      optionalString(variant.sales_code, 80)
+      optionalString(variant.barcode, 128)
+      optionalString(variant.image_client_id, 80)
+      if (variant.base_unit_code !== undefined
+        && !/^[a-z][a-z0-9_]{0,31}$/.test(String(variant.base_unit_code))) {
+        throw new FoundationError('validation_failed', 400)
+      }
+      optionalNumber(variant.cost_price)
+      variant.option_codes.forEach((code) => {
+        if (!/^[A-Z0-9][A-Z0-9_-]{0,11}$/.test(String(code))) {
+          throw new FoundationError('validation_failed', 400)
+        }
+      })
+    })
+    return
   }
 
   if (productCreationCommandTypes.includes(

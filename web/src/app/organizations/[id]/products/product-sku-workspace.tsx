@@ -438,25 +438,27 @@ export function ProductSkuWorkspace({
   }}>
     <input type="hidden" name="view" value={view} />
     <input type="hidden" name="sort" value={sort} />
-    <div className="product-search-wrap">
-      <span className="product-search-icon" aria-hidden="true">⌕</span>
-      <label className="sr-only" htmlFor="product-search">ค้นหา</label>
-      <input id="product-search" name="q" type="text" autoComplete="off" value={searchInput} placeholder={view === 'products' ? 'ค้นหา Product, SKU, CF, Barcode, Brand หรือ Tag...' : 'ค้นหา SKU, ชื่อ, Barcode หรือ Sales Code'} maxLength={400} onChange={(event) => {
-        const nextSearch = event.target.value
-        setSearchInput(nextSearch)
-        scheduleSearch(nextSearch)
-      }} onKeyDown={(event) => {
-        if (event.key === 'Enter' && view === 'products') {
-          event.preventDefault()
-          openBulkSearch(event.currentTarget.value)
-        }
-      }} />
-      {searchInput ? <button className="product-search-clear" type="button" aria-label="ล้างคำค้นหา" onClick={() => {
-        setSearchInput('')
-        navigateFilters('', statusFilter)
-      }}>×</button> : null}
+    <div className={`product-search-button-group${view === 'products' ? ' has-bulk-search' : ''}`}>
+      <div className="product-search-wrap">
+        <span className="product-search-icon" aria-hidden="true">⌕</span>
+        <label className="sr-only" htmlFor="product-search">ค้นหา</label>
+        <input id="product-search" name="q" type="text" autoComplete="off" value={searchInput} placeholder={view === 'products' ? 'ค้นหา Product, SKU, CF, Barcode, Brand หรือ Tag...' : 'ค้นหา SKU, ชื่อ, Barcode หรือ Sales Code'} maxLength={400} onChange={(event) => {
+          const nextSearch = event.target.value
+          setSearchInput(nextSearch)
+          scheduleSearch(nextSearch)
+        }} onKeyDown={(event) => {
+          if (event.key === 'Enter' && view === 'products') {
+            event.preventDefault()
+            openBulkSearch(event.currentTarget.value)
+          }
+        }} />
+        {searchInput ? <button className="product-search-clear" type="button" aria-label="ล้างคำค้นหา" onClick={() => {
+          setSearchInput('')
+          navigateFilters('', statusFilter)
+        }}>×</button> : null}
+      </div>
+      {view === 'products' ? <button className="button secondary product-bulk-search-trigger" type="button" onClick={() => openBulkSearch()}><span aria-hidden="true">⌘</span> ค้นหาหลายรหัส</button> : null}
     </div>
-    {view === 'products' ? <button className="button secondary product-bulk-search-trigger" type="button" onClick={() => openBulkSearch()}><span aria-hidden="true">⌘</span> ค้นหาหลายรหัส</button> : null}
     <label className="sr-only" htmlFor="product-status">สถานะ</label>
     <div className="product-status-combobox" ref={statusFilterRef}>
       <input type="hidden" name="status" value={statusFilter} />

@@ -148,6 +148,8 @@
       .section-status { flex: none; color: var(--text-muted); font-size: 12px; }
 
       .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; }
+      .single-sku-only { display: contents; }
+      .single-sku-only[hidden] { display: none; }
       .form-grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
       .field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
       .field.span-2 { grid-column: 1 / -1; }
@@ -216,6 +218,43 @@
       .sku-draft-table td strong { display: block; }
       .sku-draft-table td small { color: var(--text-muted); }
       .sku-draft-table .row-actions { display: flex; justify-content: flex-end; gap: 5px; }
+      .variant-builder { grid-column: 1 / -1; overflow: hidden; border: 1px solid color-mix(in srgb, var(--focus) 28%, var(--border)); border-radius: 12px; background: color-mix(in srgb, var(--focus) 3%, var(--surface)); }
+      .variant-builder[hidden] { display: none; }
+      .variant-builder-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 14px; border-bottom: 1px solid var(--border); }
+      .variant-builder-head h3 { margin: 0; font-size: 14px; }
+      .variant-builder-head p { margin: 3px 0 0; color: var(--text-muted); font-size: 11px; }
+      .variant-group-action { display: grid; justify-items: end; gap: 4px; flex: 0 0 auto; }
+      .variant-group-action small { color: var(--text-muted); font-size: 10px; white-space: nowrap; }
+      .variant-builder-body { display: grid; gap: 12px; padding: 14px; }
+      .variant-option-list { display: grid; gap: 9px; }
+      .variant-option-card { display: grid; grid-template-columns: 150px minmax(0, 1fr) auto; gap: 9px; align-items: start; padding: 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+      .variant-option-card input { min-height: 36px; }
+      .variant-values-editor { display: flex; min-height: 36px; flex-wrap: wrap; gap: 6px; align-items: center; padding: 5px 8px; border: 1px solid var(--border-strong); border-radius: 9px; background: var(--surface); }
+      .variant-values-editor:focus-within { border-color: var(--focus); box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus) 14%, transparent); }
+      .variant-values-editor input { flex: 1; min-width: 130px; min-height: 24px; padding: 0; border: 0; border-radius: 0; box-shadow: none; }
+      .variant-values-editor input:focus { outline: 0; box-shadow: none; }
+      .variant-value-chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 7px; border-radius: 999px; background: var(--surface-strong); color: var(--text); font-size: 11px; }
+      .variant-value-chip button { width: 17px; min-height: 17px; padding: 0; border: 0; background: transparent; color: var(--text-muted); cursor: pointer; font-size: 14px; line-height: 1; }
+      .variant-bulk-toolbar { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 8px; align-items: end; padding: 11px; border-radius: 10px; background: var(--surface-strong); }
+      .variant-bulk-toolbar .field { gap: 4px; }
+      .variant-sequence-controls { display: grid; grid-template-columns: 1.1fr 1fr .7fr; gap: 6px; grid-column: span 2; }
+      .variant-identifier-check { display: flex; min-height: 42px; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 9px; color: var(--text-muted); background: var(--surface-strong); font-size: 11px; }
+      .variant-identifier-check > span:nth-child(2) { flex: 1; }
+      .variant-identifier-check.success { border-color: var(--success-border); color: var(--success); background: var(--success-bg); }
+      .variant-identifier-check.danger { border-color: var(--danger-border); color: var(--danger); background: var(--danger-bg); }
+      .variant-matrix input[aria-invalid="true"] { border-color: var(--danger-border); background: var(--danger-bg); }
+      .variant-bulk-actions { display: flex; gap: 6px; }
+      .variant-matrix-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+      .variant-matrix { width: 100%; min-width: 1080px; border-collapse: collapse; }
+      .variant-matrix th, .variant-matrix td { padding: 9px 10px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: middle; }
+      .variant-matrix th { background: var(--surface-strong); color: var(--text-muted); font-size: 10px; text-transform: uppercase; }
+      .variant-matrix td { font-size: 11px; }
+      .variant-matrix tr:last-child td { border-bottom: 0; }
+      .variant-matrix tr.is-disabled { opacity: .52; }
+      .variant-matrix input:not([type="checkbox"]), .variant-matrix select { min-height: 34px; padding-block: 6px; font-size: 11px; }
+      .variant-combination-name strong { display: block; font-size: 12px; }
+      .variant-combination-name span { color: var(--text-muted); font-size: 10px; }
+      .variant-builder-footnote { display: flex; gap: 7px; color: var(--text-muted); font-size: 11px; }
       input, select, textarea {
         width: 100%;
         min-height: 39px;
@@ -318,6 +357,11 @@
       .inline-note { display: flex; align-items: flex-start; gap: 9px; margin-top: 13px; padding: 10px 11px; border-radius: 9px; background: var(--surface-strong); color: var(--text-soft); font-size: 12px; }
       .inline-note.warning { background: var(--warning-bg); color: var(--warning); }
       .inline-note.success { background: var(--success-bg); color: var(--success); }
+      .variant-price-summary { display: flex; min-height: 60px; align-items: center; gap: 10px; padding: 12px; border: 1px solid var(--success-border); border-radius: 10px; color: var(--success); background: var(--success-bg); }
+      .variant-price-summary[hidden] { display: none; }
+      .variant-price-summary > span:first-child { display: grid; width: 24px; height: 24px; flex: 0 0 auto; place-items: center; border-radius: 50%; background: color-mix(in srgb, var(--success) 12%, transparent); }
+      .variant-price-summary strong, .variant-price-summary small { display: block; }
+      .variant-price-summary small { margin-top: 3px; color: var(--text-muted); font-size: 11px; }
 
       .switch-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 14px; padding: 10px 0; }
       .switch-row strong { display: block; }
@@ -438,6 +482,12 @@
         .sequence-policy { grid-column: auto; }
         .sku-draft-head { align-items: stretch; flex-direction: column; }
         .sku-draft-actions { display: grid; }
+        .variant-builder-head { align-items: stretch; flex-direction: column; }
+        .variant-group-action { justify-items: stretch; }
+        .variant-group-action small { white-space: normal; }
+        .variant-option-card { grid-template-columns: 1fr; }
+        .variant-bulk-toolbar { grid-template-columns: 1fr; }
+        .variant-bulk-actions { display: grid; grid-template-columns: 1fr 1fr; }
         .security-summary ul { grid-template-columns: 1fr; }
         .field-info-popover { right: 12px !important; bottom: 12px !important; left: 12px !important; top: auto !important; width: auto; }
         .segmented { flex-direction: column; }
@@ -498,6 +548,7 @@
                 <div class="field"><label for="brand">แบรนด์</label><div class="select-with-action"><span class="select-control"><select id="brand" name="brand"><option value="">ไม่มีแบรนด์</option><option value="avenzo">AVENZO</option><option value="dior">Dior</option><option value="local">Local Brand</option></select></span><button class="icon-button" type="button" data-manage-master="brand" data-tooltip="เพิ่มหรือจัดการแบรนด์" aria-label="เพิ่มหรือจัดการแบรนด์"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg></button></div><span class="field-help">อ้างอิง Brand master; ถ้าไม่มีแบรนด์ให้เลือก “ไม่มีแบรนด์”</span></div>
                 <div class="field span-2"><span class="label-with-info"><span class="field-label">รูปแบบสินค้า <span class="required">*</span></span><button class="info-button" type="button" data-field-info="structure" aria-expanded="false" aria-controls="fieldInfoPopover" aria-label="ดูคำแนะนำรูปแบบสินค้า">i</button></span><div class="segmented" role="radiogroup" aria-label="รูปแบบสินค้า"><label class="segment"><input type="radio" name="structure" value="simple" checked /><span>สินค้าปกติ</span></label><label class="segment"><input type="radio" name="structure" value="variant" /><span>มีตัวเลือก / Variant</span></label><label class="segment"><input type="radio" name="structure" value="bundle" /><span>Bundle / Kit</span></label></div></div>
                 <div class="field"><div class="field-heading-line aligned-control-heading"><span class="label-with-info"><label for="quantityBehavior">Stock ของสินค้านี้นับอย่างไร?</label><button class="info-button" type="button" data-field-info="quantityBehavior" aria-expanded="false" aria-controls="fieldInfoPopover" aria-label="ดูคำแนะนำวิธีนับจำนวน">i</button></span></div><span class="select-control"><select id="quantityBehavior" name="quantityBehavior" aria-describedby="quantityBehaviorHelp quantityBehaviorExamples"><option value="discrete">จำนวนเต็ม — ชิ้น / คู่ / แพ็ค / กล่อง</option><option value="weighted">ทศนิยม — สินค้าชั่งน้ำหนัก</option><option value="volume">ทศนิยม — สินค้าวัดปริมาตร</option></select></span><span id="quantityBehaviorHelp" class="field-help">เลือกว่าจำนวน Stock อนุญาตให้มีจุดทศนิยมหรือไม่ ส่วนหน่วยที่ใช้จริงเลือกใน Base Unit</span><div id="quantityBehaviorExamples" class="quantity-examples" role="note"><span><strong>จำนวนเต็ม:</strong> ต่างหู 1 คู่, เสื้อ 2 ชิ้น, สินค้า 3 แพ็ค</span><span><strong>น้ำหนัก:</strong> ข้าวสาร 0.50 kg</span><span><strong>ปริมาตร:</strong> น้ำหอม 1.25 litre</span></div></div>
+                <div class="field" data-field="baseUnit"><span class="label-with-info"><label for="baseUnit">Base Unit <span class="required">*</span></label><button class="info-button" type="button" data-field-info="baseUnit" aria-expanded="false" aria-controls="fieldInfoPopover" aria-label="ดูคำแนะนำ Base Unit">i</button></span><div class="select-with-action"><span class="select-control"><select id="baseUnit" name="baseUnit" aria-describedby="baseUnitHelp"><option value="piece">piece — ชิ้น</option><option value="pair">pair — คู่</option><option value="pack">pack — แพ็ค</option><option value="box">box — กล่อง</option><option value="set">set — ชุด</option><option value="case">case — ลัง</option><option value="kg">kg — กิโลกรัม</option><option value="g">g — กรัม</option><option value="litre">litre — ลิตร</option><option value="ml">ml — มิลลิลิตร</option></select></span><button id="manageBaseUnitButton" class="icon-button" type="button" data-tooltip="ดูนโยบายหน่วยนับ" aria-label="ดูนโยบายและสิทธิ์จัดการ Base Unit"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg></button></div><span id="baseUnitHelp" class="field-help">หน่วยเล็กที่สุดที่ Ledger ใช้เก็บและตัด Stock · หนึ่ง SKU ใช้ Base Unit เดียว และควรล็อกหลังเริ่มมี Stock Movement</span><span class="field-error">กรุณาเลือก Base Unit</span></div>
                 <div class="field"><div class="field-heading-line aligned-control-heading"><label for="tagInput">ป้ายกำกับสินค้า (Tags)</label><div id="savedTagsNavigation" class="saved-tags-navigation"><button id="openSavedTagsButton" class="button small saved-tags-trigger" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="savedTagsQuickMenu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 13 13 20 4 11V4h7Z"/><path d="M8.5 8.5h.01"/></svg><span>เลือก Tags ที่บันทึกไว้</span><span class="saved-tags-trigger-caret" aria-hidden="true">⌄</span></button><div id="savedTagsQuickMenu" class="saved-tags-quick-menu" role="menu" aria-hidden="true"></div></div></div><div class="select-with-action"><div id="tagEditor" class="tag-editor"><div id="tagList"></div><input id="tagInput" type="text" maxlength="40" placeholder="พิมพ์ Tag แล้วกด Enter" /></div><button class="icon-button" type="button" data-manage-master="tag" data-tooltip="เพิ่มหรือจัดการ Tags ที่ใช้บ่อย" aria-label="เพิ่มหรือจัดการ Tags ที่ใช้บ่อย"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg></button></div><div id="tagSuggestions" class="tag-suggestions" aria-live="polite"><span class="tag-suggestions-label">คำแนะนำจากชื่อสินค้า:</span><span id="tagSuggestionList"></span><button id="addAllSuggestedTags" class="button small" type="button">＋ เพิ่มทั้งหมด</button></div><span class="field-help">Hover/Focus เพื่อเลือก Tags ที่ใช้บ่อย หรือเปิดรายการทั้งหมดเพื่อค้นหา · สูงสุด 12 Tags</span></div>
                 <div class="field span-2"><label for="productNote">หมายเหตุสินค้า</label><textarea id="productNote" name="productNote" maxlength="1000" placeholder="หมายเหตุภายในสำหรับทีมงาน ไม่แสดงให้ลูกค้า"></textarea></div>
               </div>
@@ -513,8 +564,35 @@
             </section>
 
             <section id="sku" class="form-section" aria-labelledby="skuTitle">
-              <div class="section-heading"><div><h2 id="skuTitle"><span class="section-number">3</span>SKU แรกและรหัสสินค้า</h2><p>SKU คือรายการที่ขายและนับ Stock จริง</p></div><span class="section-status">SKU</span></div>
+              <div class="section-heading"><div><h2 id="skuTitle"><span class="section-number">3</span><span id="skuSectionTitleText">SKU แรกและรหัสสินค้า</span></h2><p id="skuSectionDescription">SKU คือรายการที่ขายและนับ Stock จริง</p></div><span id="skuSectionStatus" class="section-status">SKU</span></div>
               <div class="form-grid">
+                <section id="variantBuilder" class="variant-builder" aria-labelledby="variantBuilderTitle" hidden>
+                  <header class="variant-builder-head">
+                    <div><h3 id="variantBuilderTitle">กำหนดตัวเลือกและสร้าง SKU Combination</h3><p>เพิ่มสี ไซซ์ หรือตัวเลือกอื่น แล้วระบบจะสร้างรายการ SKU ที่ต้องขายและนับ Stock แยกกัน</p></div>
+                    <div class="variant-group-action"><button id="addVariantGroupButton" class="button small" type="button" aria-describedby="variantGroupLimitHelp">＋ เพิ่มกลุ่มตัวเลือก</button><small id="variantGroupLimitHelp" role="status" aria-live="polite">เพิ่มได้อีก 1 กลุ่ม</small></div>
+                  </header>
+                  <div class="variant-builder-body">
+                    <div id="variantOptionList" class="variant-option-list"></div>
+                    <div class="variant-bulk-toolbar" aria-label="เครื่องมือกรอกหลาย Combination">
+                      <div class="field"><label for="variantSkuPrefix">คำนำหน้า SKU</label><input id="variantSkuPrefix" maxlength="24" value="TS" placeholder="เช่น TS" /></div>
+                      <div class="field"><label for="variantSalesCodeMode">วิธีกำหนดรหัสขาย / CF</label><span class="select-control"><select id="variantSalesCodeMode"><option value="sequence">รันเลขต่อเนื่อง</option><option value="same-sku">ใช้รหัสเดียวกับ SKU</option><option value="manual">กรอกเองแต่ละ Variant</option></select></span></div>
+                      <div id="variantSalesSequenceControls" class="variant-sequence-controls"><div class="field"><label for="variantSalesCodePrefix">Prefix</label><input id="variantSalesCodePrefix" maxlength="10" value="B" /></div><div class="field"><label for="variantSalesCodeStart">เลขเริ่มต้น</label><input id="variantSalesCodeStart" type="number" min="0" max="99999999" value="1" /></div><div class="field"><label for="variantSalesCodeDigits">หลัก</label><input id="variantSalesCodeDigits" type="number" min="2" max="8" value="3" /></div></div>
+                      <div class="field"><label for="variantBulkPrice">ราคาขายทุกตัวเลือก</label><input id="variantBulkPrice" type="number" min="0" max="999999999" step="0.01" placeholder="เช่น 390.00" /></div>
+                      <div class="field"><label for="variantBulkBarcode">Barcode</label><span class="select-control"><select id="variantBulkBarcode"><option value="none">ยังไม่กำหนด</option><option value="sku">ใช้ SKU Code เป็นรหัสภายใน</option><option value="sequence">สร้างเลขตัวอย่างต่อเนื่อง</option></select></span></div>
+                      <div class="field"><label for="variantBulkStatus">สถานะ</label><span class="select-control"><select id="variantBulkStatus"><option value="draft">ฉบับร่าง</option><option value="active">ใช้งานอยู่</option></select></span></div>
+                      <div class="variant-bulk-actions"><button id="applyVariantBulkButton" class="button small primary" type="button">ใช้กับทุกรายการ</button><button id="clearVariantBulkButton" class="button small" type="button">ล้างค่า</button></div>
+                    </div>
+                    <div id="variantIdentifierCheck" class="variant-identifier-check" role="status" aria-live="polite"><span>ⓘ</span><span>ระบบจะตรวจ SKU, รหัส CF และ Barcode ของทุก Variant อัตโนมัติ</span><button id="checkVariantIdentifiersButton" class="button small" type="button">ตรวจรหัสอีกครั้ง</button></div>
+                    <div class="variant-matrix-wrap">
+                      <table class="variant-matrix">
+                        <thead><tr><th><input id="toggleAllVariantCombinations" type="checkbox" checked aria-label="เปิดหรือปิดทุก Combination" /></th><th>ตัวเลือก</th><th>SKU Code</th><th>รหัสขาย / รหัส CF</th><th>ราคาขาย</th><th>Barcode</th><th>รูปประจำ Variant</th><th>สถานะ</th></tr></thead>
+                        <tbody id="variantCombinationRows"></tbody>
+                      </table>
+                    </div>
+                    <div class="variant-builder-footnote"><span aria-hidden="true">ⓘ</span><span>ปิด Combination ที่ไม่ขายได้ · ตารางนี้เป็น Prototype เท่านั้น และจะยังไม่สร้าง SKU หรือบันทึกข้อมูลจริง</span></div>
+                  </div>
+                </section>
+                <div id="singleSkuEditor" class="single-sku-only">
                 <div class="field span-2" data-field="skuName">
                   <div class="field-heading-line">
                     <span class="label-with-info"><label id="skuNameLabel" for="skuName">ชื่อรุ่น / ตัวเลือกสินค้า <span class="required">*</span></label><button class="info-button" type="button" data-field-info="skuName" aria-expanded="false" aria-controls="fieldInfoPopover" aria-label="ดูคำแนะนำชื่อรุ่นหรือตัวเลือกสินค้า">i</button></span>
@@ -532,19 +610,21 @@
                 <div class="field identifier-field" data-field="skuCode"><span class="label-with-info"><label for="skuCode">SKU Code <span class="required">*</span></label><button class="info-button" type="button" data-field-info="skuCode" aria-expanded="false" aria-controls="fieldInfoPopover" aria-label="ดูคำแนะนำ SKU Code">i</button></span><input id="skuCode" name="skuCode" maxlength="80" autocomplete="off" placeholder="BAG-MINI-TAN" aria-describedby="skuCodeHelp" /><button id="suggestSkuCodeButton" class="button small field-button" type="button">✦ แนะนำ SKU Code</button><span id="skuCodeHelp" class="field-help">รหัสหลักภายในระบบ · เปลี่ยนเป็นตัวพิมพ์ใหญ่</span><span class="field-error">กรุณากรอก SKU Code</span></div>
                 <div class="field identifier-field"><span class="label-with-info"><label for="salesCode">Sales Code</label><button class="info-button" type="button" data-field-info="salesCode" aria-expanded="false" aria-controls="fieldInfoPopover" aria-label="ดูคำแนะนำ Sales Code">i</button></span><span class="select-control"><select id="salesCodeMode" name="salesCodeMode" aria-label="วิธีกำหนด Sales Code"><option value="manual">กรอก Sales Code เอง</option><option value="same-sku">ใช้รหัสเดียวกับ SKU Code</option><option value="sequence">รันเลขต่อเนื่องอัตโนมัติ</option></select></span><input id="salesCode" name="salesCode" maxlength="80" autocomplete="off" placeholder="A001" aria-describedby="salesCodeHelp" /><span id="salesCodeHelp" class="field-help">รหัสขายถาวร; CF Code จะกำหนดใน Live Session ภายหลัง</span></div>
                 <div class="field identifier-field"><span class="label-with-info"><label for="barcode">Barcode / รหัสสแกน</label><button class="info-button" type="button" data-field-info="barcode" aria-expanded="false" aria-controls="fieldInfoPopover" aria-label="ดูคำแนะนำ Barcode">i</button></span><span class="select-control"><select id="barcodeMode" name="barcodeMode" aria-label="วิธีกำหนด Barcode"><option value="manufacturer">ใช้ Barcode จากผู้ผลิต</option><option value="internal-sku">สร้างรหัสภายในจาก SKU Code</option><option value="internal-sales">สร้างรหัสภายในจาก Sales Code</option><option value="none">ยังไม่มี Barcode</option></select></span><input id="barcode" name="barcode" maxlength="128" inputmode="text" autocomplete="off" placeholder="8851234567890" aria-describedby="barcodeHelp" /><span id="barcodeHelp" class="field-help">ห้ามผสมหลายรหัสเป็นข้อความเดียว; ทุกค่าที่สแกนต้อง resolve เป็น SKU เดียว</span></div>
-                <div class="field" data-field="baseUnit"><span class="label-with-info"><label for="baseUnit">Base Unit <span class="required">*</span></label><button class="info-button" type="button" data-field-info="baseUnit" aria-expanded="false" aria-controls="fieldInfoPopover" aria-label="ดูคำแนะนำ Base Unit">i</button></span><div class="select-with-action"><span class="select-control"><select id="baseUnit" name="baseUnit" aria-describedby="baseUnitHelp"><option value="piece">piece — ชิ้น</option><option value="pair">pair — คู่</option><option value="pack">pack — แพ็ค</option><option value="box">box — กล่อง</option><option value="set">set — ชุด</option><option value="case">case — ลัง</option><option value="kg">kg — กิโลกรัม</option><option value="g">g — กรัม</option><option value="litre">litre — ลิตร</option><option value="ml">ml — มิลลิลิตร</option></select></span><button id="manageBaseUnitButton" class="icon-button" type="button" data-tooltip="ดูนโยบายหน่วยนับ" aria-label="ดูนโยบายและสิทธิ์จัดการ Base Unit"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg></button></div><span id="baseUnitHelp" class="field-help">หน่วยเล็กที่สุดที่ Ledger ใช้เก็บและตัด Stock · หนึ่ง SKU ใช้ Base Unit เดียว และควรล็อกหลังเริ่มมี Stock Movement</span><span class="field-error">กรุณาเลือก Base Unit</span></div>
+
                 <div class="field"><label for="initialStatus">สถานะเริ่มต้น</label><span class="select-control"><select id="initialStatus" name="initialStatus"><option value="draft">ฉบับร่าง</option><option value="active">ใช้งานอยู่</option></select></span></div>
                 <div id="salesSequencePanel" class="sales-sequence" hidden><div class="field"><label for="salesSequencePrefix">Prefix</label><input id="salesSequencePrefix" name="salesSequencePrefix" maxlength="10" value="A" placeholder="A" /></div><div class="field"><label for="salesSequenceStart">เลขเริ่มต้น</label><input id="salesSequenceStart" name="salesSequenceStart" type="number" min="0" max="99999999" step="1" value="1" /></div><div class="field"><label for="salesSequenceDigits">จำนวนหลัก</label><input id="salesSequenceDigits" name="salesSequenceDigits" type="number" min="2" max="8" step="1" value="3" /></div><div class="sequence-preview"><span>รหัสปัจจุบัน → รหัสถัดไป</span><strong><span id="salesSequenceCurrent">A001</span> → <span id="salesSequenceNext">A002</span></strong></div><div class="sequence-policy"><span aria-hidden="true">ⓘ</span><span>Preview ยังไม่จองเลขเมื่อบันทึกร่าง ระบบจริงต้อง Allocate เลขแบบ Atomic ตอนบันทึกเพื่อป้องกันรหัสชนกัน</span></div></div>
                 <div class="identifier-assistant"><div class="identifier-assistant-head"><div><strong>ตรวจรหัสก่อนบันทึก</strong><span>ผลระหว่างกรอกเป็น Advisory; ระบบจริงต้องตรวจซ้ำใน Server transaction</span></div><button id="checkIdentifiersButton" class="button small" type="button">ตรวจสอบรหัส</button></div><div id="identifierCheckResult" class="identifier-result" role="status" aria-live="polite"><span aria-hidden="true">ⓘ</span><span>ยังไม่ได้ตรวจ SKU Code, Sales Code และ Barcode</span></div></div>
                 <div class="sku-draft-workspace"><div class="sku-draft-head"><div><h3>รายการ SKU ที่เตรียมสร้าง <span id="skuDraftCount" class="count-badge">0</span></h3><p>เก็บ SKU ปัจจุบันแล้วกรอกรุ่นถัดไปได้ โดยยังไม่ส่งข้อมูลเข้าระบบจริง</p></div><div class="sku-draft-actions"><button id="cancelSkuDraftEditButton" class="button small" type="button" hidden>ยกเลิกแก้ไข</button><button id="addSkuDraftButton" class="button small primary" type="button">＋ เก็บ SKU นี้และเพิ่มรายการถัดไป</button></div></div><div style="overflow-x:auto"><div id="skuDraftEmpty" class="sku-draft-empty">ยังไม่มี SKU ในรายการ — SKU ที่กำลังกรอกด้านบนยังไม่ถูกเก็บ</div><table id="skuDraftTable" class="sku-draft-table" hidden><thead><tr><th>ชื่อรุ่น / ตัวเลือก</th><th>SKU Code</th><th>Sales Code</th><th>Barcode</th><th>Base Unit</th><th></th></tr></thead><tbody id="skuDraftRows"></tbody></table></div></div>
+                </div>
               </div>
               <div id="quantityBehaviorNote" class="inline-note" role="status">สินค้านับเป็นชิ้น: Quantity ควรเป็นจำนวนเต็มในการใช้งานทั่วไป</div>
             </section>
 
             <section id="pricing" class="form-section" aria-labelledby="pricingTitle">
-              <div class="section-heading"><div><h2 id="pricingTitle"><span class="section-number">4</span>ราคาและภาษี</h2><p>ราคานี้เป็น Default price ของ SKU แรก ไม่ใช่ราคาทุกสาขาตลอดไป</p></div><span class="section-status">Pricing</span></div>
+              <div class="section-heading"><div><h2 id="pricingTitle"><span class="section-number">4</span><span id="pricingTitleText">ราคาและภาษี</span></h2><p id="pricingDescription">ราคานี้เป็น Default price ของ SKU แรก ไม่ใช่ราคาทุกสาขาตลอดไป</p></div><span class="section-status">Pricing</span></div>
               <div class="form-grid three">
-                <div class="field" data-field="salePrice"><span class="label-with-info"><label for="salePrice">ราคาขาย <span class="required">*</span></label><button class="info-button" type="button" data-field-info="salePrice" aria-expanded="false" aria-controls="fieldInfoPopover" aria-label="ดูคำแนะนำราคาขาย">i</button></span><div class="input-with-suffix"><input id="salePrice" name="salePrice" type="number" min="0" max="999999999.99" step="0.01" inputmode="decimal" placeholder="0.00" /><span class="input-suffix">THB</span></div><span class="field-error">กรุณาระบุราคาขายที่ถูกต้อง</span></div>
+                <div id="variantPriceSummary" class="variant-price-summary span-3" role="status" aria-live="polite" hidden><span aria-hidden="true">✓</span><span><strong>ราคาขายกำหนดในตาราง SKU Combination แล้ว</strong><small id="variantPriceSummaryText">0 SKU · ยังไม่ได้กำหนดราคา</small></span></div>
+                <div id="singleSalePriceField" class="field" data-field="salePrice"><span class="label-with-info"><label for="salePrice">ราคาขาย <span class="required">*</span></label><button class="info-button" type="button" data-field-info="salePrice" aria-expanded="false" aria-controls="fieldInfoPopover" aria-label="ดูคำแนะนำราคาขาย">i</button></span><div class="input-with-suffix"><input id="salePrice" name="salePrice" type="number" min="0" max="999999999.99" step="0.01" inputmode="decimal" placeholder="0.00" /><span class="input-suffix">THB</span></div><span class="field-error">กรุณาระบุราคาขายที่ถูกต้อง</span></div>
                 <div class="field"><label for="costPrice">ราคาต้นทุน</label><div class="input-with-suffix"><input id="costPrice" name="costPrice" type="number" min="0" max="999999999.99" step="0.01" inputmode="decimal" placeholder="0.00" /><span class="input-suffix">THB</span></div><span class="field-help">ข้อมูลจำกัดสิทธิ์; ไม่ใช่ต้นทุนบัญชีจริง</span></div>
                 <div class="field"><label for="taxCategory">อัตราภาษี</label><span class="select-control"><select id="taxCategory" name="taxCategory"><option value="vat7">VAT 7%</option><option value="zero">อัตรา 0%</option><option value="exempt">ยกเว้นภาษี</option></select></span><span class="field-help">ระบบจริงควรเก็บ Tax Category</span></div>
                 <div class="field span-2"><label class="check-option"><input id="taxInclusive" name="taxInclusive" type="checkbox" checked /><span><strong>ราคาขายรวมภาษีแล้ว</strong><small>Invoice จะเก็บ Tax snapshot ณ เวลาขาย</small></span></label></div>
@@ -628,6 +708,7 @@
         barcodes: new Set(["8851234567890", "8851000000100"])
       };
       const identifierRegistry = new Set([...existingIdentifiers.skuCodes, ...existingIdentifiers.salesCodes, ...existingIdentifiers.barcodes]);
+      let variantIdentifierCollisionKeys = new Set();
       const compatibleUnits = { discrete: ["piece", "pair", "pack", "box", "set", "case"], weighted: ["kg", "g"], volume: ["litre", "ml"] };
       const unitLabels = { piece: "ชิ้น", pair: "คู่", pack: "แพ็ค", box: "กล่อง", set: "ชุด", case: "ลัง", kg: "กิโลกรัม", g: "กรัม", litre: "ลิตร", ml: "มิลลิลิตร" };
       const packagingPresets = { pair: { name: "คู่", factor: 2 }, pack: { name: "แพ็ค", factor: 6 }, box: { name: "กล่อง", factor: 12 }, case: { name: "ลัง", factor: 24 } };
@@ -655,6 +736,11 @@
       function uid() { return globalThis.crypto?.randomUUID?.() ?? `mock-${Date.now()}-${Math.random().toString(16).slice(2)}`; }
       const state = {
         tags: [], images: [], dirty: false, skuNameAuto: true, salesSequenceOffset: 0, skuDrafts: [], editingSkuDraftId: null, activeSection: "general",
+        variantGroups: [
+          { id: "option-color", name: "สี", values: [{ id: "color-blue", name: "สีฟ้า", code: "BLU" }, { id: "color-black", name: "สีดำ", code: "BLK" }] },
+          { id: "option-size", name: "ไซซ์", values: [{ id: "size-s", name: "S", code: "S" }, { id: "size-m", name: "M", code: "M" }, { id: "size-l", name: "L", code: "L" }, { id: "size-xl", name: "XL", code: "XL" }] }
+        ],
+        variantCombinations: [],
         masterDataType: "category", masterWorking: null,
         masterData: {
           category: [{ id: "bags", name: "กระเป๋า", active: true }, { id: "apparel", name: "เสื้อผ้า", active: true }, { id: "jewelry", name: "เครื่องประดับ", active: true }, { id: "food", name: "อาหารและวัตถุดิบ", active: true }, { id: "other", name: "อื่น ๆ", active: true }],
@@ -673,6 +759,8 @@
         bundleEditor: document.getElementById("bundleEditor"), bundleRows: document.getElementById("bundleRows"),
         quantityNote: document.getElementById("quantityBehaviorNote"),
         skuName: document.getElementById("skuName"), skuNameLabel: document.getElementById("skuNameLabel"), skuNameHelp: document.getElementById("skuNameHelp"), useProductNameForSku: document.getElementById("useProductNameForSku"), autoSkuNameText: document.getElementById("autoSkuNameText"), variantNameAssistant: document.getElementById("variantNameAssistant"), skuNameSuggestion: document.getElementById("skuNameSuggestion"),
+        singleSkuEditor: document.getElementById("singleSkuEditor"), skuSectionTitleText: document.getElementById("skuSectionTitleText"), skuSectionDescription: document.getElementById("skuSectionDescription"), skuSectionStatus: document.getElementById("skuSectionStatus"),
+        variantBuilder: document.getElementById("variantBuilder"), variantOptionList: document.getElementById("variantOptionList"), variantCombinationRows: document.getElementById("variantCombinationRows"), addVariantGroupButton: document.getElementById("addVariantGroupButton"), variantSkuPrefix: document.getElementById("variantSkuPrefix"), variantSalesCodeMode: document.getElementById("variantSalesCodeMode"), variantSalesSequenceControls: document.getElementById("variantSalesSequenceControls"), variantSalesCodePrefix: document.getElementById("variantSalesCodePrefix"), variantSalesCodeStart: document.getElementById("variantSalesCodeStart"), variantSalesCodeDigits: document.getElementById("variantSalesCodeDigits"), variantIdentifierCheck: document.getElementById("variantIdentifierCheck"), variantBulkPrice: document.getElementById("variantBulkPrice"), variantBulkBarcode: document.getElementById("variantBulkBarcode"), variantBulkStatus: document.getElementById("variantBulkStatus"), toggleAllVariantCombinations: document.getElementById("toggleAllVariantCombinations"),
         masterDataModal: document.getElementById("masterDataModal"), masterDataTitle: document.getElementById("masterDataTitle"), masterDataDescription: document.getElementById("masterDataDescription"), masterDataSearch: document.getElementById("masterDataSearch"), masterDataCount: document.getElementById("masterDataCount"), masterDataList: document.getElementById("masterDataList"), masterBulkInput: document.getElementById("masterBulkInput"), masterBulkLabel: document.getElementById("masterBulkLabel"), saveMasterDataButton: document.getElementById("saveMasterDataButton"),
         baseUnitPolicyModal: document.getElementById("baseUnitPolicyModal"), baseUnitPolicySummary: document.getElementById("baseUnitPolicySummary"),
         skuCode: document.getElementById("skuCode"), salesCode: document.getElementById("salesCode"), barcode: document.getElementById("barcode"), salesCodeMode: document.getElementById("salesCodeMode"), barcodeMode: document.getElementById("barcodeMode"), identifierCheckResult: document.getElementById("identifierCheckResult"),
@@ -717,6 +805,133 @@
       function selectedBranches() { return [...form.querySelectorAll('input[name="branches"]:checked')].map((input) => input.value); }
       function currency(value) { const amount = Number(value); return Number.isFinite(amount) && value !== "" ? new Intl.NumberFormat("th-TH", { style: "currency", currency: "THB" }).format(amount) : "—"; }
       function canonicalIdentifier(value) { return value.trim().toUpperCase(); }
+
+      function variantValueCode(name, fallbackIndex = 1) {
+        const known = { "สีฟ้า": "BLU", "ฟ้า": "BLU", "สีน้ำเงิน": "BLU", "สีดำ": "BLK", "ดำ": "BLK", "สีขาว": "WHT", "ขาว": "WHT", "สีแดง": "RED", "แดง": "RED", "สีเงิน": "SLV", "เงิน": "SLV", "สีทอง": "GLD", "ทอง": "GLD" };
+        if (known[name]) return known[name];
+        const latin = name.normalize("NFKD").toUpperCase().match(/[A-Z0-9]+/g)?.join("").slice(0, 6);
+        return latin || `V${fallbackIndex}`;
+      }
+
+      function sanitizeVariantGroups(records) {
+        if (!Array.isArray(records)) return [];
+        return records.slice(0, 3).map((group, groupIndex) => ({
+          id: String(group?.id || `option-${groupIndex + 1}`).slice(0, 80),
+          name: normalizePlainText(String(group?.name || `ตัวเลือก ${groupIndex + 1}`)).slice(0, 40),
+          values: Array.isArray(group?.values) ? group.values.slice(0, 12).map((value, valueIndex) => ({
+            id: String(value?.id || `value-${groupIndex + 1}-${valueIndex + 1}`).slice(0, 80),
+            name: normalizePlainText(String(value?.name || "")).slice(0, 40),
+            code: canonicalIdentifier(String(value?.code || variantValueCode(String(value?.name || ""), valueIndex + 1))).replace(/[^A-Z0-9_-]/g, "").slice(0, 12)
+          })).filter((value) => value.name) : []
+        }));
+      }
+
+      function sanitizeVariantCombinations(records) {
+        if (!Array.isArray(records)) return [];
+        return records.slice(0, 100).map((item) => ({
+          key: String(item?.key || "").slice(0, 500),
+          enabled: item?.enabled !== false,
+          skuCode: canonicalIdentifier(String(item?.skuCode || "")).replace(/[^A-Z0-9._-]/g, "").slice(0, 80),
+          salesCode: canonicalIdentifier(String(item?.salesCode || "")).replace(/[^A-Z0-9._-]/g, "").slice(0, 80),
+          price: Number.isFinite(Number(item?.price)) && Number(item.price) >= 0 ? String(item.price) : "",
+          barcode: canonicalIdentifier(String(item?.barcode || "")).replace(/[^A-Z0-9._-]/g, "").slice(0, 128),
+          imageId: String(item?.imageId || "").slice(0, 80),
+          status: item?.status === "active" ? "active" : "draft"
+        })).filter((item) => item.key);
+      }
+
+      function renderVariantOptionGroups() {
+        elements.variantOptionList.innerHTML = state.variantGroups.map((group, groupIndex) => `<article class="variant-option-card" data-variant-group-id="${escapeHtml(group.id)}"><div class="field"><label for="variant-group-${groupIndex}">ชื่อกลุ่มตัวเลือก</label><input id="variant-group-${groupIndex}" data-variant-group-name maxlength="40" value="${escapeHtml(group.name)}" aria-label="ชื่อกลุ่มตัวเลือก ${groupIndex + 1}" /></div><div class="field"><label>ค่าตัวเลือก</label><div class="variant-values-editor">${group.values.map((value) => `<span class="variant-value-chip">${escapeHtml(value.name)}<button type="button" data-remove-variant-value="${escapeHtml(value.id)}" aria-label="ลบ ${escapeHtml(value.name)}">×</button></span>`).join("")}<input data-add-variant-value maxlength="40" placeholder="พิมพ์ค่าแล้วกด Enter เช่น สีแดง" aria-label="เพิ่มค่าในกลุ่ม ${escapeHtml(group.name)}" /></div></div><button class="icon-button" type="button" data-remove-variant-group aria-label="ลบกลุ่ม ${escapeHtml(group.name)}" ${state.variantGroups.length <= 1 ? "disabled" : ""}>×</button></article>`).join("");
+        const groupLimitReached = state.variantGroups.length >= 3;
+        elements.addVariantGroupButton.disabled = groupLimitReached;
+        elements.addVariantGroupButton.textContent = groupLimitReached ? "ครบ 3 กลุ่มแล้ว" : "＋ เพิ่มกลุ่มตัวเลือก";
+        document.getElementById("variantGroupLimitHelp").textContent = groupLimitReached ? "ลบกลุ่มใดกลุ่มหนึ่งเพื่อเพิ่มกลุ่มใหม่" : `เพิ่มได้อีก ${3 - state.variantGroups.length} กลุ่ม`;
+      }
+
+      function cartesianVariantValues(groups) {
+        return groups.reduce((rows, group) => rows.flatMap((row) => group.values.map((value) => [...row, { group, value }])), [[]]).slice(0, 100);
+      }
+
+      function syncVariantCombinations() {
+        const groups = state.variantGroups.filter((group) => group.name && group.values.length);
+        const previous = new Map(state.variantCombinations.map((item) => [item.key, item]));
+        const prefix = canonicalIdentifier(elements.variantSkuPrefix.value).replace(/[^A-Z0-9_-]/g, "").slice(0, 24) || "SKU";
+        state.variantCombinations = groups.length === state.variantGroups.length ? cartesianVariantValues(groups).map((selection, index) => {
+          const key = selection.map(({ value }) => value.id).join("::");
+          const stored = previous.get(key);
+          return stored ?? { key, enabled: true, skuCode: `${prefix}-${selection.map(({ value }) => value.code).join("-")}`.slice(0, 80), salesCode: "", price: "", barcode: "", imageId: "", status: "draft" };
+        }) : [];
+        renderVariantCombinations();
+      }
+
+      function renderVariantCombinations() {
+        const groupsByValueId = new Map(state.variantGroups.flatMap((group) => group.values.map((value) => [value.id, { group, value }])));
+        const imageOptions = state.images.map((image, index) => `<option value="${escapeHtml(image.id)}">ภาพที่ ${index + 1} · ${escapeHtml(image.name)}</option>`).join("");
+        elements.variantCombinationRows.innerHTML = state.variantCombinations.length ? state.variantCombinations.map((item) => {
+          const selection = item.key.split("::").map((id) => groupsByValueId.get(id)).filter(Boolean);
+          const name = selection.map(({ value }) => value.name).join(" / ");
+          const detail = selection.map(({ group, value }) => `${group.name}: ${value.name}`).join(" · ");
+          return `<tr data-variant-combination-key="${escapeHtml(item.key)}" class="${item.enabled ? "" : "is-disabled"}"><td><input type="checkbox" data-combination-field="enabled" ${item.enabled ? "checked" : ""} aria-label="เปิดขาย ${escapeHtml(name)}" /></td><td class="variant-combination-name"><strong>${escapeHtml(name)}</strong><span>${escapeHtml(detail)}</span></td><td><input data-combination-field="skuCode" aria-invalid="${variantIdentifierCollisionKeys.has(`${item.key}:sku_code`)}" maxlength="80" value="${escapeHtml(item.skuCode)}" aria-label="SKU Code ${escapeHtml(name)}" /></td><td><input data-combination-field="salesCode" aria-invalid="${variantIdentifierCollisionKeys.has(`${item.key}:sales_code`)}" maxlength="80" value="${escapeHtml(item.salesCode)}" placeholder="เช่น B001" aria-label="รหัสขาย / รหัส CF ${escapeHtml(name)}" /></td><td><input data-combination-field="price" type="number" min="0" max="999999999" step="0.01" value="${escapeHtml(item.price)}" aria-label="ราคาขาย ${escapeHtml(name)}" /></td><td><input data-combination-field="barcode" aria-invalid="${variantIdentifierCollisionKeys.has(`${item.key}:barcode`)}" maxlength="128" value="${escapeHtml(item.barcode)}" placeholder="ยังไม่กำหนด" aria-label="Barcode ${escapeHtml(name)}" /></td><td><span class="select-control"><select data-combination-field="imageId" aria-label="รูปประจำ Variant ${escapeHtml(name)}"><option value="">ใช้ภาพ Product</option>${imageOptions}</select></span></td><td><span class="select-control"><select data-combination-field="status" aria-label="สถานะ ${escapeHtml(name)}"><option value="draft">ฉบับร่าง</option><option value="active">ใช้งานอยู่</option></select></span></td></tr>`;
+        }).join("") : `<tr><td colspan="8" class="sku-draft-empty">เพิ่มค่าให้ครบทุกกลุ่ม เพื่อสร้าง SKU Combination</td></tr>`;
+        elements.variantCombinationRows.querySelectorAll("[data-variant-combination-key]").forEach((row) => {
+          const item = state.variantCombinations.find((record) => record.key === row.dataset.variantCombinationKey); if (!item) return;
+          row.querySelector('[data-combination-field="imageId"]').value = item.imageId;
+          row.querySelector('[data-combination-field="status"]').value = item.status;
+        });
+        const enabledCount = state.variantCombinations.filter((item) => item.enabled).length;
+        elements.toggleAllVariantCombinations.checked = state.variantCombinations.length > 0 && enabledCount === state.variantCombinations.length;
+        elements.toggleAllVariantCombinations.indeterminate = enabledCount > 0 && enabledCount < state.variantCombinations.length;
+      }
+
+      function addVariantValue(groupId, raw) {
+        const group = state.variantGroups.find((item) => item.id === groupId); if (!group) return;
+        const name = normalizePlainText(raw).slice(0, 40);
+        if (!name || group.values.some((value) => value.name.toLocaleLowerCase("th") === name.toLocaleLowerCase("th"))) return;
+        if (group.values.length >= 12) return showToast("หนึ่งกลุ่มเพิ่มได้สูงสุด 12 ค่า");
+        group.values.push({ id: uid(), name, code: variantValueCode(name, group.values.length + 1) });
+        state.dirty = true; renderVariantOptionGroups(); syncVariantCombinations(); updateSummary();
+      }
+
+      function applyVariantBulkValues() {
+        const prefix = canonicalIdentifier(elements.variantSkuPrefix.value).replace(/[^A-Z0-9_-]/g, "").slice(0, 24) || "SKU";
+        const groupsByValueId = new Map(state.variantGroups.flatMap((group) => group.values.map((value) => [value.id, value])));
+        const cfPrefix = canonicalIdentifier(elements.variantSalesCodePrefix.value).replace(/[^A-Z0-9_-]/g, "").slice(0, 10) || "B";
+        const cfStart = Math.max(0, Math.trunc(Number(elements.variantSalesCodeStart.value) || 0));
+        const cfDigits = Math.min(8, Math.max(2, Math.trunc(Number(elements.variantSalesCodeDigits.value) || 3)));
+        let sequenceIndex = 0;
+        state.variantCombinations.forEach((item, index) => {
+          item.skuCode = `${prefix}-${item.key.split("::").map((id) => groupsByValueId.get(id)?.code || "VAR").join("-")}`.slice(0, 80);
+          if (elements.variantSalesCodeMode.value === "same-sku") item.salesCode = item.skuCode;
+          else if (elements.variantSalesCodeMode.value === "sequence" && item.enabled) item.salesCode = `${cfPrefix}${String(cfStart + sequenceIndex++).padStart(cfDigits, "0")}`.slice(0, 80);
+          item.price = elements.variantBulkPrice.value;
+          item.status = elements.variantBulkStatus.value;
+          item.barcode = elements.variantBulkBarcode.value === "sku" ? item.skuCode : elements.variantBulkBarcode.value === "sequence" ? `290${String(index + 1).padStart(10, "0")}` : "";
+        });
+        state.dirty = true; checkVariantIdentifiersMock(); renderVariantCombinations(); showToast(`กรอกข้อมูลให้ ${state.variantCombinations.length} Combination แล้ว`);
+      }
+
+      function checkVariantIdentifiersMock() {
+        const active = state.variantCombinations.filter((item) => item.enabled);
+        const entries = active.flatMap((item) => [
+          { key: item.key, field: "sku_code", value: canonicalIdentifier(item.skuCode) },
+          ...(item.salesCode ? [{ key: item.key, field: "sales_code", value: canonicalIdentifier(item.salesCode) }] : []),
+          ...(item.barcode ? [{ key: item.key, field: "barcode", value: canonicalIdentifier(item.barcode) }] : [])
+        ]);
+        variantIdentifierCollisionKeys = new Set();
+        if (!active.length || active.some((item) => !item.skuCode || !item.salesCode)) {
+          elements.variantIdentifierCheck.className = "variant-identifier-check";
+          elements.variantIdentifierCheck.children[0].textContent = "ⓘ";
+          elements.variantIdentifierCheck.children[1].textContent = "กรอก SKU และรหัสขาย / รหัส CF ให้ครบทุก Variant ก่อนตรวจ";
+          return;
+        }
+        const grouped = new Map();
+        entries.forEach((entry) => grouped.set(entry.value, [...(grouped.get(entry.value) || []), entry]));
+        grouped.forEach((items, value) => { if (items.length > 1 || identifierRegistry.has(value)) items.forEach((item) => variantIdentifierCollisionKeys.add(`${item.key}:${item.field}`)); });
+        const count = variantIdentifierCollisionKeys.size;
+        elements.variantIdentifierCheck.className = `variant-identifier-check ${count ? "danger" : "success"}`;
+        elements.variantIdentifierCheck.children[0].textContent = count ? "!" : "✓";
+        elements.variantIdentifierCheck.children[1].textContent = count ? `พบรหัสซ้ำ ${count} จุด กรุณาแก้ค่าที่มีกรอบสีแดง` : `รหัสทั้ง ${entries.length} ค่า ของ ${active.length} Variant สามารถใช้ได้ใน Prototype`;
+      }
 
       function suggestSkuCode() {
         const categoryPrefixes = { bags: "BAG", apparel: "APP", jewelry: "JWL", food: "FOD", other: "SKU" };
@@ -918,7 +1133,7 @@
       function syncSkuNameAssistant({ force = false } = {}) {
         const structure = selectedStructure();
         const suggestion = suggestedSkuName();
-        elements.variantNameAssistant.hidden = structure !== "variant";
+        elements.variantNameAssistant.hidden = true;
         elements.skuNameSuggestion.textContent = suggestion || "กรอกชื่อสินค้าและตัวเลือกเพื่อดูคำแนะนำ";
         elements.skuNameLabel.innerHTML = `${structure === "bundle" ? "ชื่อชุดสินค้า" : "ชื่อรุ่น / ตัวเลือกสินค้า"} <span class="required">*</span>`;
         elements.autoSkuNameText.textContent = structure === "simple" ? "ใช้ชื่อเดียวกับสินค้า" : "กรอกชื่อที่แนะนำอัตโนมัติ";
@@ -1027,9 +1242,11 @@
         elements.summaryImages.textContent = `${state.images.length} / 9`;
         if (!state.images.length) {
           elements.imageGrid.innerHTML = `<div class="image-empty" style="grid-column:1/-1"><div><strong>ยังไม่มีรูปสินค้า</strong><span>เพิ่มภาพจำลองหรือเลือกไฟล์จากเครื่อง</span></div></div>`;
+          renderVariantCombinations();
           return;
         }
         elements.imageGrid.innerHTML = state.images.map((image, index) => `<article class="image-card">${image.url ? `<img src="${image.url}" alt="ตัวอย่าง ${escapeHtml(image.name)}" />` : `<div class="mock-image" style="--image-a:${image.colors[0]};--image-b:${image.colors[1]}" role="img" aria-label="ภาพจำลอง ${escapeHtml(image.name)}"></div>`}${index === 0 ? `<span class="cover-label">ภาพปก</span>` : ""}<div class="image-name">${escapeHtml(image.name)}</div><div class="image-actions"><button type="button" data-image-action="left" data-image-id="${image.id}" aria-label="เลื่อนภาพไปซ้าย" ${index === 0 ? "disabled" : ""}>←</button><button type="button" data-image-action="cover" data-image-id="${image.id}" aria-label="ตั้งเป็นภาพปก">★</button><button type="button" data-image-action="right" data-image-id="${image.id}" aria-label="เลื่อนภาพไปขวา" ${index === state.images.length - 1 ? "disabled" : ""}>→</button><button type="button" data-image-action="remove" data-image-id="${image.id}" aria-label="ลบภาพ">×</button></div></article>`).join("");
+        renderVariantCombinations();
       }
 
       function addMockImage() {
@@ -1105,6 +1322,8 @@
         [["SKU Code", elements.skuCode.value], ["Sales Code", elements.salesCode.value], ["Barcode", elements.barcode.value]].forEach(([label, raw]) => { const value = canonicalIdentifier(raw); if (value && !codePattern.test(value)) errors.push(`${label} ใช้รูปแบบรหัสที่ไม่อนุญาต`); });
         form.querySelectorAll('input[type="number"]').forEach((input) => { if (input.value === "") return; const value = Number(input.value), min = input.min === "" ? -Infinity : Number(input.min), max = input.max === "" ? Infinity : Number(input.max); if (!Number.isFinite(value) || value < min || value > max) errors.push(`${input.name || input.id || "ตัวเลข"} อยู่นอกช่วงที่กำหนด`); });
         state.skuDrafts.forEach((row) => { [row.name, row.skuCode, row.salesCode, row.barcode].filter(Boolean).forEach((value) => { if (forbiddenControlCharacters.test(String(value))) errors.push("รายการ SKU มีอักขระควบคุมที่ไม่อนุญาต"); }); });
+        state.variantGroups.forEach((group) => { if (forbiddenControlCharacters.test(group.name) || group.values.some((value) => forbiddenControlCharacters.test(value.name))) errors.push("ตัวเลือกสินค้ามีอักขระควบคุมที่ไม่อนุญาต"); });
+        state.variantCombinations.filter((item) => item.enabled).forEach((item) => { if (!item.skuCode || !codePattern.test(item.skuCode)) errors.push("SKU Code ใน Combination ไม่ถูกต้อง"); if (item.barcode && !codePattern.test(item.barcode)) errors.push("Barcode ใน Combination ไม่ถูกต้อง"); });
         Object.values(state.masterData).flat().forEach((item) => { if (forbiddenControlCharacters.test(String(item.name ?? ""))) errors.push("Master Data มีอักขระควบคุมที่ไม่อนุญาต"); });
         state.packagings.forEach((row) => { [row.name, row.code, row.barcode, row.salesCode].filter(Boolean).forEach((value) => { if (forbiddenControlCharacters.test(String(value))) errors.push("หน่วยบรรจุมีอักขระควบคุมที่ไม่อนุญาต"); }); });
         if (includePayload && draftPayloadBytes() > maxDraftBytes) errors.push("Draft payload เกิน 256 KB");
@@ -1119,6 +1338,17 @@
 
       function updateConditionalSections() {
         const structure = selectedStructure();
+        elements.variantBuilder.hidden = structure !== "variant";
+        elements.singleSkuEditor.hidden = structure === "variant";
+        if (structure === "variant" && state.variantCombinations.length === 0) syncVariantCombinations();
+        const enabledVariantCount = state.variantCombinations.filter((item) => item.enabled).length;
+        elements.skuSectionTitleText.textContent = structure === "variant" ? "SKU Variant และตัวเลือกสินค้า" : "SKU แรกและรหัสสินค้า";
+        elements.skuSectionDescription.textContent = structure === "variant" ? "แต่ละ Combination คือ SKU ที่ขายและนับ Stock แยกกัน" : "SKU คือรายการที่ขายและนับ Stock จริง";
+        elements.skuSectionStatus.textContent = structure === "variant" ? `${enabledVariantCount} SKU` : "SKU";
+        document.getElementById("pricingTitleText").textContent = structure === "variant" ? "ภาษีและต้นทุนร่วม" : "ราคาและภาษี";
+        document.getElementById("pricingDescription").textContent = structure === "variant" ? "ราคาขายกำหนดต่อ SKU ในตาราง Combination ส่วนภาษีและต้นทุนใช้ร่วมกันเป็นค่าเริ่มต้น" : "ราคานี้เป็น Default price ของ SKU แรก ไม่ใช่ราคาทุกสาขาตลอดไป";
+        document.getElementById("singleSalePriceField").hidden = structure === "variant";
+        document.getElementById("variantPriceSummary").hidden = structure !== "variant";
         elements.bundleEditor.hidden = structure !== "bundle";
         elements.packagingEditor.hidden = !elements.packagingEnabled.checked;
         const behavior = document.getElementById("quantityBehavior").value;
@@ -1159,14 +1389,19 @@
         elements.summaryName.textContent = name || "ยังไม่ได้ตั้งชื่อสินค้า";
         elements.summaryCategory.textContent = category ? document.getElementById("category").selectedOptions[0]?.textContent ?? categoryLabels[category] : "ยังไม่เลือกหมวดหมู่";
         elements.summaryStructure.textContent = structureLabels[structure];
-        elements.summarySku.textContent = skuCode || "—";
-        elements.summaryPrice.textContent = currency(document.getElementById("salePrice").value);
+        const enabledVariantCount = state.variantCombinations.filter((item) => item.enabled).length;
+        elements.summarySku.textContent = structure === "variant" ? `${enabledVariantCount} Combination` : skuCode || "—";
+        const enabledVariantPrices = state.variantCombinations.filter((item) => item.enabled).map((item) => Number(item.price)).filter((price) => Number.isFinite(price) && price >= 0);
+        const variantPriceComplete = structure === "variant" && enabledVariantPrices.length === enabledVariantCount && enabledVariantCount > 0;
+        const variantPriceRange = variantPriceComplete ? `${currency(Math.min(...enabledVariantPrices))}${Math.min(...enabledVariantPrices) === Math.max(...enabledVariantPrices) ? "" : ` – ${currency(Math.max(...enabledVariantPrices))}`}` : "ยังไม่ได้กำหนดราคาครบ";
+        elements.summaryPrice.textContent = structure === "variant" ? variantPriceRange : currency(document.getElementById("salePrice").value);
+        document.getElementById("variantPriceSummaryText").textContent = `${enabledVariantCount} SKU · ${variantPriceRange} · แก้ราคาแต่ละ SKU ได้จากตารางด้านบน`;
         elements.summaryBranches.textContent = branches.join(", ") || "ยังไม่เปิดขาย";
         elements.summaryPackaging.textContent = elements.packagingEnabled.checked ? `${state.packagings.length} หน่วยขาย` : "หน่วยฐาน";
         const bundleModeLabel = document.getElementById("bundleStockMode").value === "assembled" ? "Pre-assembled" : "Virtual";
         elements.summaryBundle.textContent = structure === "bundle" ? `${state.components.length} Components · ${bundleModeLabel}` : "ไม่ใช่ Bundle";
-        const skuReady = state.skuDrafts.length || (document.getElementById("skuName").value.trim() && skuCode);
-        const checks = [name, category, skuReady, document.getElementById("baseUnit").value, document.getElementById("salePrice").value, state.images.length];
+        const skuReady = structure === "variant" ? enabledVariantCount > 0 && state.variantCombinations.filter((item) => item.enabled).every((item) => item.skuCode) : state.skuDrafts.length || (document.getElementById("skuName").value.trim() && skuCode);
+        const checks = [name, category, skuReady, document.getElementById("baseUnit").value, structure === "variant" ? variantPriceComplete : document.getElementById("salePrice").value, state.images.length];
         const completion = Math.round(checks.filter(Boolean).length / checks.length * 100);
         elements.completionLabel.textContent = `กรอกข้อมูลแล้ว ${completion}%`;
         elements.completionBar.style.width = `${completion}%`;
@@ -1174,13 +1409,13 @@
       }
 
       function sectionCompletionState() {
-        const skuReady = state.skuDrafts.length > 0 || (elements.skuName.value.trim() && elements.skuCode.value.trim());
+        const skuReady = selectedStructure() === "variant" ? state.variantCombinations.some((item) => item.enabled && item.skuCode) : state.skuDrafts.length > 0 || (elements.skuName.value.trim() && elements.skuCode.value.trim());
         const physicalReady = ["netWeight", "productLength", "productWidth", "productHeight"].every((id) => document.getElementById(id).value !== "");
         return {
           general: Boolean(document.getElementById("productName").value.trim() && document.getElementById("category").value),
           images: state.images.length > 0,
           sku: Boolean(skuReady),
-          pricing: document.getElementById("salePrice").value !== "",
+          pricing: selectedStructure() === "variant" ? state.variantCombinations.filter((item) => item.enabled).every((item) => item.price !== "" && Number.isFinite(Number(item.price)) && Number(item.price) >= 0) : document.getElementById("salePrice").value !== "",
           physical: physicalReady,
           packaging: !elements.packagingEnabled.checked || state.packagings.some((row) => !row.base),
           inventory: selectedBranches().length > 0,
@@ -1214,17 +1449,32 @@
         const errors = [];
         if (!document.getElementById("productName").value.trim()) { errors.push("ชื่อสินค้า"); markInvalid("productName"); }
         if (!document.getElementById("category").value) { errors.push("หมวดหมู่"); markInvalid("category"); }
+        const isVariant = selectedStructure() === "variant";
+        const enabledVariantCombinations = state.variantCombinations.filter((item) => item.enabled);
         const hasStoredSku = state.skuDrafts.length > 0;
-        if (!hasStoredSku && !document.getElementById("skuName").value.trim()) { errors.push("ชื่อ SKU"); markInvalid("skuName"); }
+        if (!isVariant && !hasStoredSku && !document.getElementById("skuName").value.trim()) { errors.push("ชื่อ SKU"); markInvalid("skuName"); }
         const skuCode = document.getElementById("skuCode").value.trim().toUpperCase();
         const salesCode = document.getElementById("salesCode").value.trim().toUpperCase();
         const barcode = document.getElementById("barcode").value.trim();
-        if (!hasStoredSku && !skuCode) { errors.push("SKU Code"); markInvalid("skuCode"); }
-        else if (identifierRegistry.has(skuCode)) { errors.push("SKU Code ซ้ำใน Organization"); markInvalid("skuCode"); }
-        if (salesCode && identifierRegistry.has(salesCode)) errors.push("Sales Code ซ้ำใน Organization");
-        if (barcode && identifierRegistry.has(barcode)) errors.push("Barcode ซ้ำใน Organization");
-        const price = Number(document.getElementById("salePrice").value);
-        if (document.getElementById("salePrice").value === "" || !Number.isFinite(price) || price < 0) { errors.push("ราคาขาย"); markInvalid("salePrice"); }
+        if (!isVariant && !hasStoredSku && !skuCode) { errors.push("SKU Code"); markInvalid("skuCode"); }
+        else if (!isVariant && identifierRegistry.has(skuCode)) { errors.push("SKU Code ซ้ำใน Organization"); markInvalid("skuCode"); }
+        if (!isVariant && salesCode && identifierRegistry.has(salesCode)) errors.push("Sales Code ซ้ำใน Organization");
+        if (!isVariant && barcode && identifierRegistry.has(barcode)) errors.push("Barcode ซ้ำใน Organization");
+        if (isVariant) {
+          if (state.variantGroups.some((group) => !group.name || !group.values.length)) errors.push("ทุกกลุ่ม Variant ต้องมีชื่อและค่าอย่างน้อย 1 ค่า");
+          if (!enabledVariantCombinations.length) errors.push("ต้องเปิดอย่างน้อย 1 SKU Combination");
+          const combinationSkuCodes = enabledVariantCombinations.map((item) => item.skuCode);
+          if (combinationSkuCodes.some((value) => !value)) errors.push("SKU Code ของ Combination ต้องครบ");
+          if (new Set(combinationSkuCodes).size !== combinationSkuCodes.length) errors.push("SKU Code ของ Combination ต้องไม่ซ้ำกัน");
+          if (combinationSkuCodes.some((value) => identifierRegistry.has(value))) errors.push("มี SKU Code ของ Combination ซ้ำใน Organization");
+        }
+        if (isVariant) {
+          const invalidVariantPrices = enabledVariantCombinations.filter((item) => item.price === "" || !Number.isFinite(Number(item.price)) || Number(item.price) < 0);
+          if (invalidVariantPrices.length) errors.push(`ราคาขายของ SKU Combination ยังไม่ครบ ${invalidVariantPrices.length} รายการ`);
+        } else {
+          const price = Number(document.getElementById("salePrice").value);
+          if (document.getElementById("salePrice").value === "" || !Number.isFinite(price) || price < 0) { errors.push("ราคาขาย"); markInvalid("salePrice"); }
+        }
         if (!state.images.length) { errors.push("รูปสินค้าอย่างน้อย 1 ภาพ"); document.getElementById("imageFieldError").style.display = "block"; }
         const physicalErrors = physicalAttributeErrors();
         physicalErrors.forEach((error) => { errors.push(error.message); markInvalid(error.field); });
@@ -1273,6 +1523,8 @@
           skuNameAuto: state.skuNameAuto,
           salesSequenceOffset: state.salesSequenceOffset,
           skuDrafts: state.skuDrafts,
+          variantGroups: state.variantGroups,
+          variantCombinations: state.variantCombinations,
           masterData: state.masterData,
           activePhysicalTab: elements.physicalTabs.find((tab) => tab.getAttribute("aria-selected") === "true")?.id ?? "productPhysicalTab",
           packagingEnabled: elements.packagingEnabled.checked,
@@ -1313,18 +1565,21 @@
           state.skuNameAuto = draft.skuNameAuto !== false;
           state.salesSequenceOffset = Number.isInteger(draft.salesSequenceOffset) ? draft.salesSequenceOffset : 0;
           state.skuDrafts = sanitizeSkuDraftRecords(draft.skuDrafts);
+          const restoredVariantGroups = sanitizeVariantGroups(draft.variantGroups);
+          if (restoredVariantGroups.length) state.variantGroups = restoredVariantGroups;
+          state.variantCombinations = sanitizeVariantCombinations(draft.variantCombinations);
           elements.useProductNameForSku.checked = state.skuNameAuto;
           elements.packagingEnabled.checked = draft.packagingEnabled === true;
           document.getElementById("taxInclusive").checked = draft.taxInclusive !== false;
           activatePhysicalTab(document.getElementById(draft.activePhysicalTab === "boxPhysicalTab" ? "boxPhysicalTab" : "productPhysicalTab"));
-          renderTags(); renderPackagings(); renderBundleComponents(); renderSkuDrafts(); syncSkuNameAssistant(); syncIdentifierModes(); updateConditionalSections(); updateSummary(); updateSecurityValidationStatus();
+          renderTags(); renderPackagings(); renderBundleComponents(); renderSkuDrafts(); renderVariantOptionGroups(); syncVariantCombinations(); syncSkuNameAssistant(); syncIdentifierModes(); updateConditionalSections(); updateSummary(); updateSecurityValidationStatus();
           showToast("เรียกคืนร่างล่าสุดแล้ว");
         } catch { localStorage.removeItem(draftKey); showToast("ร่างเดิมเสียหายหรือไม่รองรับ จึงล้างร่างออกอย่างปลอดภัย"); }
       }
 
       function reviewCreate() {
         if (!validateForm()) return;
-        const skuCount = state.skuDrafts.length || 1;
+        const skuCount = selectedStructure() === "variant" ? state.variantCombinations.filter((item) => item.enabled).length : state.skuDrafts.length || 1;
         document.getElementById("successMessage").textContent = `พร้อมสร้าง ${document.getElementById("productName").value.trim()} พร้อม ${skuCount} SKU — Prototype จะไม่ส่งข้อมูลไปยังระบบจริง`;
         openModal(elements.successModal, document.getElementById("closeSuccessButton"));
       }
@@ -1356,6 +1611,43 @@
       document.getElementById("useSkuNameSuggestionButton").addEventListener("click", () => { state.skuNameAuto = true; elements.useProductNameForSku.checked = true; syncSkuNameAssistant({ force: true }); updateSummary(); elements.skuName.focus(); });
       document.getElementById("suggestSkuCodeButton").addEventListener("click", suggestSkuCode);
       document.getElementById("checkIdentifiersButton").addEventListener("click", checkIdentifierAvailability);
+      elements.addVariantGroupButton.addEventListener("click", () => {
+        if (state.variantGroups.length >= 3) return showToast("เพิ่มได้สูงสุด 3 กลุ่มตัวเลือก");
+        const next = state.variantGroups.length + 1;
+        state.variantGroups.push({ id: uid(), name: `ตัวเลือก ${next}`, values: [] });
+        state.dirty = true; renderVariantOptionGroups(); syncVariantCombinations();
+        elements.variantOptionList.querySelector(".variant-option-card:last-child [data-variant-group-name]")?.focus();
+      });
+      elements.variantOptionList.addEventListener("input", (event) => {
+        const card = event.target.closest("[data-variant-group-id]");
+        const group = state.variantGroups.find((item) => item.id === card?.dataset.variantGroupId);
+        if (!group || !event.target.matches("[data-variant-group-name]")) return;
+        group.name = normalizePlainText(event.target.value).slice(0, 40); state.dirty = true; syncVariantCombinations();
+      });
+      elements.variantOptionList.addEventListener("keydown", (event) => {
+        if (!event.target.matches("[data-add-variant-value]") || !["Enter", ","].includes(event.key)) return;
+        event.preventDefault(); const card = event.target.closest("[data-variant-group-id]"); addVariantValue(card?.dataset.variantGroupId, event.target.value); event.target.value = "";
+      });
+      elements.variantOptionList.addEventListener("click", (event) => {
+        const card = event.target.closest("[data-variant-group-id]"); const group = state.variantGroups.find((item) => item.id === card?.dataset.variantGroupId); if (!group) return;
+        const valueId = event.target.closest("[data-remove-variant-value]")?.dataset.removeVariantValue;
+        if (valueId) { group.values = group.values.filter((value) => value.id !== valueId); state.dirty = true; renderVariantOptionGroups(); syncVariantCombinations(); }
+        if (event.target.closest("[data-remove-variant-group]") && state.variantGroups.length > 1) { state.variantGroups = state.variantGroups.filter((item) => item.id !== group.id); state.dirty = true; renderVariantOptionGroups(); syncVariantCombinations(); }
+      });
+      elements.variantCombinationRows.addEventListener("input", (event) => {
+        const row = event.target.closest("[data-variant-combination-key]"); const item = state.variantCombinations.find((record) => record.key === row?.dataset.variantCombinationKey); const field = event.target.dataset.combinationField; if (!item || !field) return;
+        item[field] = field === "enabled" ? event.target.checked : field === "skuCode" || field === "salesCode" || field === "barcode" ? canonicalIdentifier(event.target.value).replace(/[^A-Z0-9._-]/g, "") : event.target.value;
+        checkVariantIdentifiersMock(); state.dirty = true; if (field === "enabled") renderVariantCombinations(); updateSecurityValidationStatus();
+      });
+      elements.variantCombinationRows.addEventListener("change", (event) => {
+        const row = event.target.closest("[data-variant-combination-key]"); const item = state.variantCombinations.find((record) => record.key === row?.dataset.variantCombinationKey); const field = event.target.dataset.combinationField; if (!item || !field) return;
+        item[field] = field === "enabled" ? event.target.checked : event.target.value; state.dirty = true; renderVariantCombinations(); updateSecurityValidationStatus();
+      });
+      elements.toggleAllVariantCombinations.addEventListener("change", () => { state.variantCombinations.forEach((item) => { item.enabled = elements.toggleAllVariantCombinations.checked; }); state.dirty = true; renderVariantCombinations(); });
+      document.getElementById("applyVariantBulkButton").addEventListener("click", applyVariantBulkValues);
+      elements.variantSalesCodeMode.addEventListener("change", () => { elements.variantSalesSequenceControls.hidden = elements.variantSalesCodeMode.value !== "sequence"; });
+      document.getElementById("checkVariantIdentifiersButton").addEventListener("click", () => { checkVariantIdentifiersMock(); renderVariantCombinations(); });
+      document.getElementById("clearVariantBulkButton").addEventListener("click", () => { elements.variantBulkPrice.value = ""; elements.variantBulkBarcode.value = "none"; elements.variantBulkStatus.value = "draft"; state.variantCombinations.forEach((item) => { item.price = ""; item.barcode = ""; item.status = "draft"; }); state.dirty = true; renderVariantCombinations(); showToast("ล้างค่าที่กรอกแบบกลุ่มแล้ว"); });
       elements.physicalTabs.forEach((tab, index) => { tab.addEventListener("click", () => activatePhysicalTab(tab)); tab.addEventListener("keydown", (event) => { let targetIndex = index; if (event.key === "ArrowRight") targetIndex = (index + 1) % elements.physicalTabs.length; else if (event.key === "ArrowLeft") targetIndex = (index - 1 + elements.physicalTabs.length) % elements.physicalTabs.length; else if (event.key === "Home") targetIndex = 0; else if (event.key === "End") targetIndex = elements.physicalTabs.length - 1; else return; event.preventDefault(); activatePhysicalTab(elements.physicalTabs[targetIndex], { focus: true }); }); });
       document.addEventListener("pointerover", (event) => { const button = event.target.closest("[data-field-info]"); if (button && !pinnedInfoButton) openFieldInfo(button); });
       document.addEventListener("pointerout", (event) => { if (event.target.closest("[data-field-info]") && !pinnedInfoButton) closeFieldInfo(); });
@@ -1483,7 +1775,7 @@
       });
       updateBackToTopVisibility();
 
-      renderMasterSelects(); renderTags(); renderImages(); renderPackagings(); renderBundleComponents(); renderSkuDrafts(); syncSkuNameAssistant(); syncIdentifierModes(); updateConditionalSections(); updateSummary(); updateSecurityValidationStatus(); restoreDraft();
+      renderMasterSelects(); renderTags(); renderVariantOptionGroups(); syncVariantCombinations(); renderImages(); renderPackagings(); renderBundleComponents(); renderSkuDrafts(); syncSkuNameAssistant(); syncIdentifierModes(); updateConditionalSections(); updateSummary(); updateSecurityValidationStatus(); restoreDraft();
     </script>
   </body>
 </html>

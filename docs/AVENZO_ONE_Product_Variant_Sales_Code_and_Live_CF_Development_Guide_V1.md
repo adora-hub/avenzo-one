@@ -2,7 +2,7 @@
 
 วันที่จัดทำ: 16 สิงหาคม 2026
 
-สถานะ: **Planning Baseline — รออนุมัติเริ่ม Part 1**
+สถานะ: **Part 5 Unified Variant Creation พร้อม Refinement ข้อ 2–5 completed locally ตาม Sequential Gate · รอ Owner ทดสอบก่อนงานถัดไป**
 
 เจ้าของการตัดสินใจ: Owner AVENZO ONE
 
@@ -133,6 +133,13 @@ Live Session + Live Code + Option tokens + Quantity
 - Alias มี normalization และจำกัดความยาว/จำนวน
 - Database tests ผ่าน
 
+ผลดำเนินการ: **Completed locally — 16 สิงหาคม 2026**
+
+- Migration: `20260816103853_phase_2_1_a3_variant_data_model.sql`
+- Integration test: `phase_2_1_a3_variant_data_model.sql`
+- Schema lint ผ่าน โดยเหลือ warning เดิมที่ไม่เกี่ยวกับ A3 ใน sandbox payment function
+- ยังไม่ Commit, Push, Deploy หรือ apply ไป Preview/Production
+
 ### Part 4 — Atomic Sales Code Allocator
 
 เปลี่ยน Sequence จาก Preview-only เป็นการ allocate/join reservation จากฐานข้อมูลจริง
@@ -153,6 +160,14 @@ Live Session + Live Code + Option tokens + Quantity
 - Draft ไม่ยึดรหัสถาวรโดยไม่มีนโยบายหมดอายุ
 - Owner ทดสอบการเพิ่มรายการต่อเนื่องผ่าน
 
+ผลดำเนินการ: **Completed locally — 16 สิงหาคม 2026**
+
+- Permanent Identifier Registry ปิด cross-field collision ของ SKU/Sales/Barcode
+- Atomic allocation ผ่าน A001 → A002 → A003 ข้าม Product
+- Reservation batch ผ่าน B001–B070 พร้อม expiry/release state
+- Two-session concurrency test ผ่าน A001/A002 โดยไม่ซ้ำ
+- ยังไม่ Commit, Push, Deploy หรือ apply ไป Preview/Production
+
 ### Part 5 — Unified Variant Creation
 
 เชื่อม Approved Mockup กับ Atomic command เพื่อสร้าง Product, Variant combinations, SKU, Identifier, รูป และราคาภายใน Flow เดียว
@@ -163,7 +178,38 @@ Live Session + Live Code + Option tokens + Quantity
 - Validation ชี้ช่องที่ผิดและรักษาข้อมูลที่ผู้ใช้กรอก
 - สร้าง SKU หลาย Combination ได้จริง
 - Duplicate identifier และ stale response ปลอดภัย
-- Audit Log ครบ
+- - Audit Log ครบ
+
+ผลดำเนินการ: **Completed locally — 16 สิงหาคม 2026**
+
+- เชื่อม Approved Variant Builder เข้ากับฟอร์มสร้างสินค้าจริงแล้ว
+- สร้าง Product, Option Groups, Option Values, SKU Variants, Identifier Registry และ Audit/Event ภายใน Atomic transaction เดียว
+- รองรับรูปประจำ Variant ผ่านขั้นตอนอัปโหลดและคำสั่ง assign ที่ retry ได้
+- ทดสอบ 2 กลุ่มตัวเลือก 4 ค่า รวม 4 SKU, idempotent replay, duplicate rollback และ service-role boundary ผ่าน
+- UI ทดสอบ 2 กลุ่มตัวเลือกสร้าง 8 Combination, Bulk price และ Browser Draft หลัง F5 ผ่าน
+- TypeScript, B5 test, R7 regression และ Production build ผ่าน
+- ยังไม่เริ่ม Part 6 และยังไม่ Commit, Push หรือ Deploy
+
+#### Part 5 Refinement — ข้อ 2–5 (Owner approved)
+
+ดำเนินการตามลำดับและทดสอบทีละข้อแล้ว:
+
+2. **Base Unit ร่วมระดับ Product/Variant** — เลือกครั้งเดียวในข้อมูลทั่วไปและส่งเป็นค่าร่วมของทุก SKU Combination; ไม่แสดงช่องซ้ำในแต่ละ Variant
+3. **Sales Code / รหัส CF ต่อ Variant** — ทุก Combination มีช่องรหัสขายของตนเองและส่งเข้า Atomic Variant payload
+4. **Sequence และ Unique validation ต่อ Variant** — รองรับ Manual, ใช้รหัสเดียวกับ SKU และเลขต่อเนื่อง; ตรวจ cross-field/local duplicate และตรวจ Permanent Identifier Registry แบบ batch ก่อนสร้าง
+5. **ราคาและภาษีของ Variant** — ราคาขายกำหนดต่อ Combination; ช่องราคาสินค้าเดี่ยวถูกซ่อนในโหมด Variant; ต้นทุนและ Tax Category ใช้ร่วมเป็นค่าเริ่มต้น พร้อมสรุปช่วงราคาในฟอร์ม
+
+Verification ล่าสุด:
+
+- TypeScript compile ผ่าน
+- B5 Variant creation 4/4 ผ่าน
+- A2 Mockup 10/10 ผ่าน
+- A4 Allocator 6/6 ผ่าน
+- R7 Pricing regression 5/5 ผ่าน
+- R7 Unified creation regression 7/7 ผ่าน
+- Dev server root ตอบ HTTP 200
+
+Stop gate: **หยุดให้ Owner ทดสอบ UI และข้อมูลจริงก่อน Commit, Push, Deploy หรือเริ่ม Part 6**
 
 ### Part 6 — Products Workspace Alignment
 
@@ -253,11 +299,11 @@ Live Session + Live Code + Option tokens + Quantity
 
 | Part | สถานะ | หลักฐาน/หมายเหตุ |
 |---|---|---|
-| 1. Identifier Contract Freeze | Not started | รอ Owner อนุมัติเริ่ม |
-| 2. Variant UX Mockup | Not started | ต้องทำหลัง Part 1 ผ่าน |
-| 3. Variant Data Model | Not started | ต้องทำหลัง Mockup ผ่าน |
-| 4. Atomic Sales Code Allocator | Not started | แก้ Sequence Preview-only |
-| 5. Unified Variant Creation | Not started | เชื่อมระบบจริงหลัง Part 3–4 |
+| 1. Identifier Contract Freeze | Completed locally | Sequential gate passed · `AVENZO_ONE_Product_Variant_A1_Identifier_Contract_Freeze.md` |
+| 2. Variant UX Mockup | Completed locally | Mockup + interaction + responsive gate passed · `AVENZO_ONE_Product_Variant_A2_Variant_UX_Mockup.md` |
+| 3. Variant Data Model | Completed locally | Migration + behavior/RLS tests + rollback plan ผ่าน |
+| 4. Atomic Sales Code Allocator | Completed locally | Registry + sequence/reservation + idempotency/audit + concurrency ผ่าน |
+| 5. Unified Variant Creation | Completed locally | Atomic graph + Variant image recovery + UI/F5 + SQL/TS/build ผ่าน · `AVENZO_ONE_Product_Variant_B5_Unified_Variant_Creation.md` |
 | 6. Products Workspace Alignment | Not started | รักษา Approved Products UI |
 | 7. Live Sale Reservation | Not started | ใช้ Approved Live Sale concept |
 | 8. Deterministic Live CF Parser | Not started | ไม่ใช้ AI เป็น Authority |
@@ -272,3 +318,4 @@ Live Session + Live Code + Option tokens + Quantity
 | 16 ส.ค. 2026 | สีและไซซ์ต้องเป็น Structured Variant Option ไม่เก็บเฉพาะในชื่อสินค้า |
 | 16 ส.ค. 2026 | ข้อความ Live CF ต้อง resolve เป็น SKU ID เดียวก่อนจอง เปิดบิล หรือตัด Stock |
 | 16 ส.ค. 2026 | ทำ Mockup ก่อนระบบจริง และพัฒนาทีละ Part พร้อม Stop Gate |
+| 16 ส.ค. 2026 | Variant ใช้ Base Unit ร่วม, Sales Code/CF และราคาขายต่อ Combination; Tax Category/ต้นทุนเป็นค่าร่วมเริ่มต้น |

@@ -7,6 +7,7 @@ import type {
 } from './contracts'
 import {
   productCreationCommandTypes,
+  productVariantCreationCommandTypes,
   productDomainCommandTypes,
   productImageCommandTypes,
 } from './contracts'
@@ -952,7 +953,11 @@ export class SupabaseFoundationCommandRepository implements FoundationCommandRep
     requestHash: string,
   ): Promise<FoundationCommandOutcome> {
     if (command.kind === 'entity') {
-      const rpcName = productCreationCommandTypes.includes(
+      const rpcName = productVariantCreationCommandTypes.includes(
+        command.commandType as typeof productVariantCreationCommandTypes[number],
+      )
+        ? 'server_execute_variant_creation_command'
+        : productCreationCommandTypes.includes(
         command.commandType as typeof productCreationCommandTypes[number],
       )
         ? 'server_execute_product_creation_command'

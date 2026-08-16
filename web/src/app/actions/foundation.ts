@@ -8,11 +8,17 @@ import { executeFoundationServerCommand } from '@/lib/foundation/server-service'
 import { executeProductImageCleanupCommand } from '@/lib/foundation/product-image-cleanup.server'
 import {
   checkProductIdentifiers,
+  checkVariantProductIdentifiers,
   type ProductIdentifierCheckResult,
+  type VariantProductIdentifierCheckResult,
 } from '@/lib/foundation/product-identifier-check.server'
 
 export type ProductIdentifierCheckActionResult =
   | { ok: true; data: ProductIdentifierCheckResult }
+  | { ok: false; error: FoundationErrorCode; status: number }
+
+export type VariantProductIdentifierCheckActionResult =
+  | { ok: true; data: VariantProductIdentifierCheckResult }
   | { ok: false; error: FoundationErrorCode; status: number }
 
 export async function executeFoundationCommandAction(
@@ -67,6 +73,16 @@ export async function checkProductIdentifiersAction(
 ): Promise<ProductIdentifierCheckActionResult> {
   try {
     return { ok: true, data: await checkProductIdentifiers(input) }
+  } catch (error) {
+    const safeError = mapFoundationError(error)
+    return { ok: false, error: safeError.code, status: safeError.status }
+  }
+}
+export async function checkVariantProductIdentifiersAction(
+  input: unknown,
+): Promise<VariantProductIdentifierCheckActionResult> {
+  try {
+    return { ok: true, data: await checkVariantProductIdentifiers(input) }
   } catch (error) {
     const safeError = mapFoundationError(error)
     return { ok: false, error: safeError.code, status: safeError.status }

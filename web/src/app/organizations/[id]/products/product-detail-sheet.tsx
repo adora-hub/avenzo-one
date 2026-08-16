@@ -9,6 +9,7 @@ import type {
   ProductWorkspaceSkuDetail,
   ProductWorkspaceValueSummary,
 } from '@/lib/foundation/repositories'
+import { formatProductUnit } from './product-unit-labels'
 
 type SkuDetail = ProductWorkspaceSkuDetail & { productName: string }
 
@@ -81,7 +82,7 @@ function formatFileSize(bytes: number) {
 function stockLabel(sku: ProductWorkspaceSkuDetail) {
   if (sku.stock.mode === 'not-authorized') return 'ไม่มีสิทธิ์ดู Stock'
   if (sku.stock.mode === 'no-balance') return 'ยังไม่มียอด Stock'
-  return `${formatNumber(sku.stock.onHand)} ${sku.baseUnitCode} · ใช้ได้ ${formatNumber(sku.stock.available)}`
+  return `${formatNumber(sku.stock.onHand)} ${formatProductUnit(sku.baseUnitCode)} · ใช้ได้ ${formatNumber(sku.stock.available)}`
 }
 
 function ProductQuickView({ selectedProduct, canReadCost }: { selectedProduct: ProductWorkspaceDetail; canReadCost: boolean }) {
@@ -116,9 +117,9 @@ function ProductQuickView({ selectedProduct, canReadCost }: { selectedProduct: P
       <div className="product-detail-section-heading"><h3 id="product-detail-skus">SKU / ตัวเลือก ({selectedProduct.skuCount})</h3>{selectedProduct.skuListCapped ? <span>แสดง 200 รายการแรก</span> : null}</div>
       {selectedProduct.skus.length ? <div className="product-quick-table-wrap" tabIndex={0} aria-label="ตาราง SKU เลื่อนได้เมื่อข้อมูลกว้าง">
         <table className="product-quick-table">
-          <thead><tr><th scope="col">ตัวเลือก</th><th scope="col">SKU</th><th scope="col">รหัส CF</th><th scope="col">Barcode</th><th scope="col">Base Unit</th><th scope="col">Stock</th></tr></thead>
+          <thead><tr><th scope="col">ตัวเลือก</th><th scope="col">SKU</th><th scope="col">รหัส CF</th><th scope="col">Barcode</th><th scope="col">หน่วยนับ</th><th scope="col">Stock</th></tr></thead>
           <tbody>{selectedProduct.skus.map((sku) => <tr key={sku.id}>
-            <td title={sku.name}>{sku.name}</td><td className="product-code" title={sku.skuCode}>{sku.skuCode}</td><td className="product-code" title={sku.salesCode ?? undefined}>{sku.salesCode || '—'}</td><td className="product-code" title={sku.barcode ?? undefined}>{sku.barcode || '—'}</td><td>{sku.baseUnitCode}</td><td>{stockLabel(sku)}</td>
+            <td title={sku.name}>{sku.name}</td><td className="product-code" title={sku.skuCode}>{sku.skuCode}</td><td className="product-code" title={sku.salesCode ?? undefined}>{sku.salesCode || '—'}</td><td className="product-code" title={sku.barcode ?? undefined}>{sku.barcode || '—'}</td><td>{formatProductUnit(sku.baseUnitCode)}</td><td>{stockLabel(sku)}</td>
           </tr>)}</tbody>
         </table>
       </div> : <p className="product-quick-note">Product นี้ยังไม่มี SKU</p>}
@@ -176,9 +177,9 @@ function ProductQuickView({ selectedProduct, canReadCost }: { selectedProduct: P
       <h3 id="product-detail-sell-units">หน่วยขายและการบรรจุ ({sellUnits.length})</h3>
       {sellUnits.length ? <div className="product-quick-table-wrap" tabIndex={0} aria-label="ตารางหน่วยขายและการบรรจุ">
         <table className="product-quick-table"><thead><tr><th scope="col">SKU</th><th scope="col">หน่วยขาย</th><th scope="col">รหัสหน่วย</th><th scope="col">เท่ากับ Base Unit</th><th scope="col">Barcode</th><th scope="col">สถานะ</th></tr></thead>
-          <tbody>{sellUnits.map(({ sku, unit }) => <tr key={unit.id}><td className="product-code">{sku.skuCode}</td><td>{unit.name}</td><td className="product-code">{unit.unitCode}</td><td>{formatNumber(unit.baseQuantity)} {sku.baseUnitCode}</td><td className="product-code">{unit.barcode || '—'}</td><td>{statusLabels[unit.status] ?? unit.status}</td></tr>)}</tbody>
+          <tbody>{sellUnits.map(({ sku, unit }) => <tr key={unit.id}><td className="product-code">{sku.skuCode}</td><td>{unit.name}</td><td className="product-code">{unit.unitCode}</td><td>{formatNumber(unit.baseQuantity)} {formatProductUnit(sku.baseUnitCode)}</td><td className="product-code">{unit.barcode || '—'}</td><td>{statusLabels[unit.status] ?? unit.status}</td></tr>)}</tbody>
         </table>
-      </div> : <p className="product-quick-note">ใช้ Base Unit ของแต่ละ SKU โดยยังไม่มีหน่วยขายเพิ่มเติม</p>}
+      </div> : <p className="product-quick-note">ใช้หน่วยนับสต๊อกของแต่ละ SKU โดยยังไม่มีหน่วยขายเพิ่มเติม</p>}
     </section>
 
     <section className="product-detail-section product-quick-section" aria-labelledby="product-detail-bundle">
@@ -235,7 +236,7 @@ export function ProductDetailSheet({
               <div><dt>Product</dt><dd>{selectedSku.productName}</dd></div>
               <div><dt>Sales Code</dt><dd className="product-code">{selectedSku.salesCode || '—'}</dd></div>
               <div><dt>Barcode</dt><dd className="product-code">{selectedSku.barcode || '—'}</dd></div>
-              <div><dt>Base Unit</dt><dd>{selectedSku.baseUnitCode}</dd></div>
+              <div><dt>หน่วยนับสต๊อก</dt><dd>{formatProductUnit(selectedSku.baseUnitCode)}</dd></div>
               <div><dt>แก้ไขล่าสุด</dt><dd>{formatDate(selectedSku.updatedAt)}</dd></div>
             </dl>
             <p className="product-detail-note">SKU Code และ Base Unit เปลี่ยนไม่ได้ ส่วน Sales Code เปลี่ยนไม่ได้หลังบันทึกครั้งแรก</p>

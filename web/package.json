@@ -72,6 +72,12 @@
     "test:products-r7-4-pagination": "node --test scripts/test-products-r7-4-pagination.mjs",
     "test:products-r7-atomic-creation": "node --experimental-strip-types --test scripts/test-products-r7-atomic-creation.mjs",
     "test:products-r7-unified-creation": "node --test scripts/test-products-r7-unified-creation.mjs",
+    "test:products-variant-a1-contract": "node --test scripts/test-products-variant-a1-identifier-contract.mjs",
+    "test:products-variant-a2-mockup": "node --test scripts/test-products-variant-a2-mockup.mjs",
+    "test:products-variant-a3-data-model": "node --test scripts/test-products-variant-a3-data-model.mjs",
+    "test:products-variant-a4-allocator": "node --test scripts/test-products-variant-a4-allocator.mjs",
+    "test:products-variant-a4-concurrency": "node --test scripts/test-products-variant-a4-concurrency.mjs",
+    "test:products-variant-b5-unified-creation": "node --test scripts/test-products-variant-b5-unified-creation.mjs",
     "test:warehouse-stock-slice": "node --test scripts/test-warehouse-stock-vertical-slice.mjs",
     "test:foundation-release-gate": "node --test scripts/test-foundation-application.mjs scripts/test-product-sku-vertical-slice.mjs scripts/test-warehouse-stock-vertical-slice.mjs scripts/test-operations-ui-foundation.mjs scripts/test-foundation-release-gate.mjs"
   },

@@ -21,7 +21,7 @@ test('Quick View exposes every approved detail group from the real detail model'
 
 test('SKU table aligns identifiers horizontally with keyboard-scrollable overflow', () => {
   assert.match(detailSource, /tabIndex=\{0\} aria-label="ตาราง SKU เลื่อนได้เมื่อข้อมูลกว้าง"/)
-  assert.match(detailSource, /<th scope="col">ตัวเลือก<\/th><th scope="col">SKU<\/th><th scope="col">รหัส CF<\/th><th scope="col">Barcode<\/th><th scope="col">Base Unit<\/th><th scope="col">Stock<\/th>/)
+  assert.match(detailSource, /<th scope="col">ตัวเลือก<\/th><th scope="col">SKU<\/th><th scope="col">รหัส CF<\/th><th scope="col">Barcode<\/th><th scope="col">หน่วยนับ<\/th><th scope="col">Stock<\/th>/)
   assert.match(styleSource, /\.product-quick-table th \{[\s\S]*background: #111;[\s\S]*color: #fff;/)
   assert.match(styleSource, /\.product-quick-table-wrap \{[\s\S]*overflow: auto;/)
 })

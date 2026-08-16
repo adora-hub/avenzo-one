@@ -7,10 +7,10 @@ const formPath = '../src/app/organizations/[id]/products/new/unified-product-cre
 
 test('R7.2.3D renders the approved pricing heading and three-field composition', async () => {
   const form = await read(formPath)
-  assert.match(form, /<h2>ราคาและภาษี<\/h2>/)
+  assert.match(form, /structure === 'variant' \? 'ภาษีและต้นทุนร่วม' : 'ราคาและภาษี'/)
   assert.match(form, /ราคานี้เป็น Default price ของ SKU แรก ไม่ใช่ราคาทุกสาขาตลอดไป/)
   assert.match(form, /<small>Pricing<\/small>/)
-  assert.match(form, /product-form-grid three product-pricing-grid/)
+  assert.match(form, /structure === 'variant' \? 'two product-variant-shared-pricing-grid' : 'three product-pricing-grid'/)
   assert.doesNotMatch(form, /<span>ภาษี \(%\)<\/span>/)
 })
 
@@ -38,13 +38,14 @@ test('R7.2.3D renders Tax-inclusive choice without changing the atomic command s
   assert.match(form, /ราคาขายรวมภาษีแล้ว/)
   assert.match(form, /Invoice จะเก็บ Tax snapshot ณ เวลาขาย/)
   assert.doesNotMatch(form, /tax_inclusive:/)
-  assert.match(form, /commandType: 'product\.create_with_initial_sku'/)
+  assert.match(form, /commandType: isVariantCreation \? 'product\.create_with_variants' : 'product\.create_with_initial_sku'/)
 })
 
 test('R7.2.3D applies approved suffix, checkbox and responsive styles', async () => {
   const styles = await read('../src/app/globals.css')
   assert.match(styles, /\.product-input-with-suffix \{[^}]*position: relative/)
   assert.match(styles, /\.product-input-with-suffix > span \{[^}]*right: 12px/)
-  assert.match(styles, /\.product-pricing-grid \.product-tax-inclusive \{[^}]*grid-column: span 2/)
+  assert.match(styles, /\.product-tax-inclusive \{[^}]*grid-column: span 2/)
+  assert.match(styles, /\.product-variant-shared-pricing-grid \.product-tax-inclusive \{[^}]*grid-column: 1 \/ -1/)
   assert.match(styles, /@media \(max-width: 760px\)[\s\S]*\.product-pricing-grid \.product-tax-inclusive \{ grid-column: 1; \}/)
 })
