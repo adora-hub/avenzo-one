@@ -38,6 +38,10 @@ test('R7.4.4 Customize can show, size, order and pin optional columns with F5 pe
   assert.match(grid, /onDragStart=\{\(event\) => startCustomizeDrag\(event, column\.key\)\}/)
   assert.match(grid, /onDrop=\{\(event\) => dropCustomizeDrag\(event, column\.key\)\}/)
   assert.match(grid, /event\.key !== 'ArrowUp' && event\.key !== 'ArrowDown'/)
+  assert.match(grid, /function showOrderTooltip/)
+  assert.match(grid, /id="product-grid-order-tooltip"/)
+  assert.match(styles, /\.product-grid-order-tooltip \{[^}]*position: fixed[^}]*transform: translateY\(-50%\)/)
+  assert.match(styles, /\.product-grid-order-tooltip::before \{[^}]*right: 100%[^}]*border-right-color: #111/)
 })
 
 test('R7.4.4 pinning keeps the selection column fixed and offsets pinned columns after it', () => {

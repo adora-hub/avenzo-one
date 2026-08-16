@@ -53,3 +53,4 @@ R7.4.5 จะปรับ Product Quick View ให้แสดงข้อม�
 - ลำดับยังเป็น Draft จนกดบันทึก และยังคงจำค่าในอุปกรณ์หลัง F5
 - ไม่เพิ่ม Database write และไม่เปลี่ยน Show/Hide, Width, Pin หรือ permission gate เดิม
 - Pin ใช้ไอคอนหมุดเอียงรูปแบบเดียวกันทั้ง Customize และหัวคอลัมน์ โดยในช่อง Pin จัดไอคอนชิดขวา และบนหัวตารางวางชิด Column divider/resizer ด้านขวา
+- Drag handle แสดง Tooltip ทางขวาทั้ง Hover และ Keyboard Focus โดยไม่ใช้ Native browser title

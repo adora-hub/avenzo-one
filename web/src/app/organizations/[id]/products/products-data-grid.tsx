@@ -149,6 +149,7 @@ export function ProductsDataGrid({
   const columnsRef = useRef<ProductGridColumnPreference[]>(PRODUCT_GRID_DEFAULT_COLUMNS)
   const [copied, setCopied] = useState<string | null>(null)
   const [copyTooltip, setCopyTooltip] = useState<{ key: string; text: string; left: number; top: number } | null>(null)
+  const [orderTooltip, setOrderTooltip] = useState<{ key: ProductGridColumnKey; left: number; top: number } | null>(null)
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set())
   const [gridSort, setGridSort] = useState<GridSort>({ key: 'updatedAt', direction: sort === 'updated_desc' ? 'desc' : 'asc' })
   const [excelMenuOpen, setExcelMenuOpen] = useState(false)
@@ -544,6 +545,7 @@ export function ProductsDataGrid({
   function closeCustomizeColumns(restoreFocus = true) {
     setCustomizeOpen(false)
     setCustomizeDrag(null)
+    setOrderTooltip(null)
     if (restoreFocus) window.requestAnimationFrame(() => customizeTriggerRef.current?.focus())
   }
 
@@ -593,7 +595,13 @@ export function ProductsDataGrid({
   function startCustomizeDrag(event: ReactDragEvent<HTMLButtonElement>, key: ProductGridColumnKey) {
     event.dataTransfer.effectAllowed = 'move'
     event.dataTransfer.setData('text/plain', key)
+    setOrderTooltip(null)
     setCustomizeDrag({ source: key, target: null, position: 'before' })
+  }
+
+  function showOrderTooltip(target: HTMLButtonElement, key: ProductGridColumnKey) {
+    const bounds = target.getBoundingClientRect()
+    setOrderTooltip({ key, left: bounds.right + 10, top: bounds.top + bounds.height / 2 })
   }
 
   function moveCustomizeDrag(event: ReactDragEvent<HTMLDivElement>, target: ProductGridColumnKey) {
@@ -775,7 +783,11 @@ export function ProductsDataGrid({
                 type="button"
                 draggable
                 aria-label={`ลากเพื่อจัดลำดับ ${labels[column.key]} ใช้ลูกศรขึ้นหรือลงได้`}
-                title="ลากเพื่อจัดลำดับ"
+                aria-describedby={orderTooltip?.key === column.key ? 'product-grid-order-tooltip' : undefined}
+                onMouseEnter={(event) => showOrderTooltip(event.currentTarget, column.key)}
+                onMouseLeave={() => setOrderTooltip(null)}
+                onFocus={(event) => showOrderTooltip(event.currentTarget, column.key)}
+                onBlur={() => setOrderTooltip(null)}
                 onDragStart={(event) => startCustomizeDrag(event, column.key)}
                 onDragEnd={() => setCustomizeDrag(null)}
                 onKeyDown={(event) => {
@@ -893,6 +905,7 @@ export function ProductsDataGrid({
       <Link role="menuitem" href={detailHref({ organizationId, search, status, sort, productId: rowMenu.rowId, page: currentPage, pageSize, bulkSearchActive, action: 'skus' })}>จัดการ SKU</Link>
     </div> : null}
     {copyTooltip ? <div id="product-grid-copy-tooltip" className="product-grid-copy-tooltip" role="tooltip" style={{ left: copyTooltip.left, top: copyTooltip.top }}>{copyTooltip.text}</div> : null}
+    {orderTooltip ? <div id="product-grid-order-tooltip" className="product-grid-order-tooltip" role="tooltip" style={{ left: orderTooltip.left, top: orderTooltip.top }}>ลากเพื่อจัดลำดับ</div> : null}
     {exportColumnsOpen ? <div className="product-modal-backdrop product-export-columns-backdrop" role="presentation" onMouseDown={(event) => {
       if (event.target === event.currentTarget) setExportColumnsOpen(false)
     }}>
