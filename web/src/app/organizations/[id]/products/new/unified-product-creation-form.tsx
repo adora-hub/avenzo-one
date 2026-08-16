@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { useEffect, useId, useRef, useState, useTransition, type FormEvent, type KeyboardEvent } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState, useTransition, type FormEvent, type KeyboardEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   checkProductIdentifiersAction,
@@ -113,6 +113,37 @@ function optionalNumber(value: FormDataEntryValue | null) {
 
 function formString(data: FormData, key: string) {
   return String(data.get(key) ?? '').trim()
+}
+
+function sanitizeTagName(value: string) {
+  return value.normalize('NFC')
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
+    .replace(/^#/, '')
+    .trim()
+    .slice(0, 40)
+}
+
+function suggestedTagNamesFromProductName(productName: string, selectedNames: string[], savedNames: string[]) {
+  const normalizedName = productName.normalize('NFC').trim()
+  if (!normalizedName) return []
+  const lowerName = normalizedName.toLocaleLowerCase('th-TH')
+  const stopWords = new Set([
+    'และ', 'หรือ', 'สำหรับ', 'รุ่น', 'แบบ', 'สินค้า', 'ขนาด',
+    'the', 'and', 'for', 'with', 'size', 'cm', 'mm', 'm', 'kg', 'g', 'ml', 'l', 'litre',
+  ])
+  const selected = new Set(selectedNames.map((name) => name.toLocaleLowerCase('th-TH')))
+  const tokens = normalizedName.match(/[\p{L}\p{M}\p{N}]+(?:[-'][\p{L}\p{M}\p{N}]+)*/gu) ?? []
+  const savedMatches = savedNames.filter((name) => lowerName.includes(name.toLocaleLowerCase('th-TH')))
+  const suggestions = [...tokens, ...savedMatches]
+    .map(sanitizeTagName)
+    .filter((name) => {
+      const lower = name.toLocaleLowerCase('th-TH')
+      return name.length >= 2
+        && !/^\d+(?:[.,-]\d+)*$/.test(name)
+        && !stopWords.has(lower)
+        && !selected.has(lower)
+    })
+  return [...new Map(suggestions.map((name) => [name.toLocaleLowerCase('th-TH'), name])).values()].slice(0, 8)
 }
 
 function generateCode(name: string, prefix: string) {
@@ -244,8 +275,140 @@ function sanitizePendingDraft(value: unknown): PendingDraft | null {
   return { productId, skuId, productName, savedAt }
 }
 
-function ProductInfoGuide({ label, title }: { label: string; title: string }) {
-  return <button className="product-info-guide" type="button" title={title} aria-label={`ดูคำแนะนำ${label}`}>i</button>
+const PRODUCT_INFO_GUIDE_OPEN_EVENT = 'avenzo:product-info-guide-open'
+let activeProductInfoGuide: { id: string; pinned: boolean } | null = null
+
+function ProductInfoGuide({
+  label,
+  description,
+  example,
+}: {
+  label: string
+  description: string
+  example: string
+}) {
+  const popoverId = useId()
+  const rootRef = useRef<HTMLSpanElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const popoverRef = useRef<HTMLElement>(null)
+  const [open, setOpen] = useState(false)
+  const [pinned, setPinned] = useState(false)
+  const [positioned, setPositioned] = useState(false)
+  const [position, setPosition] = useState({ left: 12, top: 12 })
+
+  function closeGuide() {
+    if (activeProductInfoGuide?.id === popoverId) activeProductInfoGuide = null
+    setOpen(false)
+    setPinned(false)
+  }
+
+  function openGuide(pin = false) {
+    if (!pin && activeProductInfoGuide?.pinned && activeProductInfoGuide.id !== popoverId) return
+    activeProductInfoGuide = { id: popoverId, pinned: pin }
+    window.dispatchEvent(new CustomEvent(PRODUCT_INFO_GUIDE_OPEN_EVENT, { detail: { id: popoverId } }))
+    setPinned(pin)
+    setPositioned(false)
+    setOpen(true)
+  }
+
+  useEffect(() => {
+    function closeWhenAnotherGuideOpens(event: Event) {
+      const detail = (event as CustomEvent<{ id?: string }>).detail
+      if (detail?.id !== popoverId) {
+        setOpen(false)
+        setPinned(false)
+      }
+    }
+    window.addEventListener(PRODUCT_INFO_GUIDE_OPEN_EVENT, closeWhenAnotherGuideOpens)
+    return () => {
+      window.removeEventListener(PRODUCT_INFO_GUIDE_OPEN_EVENT, closeWhenAnotherGuideOpens)
+      if (activeProductInfoGuide?.id === popoverId) activeProductInfoGuide = null
+    }
+  }, [popoverId])
+
+  useLayoutEffect(() => {
+    if (!open) return
+    function updatePosition() {
+      const button = buttonRef.current
+      const popover = popoverRef.current
+      if (!button || !popover) return
+      if (window.matchMedia('(max-width: 760px)').matches) {
+        setPositioned(true)
+        return
+      }
+      const rect = button.getBoundingClientRect()
+      const width = Math.min(320, window.innerWidth - 24)
+      const left = Math.min(window.innerWidth - width - 12, Math.max(12, rect.left))
+      const below = rect.bottom + 8
+      const top = below + popover.offsetHeight > window.innerHeight - 12
+        ? Math.max(12, rect.top - popover.offsetHeight - 8)
+        : below
+      setPosition({ left, top })
+      setPositioned(true)
+    }
+    updatePosition()
+    window.addEventListener('resize', updatePosition)
+    window.addEventListener('scroll', updatePosition, true)
+    return () => {
+      window.removeEventListener('resize', updatePosition)
+      window.removeEventListener('scroll', updatePosition, true)
+    }
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target as Node
+      if (rootRef.current?.contains(target) || popoverRef.current?.contains(target)) return
+      closeGuide()
+    }
+    function handleEscape(event: globalThis.KeyboardEvent) {
+      if (event.key !== 'Escape') return
+      event.stopPropagation()
+      closeGuide()
+    }
+    document.addEventListener('pointerdown', handlePointerDown)
+    document.addEventListener('keydown', handleEscape)
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown)
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [open])
+
+  return (
+    <span
+      className="product-info-guide-root"
+      ref={rootRef}
+    >
+      <button
+        className="product-info-guide"
+        ref={buttonRef}
+        type="button"
+        aria-label={`ดูคำแนะนำ${label}`}
+        aria-expanded={open}
+        aria-controls={popoverId}
+        aria-describedby={open ? popoverId : undefined}
+        onClick={(event) => {
+          event.preventDefault()
+          event.stopPropagation()
+          if (open && pinned) closeGuide()
+          else openGuide(true)
+        }}
+      >i</button>
+      <aside
+        className="product-info-popover"
+        id={popoverId}
+        ref={popoverRef}
+        role="tooltip"
+        hidden={!open}
+        style={{ left: position.left, top: position.top, visibility: positioned ? 'visible' : 'hidden' }}
+      >
+        <h3>{label}</h3>
+        <p>{description}</p>
+        <div className="product-info-example">{example}</div>
+      </aside>
+    </span>
+  )
 }
 
 type ManagedMasterKind = 'category' | 'brand' | 'tag'
@@ -342,31 +505,37 @@ function MasterDataManager({
     setWorkingItems((current) => current.map((item) => item.id === id ? { ...item, ...patch } : item))
   }
 
-  function addBulkItems() {
+  function mergeBulkItems(sourceItems: MasterWorkingItem[]) {
     const maxLength = itemMaxLength
     const values = bulkInput.split(/[,\n]/)
       .map((value) => value.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '').trim().slice(0, maxLength))
       .filter(Boolean)
       .slice(0, 20)
-    const next = [...workingItems]
+    const next = [...sourceItems]
     let added = 0
     for (const name of values) {
       if (next.some((item) => item.name.localeCompare(name, 'th', { sensitivity: 'base' }) === 0)) continue
       next.push({ id: `new-${crypto.randomUUID()}`, name, status: 'active', version: 1, isNew: true })
       added += 1
     }
+    return { next, added }
+  }
+
+  function addBulkItems() {
+    const { next, added } = mergeBulkItems(workingItems)
     setWorkingItems(next)
     setBulkInput('')
     setError(added ? '' : 'ไม่มีรายการใหม่ให้เพิ่ม')
   }
 
   function saveChanges() {
-    const invalid = workingItems.find((item) => !item.name.trim() || /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/.test(item.name))
+    const itemsToSave = bulkInput.trim() ? mergeBulkItems(workingItems).next : workingItems
+    const invalid = itemsToSave.find((item) => !item.name.trim() || /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/.test(item.name))
     if (invalid) {
       setError('ชื่อข้อมูลอ้างอิงว่างหรือมีอักขระที่ไม่อนุญาต')
       return
     }
-    const duplicateNames = workingItems.filter((item) => item.status === 'active').map((item) => item.name.trim().toLocaleLowerCase('th-TH'))
+    const duplicateNames = itemsToSave.filter((item) => item.status === 'active').map((item) => item.name.trim().toLocaleLowerCase('th-TH'))
     if (new Set(duplicateNames).size !== duplicateNames.length) {
       setError(`ชื่อ${label}ที่เปิดใช้งานต้องไม่ซ้ำกัน`)
       return
@@ -376,7 +545,7 @@ function MasterDataManager({
     startTransition(async () => {
       let savedItems = normalizedItems(items)
       const originalById = new Map(items.map((item) => [item.id, item]))
-      const changes = workingItems.filter((item) => {
+      const changes = itemsToSave.filter((item) => {
         if (item.isNew) return item.status === 'active'
         const original = originalById.get(item.id)
         return original && (original.name !== item.name.trim() || (original.status ?? 'active') !== item.status)
@@ -409,6 +578,7 @@ function MasterDataManager({
       }
 
       onSaved(savedItems)
+      setBulkInput('')
       setOpen(false)
       window.requestAnimationFrame(() => triggerRef.current?.focus())
     })
@@ -610,7 +780,7 @@ function SavedTagsInteraction({
 
   return <>
     <div ref={navigationRef} className={`product-saved-tags-navigation${quickOpen ? ' open' : ''}`} onPointerEnter={() => setQuickOpen(true)} onPointerLeave={() => { if (!quickLocked) setQuickOpen(false) }} onFocus={() => setQuickOpen(true)} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) { setQuickOpen(false); setQuickLocked(false) } }} onKeyDown={(event) => { if (event.key === 'Escape') { event.preventDefault(); setQuickOpen(false); setQuickLocked(false); triggerRef.current?.focus() } }}>
-      <button ref={triggerRef} className="button compact secondary product-saved-tags-trigger" type="button" aria-haspopup="menu" aria-expanded={quickOpen} onClick={() => { const next = !quickOpen || !quickLocked; setQuickOpen(next); setQuickLocked(next) }}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 13 13 20 4 11V4h7Z"/><path d="M8.5 8.5h.01"/></svg><span>เลือก Tags ที่บันทึกไว้</span><span className="product-saved-tags-caret" aria-hidden="true">⌄</span></button>
+      <button ref={triggerRef} className="button compact secondary product-saved-tags-trigger" type="button" aria-haspopup="menu" aria-expanded={quickOpen} onClick={() => { const next = !quickOpen || !quickLocked; setQuickOpen(next); setQuickLocked(next) }}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 13 13 20 4 11V4h7Z"/><path d="M8.5 8.5h.01"/></svg><span>เลือก Tags ที่บันทึกไว้</span><span className="product-saved-tags-caret" aria-hidden="true" /></button>
       {quickOpen ? <div className="product-saved-tags-menu" role="menu" aria-label="Tags ที่บันทึกไว้">
         {renderQuickGroup('ปักหมุด', pinned)}
         {renderQuickGroup('ใช้ล่าสุด', recent)}
@@ -663,6 +833,7 @@ export function UnifiedProductCreationForm({
   const [isPending, startTransition] = useTransition()
   const [isIdentifierChecking, startIdentifierCheck] = useTransition()
   const [isSkuDraftChecking, startSkuDraftCheck] = useTransition()
+  const [isTagPending, startTagTransition] = useTransition()
   const [categories, setCategories] = useState(initialCategories)
   const [brands, setBrands] = useState(initialBrands)
   const [tags, setTags] = useState(initialTags)
@@ -1121,24 +1292,58 @@ export function UnifiedProductCreationForm({
     setImageFeedback({ tone: 'success', text: 'ตั้งภาพปกใหม่แล้ว ภาพนี้จะอัปโหลดเป็นลำดับแรก' })
   }
 
+  function createAndSelectTagNames(rawNames: string[]) {
+    if (isTagPending || !canManage) return
+    const availableSlots = Math.max(0, 12 - tagIds.length)
+    const names = [...new Map(rawNames.map(sanitizeTagName).filter(Boolean).map((name) => [name.toLocaleLowerCase('th-TH'), name])).values()].slice(0, availableSlots)
+    if (!names.length) {
+      setFeedback({ tone: 'info', text: availableSlots ? 'ยังไม่มี Tag ใหม่ให้เพิ่ม' : 'เลือก Tags ได้สูงสุด 12 รายการ' })
+      return
+    }
+
+    startTagTransition(async () => {
+      let nextTags = [...tags]
+      const nextIds = [...tagIds]
+      let createdCount = 0
+      for (const name of names) {
+        let match = nextTags.find((tag) => tag.status !== 'archived' && tag.name.localeCompare(name, 'th', { sensitivity: 'base' }) === 0)
+        if (!match) {
+          const result = await executeFoundationCommandAction({
+            kind: 'entity', commandId: crypto.randomUUID(), organizationId,
+            commandType: 'product.master.upsert',
+            payload: { master_kind: 'tag', name, status: 'active' },
+          })
+          if (!result.ok || typeof result.data.entity_id !== 'string' || typeof result.data.version !== 'number') {
+            setTags(nextTags)
+            setTagIds(nextIds)
+            setFeedback({ tone: 'danger', text: errorLabels[result.ok ? '' : result.error] ?? `สร้าง Tag “${name}” ไม่สำเร็จ` })
+            return
+          }
+          match = { id: result.data.entity_id, name, status: 'active', version: result.data.version }
+          nextTags = [...nextTags, match]
+          createdCount += 1
+        }
+        if (!nextIds.includes(match.id) && nextIds.length < 12) nextIds.push(match.id)
+      }
+      setTags(nextTags)
+      setTagIds(nextIds)
+      setTagInput('')
+      setFeedback({ tone: 'success', text: `เพิ่ม Tags ${names.length} รายการ${createdCount ? ` · สร้างใหม่ ${createdCount} รายการ` : ''}` })
+    })
+  }
+
   function suggestTags() {
-    const productName = formRef.current?.elements.namedItem('name')
-    const value = productName instanceof HTMLInputElement ? productName.value.toLocaleLowerCase('th-TH') : ''
-    const matched = activeTags.filter((tag) => value.includes(tag.name.toLocaleLowerCase('th-TH'))).map((tag) => tag.id)
-    setTagIds((current) => Array.from(new Set([...current, ...matched])).slice(0, 12))
-    setFeedback({ tone: 'info', text: matched.length ? `พบ Tags จากชื่อสินค้า ${matched.length} รายการ` : 'ยังไม่พบ Tags ที่ตรงกับชื่อสินค้า คุณเลือกจากรายการที่บันทึกไว้หรือเพิ่มใหม่ได้' })
+    if (!suggestedTagNames.length) {
+      setFeedback({ tone: 'info', text: 'ยังไม่พบคำสำคัญใหม่จากชื่อสินค้า' })
+      return
+    }
+    createAndSelectTagNames(suggestedTagNames)
   }
 
   function selectSavedTagFromInput() {
-    const normalized = tagInput.trim().replace(/^#/, '')
+    const normalized = sanitizeTagName(tagInput)
     if (!normalized) return
-    const match = activeTags.find((tag) => tag.name.localeCompare(normalized, 'th', { sensitivity: 'base' }) === 0)
-    if (!match) {
-      setFeedback({ tone: 'info', text: `ยังไม่มี Tag “${normalized}” ใน Organization ใช้ไอคอนดินสอเพื่อเพิ่ม Tag นี้ก่อน` })
-      return
-    }
-    setTagIds((current) => current.includes(match.id) ? current : [...current, match.id].slice(0, 12))
-    setTagInput('')
+    createAndSelectTagNames([normalized])
   }
 
   function setImageStage(id: string, stage: UploadStage) {
@@ -1499,6 +1704,11 @@ export function UnifiedProductCreationForm({
   const activeCategories = categories.filter((option) => option.status !== 'archived')
   const activeBrands = brands.filter((option) => option.status !== 'archived')
   const activeTags = tags.filter((option) => option.status !== 'archived')
+  const selectedTagNames = tagIds.flatMap((id) => {
+    const tag = activeTags.find((option) => option.id === id)
+    return tag ? [tag.name] : []
+  })
+  const suggestedTagNames = suggestedTagNamesFromProductName(summaryFields.name, selectedTagNames, activeTags.map((tag) => tag.name))
   const requiredMasterMissing = activeCategories.length === 0
   const summaryCategory = activeCategories.find((option) => option.id === categoryId)?.name ?? 'ยังไม่เลือกหมวดหมู่'
   const summaryPrice = summaryFields.salePrice
@@ -1597,12 +1807,12 @@ export function UnifiedProductCreationForm({
         <section id="general" className="product-creation-card">
           <header><span>1</span><div><h2>ข้อมูลทั่วไป</h2><p>ข้อมูลที่ใช้ร่วมกันทุก SKU ภายใต้ Product นี้</p></div><small>Product</small></header>
           <div className="product-form-grid two">
-            <label className="full"><span className="product-label-with-info"><span>ชื่อสินค้า *</span><ProductInfoGuide label="ชื่อสินค้า" title="ชื่อหลักที่ใช้รวมหลาย SKU ของสินค้าเดียวกัน เช่น กระเป๋าหนัง Mini" /></span><input name="name" maxLength={160} required placeholder="เช่น กระเป๋าหนัง Mini" /></label>
+            <div className="full product-form-field"><span className="product-label-with-info"><label htmlFor="productName">ชื่อสินค้า *</label><ProductInfoGuide label="ชื่อสินค้า" description="ชื่อหลักที่ใช้รวมหลาย SKU ของสินค้าเดียวกัน ควรเป็นชื่อที่พนักงานและลูกค้าเข้าใจ" example="ตัวอย่าง: กระเป๋าหนัง Mini" /></span><input id="productName" name="name" maxLength={160} required placeholder="เช่น กระเป๋าหนัง Mini" /></div>
             <div className="product-form-field"><label htmlFor="productCategoryId">หมวดหมู่ *</label><span className="product-field-with-action"><span className="product-select-control"><select id="productCategoryId" name="categoryId" value={categoryId} onChange={(event) => setCategoryId(event.target.value)} required><option value="">เลือกหมวดหมู่</option>{activeCategories.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}</select></span><MasterDataManager organizationId={organizationId} kind="category" items={categories} canManage={canManage} onSaved={(options) => { setCategories(options); if (!options.some((option) => option.id === categoryId && option.status !== 'archived')) setCategoryId('') }} /></span></div>
             <div className="product-form-field"><label htmlFor="productBrandId">แบรนด์</label><span className="product-field-with-action"><span className="product-select-control"><select id="productBrandId" name="brandId" value={brandId} onChange={(event) => setBrandId(event.target.value)}><option value="">ไม่มีแบรนด์</option>{activeBrands.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}</select></span><MasterDataManager organizationId={organizationId} kind="brand" items={brands} canManage={canManage} onSaved={(options) => { setBrands(options); if (!options.some((option) => option.id === brandId && option.status !== 'archived')) setBrandId('') }} /></span><small>อ้างอิง Brand master; ถ้าไม่มีแบรนด์ให้เลือก “ไม่มีแบรนด์”</small></div>
-            <fieldset className="full product-segmented-control"><legend><span className="product-label-with-info"><span>รูปแบบสินค้า *</span><ProductInfoGuide label="รูปแบบสินค้า" title="เลือกสินค้าปกติเมื่อมี SKU เดียว, Variant เมื่อแยกสีหรือขนาด และ Bundle เมื่อนำหลาย SKU มารวมขาย" /></span></legend>{(['standard', 'variant', 'bundle'] as const).map((value) => <label key={value} className={structure === value ? 'active' : ''}><input type="radio" name="structureType" value={value} checked={structure === value} onChange={() => setStructure(value)} /><span>{value === 'standard' ? 'สินค้าปกติ' : value === 'variant' ? 'มีตัวเลือก / Variant' : 'Bundle / Kit'}</span></label>)}</fieldset>
-            <label className="product-quantity-field"><span className="product-field-heading-line"><span className="product-label-with-info"><span>Stock ของสินค้านี้นับอย่างไร?</span><ProductInfoGuide label="วิธีนับจำนวน" title="เลือกจำนวนเต็มเมื่อ Stock ห้ามเป็นเศษ หรือเลือกทศนิยมเมื่อขายตามน้ำหนักหรือปริมาตร" /></span></span><span className="product-select-control"><select name="quantityBehavior" defaultValue="discrete"><option value="discrete">จำนวนเต็ม — ชิ้น / คู่ / แพ็ค / กล่อง</option><option value="weight">ทศนิยม — สินค้าชั่งน้ำหนัก</option><option value="volume">ทศนิยม — สินค้าวัดปริมาตร</option></select></span><small>เลือกว่าจำนวน Stock อนุญาตให้มีจุดทศนิยมหรือไม่ ส่วนหน่วยที่ใช้จริงเลือกใน Base Unit</small><span className="product-quantity-examples" role="note"><span><strong>จำนวนเต็ม:</strong> ต่างหู 1 คู่, เสื้อ 2 ชิ้น, สินค้า 3 แพ็ค</span><span><strong>น้ำหนัก:</strong> ข้าวสาร 0.50 kg</span><span><strong>ปริมาตร:</strong> น้ำหอม 1.25 litre</span></span></label>
-            <div className="product-tag-field"><div className="product-field-heading-line"><strong>ป้ายกำกับสินค้า (Tags)</strong><SavedTagsInteraction organizationId={organizationId} tags={activeTags} selectedIds={tagIds} canManage={canManage} onChange={setTagIds} onCreated={(option) => setTags((current) => [...current, option])} /></div><div className="product-field-with-action"><div className="product-tag-editor">{tagIds.map((id) => { const tag = activeTags.find((option) => option.id === id); return tag ? <span className="product-tag-chip" key={id}>{tag.name}<button type="button" aria-label={`นำ Tag ${tag.name} ออก`} onClick={() => setTagIds((current) => current.filter((tagId) => tagId !== id))}>×</button></span> : null })}<input value={tagInput} onChange={(event) => setTagInput(event.target.value.slice(0, 40))} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ',') { event.preventDefault(); selectSavedTagFromInput() } }} maxLength={40} placeholder="พิมพ์ Tag แล้วกด Enter" /></div><MasterDataManager organizationId={organizationId} kind="tag" items={tags} canManage={canManage} onSaved={(options) => { setTags(options); setTagIds((current) => current.filter((id) => options.some((option) => option.id === id && option.status !== 'archived'))) }} /></div><div className="product-tag-suggestions"><button className="button compact secondary" type="button" onClick={suggestTags}>✦ แนะนำจากชื่อสินค้า</button></div><small>Hover/Focus เพื่อเลือก Tags ที่ใช้บ่อย หรือเปิดรายการทั้งหมดเพื่อค้นหา · สูงสุด 12 Tags</small></div>
+            <fieldset className="full product-segmented-control"><legend><span className="product-label-with-info"><span>รูปแบบสินค้า *</span><ProductInfoGuide label="รูปแบบสินค้า" description="เลือกสินค้าปกติเมื่อมี SKU เดียว, Variant เมื่อแยกสีหรือขนาด และ Bundle เมื่อนำหลาย SKU มารวมขาย" example="ตัวอย่าง: เสื้อรุ่นเดียวหลายสี → มีตัวเลือก / Variant" /></span></legend>{(['standard', 'variant', 'bundle'] as const).map((value) => <label key={value} className={structure === value ? 'active' : ''}><input type="radio" name="structureType" value={value} checked={structure === value} onChange={() => setStructure(value)} /><span>{value === 'standard' ? 'สินค้าปกติ' : value === 'variant' ? 'มีตัวเลือก / Variant' : 'Bundle / Kit'}</span></label>)}</fieldset>
+            <div className="product-form-field product-quantity-field"><span className="product-field-heading-line"><span className="product-label-with-info"><label htmlFor="quantityBehavior">Stock ของสินค้านี้นับอย่างไร?</label><ProductInfoGuide label="Stock ของสินค้านี้นับอย่างไร?" description="เลือกจำนวนเต็มเมื่อ Stock ห้ามเป็นเศษ หรือเลือกทศนิยมเมื่อขายตามน้ำหนักหรือปริมาตร ช่องนี้ไม่ใช่ชื่อหน่วย เพราะชื่อหน่วยกำหนดใน Base Unit" example="ตัวอย่าง: ต่างหู 2 คู่ → จำนวนเต็ม / pair · ข้าวสาร 0.50 kg → ทศนิยมแบบน้ำหนัก / kg" /></span></span><span className="product-select-control"><select id="quantityBehavior" name="quantityBehavior" defaultValue="discrete"><option value="discrete">จำนวนเต็ม — ชิ้น / คู่ / แพ็ค / กล่อง</option><option value="weight">ทศนิยม — สินค้าชั่งน้ำหนัก</option><option value="volume">ทศนิยม — สินค้าวัดปริมาตร</option></select></span><small>เลือกว่าจำนวน Stock อนุญาตให้มีจุดทศนิยมหรือไม่ ส่วนหน่วยที่ใช้จริงเลือกใน Base Unit</small><span className="product-quantity-examples" role="note"><span><strong>จำนวนเต็ม:</strong> ต่างหู 1 คู่, เสื้อ 2 ชิ้น, สินค้า 3 แพ็ค</span><span><strong>น้ำหนัก:</strong> ข้าวสาร 0.50 kg</span><span><strong>ปริมาตร:</strong> น้ำหอม 1.25 litre</span></span></div>
+            <div className="product-tag-field"><div className="product-field-heading-line"><strong>ป้ายกำกับสินค้า (Tags)</strong><SavedTagsInteraction organizationId={organizationId} tags={activeTags} selectedIds={tagIds} canManage={canManage} onChange={setTagIds} onCreated={(option) => setTags((current) => [...current, option])} /></div><div className="product-field-with-action"><div className="product-tag-editor">{tagIds.map((id) => { const tag = activeTags.find((option) => option.id === id); return tag ? <span className="product-tag-chip" key={id}>{tag.name}<button type="button" aria-label={`นำ Tag ${tag.name} ออก`} onClick={() => setTagIds((current) => current.filter((tagId) => tagId !== id))}>×</button></span> : null })}<input value={tagInput} onChange={(event) => setTagInput(event.target.value.slice(0, 40))} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ',') { event.preventDefault(); selectSavedTagFromInput() } }} maxLength={40} placeholder="พิมพ์ Tag แล้วกด Enter" disabled={isTagPending} /></div><MasterDataManager organizationId={organizationId} kind="tag" items={tags} canManage={canManage} onSaved={(options) => { setTags(options); setTagIds((current) => current.filter((id) => options.some((option) => option.id === id && option.status !== 'archived'))) }} /></div>{suggestedTagNames.length ? <div className="product-tag-suggestions" aria-label="Tags ที่แนะนำจากชื่อสินค้า">{suggestedTagNames.map((name) => <button className="button compact secondary" type="button" key={name} disabled={isTagPending} onClick={() => createAndSelectTagNames([name])}>＋ {name}</button>)}{suggestedTagNames.length > 1 ? <button className="button compact secondary product-tag-add-all" type="button" disabled={isTagPending} onClick={suggestTags}>✦ {isTagPending ? 'กำลังเพิ่ม Tags…' : 'เพิ่มทั้งหมด'}</button> : null}</div> : <div className="product-tag-suggestions"><button className="button compact secondary" type="button" disabled={isTagPending || !summaryFields.name} onClick={suggestTags}>✦ แนะนำจากชื่อสินค้า</button></div>}<small>พิมพ์ Tag ใหม่แล้วกด Enter, เลือกคำแนะนำจากชื่อสินค้า หรือเลือก Tags ที่บันทึกไว้ · สูงสุด 12 Tags</small></div>
             <label className="full"><span>หมายเหตุสินค้า</span><textarea name="internalNote" maxLength={1000} rows={3} placeholder="หมายเหตุภายในสำหรับทีมงาน ไม่แสดงให้ลูกค้า" /></label>
           </div>
         </section>
@@ -1622,19 +1832,19 @@ export function UnifiedProductCreationForm({
           <header><span>3</span><div><h2>SKU แรกและรหัสสินค้า</h2><p>SKU คือรายการที่ขายและนับ Stock จริง</p></div><small>SKU</small></header>
           <div className="product-form-grid two">
             <div className="full product-sku-name-field">
-              <div className="product-field-heading-line"><span className="product-label-with-info"><label htmlFor="skuName">ชื่อรุ่น / ตัวเลือกสินค้า *</label><ProductInfoGuide label="ชื่อรุ่นหรือตัวเลือกสินค้า" title="ชื่อรายการที่ขายจริง ให้ใส่เฉพาะสิ่งที่ทำให้ SKU นี้ต่างจากรายการอื่น เช่น สีน้ำตาล หรือขนาด Mini" /></span><label className="product-auto-fill-choice"><input name="useProductNameForSku" type="checkbox" value="true" checked={useProductNameForSku} onChange={(event) => { setUseProductNameForSku(event.target.checked); if (event.target.checked) syncProductNameToSku() }} /><span>ใช้ชื่อเดียวกับสินค้า</span></label></div>
+              <div className="product-field-heading-line"><span className="product-label-with-info"><label htmlFor="skuName">ชื่อรุ่น / ตัวเลือกสินค้า *</label><ProductInfoGuide label="ชื่อรุ่น / ตัวเลือกสินค้า" description="ชื่อของรายการที่ขายจริง ให้ใส่เฉพาะสิ่งที่ทำให้ SKU นี้ต่างจากรายการอื่น" example="ตัวอย่าง: กระเป๋าหนัง Mini · สีน้ำตาล" /></span><label className="product-auto-fill-choice"><input name="useProductNameForSku" type="checkbox" value="true" checked={useProductNameForSku} onChange={(event) => { setUseProductNameForSku(event.target.checked); if (event.target.checked) syncProductNameToSku() }} /><span>ใช้ชื่อเดียวกับสินค้า</span></label></div>
               <input id="skuName" name="skuName" maxLength={160} required placeholder="ระบบจะนำชื่อสินค้ามาใส่ให้อัตโนมัติ" onInput={() => { if (useProductNameForSku) setUseProductNameForSku(false) }} />
               <small>สินค้าปกติใช้ชื่อเดียวกับสินค้าได้ เพื่อไม่ต้องกรอกข้อมูลซ้ำ</small>
               {structure === 'variant' ? <div className="product-variant-name-assistant"><label><span>ตัวเลือกที่ 1</span><input name="variantOptionOne" value={variantOptionOne} onChange={(event) => setVariantOptionOne(event.target.value.slice(0, 60))} maxLength={60} placeholder="เช่น สีน้ำตาล" /></label><label><span>ตัวเลือกที่ 2</span><input name="variantOptionTwo" value={variantOptionTwo} onChange={(event) => setVariantOptionTwo(event.target.value.slice(0, 60))} maxLength={60} placeholder="เช่น ขนาด Mini" /></label><div className="product-sku-name-suggestion"><span>ชื่อที่ระบบแนะนำ<strong>{skuNameSuggestion}</strong></span><button className="button compact secondary" type="button" onClick={() => { setUseProductNameForSku(false); applySkuNameSuggestion() }}>ใช้คำแนะนำ</button></div></div> : null}
             </div>
 
-            <label className="product-identifier-field"><span className="product-label-with-info"><span>SKU Code *</span><ProductInfoGuide label="SKU Code" title="รหัสหลักภายในระบบและต้องไม่ซ้ำใน Organization เมื่อบันทึกจะเปลี่ยนเป็นตัวพิมพ์ใหญ่" /></span><input name="skuCode" maxLength={80} required autoComplete="off" placeholder="BAG-MINI-TAN" onBlur={(event) => applySkuCodeValue(event.currentTarget.value)} /><button className="button compact secondary product-field-button" type="button" onClick={() => applySkuCodeValue(generateCode(summaryFields.name, 'SKU'))}>✦ แนะนำ SKU Code</button><small>รหัสหลักภายในระบบ · เปลี่ยนเป็นตัวพิมพ์ใหญ่</small></label>
+            <div className="product-form-field product-identifier-field"><span className="product-label-with-info"><label htmlFor="skuCode">SKU Code *</label><ProductInfoGuide label="SKU Code" description="รหัสหลักภายใน Organization ใช้เชื่อม Stock, Order และ Audit ต้องไม่ซ้ำ" example="ตัวอย่าง: BAG-MINI-TAN" /></span><input id="skuCode" name="skuCode" maxLength={80} required autoComplete="off" placeholder="BAG-MINI-TAN" onBlur={(event) => applySkuCodeValue(event.currentTarget.value)} /><button className="button compact secondary product-field-button" type="button" onClick={() => applySkuCodeValue(generateCode(summaryFields.name, 'SKU'))}>✦ แนะนำ SKU Code</button><small>รหัสหลักภายในระบบ · เปลี่ยนเป็นตัวพิมพ์ใหญ่</small></div>
 
-            <label className="product-identifier-field"><span className="product-label-with-info"><span>Sales Code</span><ProductInfoGuide label="Sales Code" title="รหัสสั้นสำหรับงานขายหรือ CF จะกรอกเอง ใช้ SKU Code หรือรันเลขต่อเนื่องก็ได้" /></span><span className="product-select-control"><select name="salesCodeMode" value={salesCodeMode} onChange={(event) => applySalesCodeMode(event.target.value as SalesCodeMode)} aria-label="วิธีกำหนด Sales Code"><option value="manual">กรอก Sales Code เอง</option><option value="same-sku">ใช้รหัสเดียวกับ SKU Code</option><option value="sequence">รันเลขต่อเนื่องอัตโนมัติ</option></select></span><input name="salesCode" maxLength={80} autoComplete="off" readOnly={salesCodeMode !== 'manual'} placeholder="A001" onBlur={(event) => { const value = event.currentTarget.value.trim().toUpperCase(); setFormFieldValue('salesCode', value); if (barcodeMode === 'internal-sales') setFormFieldValue('barcode', value) }} /><small>รหัสขายถาวร; CF Code สำหรับ Live Session กำหนดภายหลัง</small></label>
+            <div className="product-form-field product-identifier-field"><span className="product-label-with-info"><label htmlFor="salesCode">Sales Code</label><ProductInfoGuide label="Sales Code" description="รหัสสั้นสำหรับงานขายหรือ CF จะกรอกเอง ใช้ SKU Code หรือรันเลขต่อเนื่องก็ได้" example="ตัวอย่าง: A001" /></span><span className="product-select-control"><select name="salesCodeMode" value={salesCodeMode} onChange={(event) => applySalesCodeMode(event.target.value as SalesCodeMode)} aria-label="วิธีกำหนด Sales Code"><option value="manual">กรอก Sales Code เอง</option><option value="same-sku">ใช้รหัสเดียวกับ SKU Code</option><option value="sequence">รันเลขต่อเนื่องอัตโนมัติ</option></select></span><input id="salesCode" name="salesCode" maxLength={80} autoComplete="off" readOnly={salesCodeMode !== 'manual'} placeholder="A001" onBlur={(event) => { const value = event.currentTarget.value.trim().toUpperCase(); setFormFieldValue('salesCode', value); if (barcodeMode === 'internal-sales') setFormFieldValue('barcode', value) }} /><small>รหัสขายถาวร; CF Code สำหรับ Live Session กำหนดภายหลัง</small></div>
 
-            <label className="product-identifier-field"><span className="product-label-with-info"><span>Barcode / รหัสสแกน</span><ProductInfoGuide label="Barcode" title="ใช้รหัสผู้ผลิตหรือรหัสภายในหนึ่งค่า ห้ามต่อหลายรหัสรวมกัน และทุกค่าต้องชี้ไป SKU เดียว" /></span><span className="product-select-control"><select name="barcodeMode" value={barcodeMode} onChange={(event) => applyBarcodeMode(event.target.value as BarcodeMode)} aria-label="วิธีกำหนด Barcode"><option value="manufacturer">ใช้ Barcode จากผู้ผลิต</option><option value="internal-sku">สร้างรหัสภายในจาก SKU Code</option><option value="internal-sales">สร้างรหัสภายในจาก Sales Code</option><option value="none">ยังไม่มี Barcode</option></select></span><input name="barcode" maxLength={128} inputMode="text" autoComplete="off" readOnly={barcodeMode !== 'manufacturer'} placeholder="8851234567890" /><small>ห้ามผสมหลายรหัสเป็นข้อความเดียว; ทุกค่าที่สแกนต้อง resolve เป็น SKU เดียว</small></label>
+            <div className="product-form-field product-identifier-field"><span className="product-label-with-info"><label htmlFor="barcode">Barcode / รหัสสแกน</label><ProductInfoGuide label="Barcode / รหัสสแกน" description="ใช้รหัสผู้ผลิตหรือรหัสภายในหนึ่งค่า ห้ามต่อหลายรหัสรวมกัน และทุกค่าต้องชี้ไป SKU เดียว" example="ตัวอย่าง: 8851234567890" /></span><span className="product-select-control"><select name="barcodeMode" value={barcodeMode} onChange={(event) => applyBarcodeMode(event.target.value as BarcodeMode)} aria-label="วิธีกำหนด Barcode"><option value="manufacturer">ใช้ Barcode จากผู้ผลิต</option><option value="internal-sku">สร้างรหัสภายในจาก SKU Code</option><option value="internal-sales">สร้างรหัสภายในจาก Sales Code</option><option value="none">ยังไม่มี Barcode</option></select></span><input id="barcode" name="barcode" maxLength={128} inputMode="text" autoComplete="off" readOnly={barcodeMode !== 'manufacturer'} placeholder="8851234567890" /><small>ห้ามผสมหลายรหัสเป็นข้อความเดียว; ทุกค่าที่สแกนต้อง resolve เป็น SKU เดียว</small></div>
 
-            <div className="product-base-unit-field"><span className="product-label-with-info"><label htmlFor="baseUnitCode">Base Unit *</label><ProductInfoGuide label="Base Unit" title="หน่วยเล็กที่สุดที่ Ledger ใช้เก็บและตัด Stock หนึ่ง SKU มี Base Unit เดียว" /></span><div className="product-select-with-policy"><span className="product-select-control"><select id="baseUnitCode" name="baseUnitCode" defaultValue="piece" required><option value="piece">piece — ชิ้น</option><option value="pair">pair — คู่</option><option value="pack">pack — แพ็ค</option><option value="box">box — กล่อง</option><option value="set">set — ชุด</option><option value="case">case — ลัง</option><option value="kg">kg — กิโลกรัม</option><option value="g">g — กรัม</option><option value="litre">litre — ลิตร</option><option value="ml">ml — มิลลิลิตร</option></select></span><details className="product-base-unit-policy"><summary className="product-policy-icon" title="ดูนโยบายหน่วยนับ" aria-label="ดูนโยบาย Base Unit"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg></summary><div><strong>นโยบาย Base Unit</strong><span>หน่วยเล็กที่สุดที่ Ledger ใช้เก็บและตัด Stock ควรล็อกหลังเริ่มมี Stock Movement</span><ul><li>ต่างหูขายเป็นคู่ ใช้ pair</li><li>เก็บทีละชิ้นแต่ขายแพ็ค ใช้ piece แล้วกำหนดหน่วยขายภายหลัง</li><li>ชั่งน้ำหนักใช้ kg/g และปริมาตรใช้ litre/ml</li></ul></div></details></div><small>หนึ่ง SKU ใช้ Base Unit เดียว และควรล็อกหลังเริ่มมี Stock Movement</small></div>
+            <div className="product-base-unit-field"><span className="product-label-with-info"><label htmlFor="baseUnitCode">Base Unit *</label><ProductInfoGuide label="Base Unit" description="หน่วยเล็กที่สุดที่ Ledger ใช้บันทึก Stock หนึ่ง SKU มีได้หนึ่งค่า ส่วนหน่วยขายกำหนดอัตราแปลงภายหลัง" example="ตัวอย่าง: เก็บต่างหูเป็นคู่ → pair · เก็บทีละชิ้นแต่ขายแพ็ค 6 → piece และเพิ่ม 1 pack = 6 pieces" /></span><div className="product-select-with-policy"><span className="product-select-control"><select id="baseUnitCode" name="baseUnitCode" defaultValue="piece" required><option value="piece">piece — ชิ้น</option><option value="pair">pair — คู่</option><option value="pack">pack — แพ็ค</option><option value="box">box — กล่อง</option><option value="set">set — ชุด</option><option value="case">case — ลัง</option><option value="kg">kg — กิโลกรัม</option><option value="g">g — กรัม</option><option value="litre">litre — ลิตร</option><option value="ml">ml — มิลลิลิตร</option></select></span><details className="product-base-unit-policy"><summary className="product-policy-icon" title="ดูนโยบายหน่วยนับ" aria-label="ดูนโยบาย Base Unit"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg></summary><div><strong>นโยบาย Base Unit</strong><span>หน่วยเล็กที่สุดที่ Ledger ใช้เก็บและตัด Stock ควรล็อกหลังเริ่มมี Stock Movement</span><ul><li>ต่างหูขายเป็นคู่ ใช้ pair</li><li>เก็บทีละชิ้นแต่ขายแพ็ค ใช้ piece แล้วกำหนดหน่วยขายภายหลัง</li><li>ชั่งน้ำหนักใช้ kg/g และปริมาตรใช้ litre/ml</li></ul></div></details></div><small>หนึ่ง SKU ใช้ Base Unit เดียว และควรล็อกหลังเริ่มมี Stock Movement</small></div>
 
             <label><span>สถานะเริ่มต้น</span><span className="product-select-control"><select name="initialStatus" defaultValue="draft" disabled><option value="draft">ฉบับร่าง</option><option value="active">ใช้งานอยู่</option></select></span><small>Atomic Creation เริ่มเป็นฉบับร่างเสมอ เปิดใช้งานได้หลังตรวจสอบ</small></label>
 
@@ -1664,10 +1874,10 @@ export function UnifiedProductCreationForm({
         <section id="pricing" className="product-creation-card">
           <header><span>4</span><div><h2>ราคาและภาษี</h2><p>ราคานี้เป็น Default price ของ SKU แรก ไม่ใช่ราคาทุกสาขาตลอดไป</p></div><small>Pricing</small></header>
           <div className="product-form-grid three product-pricing-grid">
-            <label>
-              <span className="product-label-with-info"><span>ราคาขาย *</span><ProductInfoGuide label="ราคาขาย" title="ราคาเริ่มต้นของ SKU; ระบบจริงอาจถูกแทนด้วยราคาตามสาขา ช่องทาง หรือช่วงเวลา เช่น 1,290.00 THB" /></span>
-              <span className="product-input-with-suffix"><input name="salePrice" type="number" min="0" max="999999999.99" step="0.01" inputMode="decimal" placeholder="0.00" required /><span>THB</span></span>
-            </label>
+            <div className="product-form-field">
+              <span className="product-label-with-info"><label htmlFor="salePrice">ราคาขาย *</label><ProductInfoGuide label="ราคาขาย" description="ราคาเริ่มต้นของ SKU; ระบบจริงอาจถูกแทนด้วยราคาตามสาขา ช่องทาง หรือช่วงเวลา" example="ตัวอย่าง: 1,290.00 THB" /></span>
+              <span className="product-input-with-suffix"><input id="salePrice" name="salePrice" type="number" min="0" max="999999999.99" step="0.01" inputMode="decimal" placeholder="0.00" required /><span>THB</span></span>
+            </div>
             <label>
               <span>ราคาต้นทุน</span>
               <span className="product-input-with-suffix"><input name="costPrice" type="number" min="0" max="999999999.99" step="0.01" inputMode="decimal" placeholder="0.00" /><span>THB</span></span>

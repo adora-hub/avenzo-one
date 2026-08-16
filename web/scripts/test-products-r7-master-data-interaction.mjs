@@ -37,7 +37,7 @@ test('R7.2.4A implements search edit archive and bounded bulk staging', async ()
   assert.match(form, /bulkInput\.split\(\/\[,\\n\]\//)
   assert.match(form, /\.slice\(0, 20\)/)
   assert.match(form, /maxLength=\{600\}/)
-  assert.match(form, /const next = \[\.\.\.workingItems\][\s\S]*setWorkingItems\(next\)[\s\S]*setError\(added \? '' : 'ไม่มีรายการใหม่ให้เพิ่ม'\)/)
+  assert.match(form, /const next = \[\.\.\.sourceItems\][\s\S]*const \{ next, added \} = mergeBulkItems\(workingItems\)[\s\S]*setWorkingItems\(next\)[\s\S]*setError\(added \? '' : 'ไม่มีรายการใหม่ให้เพิ่ม'\)/)
 })
 
 test('R7.2.4A persists every supported change through the trusted versioned command', async () => {
@@ -48,6 +48,14 @@ test('R7.2.4A persists every supported change through the trusted versioned comm
   assert.match(form, /แต่ละรายการบันทึกผ่าน trusted command พร้อม Audit Log/)
   const manager = form.slice(form.indexOf('function MasterDataManager'), form.indexOf('export function UnifiedProductCreationForm'))
   assert.doesNotMatch(manager, /createClient\(|\.from\('product_categories'\)|\.from\('product_brands'\)/)
+})
+
+test('R7.2.4A saves pending bulk text without requiring the staging button first', async () => {
+  const form = await read(formPath)
+  assert.match(form, /function mergeBulkItems\(sourceItems: MasterWorkingItem\[\]\)/)
+  assert.match(form, /const itemsToSave = bulkInput\.trim\(\) \? mergeBulkItems\(workingItems\)\.next : workingItems/)
+  assert.match(form, /const changes = itemsToSave\.filter/)
+  assert.match(form, /onSaved\(savedItems\)[\s\S]*setBulkInput\(''\)[\s\S]*setOpen\(false\)/)
 })
 
 test('R7.2.4A does not promise unsupported reactivation of immutable archived masters', async () => {
@@ -73,6 +81,7 @@ test('R7.2.4A applies the approved modal list and responsive composition', async
   assert.match(styles, /\.product-master-dialog \{[^}]*width: min\(720px, 100%\)/)
   assert.match(styles, /\.product-master-toolbar \{[^}]*grid-template-columns: minmax\(0, 1fr\) auto/)
   assert.match(styles, /\.product-master-row \{[^}]*grid-template-columns: minmax\(0, 1fr\) auto/)
+  assert.match(styles, /\.product-master-bulk textarea \{[^}]*font-size: 15px[^}]*font-weight: 400[^}]*line-height: 1\.65/)
   assert.match(styles, /\.product-master-dialog > footer/)
   assert.match(styles, /\.product-master-row \{ grid-template-columns: 1fr; \}/)
 })
