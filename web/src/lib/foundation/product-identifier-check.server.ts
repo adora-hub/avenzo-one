@@ -4,6 +4,7 @@ import { requireFoundationPermission } from './authorization'
 import { FoundationError } from './errors'
 import { getFoundationActor } from './server-context'
 import { createClient } from '@/lib/supabase/server'
+import { identifierSequenceCandidates } from './product-identifier-suggestion'
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const CODE_PATTERN = /^[A-Z0-9][A-Z0-9._-]*$/
@@ -14,6 +15,7 @@ export type ProductIdentifierField = 'sku_code' | 'sales_code' | 'barcode'
 export type ProductIdentifierCollision = {
   field: ProductIdentifierField
   value: string
+  suggestion?: string
 }
 
 export type ProductIdentifierCheckResult = {
@@ -79,20 +81,59 @@ export async function checkProductIdentifiers(
   requireFoundationPermission(actor, 'product.manage')
 
   const supabase = await createClient()
-  const results = await Promise.all(parsed.identifiers.map(async (identifier) => {
-    const result = await supabase
-      .from('skus')
-      .select('id')
-      .eq('organization_id', parsed.organizationId)
-      .eq(identifier.field, identifier.value)
-      .limit(1)
-    if (result.error) throw result.error
-    return result.data?.length ? identifier : null
-  }))
+  const normalizedValues = [...new Set(parsed.identifiers.map((identifier) => identifier.value.toUpperCase()))]
+  const existingResult = await supabase
+    .from('sku_identifier_registry')
+    .select('normalized_identifier')
+    .eq('organization_id', parsed.organizationId)
+    .in('normalized_identifier', normalizedValues)
+  if (existingResult.error) throw existingResult.error
+
+  const existingValues = new Set(
+    existingResult.data?.map((row) => String(row.normalized_identifier).toUpperCase()) ?? [],
+  )
+  const collisions = parsed.identifiers.filter((identifier) => (
+    existingValues.has(identifier.value.toUpperCase())
+  ))
+
+  const requestValues = new Set(normalizedValues)
+  const allocatedSuggestions = new Set<string>()
+  const suggestionByValue = new Map<string, string>()
+  for (const collision of collisions) {
+    const normalized = collision.value.toUpperCase()
+    if (suggestionByValue.has(normalized)) continue
+
+    for (let offset = 1; offset <= 10_000; offset += 100) {
+      const candidates = identifierSequenceCandidates(normalized, offset, 100)
+      const candidateResult = await supabase
+        .from('sku_identifier_registry')
+        .select('normalized_identifier')
+        .eq('organization_id', parsed.organizationId)
+        .in('normalized_identifier', candidates)
+      if (candidateResult.error) throw candidateResult.error
+
+      const unavailable = new Set(
+        candidateResult.data?.map((row) => String(row.normalized_identifier).toUpperCase()) ?? [],
+      )
+      const suggestion = candidates.find((candidate) => (
+        !unavailable.has(candidate)
+        && !requestValues.has(candidate)
+        && !allocatedSuggestions.has(candidate)
+      ))
+      if (!suggestion) continue
+
+      suggestionByValue.set(normalized, suggestion)
+      allocatedSuggestions.add(suggestion)
+      break
+    }
+  }
 
   return {
     checked: parsed.identifiers.length,
-    collisions: results.filter((result): result is ProductIdentifierCollision => Boolean(result)),
+    collisions: collisions.map((collision) => ({
+      ...collision,
+      suggestion: suggestionByValue.get(collision.value.toUpperCase()),
+    })),
   }
 }
 export async function checkVariantProductIdentifiers(

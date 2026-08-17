@@ -431,3 +431,283 @@ final result: blocked
 - ปุ่มใช้ Products standard: Secondary แบบ outline และ Primary สีดำพร้อม hover สีเทา
 
 final result: passed
+
+---
+
+# Design QA — Product Quick Create Queue Thumbnail and Icon Actions
+
+วันที่ตรวจ: 17 สิงหาคม 2026
+
+## Source visual truth
+
+- ภาพอ้างอิง: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-c61fd6e1-4530-45c4-8240-64b0053d38d7.png`
+- เป้าหมาย: คิวสินค้าที่รอสร้างต้องแสดงภาพแรกของสินค้าในแต่ละแถว และเปลี่ยนปุ่มข้อความแก้ไข/นำออกเป็น icon-only action พร้อม Tooltip ด้านบน
+- State: Unified Product Creation · Quick Create Queue · desktop · light theme
+
+## Implementation evidence
+
+- Component: `web/src/app/organizations/[id]/products/new/unified-product-creation-form.tsx`
+- Styles: `web/src/app/globals.css`
+- Design standard: `docs/AVENZO_ONE_Design_System_and_UIUX_Standards_V1.md`
+- Browser-rendered screenshot: unavailable เพราะ in-app Browser เริ่มทำงานไม่ได้จาก Windows sandbox (`apply deny-read ACLs`)
+- Implementation pixels / CSS viewport / density: unavailable
+
+## Static and interaction verification
+
+- ทุกสินค้าที่กดเก็บใหม่ต้องมีภาพอย่างน้อย 1 ภาพ มิฉะนั้นระบบไม่เพิ่มเข้าคิว
+- แต่ละแถว snapshot `imageId` และชื่อภาพปก แล้วแสดง thumbnail 44 × 44 px อัตราส่วน 1:1
+- เมื่อ F5 แล้วไฟล์จากเครื่องไม่สามารถถูกเก็บใน Browser Draft ได้ตามข้อจำกัดเดิม จะแสดงสถานะให้เลือกรูปใหม่แทนการแสดงภาพผิดรายการ
+- ปุ่มแก้ไขและนำออกใช้ icon-only action พร้อม `aria-label`
+- Tooltip แสดงด้านบนทั้ง mouse hover และ keyboard focus
+- คู่มือ Design System เปลี่ยนมาตรฐานเป็น icon-only ทุกปุ่มต้องมี Accessible Label และ Tooltip เสมอ
+
+## Automated checks
+
+- SKU Components: 6/6 passed
+- SKU Staging Interaction: 11/11 passed
+- Validation Summary Interaction: 12/12 passed
+- TypeScript: passed
+- `git diff --check`: passed (มีเพียงคำเตือน line ending ของ Git บน Windows)
+
+## Required fidelity surfaces
+
+- Fonts and typography: ใช้ขนาดข้อความและ token เดิมของ staging table; ต้องยืนยันการตัดชื่อยาวจาก browser จริง
+- Spacing and layout rhythm: thumbnail 44px, gap 9px และ icon action 32px; ต้องยืนยันแนวฐานจาก browser จริง
+- Colors and visual tokens: ใช้ surface/text/status tokens เดิม รวม danger hover สำหรับนำออก
+- Image quality and asset fidelity: ใช้ภาพจริงที่ผู้ใช้เลือกและ `object-fit: cover`; ไม่ใช้ placeholder เมื่อมีไฟล์อยู่ใน session
+- Copy and content: Tooltip ใช้ “แก้ไขสินค้า” และ “นำออกจากคิว”; สถานะหลัง F5 อธิบายว่ารูปจากเครื่องไม่ถูกเก็บ
+
+## Blocker
+
+- ไม่สามารถจับ implementation screenshot และทดสอบ hover/focus แบบ pixel-level ได้ เพราะ browser runtime ถูก Windows ACL ปฏิเสธ
+
+final result: blocked
+---
+
+# Design QA — Quick Create Queue Sticky Actions and Product Snapshot
+
+วันที่ตรวจ: 17 สิงหาคม 2026
+
+## Source visual truth
+
+- ภาพอ้างอิง: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-37e42457-33d2-4611-9de0-daf23ee7fa3e.png`
+- เป้าหมาย: ตรึงคอลัมน์แก้ไข/นำออกไว้ขวาสุด และทำคิว Browser Draft ให้เก็บ–คืนข้อมูลสินค้าทั้งรายการเพื่อทดสอบการสร้างต่อเนื่อง
+- State: Unified Product Creation · Quick Create Queue · desktop · light theme · horizontal overflow
+
+## Implementation evidence
+
+- Component: `web/src/app/organizations/[id]/products/new/unified-product-creation-form.tsx`
+- Styles: `web/src/app/globals.css`
+- Regression test: `web/scripts/test-products-r7-sku-staging-interaction.mjs`
+- Browser-rendered screenshot: unavailable เพราะ in-app Browser เริ่มทำงานไม่ได้จาก Windows sandbox (`apply deny-read ACLs`)
+- Implementation pixels / CSS viewport / density: unavailable
+
+## Interaction verification
+
+- คอลัมน์ดำเนินการกำหนด `position: sticky; right: 0` และความกว้างคงที่ 82px
+- คิว snapshot ค่าฟอร์ม, checkbox, หมวดหมู่, แบรนด์, Tags, รูปแบบสินค้า, ภาษี, หน่วยขาย, Bundle และสาขาของแต่ละรายการแยกกัน
+- รูปสินค้าเก็บใน memory ตาม draft ID ตลอด session; หลัง F5 แสดงให้เลือกไฟล์ใหม่ตามข้อจำกัด Browser Draft
+- เมื่อเก็บรายการใหม่ ฟอร์มล้างข้อมูลเฉพาะสินค้า แต่คง Base Unit, สาขา, ภาษี และค่ารัน Sales Code เพื่อเตรียมรหัสถัดไป
+- แก้ไขคืน snapshot และรูปของรายการนั้นโดยไม่ผสมกับรายการอื่น
+- นำออกลบ snapshot และ revoke object URL ของรูปที่เกี่ยวข้อง
+- ขนาด Browser Draft เพิ่มเป็น 1 MB พร้อม sanitize จำนวน field และความยาวข้อความก่อนคืนค่า
+
+## Automated checks
+
+- SKU Components + Staging + Validation: 30/30 passed
+- TypeScript: passed
+- Sticky/snapshot interaction contract: 12/12 passed
+
+## Required fidelity surfaces
+
+- Fonts and typography: คง typography เดิมของ staging table และ icon actions
+- Spacing and layout rhythm: action column 82px พร้อมเงาขอบซ้ายเพื่อแยกจากข้อมูลที่เลื่อนผ่าน
+- Colors and visual tokens: ใช้ surface tokens เดิม รองรับ light/dark
+- Image quality and asset fidelity: ใช้ thumbnail จากไฟล์จริงใน session; ไม่มีการสร้างภาพแทน
+- Copy and content: เปลี่ยน feedback จากเก็บ SKU เป็นเก็บสินค้าทั้งรายการให้ตรงพฤติกรรม
+
+## Blocker
+
+- ไม่สามารถจับภาพ implementation, ทดสอบ horizontal scroll, hover/focus Tooltip และเปรียบเทียบ pixel-level กับภาพอ้างอิงใน session นี้ เพราะ browser runtime ถูก Windows ACL ปฏิเสธ
+
+final result: blocked
+---
+
+# Design QA — Queue Fixed Actions and Inline Sale Price
+
+วันที่ตรวจ: 17 สิงหาคม 2026
+
+## Source visual truth
+
+- ภาพอ้างอิง: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-b340bc7b-718c-49b4-ae35-ad94c54bda30.png`
+- เป้าหมาย: คอลัมน์ดำเนินการต้องตรึงขวาสุดโดยไม่ถูกข้อมูลทับ และต้องแก้ราคาขายในแถวคิวสินค้าได้
+- State: Unified Product Creation · Browser Draft queue · desktop · light theme · horizontal overflow
+
+## Implementation evidence
+
+- Component: `web/src/app/organizations/[id]/products/new/unified-product-creation-form.tsx`
+- Styles: `web/src/app/globals.css`
+- Regression test: `web/scripts/test-products-r7-sku-staging-interaction.mjs`
+- Route verification: local route ตอบ `200` และ Next.js compile สำเร็จ
+- Browser-rendered screenshot: unavailable เพราะ browser runtime ถูก Windows ACL ปฏิเสธ (`apply deny-read ACLs`)
+- Implementation pixels / CSS viewport / density: unavailable
+
+## Full-view and focused-region evidence
+
+- Full-view comparison: blocked เพราะไม่สามารถจับ implementation screenshot จาก browser ได้
+- Focused region: ตรวจ contract ของตารางคิว โดย action column มี `position: sticky !important`, `right: 0`, width คงที่ 82px, z-index และพื้นหลังแยกจากข้อมูลที่เลื่อนผ่าน
+- Tooltip เปลี่ยนเป็น fixed viewport overlay เพื่อไม่ให้ถูก scroll container ตัดหรือทับ
+- เพิ่มคอลัมน์ราคาขายเป็น number input ในแต่ละแถว และค่าแก้ไขถูกเก็บกลับ Browser Draft/snapshot ก่อนนำไป validation และ payload
+
+## Required fidelity surfaces
+
+- Fonts and typography: ใช้ typography เดิมของ staging table และช่องกรอกแบบ compact
+- Spacing and layout rhythm: action column คงที่ 82px; price input กว้าง 112px; ตารางใช้ `border-collapse: separate` เพื่อให้ sticky cell ทำงานสม่ำเสมอ
+- Colors and visual tokens: ใช้ input/surface/border tokens เดิม รองรับ light/dark
+- Image quality and asset fidelity: ไม่มีการเปลี่ยนภาพสินค้าในงานนี้
+- Copy and content: หัวคอลัมน์เพิ่ม `ราคาขาย`; Tooltip ใช้ข้อความเดิมสำหรับแก้ไขและนำออก
+
+## Automated checks
+
+- Product identifier + interaction + staging: 35/35 passed
+- TypeScript: passed
+- `git diff --check`: passed (มีเพียงคำเตือน line ending ของ Git บน Windows)
+- Dev server compile: passed; route `GET /organizations/.../products/new` ตอบ `200`
+
+## Blocker
+
+- ไม่สามารถจับภาพ implementation และทดสอบ horizontal scroll/Tooltip แบบ visual browser ได้ เพราะ Windows ACL ปิดกั้น browser runtime
+
+final result: blocked
+---
+
+# Design QA — Validation Auto-Navigation
+
+วันที่ตรวจ: 17 สิงหาคม 2026
+
+## Source visual truth
+
+- ภาพอ้างอิง: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-77b6525f-f77a-40fc-9020-8535cbc74b26.png`
+- เป้าหมาย: เมื่อกดเก็บสินค้าแล้วพบ validation error ระบบต้องเลื่อนไปและโฟกัสช่องแรกที่ต้องแก้แทนการปล่อยให้ผู้ใช้ค้นหาเอง
+- State: Unified Product Creation · standard product · local validation danger state
+
+## Implementation evidence
+
+- Component: `web/src/app/organizations/[id]/products/new/unified-product-creation-form.tsx`
+- Regression test: `web/scripts/test-products-r7-sku-staging-interaction.mjs`
+- Route verification: local route ตอบ `200` และ Next.js compile สำเร็จ
+- Browser-rendered screenshot: unavailable เพราะ in-app Browser runtime ถูก Windows ACL ปฏิเสธ (`apply deny-read ACLs`)
+- Viewport / pixels / density: unavailable
+
+## Interaction behavior
+
+- ราคาขาย → เลื่อนไปและ focus ช่อง `salePrice`
+- Base Unit → `baseUnitCode`
+- SKU / Sales Code / Barcode → ช่องรหัสที่ตรงกัน
+- ชื่อ SKU → `skuName`
+- รูปสินค้า → file input ในส่วนรูปภาพ
+- Variant → control แรกในส่วน SKU
+- ช่องเป้าหมายได้รับ `aria-invalid` และ validation marker ก่อน focus
+
+## Required fidelity surfaces
+
+- Fonts and typography: ไม่มีการเปลี่ยน typography
+- Spacing and layout rhythm: ไม่มีการเปลี่ยน layout; ใช้ smooth scroll และ center alignment
+- Colors and visual tokens: ใช้ validation marker/token เดิม
+- Image quality and asset fidelity: ไม่มีการเปลี่ยน asset
+- Copy and content: คงข้อความเตือนเดิมและเพิ่ม navigation behavior เท่านั้น
+
+## Automated checks
+
+- Product identifier + interaction + staging: 36/36 passed
+- TypeScript: passed
+- `git diff --check`: passed (มีเพียงคำเตือน line ending บน Windows)
+- Dev server compile: passed; route ตอบ `200`
+
+## Blocker
+
+- ไม่สามารถจับ browser-rendered screenshot และทดสอบ smooth scroll/focus แบบ visual ได้ เพราะ Windows ACL ปิดกั้น browser runtime
+
+final result: blocked
+---
+
+# Design QA — Compact Queue Sale Price Field
+
+วันที่ตรวจ: 17 สิงหาคม 2026
+
+## Source visual truth
+
+- ภาพอ้างอิง: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-e02108d6-349b-449a-bde6-45f2d9d42809.png`
+- เป้าหมาย: ช่องราคาขายในคิวต้องเป็นกรอบเดียว สัญลักษณ์บาทและตัวเลขไม่ซ้อน และไม่มี spinner ของ browser
+- State: Unified Product Creation · queued product price · focused input · desktop light theme
+
+## Implementation evidence
+
+- Styles: `web/src/app/globals.css`
+- Regression test: `web/scripts/test-products-r7-sku-staging-interaction.mjs`
+- Browser-rendered screenshot: unavailable เพราะ in-app Browser runtime ถูก Windows ACL ปฏิเสธ (`apply deny-read ACLs`)
+- Viewport / pixels / density: unavailable
+
+## Focused region changes
+
+- เปลี่ยน price field เป็น two-column inline grid: สัญลักษณ์บาท 24px และพื้นที่ตัวเลขที่เหลือ
+- ล้าง inner input border, radius, outline และ box-shadow เพื่อไม่ให้เกิดกรอบซ้อน
+- ใช้ outer `:focus-within` เป็น focus ring เพียงชั้นเดียว
+- ซ่อน native number spinner ทั้ง standard appearance และ WebKit controls
+
+## Required fidelity surfaces
+
+- Fonts and typography: คง font size 12px และ tabular numerals
+- Spacing and layout rhythm: ความกว้างรวม 118px คงเดิม; แบ่งพื้นที่ `฿` 24px
+- Colors and visual tokens: ใช้ surface, border, text และ focus tokens เดิม
+- Image quality and asset fidelity: ไม่มี asset ใน control นี้
+- Copy and content: ค่าและ aria-label เดิมไม่เปลี่ยน
+
+## Automated checks
+
+- Product identifier + interaction + staging: 37/37 passed
+- TypeScript: passed
+- `git diff --check`: passed (มีเพียงคำเตือน line ending บน Windows)
+- Dev server compile: passed; route ตอบ `200`
+
+## Blocker
+
+- ไม่สามารถจับ browser-rendered screenshot และตรวจ focused state แบบ visual ได้ เพราะ Windows ACL ปิดกั้น browser runtime
+
+final result: blocked
+
+---
+
+# Design QA — Queue-aware Creation Summary (Approach 1)
+
+วันที่ตรวจ: 17 สิงหาคม 2026
+
+## Source visual truth
+
+- ภาพอ้างอิง: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-c492e0e8-df40-4ea8-a056-070648bb069d.png`
+- เป้าหมาย: เมื่อเก็บสินค้าไว้ในคิวแล้ว Summary, Timeline และปุ่มหลักต้องสรุปคิว ไม่ใช่ฟอร์มรายการถัดไปที่ถูกล้าง
+- Scope: Unified Product Creation เฉพาะ Summary/Timeline/Primary action; ไม่เปลี่ยน Server command
+
+## Implemented behavior
+
+- ตรวจจับ `queueReviewMode` เมื่อมีสินค้าในคิวและไม่มีรายการใหม่กำลังกรอก
+- Summary เปลี่ยนเป็นจำนวนสินค้าในคิว, ช่วงราคา, จำนวนรูป และจำนวนรายการที่ครบ
+- Timeline คำนวณข้อมูลทั่วไป รูป SKU ราคา สาขา และข้อมูลเสริมจาก Snapshot ของทุกแถว
+- ปุ่มหลักเปลี่ยนเป็น `ตรวจสอบคิว N รายการ`
+- ถ้ามีสินค้าใหม่กำลังกรอก ปุ่มแจ้งให้เก็บรายการนั้นก่อนตรวจคิว
+- การตรวจคิวไม่ส่งข้อมูลเข้า Server; แสดงชัดเจนว่า Batch command ยังไม่เปิด เพื่อป้องกันข้อมูลสูญหาย
+
+## Automated checks
+
+- TypeScript `npx tsc --noEmit`: passed
+- Queue staging regression: 18/18 passed
+- Validation summary regression: 12/12 passed
+- `git diff --check`: passed (มีเพียงคำเตือน line ending บน Windows)
+- Local route: ตอบ 307 ไปหน้า login ตาม session ที่ไม่มีใน command-line; route ถูก resolve สำเร็จ
+
+## Blocker
+
+- Browser automation เริ่มไม่ได้ เพราะ Windows ACL ปิดกั้น Node REPL kernel (`apply deny-read ACLs`)
+- จึงยังไม่สามารถจับ screenshot และตรวจ pixel/interaction บน session ที่ login แล้วได้
+
+final result: blocked

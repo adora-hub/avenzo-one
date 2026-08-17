@@ -54,6 +54,14 @@ test('R7.2.4E validates required product, category, image, SKU, and price data',
   for (const message of ['กรุณากรอกชื่อสินค้า', 'กรุณาเลือกหมวดหมู่สินค้า', 'กรุณาเลือกรูปสินค้าอย่างน้อย 1 ภาพ', 'SKU แรก', 'กรุณากรอกราคาขายเป็นตัวเลขตั้งแต่ 0 ขึ้นไป']) assert.match(form, new RegExp(message))
 })
 
+test('resolved standard price warning clears as soon as a valid sale price is entered', async () => {
+  const form = await read(formPath)
+  assert.match(form, /function clearResolvedSalePriceIssue\(value: string\)/)
+  assert.match(form, /if \(salePrice === undefined \|\| salePrice < 0\) return/)
+  assert.match(form, /current\.filter\(\(issue\) => issue\.fieldName !== 'salePrice'\)/)
+  assert.match(form, /if \(target\.name === 'salePrice'\) clearResolvedSalePriceIssue\(target\.value\)/)
+})
+
 test('R7.2.4E validates staged SKU state and requires a fresh identifier advisory check', async () => {
   const form = await read(formPath)
   assert.match(form, /if \(editingSkuDraftId\) add\('sku'/)

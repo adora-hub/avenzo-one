@@ -25,13 +25,13 @@ test('R7.2.4C checks permission and uses the authenticated RLS client', async ()
   assert.doesNotMatch(server, /createAdminClient|service_role|serviceRole/)
 })
 
-test('R7.2.4C queries each identifier with explicit tenant scope and bounded reads', async () => {
+test('R7.2.4C queries the identifier registry with explicit tenant scope and bounded batches', async () => {
   const server = await read(serverPath)
-  assert.match(server, /Promise\.all\(parsed\.identifiers\.map/)
-  assert.match(server, /\.from\('skus'\)/)
+  assert.match(server, /\.from\('sku_identifier_registry'\)/)
   assert.match(server, /\.eq\('organization_id', parsed\.organizationId\)/)
-  assert.match(server, /\.eq\(identifier\.field, identifier\.value\)/)
-  assert.match(server, /\.limit\(1\)/)
+  assert.match(server, /\.in\('normalized_identifier', normalizedValues\)/)
+  assert.match(server, /identifierSequenceCandidates\(normalized, offset, 100\)/)
+  assert.match(server, /offset <= 10_000/)
   for (const field of ['sku_code', 'sales_code', 'barcode']) assert.match(server, new RegExp(`field: '${field}'`))
 })
 
@@ -143,9 +143,8 @@ test('identifier UX Part 3 auto-checks after debounce and blur with request boun
 
 test('identifier UX Part 4 recommends the next code and rechecks after one click', async () => {
   const form = await read(formPath)
-  assert.match(form, /function nextIdentifierCode/)
-  assert.match(form, /Number\(match\[2\]\) \+ 1/)
   assert.match(form, /identifierSuggestions/)
+  assert.match(form, /collision\.suggestion/)
   assert.match(form, /function useIdentifierSuggestion/)
   assert.match(form, /setIdentifierSuggestions\(suggestions\)/)
   assert.match(form, /ใช้รหัสแนะนำ \{identifierSuggestions\.salesCode\}/)
