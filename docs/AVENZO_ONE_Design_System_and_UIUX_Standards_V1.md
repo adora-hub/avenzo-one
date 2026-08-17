@@ -126,6 +126,7 @@ Primitive Tokens → Semantic Tokens → AVENZO Components → Feature Pages
 | Body | 16 px | 400 | เนื้อหาทั่วไป |
 | Body Small | 14 px | 400 | ตารางและข้อมูลรอง |
 | Label | 14 px | 500 | Label ฟอร์ม |
+| Control Compact | 13 px | 400 | ช่อง Tag/Token, ช่องกรอกแบบ Inline และ Control ที่อยู่ในพื้นที่หนาแน่น |
 | Caption | 12 px | 400 | Metadata/Helper text |
 
 กฎตัวเลขและวันที่:
@@ -251,6 +252,7 @@ Helper text หรือ Error message
 - ช่องจำนวนเงินกำหนด Currency และ Decimal Precision อย่างชัดเจน
 - ห้ามใช้ Placeholder แทน Label
 - บันทึกสำเร็จต้องมี Feedback และป้องกัน Double Submit
+- ช่อง Tag/Token ใช้ `--font-size-control-compact` (13 px), น้ำหนัก 400 และ line-height 1.4 เป็นมาตรฐาน ทั้งข้อความที่กรอกและ Placeholder; ห้ามกำหนดขนาดเฉพาะหน้า
 
 ### 5.3 Data Table
 

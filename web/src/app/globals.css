@@ -22,6 +22,7 @@
   --input-text: var(--palette-text-primary);
   --input-placeholder: var(--palette-text-secondary);
   --input-disabled-background: #f2f6fa;
+  --font-size-control-compact: 13px;
   --focus-color: var(--palette-action-primary);
   --focus-background: #e5ebf0;
   --shadow-color: rgba(0, 31, 36, .1);
@@ -1385,7 +1386,7 @@ html[data-theme="dark"] .product-grid-table th:hover .product-grid-column-resize
 .product-saved-tags-dialog > footer > span { margin-right: auto; color: var(--text-secondary); font-size: 11px; }
 .product-tag-editor { display: flex; min-height: 42px; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px; border: 1px solid var(--border-default); border-radius: 10px; background: var(--input-background); }
 .product-tag-editor:focus-within { border-color: var(--focus-color); outline: 3px solid var(--focus-ring); }
-.product-tag-editor input { flex: 1 1 140px; min-width: 100px; min-height: 27px; padding: 2px 4px; border: 0; border-radius: 0; outline: 0; background: transparent; }
+.product-tag-editor input { flex: 1 1 140px; min-width: 100px; min-height: 27px; padding: 2px 4px; border: 0; border-radius: 0; outline: 0; background: transparent; font-size: var(--font-size-control-compact); font-weight: 400; line-height: 1.4; }
 .product-tag-editor input:focus { border: 0; outline: 0; }
 .product-tag-chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 7px; border-radius: 999px; background: var(--surface-subtle); color: var(--text-primary); font-size: 11px; font-weight: 700; }
 .product-tag-chip button { min-height: 0; padding: 0; border: 0; background: transparent; color: var(--text-secondary); cursor: pointer; }

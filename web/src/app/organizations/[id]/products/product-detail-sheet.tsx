@@ -18,7 +18,7 @@ const statusLabels: Record<string, string> = {
 }
 
 const structureLabels: Record<string, string> = {
-  standard: 'สินค้าปกติ', variant: 'มีตัวเลือก / Variant', bundle: 'Bundle / Kit',
+  standard: 'สินค้าปกติ', variant: 'มีตัวเลือกหลายรายการ', bundle: 'Bundle / Kit',
 }
 
 const quantityBehaviorLabels: Record<string, string> = {

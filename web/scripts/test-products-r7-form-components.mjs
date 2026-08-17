@@ -80,6 +80,8 @@ test('R7.2.3A renders saved-tag navigation, tag editor and bounded internal prod
   assert.doesNotMatch(form, /<textarea name="description"/)
   assert.match(styles, /\.product-tag-chip/)
   assert.match(styles, /\.product-saved-tags-menu/)
+  assert.match(styles, /--font-size-control-compact: 13px/)
+  assert.match(styles, /\.product-tag-editor input \{[^}]*font-size: var\(--font-size-control-compact\)[^}]*font-weight: 400[^}]*line-height: 1\.4/)
 })
 
 test('R7.2.3A keeps the approved connected button group and mobile stacking', async () => {
