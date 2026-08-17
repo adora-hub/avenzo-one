@@ -181,9 +181,9 @@ export function ProductsDataGrid({
   canAdjustInventory: boolean
   inventoryLocationOptions: Array<{ id: string; name: string; code: string; warehouseName: string }>
   canReadCost: boolean
-  brandOptions: Array<{ id: string; name: string }>
-  categoryOptions: Array<{ id: string; name: string }>
-  tagOptions: Array<{ id: string; name: string }>
+  brandOptions: Array<{ id: string; name: string; status?: 'active' | 'archived'; version?: number }>
+  categoryOptions: Array<{ id: string; name: string; status?: 'active' | 'archived'; version?: number }>
+  tagOptions: Array<{ id: string; name: string; status?: 'active' | 'archived'; version?: number }>
   isPending: boolean
   onRequestLifecycle: (input: {
     commandType: 'product.activate' | 'product.archive'

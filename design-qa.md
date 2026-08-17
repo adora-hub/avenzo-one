@@ -1230,3 +1230,47 @@ final result: blocked
 - Browser-rendered comparison remains blocked because the in-app browser runtime is denied by the Windows workspace ACL; Owner refresh/test is required.
 
 final result: blocked
+## Product Master Data managers — 18 August 2026
+
+- Source visual truth: approved Brand Manager and Category Manager screenshots supplied in the task.
+- Standardized Brand Manager trigger, row actions, secondary actions and primary save action to the Products 38px button standard.
+- Connected `จัดการหมวดหมู่` to the shared Master Data Manager with real add, rename and archive behavior through the trusted command path.
+- Archived Brand and Category values remain available in the manager while normal Product pickers show active values only.
+- TypeScript: passed.
+- Master-data and Products visual parity tests: 14/14 passed.
+- Production build: passed.
+- Local Products route: compiled and returned 200 for the authenticated browser session.
+- Browser-rendered screenshot comparison remains blocked because the in-app browser runtime is denied by the Windows workspace ACL; Owner refresh/test is required.
+
+final result: blocked
+
+## Product Tags Master Data Manager — 18 August 2026
+
+- Source visual truth: approved Tags Manager and Bulk Tags Picker screenshots supplied in the task.
+- Extended the `Master Data Manager Dialog` standard to Category, Brand and Tags.
+- Connected `จัดการป้ายกำกับ` to the shared manager with add, rename and archive behavior through `product.master.upsert`.
+- Tags Manager updates the open picker immediately; archived Tags remain manageable but are excluded from normal Product filters and selection.
+- TypeScript: passed.
+- Products, Master Data and Saved Tags tests: 22/22 passed.
+- Local Products route: compiled and returned 200 for the authenticated browser session.
+- Browser-rendered screenshot comparison remains blocked because both in-app Browser and Chrome control runtimes are denied by the Windows workspace ACL; Owner refresh/test is required.
+
+final result: blocked
+
+## Products sticky pagination — 18 August 2026
+
+- Source target: user screenshot codex-clipboard-0ebded22-924b-46fa-8892-f84f303fe4c2.png showing the Products pagination footer at the bottom of the table/page.
+- Implementation: .product-grid-pagination-footer now uses viewport-aware position: sticky; bottom: 0, solid surface background inherited from .product-grid-footer, top divider, elevated z-index, and a subtle top shadow. It remains a panel-scoped footer rather than a global fixed bar, so it does not cover the horizontal scrollbar.
+- Automated verification: pagination regression tests pass 5/5; TypeScript --noEmit passes; local Products route responds HTTP 200.
+- Visual comparison: blocked. The Codex Desktop image/browser sandbox cannot read the supplied Temp screenshot or capture the local page because Windows ACL setup fails with helper_unknown_error: apply deny-read ACLs.
+- Manual check requested: refresh the Products page, scroll vertically through the list, and confirm the pagination stays at the viewport bottom while the horizontal scrollbar remains directly above it.
+
+final result: blocked
+### Products sticky pagination bottom-edge correction — 18 August 2026
+
+- Corrected the remaining desktop gap by removing the 72px Content bottom gutter only on the Products list page (:not(.product-creation-page)) at viewport widths 761px and above.
+- The pagination remains panel-scoped and sticky; mobile safe-area spacing and the Product creation page are unchanged.
+- Automated verification: pagination regression tests pass 5/5; TypeScript passes; local Products route responds HTTP 200.
+- Visual comparison remains blocked by the Codex Desktop Windows ACL capture failure; manual F5 verification is required.
+
+final result: blocked

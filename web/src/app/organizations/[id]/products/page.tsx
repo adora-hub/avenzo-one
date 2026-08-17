@@ -130,9 +130,9 @@ export default async function ProductSkuPage({ params, searchParams }: Props) {
   const [listResult, productOptionsResult, brandOptionsResult, categoryOptionsResult, tagOptionsResult, selectedProduct, selectedSku, inventoryLocationsResult, activeWarehousesResult] = await Promise.all([
     listPromise,
     repository.listProducts({ organizationId, pageSize: 100 }),
-    supabase.from('product_brands').select('id, name').eq('organization_id', organizationId).eq('status', 'active').order('name').limit(200),
-    supabase.from('product_categories').select('id, name').eq('organization_id', organizationId).eq('status', 'active').order('name').limit(200),
-    supabase.from('product_tags').select('id, name').eq('organization_id', organizationId).eq('status', 'active').order('name').limit(200),
+    supabase.from('product_brands').select('id, name, status, version').eq('organization_id', organizationId).order('name').limit(200),
+    supabase.from('product_categories').select('id, name, status, version').eq('organization_id', organizationId).order('name').limit(200),
+    supabase.from('product_tags').select('id, name, status, version').eq('organization_id', organizationId).order('name').limit(200),
     productId ? repository.getProductWorkspaceDetail({
       organizationId, productId, includeInventory: canReadInventory, includeCost: canReadCost,
     }) : Promise.resolve(null),
@@ -189,11 +189,11 @@ export default async function ProductSkuPage({ params, searchParams }: Props) {
         dateFrom={dateFrom}
         dateTo={dateTo}
         brandId={brandId}
-        brandOptions={(brandOptionsResult.data ?? []).map((option) => ({ id: String(option.id), name: String(option.name) }))}
+        brandOptions={(brandOptionsResult.data ?? []).map((option) => ({ id: String(option.id), name: String(option.name), status: option.status === 'archived' ? 'archived' as const : 'active' as const, version: Number(option.version) }))}
         categoryId={categoryId}
-        categoryOptions={(categoryOptionsResult.data ?? []).map((option) => ({ id: String(option.id), name: String(option.name) }))}
+        categoryOptions={(categoryOptionsResult.data ?? []).map((option) => ({ id: String(option.id), name: String(option.name), status: option.status === 'archived' ? 'archived' as const : 'active' as const, version: Number(option.version) }))}
         tagIds={tagIds}
-        tagOptions={(tagOptionsResult.data ?? []).map((option) => ({ id: String(option.id), name: String(option.name) }))}
+        tagOptions={(tagOptionsResult.data ?? []).map((option) => ({ id: String(option.id), name: String(option.name), status: option.status === 'archived' ? 'archived' as const : 'active' as const, version: Number(option.version) }))}
         sort={sort}
         priceMin={priceMin}
         priceMax={priceMax}

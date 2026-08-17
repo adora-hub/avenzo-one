@@ -42,11 +42,11 @@ type Props = {
   dateFrom: string
   dateTo: string
   brandId: string
-  brandOptions: Array<{ id: string; name: string }>
+  brandOptions: Array<{ id: string; name: string; status?: 'active' | 'archived'; version?: number }>
   categoryId: string
-  categoryOptions: Array<{ id: string; name: string }>
+  categoryOptions: Array<{ id: string; name: string; status?: 'active' | 'archived'; version?: number }>
   tagIds: string[]
-  tagOptions: Array<{ id: string; name: string }>
+  tagOptions: Array<{ id: string; name: string; status?: 'active' | 'archived'; version?: number }>
   priceMin: string
   priceMax: string
   stockMin: string
@@ -608,8 +608,9 @@ export function ProductSkuWorkspace({
   })
 
 
+  const activeTagOptions = tagOptions.filter((option) => option.status !== 'archived')
   const normalizedTagSearch = tagSearchInput.trim().toLocaleLowerCase('th-TH')
-  const filteredTagOptions = tagOptions.filter((option) => !normalizedTagSearch || option.name.toLocaleLowerCase('th-TH').includes(normalizedTagSearch))
+  const filteredTagOptions = activeTagOptions.filter((option) => !normalizedTagSearch || option.name.toLocaleLowerCase('th-TH').includes(normalizedTagSearch))
   const selectedTagOptions = tagIdsFilter.flatMap((id) => {
     const option = tagOptions.find((candidate) => candidate.id === id)
     return option ? [option] : []
@@ -795,7 +796,7 @@ export function ProductSkuWorkspace({
                   setAdvancedFilterError('')
                 }}>
                   <option value="">ทุกแบรนด์</option>
-                  {brandOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
+                  {brandOptions.filter((option) => option.status !== 'archived').map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
                 </select>
               </label>
             </fieldset>
@@ -809,14 +810,14 @@ export function ProductSkuWorkspace({
                   setAdvancedFilterError('')
                 }}>
                   <option value="">ทุกหมวดหมู่</option>
-                  {categoryOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
+                  {categoryOptions.filter((option) => option.status !== 'archived').map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
                 </select>
               </label>
             </fieldset>
             <fieldset className="product-advanced-filter-fieldset product-advanced-filter-tags">
               <legend>ป้ายกำกับ (Tags)</legend>
               <p id="product-tag-filter-help">ค้นหาและเลือกได้หลายป้าย ผลลัพธ์จะแสดงสินค้าที่มีอย่างน้อยหนึ่งป้ายตรงกับที่เลือก</p>
-              {tagOptions.length ? <div className="product-tag-multiselect" ref={tagComboboxRef}>
+              {activeTagOptions.length ? <div className="product-tag-multiselect" ref={tagComboboxRef}>
                 <div className={`product-tag-multiselect-control${tagComboboxOpen ? ' is-open' : ''}`}>
                   <div className="product-tag-multiselect-values">
                     {selectedTagOptions.map((option) => <span className="product-tag-multiselect-chip" key={option.id}>

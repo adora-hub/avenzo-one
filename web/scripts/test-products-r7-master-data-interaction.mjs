@@ -77,11 +77,14 @@ test('R7.2.4A keeps archived masters out of selectors and clears archived select
 })
 
 test('R7.2.4A applies the approved modal list and responsive composition', async () => {
-  const styles = await read('../src/app/globals.css')
+  const [styles, form] = await Promise.all([read('../src/app/globals.css'), read(formPath)])
   assert.match(styles, /\.product-master-dialog \{[^}]*width: min\(720px, 100%\)/)
   assert.match(styles, /\.product-master-toolbar \{[^}]*grid-template-columns: minmax\(0, 1fr\) auto/)
   assert.match(styles, /\.product-master-row \{[^}]*grid-template-columns: minmax\(0, 1fr\) auto/)
   assert.match(styles, /\.product-master-bulk textarea \{[^}]*font-size: 15px[^}]*font-weight: 400[^}]*line-height: 1\.65/)
   assert.match(styles, /\.product-master-dialog > footer/)
+  assert.match(styles, /\.product-master-trigger,\.product-master-secondary-action,\.product-master-primary-action\{[^}]*height:38px[^}]*font-size:13px[^}]*font-weight:600/)
+  assert.match(form, /product-grid-button-secondary product-master-secondary-action/)
+  assert.match(form, /product-grid-button-primary product-master-primary-action/)
   assert.match(styles, /\.product-master-row \{ grid-template-columns: 1fr; \}/)
 })

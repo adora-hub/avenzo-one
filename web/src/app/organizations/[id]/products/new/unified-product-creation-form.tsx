@@ -28,7 +28,7 @@ import {
   type VariantCombinationDraft,
   type VariantOptionGroupDraft,
 } from './variant-creation-builder'
-type ProductMasterOption = { id: string; name: string; status?: 'active' | 'archived'; version?: number }
+export type ProductMasterOption = { id: string; name: string; status?: 'active' | 'archived'; version?: number }
 type ProductBranchOption = Pick<ProductMasterOption, 'id' | 'name'> & { code: string }
 type ProductBundleSkuOption = Pick<ProductMasterOption, 'id' | 'name'> & { skuCode: string }
 
@@ -553,7 +553,7 @@ type MasterWorkingItem = {
   isNew?: boolean
 }
 
-function MasterDataManager({
+export function MasterDataManager({
   organizationId,
   kind,
   items,
@@ -721,7 +721,7 @@ function MasterDataManager({
   const visibleItems = workingItems.filter((item) => item.name.toLocaleLowerCase('th-TH').includes(query))
 
   return <div className="product-master-manager">
-    <button ref={triggerRef} className={triggerLabel ? 'button compact secondary' : 'product-inline-icon'} type="button" title={`เพิ่มหรือจัดการ${label}`} aria-label={`เพิ่มหรือจัดการ${label}`} aria-haspopup="dialog" aria-expanded={open} disabled={!canManage} onClick={openManager}>
+    <button ref={triggerRef} className={triggerLabel ? 'button compact product-grid-button-secondary product-master-trigger' : 'product-inline-icon'} type="button" title={`เพิ่มหรือจัดการ${label}`} aria-label={`เพิ่มหรือจัดการ${label}`} aria-haspopup="dialog" aria-expanded={open} disabled={!canManage} onClick={openManager}>
       {triggerLabel ?? <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>}
     </button>
     {open ? <div className="product-modal-backdrop product-master-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeManager() }}>
@@ -733,16 +733,16 @@ function MasterDataManager({
             const originallyArchived = !item.isNew && items.find((source) => source.id === item.id)?.status === 'archived'
             return <div className={`product-master-row${item.status === 'archived' ? ' inactive' : ''}`} role="listitem" key={item.id}>
               <input value={item.name} maxLength={itemMaxLength} aria-label={`ชื่อรายการ ${item.name}`} disabled={originallyArchived || isPending} onChange={(event) => updateWorkingItem(item.id, { name: event.target.value })} />
-              {item.isNew ? <button className="button compact secondary" type="button" disabled={isPending} onClick={() => setWorkingItems((current) => current.filter((source) => source.id !== item.id))}>นำออก</button>
-                : originallyArchived ? <button className="button compact secondary" type="button" disabled>เก็บถาวรแล้ว</button>
-                  : <button className="button compact secondary" type="button" aria-pressed={item.status === 'archived'} disabled={isPending} onClick={() => updateWorkingItem(item.id, { status: item.status === 'active' ? 'archived' : 'active' })}>{item.status === 'active' ? 'เก็บถาวร' : 'ยกเลิกเก็บถาวร'}</button>}
+              {item.isNew ? <button className="button compact product-grid-button-secondary product-master-secondary-action" type="button" disabled={isPending} onClick={() => setWorkingItems((current) => current.filter((source) => source.id !== item.id))}>นำออก</button>
+                : originallyArchived ? <button className="button compact product-grid-button-secondary product-master-secondary-action" type="button" disabled>เก็บถาวรแล้ว</button>
+                  : <button className="button compact product-grid-button-secondary product-master-secondary-action" type="button" aria-pressed={item.status === 'archived'} disabled={isPending} onClick={() => updateWorkingItem(item.id, { status: item.status === 'active' ? 'archived' : 'active' })}>{item.status === 'active' ? 'เก็บถาวร' : 'ยกเลิกเก็บถาวร'}</button>}
             </div>
           }) : <div className="product-master-empty">ไม่พบรายการที่ค้นหา</div>}</div>
-          <div className="product-master-bulk"><label htmlFor={`${titleId}-bulk`}>เพิ่ม{label}</label><textarea id={`${titleId}-bulk`} value={bulkInput} onChange={(event) => setBulkInput(event.target.value)} maxLength={600} placeholder="แยกหลายรายการด้วย comma หรือขึ้นบรรทัดใหม่" disabled={isPending} /><button className="button compact secondary" type="button" onClick={addBulkItems} disabled={isPending || !bulkInput.trim()}>＋ เพิ่มรายการ</button></div>
+          <div className="product-master-bulk"><label htmlFor={`${titleId}-bulk`}>เพิ่ม{label}</label><textarea id={`${titleId}-bulk`} value={bulkInput} onChange={(event) => setBulkInput(event.target.value)} maxLength={600} placeholder="แยกหลายรายการด้วย comma หรือขึ้นบรรทัดใหม่" disabled={isPending} /><button className="button compact product-grid-button-secondary product-master-secondary-action" type="button" onClick={addBulkItems} disabled={isPending || !bulkInput.trim()}>＋ เพิ่มรายการ</button></div>
           <div className="product-master-permission-note"><span aria-hidden="true">ⓘ</span><span>แสดงเฉพาะผู้มีสิทธิ์ product.manage · แต่ละรายการบันทึกผ่าน trusted command พร้อม Audit Log · รายการที่เก็บถาวรแล้วเปิดกลับไม่ได้</span></div>
           {error ? <div className="product-master-dialog-error" role="alert">{error}</div> : null}
         </div>
-        <footer><button className="button secondary" type="button" onClick={closeManager} disabled={isPending}>ยกเลิก</button><button className="button product-primary-action" type="button" onClick={saveChanges} disabled={isPending}>{isPending ? `กำลังบันทึก${label}…` : `บันทึก${label}`}</button></footer>
+        <footer><button className="button compact product-grid-button-secondary product-master-secondary-action" type="button" onClick={closeManager} disabled={isPending}>ยกเลิก</button><button className="button compact product-grid-button-primary product-master-primary-action" type="button" onClick={saveChanges} disabled={isPending}>{isPending ? `กำลังบันทึก${label}…` : `บันทึก${label}`}</button></footer>
       </section>
     </div> : null}
   </div>

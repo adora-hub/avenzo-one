@@ -262,6 +262,7 @@ Shared `DataTable` ต้องรองรับตามบริบท:
 - Column visibility และ Column alignment
 - Row selection และ Bulk action
 - Sticky header เมื่อข้อมูลยาว
+- Pagination footer ของ Data Grid แบบยาวใช้ position: sticky ที่ด้านล่างของ Page/Panel พร้อมพื้นหลังทึบ เส้นคั่น และเงาด้านบน; หน้า List บน Desktop ต้องตัด Bottom gutter ของ Content เพื่อให้ Footer แนบขอบล่าง Workspace จริง ห้ามใช้ Global fixed bar และห้ามทับ Horizontal scrollbar หรือแถวข้อมูลสุดท้าย
 - Loading skeleton, Empty, Error และ Permission state
 - Action menu ที่ตรวจ Permission
 - Responsive fallback เช่น Priority columns, Horizontal scroll หรือ Card list
@@ -308,7 +309,25 @@ Shared `DataTable` ต้องรองรับตามบริบท:
 
 Pattern นี้ไม่ใช้แทนการแก้ราคา ต้นทุน หรือสต็อก เพราะงานระดับ SKU เหล่านั้นต้องมี Scope, Preview, Validation และ Audit ที่เฉพาะเจาะจง
 
-#### 5.5.2 Bulk SKU Edit Dialog
+#### 5.5.2 Master Data Manager Dialog
+
+ใช้ Pattern นี้กับหน้าต่างจัดการข้อมูลอ้างอิง เช่น `จัดการหมวดหมู่สินค้า`, `จัดการแบรนด์` และ `จัดการป้ายกำกับ` โดยต้องใช้ Component contract และโครงสร้างเดียวกัน เปลี่ยนเฉพาะชื่อชนิดข้อมูลและข้อความปุ่มบันทึก:
+
+- Header แสดง `จัดการ{ชื่อ Master Data}` พร้อมคำอธิบาย “เพิ่ม แก้ชื่อ หรือเก็บ{ชื่อ Master Data}ที่ไม่ใช้แล้ว” และปุ่มปิดแบบ Icon-only
+- Dialog บน Desktop ใช้ความกว้าง `min(720px, 100vw - 32px)` และความสูงไม่เกิน `min(820px, 100dvh - 40px)`; Header และ Footer ต้องคงที่ ส่วน Body เป็น Scroll container หลักเพียงจุดเดียว
+- Toolbar ใช้ช่องค้นหาเต็มพื้นที่และแสดงจำนวนรายการชิดขวา การค้นหาต้องกรองรายการทันทีและมี Empty state
+- รายการ Master Data แสดงหนึ่งรายการต่อแถว ภายในกรอบ Surface subtle; ชื่อเป็น Text field และ Action `เก็บถาวร` ใช้ Compact secondary button สูง 38px
+- รายการที่เก็บถาวรแล้วต้องเป็น Read-only, แสดงชื่อแบบขีดฆ่า และปุ่ม Disabled `เก็บถาวรแล้ว`; ห้ามสื่อว่าสามารถเปิดกลับได้หากระบบไม่รองรับ
+- โซนเพิ่มข้อมูลต้องแยกจากรายการด้วย Divider มี Label `เพิ่ม{ชื่อ Master Data}`, Textarea รองรับ comma/ขึ้นบรรทัดใหม่ และปุ่ม `＋ เพิ่มรายการ`; จำกัดจำนวนและความยาวตาม Validation ของระบบ
+- Permission notice ใช้ Info surface ระบุสิทธิ์ `product.manage`, การบันทึกผ่าน trusted command, Audit Log และนโยบายรายการที่เก็บถาวร
+- Footer วาง Compact secondary button `ยกเลิก` ก่อน Primary สีดำ `บันทึก{ชื่อ Master Data}` ทางขวา; ขณะบันทึกต้องป้องกันการกดซ้ำและคงความกว้างปุ่ม
+- ต้อง Trap focus, รองรับ Escape เมื่อไม่กำลังบันทึก, ปิดด้วย Backdrop เมื่อปลอดภัย และคืน Focus สู่ปุ่มต้นทาง
+- การบันทึกต้องตรวจชื่อว่าง อักขระต้องห้าม และชื่อ Active ซ้ำกัน; เมื่อ Server Error ต้องคงรายการที่ผู้ใช้แก้ไว้และบอกวิธีแก้ใกล้ Footer
+- หน้าจอแคบให้ Dialog กว้างเต็มพื้นที่ที่เหลือ รายการยังคงหนึ่งคอลัมน์ และ Footer ต้องไม่บัง Textarea, Permission notice หรือ Error
+
+Pattern นี้เป็นงานจัดการ Master Data และไม่ใช้แทน `Master Data Picker Dialog`; เมื่อเปิดจาก Picker ให้ Manager อยู่ Layer สูงกว่า และเมื่อบันทึกสำเร็จต้องอัปเดตรายการใน Picker เดิมทันทีโดยไม่ต้อง Reload หน้า
+
+#### 5.5.3 Bulk SKU Edit Dialog
 
 ใช้ Pattern นี้กับการแก้ราคา ต้นทุน และสต็อกหลาย SKU:
 
@@ -653,3 +672,10 @@ Design System ควรพัฒนาเท่าที่ Vertical Slice ต�
 - กำหนด `IconInfoHexagon` 18px และ Tooltip ด้านขวาที่รองรับ Mouse และ Keyboard
 - แยก Pattern เลือก Master Data ออกจากงานแก้ Price, Cost และ Stock ระดับ SKU
 - เพิ่มมาตรฐาน Bulk SKU Edit Dialog สำหรับ Segmented control, Combobox, Preview table, Scrollbar และ Footer
+
+### V1.5 — 18 สิงหาคม 2026
+
+- เพิ่มมาตรฐาน `Master Data Manager Dialog` สำหรับ Category, Brand และ Tags จาก UI ที่ผ่านการตรวจแล้ว
+- กำหนดโครงสร้าง Header/Scrollable Body/Fixed Footer, รายการแก้ชื่อและเก็บถาวร, Bulk add และ Permission notice
+- กำหนดให้ Manager ที่เปิดจาก Picker อยู่ Layer สูงกว่า และอัปเดตตัวเลือกใน Picker ทันทีหลังบันทึก
+- กำหนด Accessibility, Validation, Trusted command และ Audit Log เป็นส่วนบังคับของ Component contract

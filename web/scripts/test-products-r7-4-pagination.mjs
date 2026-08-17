@@ -6,6 +6,7 @@ const grid = await readFile(new URL('../src/app/organizations/[id]/products/prod
 const workspace = await readFile(new URL('../src/app/organizations/[id]/products/product-sku-workspace.tsx', import.meta.url), 'utf8')
 const page = await readFile(new URL('../src/app/organizations/[id]/products/page.tsx', import.meta.url), 'utf8')
 const repository = await readFile(new URL('../src/lib/foundation/supabase-repository.ts', import.meta.url), 'utf8')
+const styles = await readFile(new URL('../src/app/globals.css', import.meta.url), 'utf8')
 
 test('Products pagination exposes the approved rows-per-page choices', () => {
   assert.match(grid, /const PRODUCT_GRID_PAGE_SIZES = \[10, 25, 50, 100, 300, 400\] as const/)
@@ -24,6 +25,13 @@ test('Products pagination renders range info and first previous next last icon c
   assert.match(grid, /aria-label="หน้าสุดท้าย"/)
 })
 
+
+test('Products pagination stays visible at the bottom of the page without becoming a global fixed bar', () => {
+  assert.match(grid, /className="product-grid-footer product-grid-pagination-footer"/)
+  assert.match(styles, /\.product-grid-pagination-footer\s*\{[^}]*position:\s*sticky;[^}]*z-index:\s*18;[^}]*bottom:\s*0;/s)
+  assert.match(styles, /@media \(min-width: 761px\)[\s\S]*?\.app-shell-main \.content\.product-workspace-page:not\(\.product-creation-page\)\s*\{[^}]*padding-bottom:\s*0;/)
+  assert.doesNotMatch(styles, /\.product-grid-pagination-footer\s*\{[^}]*position:\s*fixed;/s)
+})
 test('Products pagination is backed by exact tenant-scoped server ranges up to 400 rows', () => {
   assert.match(repository, /const PRODUCT_WORKSPACE_PAGE_SIZES = new Set\(\[10, 25, 50, 100, 300, 400\]\)/)
   assert.match(repository, /useOffsetPagination \? \{ count: 'exact' \} : undefined/)
