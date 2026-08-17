@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState, useTransition, type FormEvent } from 'react'
+import { IconArrowsExchange, IconBuildingWarehouse, IconPackages } from '@tabler/icons-react'
 import { executeFoundationCommandAction } from '@/app/actions/foundation'
 import { OperationsDetailSheet, OperationsEmptyState, OperationsStatusBadge } from '@/app/components/operations-ui'
 import type { InventoryBalanceReadModel, LocationReadModel, SkuReadModel, StockMovementReadModel, WarehouseReadModel } from '@/lib/foundation/repositories'
@@ -109,32 +110,42 @@ export function InventoryWorkspace(props: Props) {
   const closeDetail = buildHref(organizationId, preserved)
   return <>
     <div className="inventory-toolbar">
-      <nav className="product-view-tabs" aria-label="เลือกมุมมอง Warehouse Stock และ Ledger">
-        <Link className={view === 'warehouses' ? 'active' : ''} href={buildHref(organizationId, { view: 'warehouses' })}>Warehouse</Link>
-        <Link className={view === 'balances' ? 'active' : ''} href={buildHref(organizationId, { view: 'balances' })}>ยอดคงเหลือ</Link>
-        <Link className={view === 'ledger' ? 'active' : ''} href={buildHref(organizationId, { view: 'ledger' })}>Movement Ledger</Link>
+      <nav className="product-view-tabs" aria-label="เลือกมุมมองคลังสินค้า ยอดคงเหลือ และ Movement Ledger">
+        <Link className={view === 'warehouses' ? 'active' : ''} href={buildHref(organizationId, { view: 'warehouses' })}><IconBuildingWarehouse aria-hidden="true" /><span>คลังสินค้า</span></Link>
+        <Link className={view === 'balances' ? 'active' : ''} href={buildHref(organizationId, { view: 'balances' })}><IconPackages aria-hidden="true" /><span>ยอดคงเหลือ</span></Link>
+        <Link className={view === 'ledger' ? 'active' : ''} href={buildHref(organizationId, { view: 'ledger' })}><IconArrowsExchange aria-hidden="true" /><span>การเคลื่อนไหว</span></Link>
       </nav>
-      <div className="button-row">
-        {canManageWarehouse ? <button className="button secondary" type="button" onClick={() => setDialog('create-warehouse')}>เพิ่ม Warehouse</button> : null}
-        {canManageWarehouse ? <button className="button secondary" type="button" disabled={!warehouseOptions.some((item) => item.status === 'active')} onClick={() => setDialog('create-location')}>เพิ่ม Location</button> : null}
-        {canReceive ? <button className="button" type="button" onClick={() => setDialog('receive')}>รับ Stock</button> : null}
-        {canAdjust ? <button className="button secondary" type="button" onClick={() => setDialog('adjust')}>ปรับ Stock</button> : null}
-        {canTransfer ? <button className="button secondary" type="button" onClick={() => setDialog('transfer')}>โอน Stock</button> : null}
+      <div className="inventory-command-groups">
+        {canManageWarehouse ? <div className="inventory-action-group" aria-label="ตั้งค่าคลังสินค้า">
+          <span>ตั้งค่าคลัง</span>
+          <div className="button-row">
+            <button className="button secondary compact-button" type="button" onClick={() => setDialog('create-warehouse')}>เพิ่มคลังสินค้า</button>
+            <button className="button secondary compact-button" type="button" disabled={!warehouseOptions.some((item) => item.status === 'active')} onClick={() => setDialog('create-location')}>เพิ่มตำแหน่งจัดเก็บ</button>
+          </div>
+        </div> : null}
+        {canReceive || canAdjust || canTransfer ? <div className="inventory-action-group" aria-label="ดำเนินการสต็อก">
+          <span>ดำเนินการสต็อก</span>
+          <div className="button-row">
+            {canReceive ? <button className="button compact-button" type="button" onClick={() => setDialog('receive')}>รับสินค้า</button> : null}
+            {canAdjust ? <button className="button secondary compact-button" type="button" onClick={() => setDialog('adjust')}>ปรับยอด</button> : null}
+            {canTransfer ? <button className="button secondary compact-button" type="button" onClick={() => setDialog('transfer')}>โอนสินค้า</button> : null}
+          </div>
+        </div> : null}
       </div>
     </div>
     {feedback ? <div className={`product-feedback ${feedback.tone}`} role={feedback.tone === 'danger' ? 'alert' : 'status'}>{feedback.text}</div> : null}
 
     <form className={`operations-filter-bar inventory-filter-bar ${view}`} method="get" aria-label="กรอง Warehouse และ Stock">
       <input type="hidden" name="view" value={view} />
-      {view === 'warehouses' ? <><label className="sr-only" htmlFor="inventory-search">ค้นหา Warehouse</label><input id="inventory-search" name="q" type="search" defaultValue={search} maxLength={160} placeholder="ค้นหา Code หรือชื่อ Warehouse" /><label className="sr-only" htmlFor="inventory-status">สถานะ</label><select id="inventory-status" name="status" defaultValue={status}><option value="">ทุกสถานะ</option><option value="active">ใช้งาน</option><option value="inactive">พักใช้งาน</option><option value="archived">เก็บถาวร</option></select></> : null}
+      {view === 'warehouses' ? <><label className="sr-only" htmlFor="inventory-search">ค้นหาคลังสินค้า</label><input id="inventory-search" name="q" type="search" defaultValue={search} maxLength={160} placeholder="ค้นหารหัสหรือชื่อคลังสินค้า" /><label className="sr-only" htmlFor="inventory-status">สถานะ</label><select id="inventory-status" name="status" defaultValue={status}><option value="">ทุกสถานะ</option><option value="active">ใช้งาน</option><option value="inactive">พักใช้งาน</option><option value="archived">เก็บถาวร</option></select></> : null}
       <label className="sr-only" htmlFor="inventory-branch">สาขา</label><select id="inventory-branch" name="branch" defaultValue={branchId}><option value="">ทุกสาขา</option>{branches.map((item) => <option key={item.id} value={item.id}>{item.code} · {item.name}</option>)}</select>
-      {view !== 'warehouses' ? <><label className="sr-only" htmlFor="inventory-warehouse">Warehouse</label><select id="inventory-warehouse" name="warehouse" defaultValue={warehouseId}><option value="">ทุก Warehouse</option>{warehouseOptions.map((item) => <option key={item.id} value={item.id}>{item.code} · {item.name}</option>)}</select><label className="sr-only" htmlFor="inventory-location">Location</label><select id="inventory-location" name="location" defaultValue={locationId}><option value="">ทุก Location</option>{locations.filter((item) => !warehouseId || item.warehouseId === warehouseId).map((item) => <option key={item.id} value={item.id}>{item.code} · {item.name}</option>)}</select><label className="sr-only" htmlFor="inventory-sku">SKU</label><select id="inventory-sku" name="sku" defaultValue={skuId}><option value="">ทุก SKU</option>{skuOptions.map((item) => <option key={item.id} value={item.id}>{item.skuCode} · {item.name}</option>)}</select></> : null}
-      {view === 'ledger' ? <><label className="sr-only" htmlFor="inventory-movement">ประเภท Movement</label><select id="inventory-movement" name="movement" defaultValue={movement}><option value="">ทุก Movement</option>{Object.entries(movementLabels).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></> : null}
-      <button className="button" type="submit">กรอง</button><Link className="button secondary" href={buildHref(organizationId, { view })}>ล้าง</Link>
+      {view !== 'warehouses' ? <><label className="sr-only" htmlFor="inventory-warehouse">คลังสินค้า</label><select id="inventory-warehouse" name="warehouse" defaultValue={warehouseId}><option value="">ทุกคลังสินค้า</option>{warehouseOptions.map((item) => <option key={item.id} value={item.id}>{item.code} · {item.name}</option>)}</select><label className="sr-only" htmlFor="inventory-location">ตำแหน่งจัดเก็บ</label><select id="inventory-location" name="location" defaultValue={locationId}><option value="">ทุกตำแหน่งจัดเก็บ</option>{locations.filter((item) => !warehouseId || item.warehouseId === warehouseId).map((item) => <option key={item.id} value={item.id}>{item.code} · {item.name}</option>)}</select><label className="sr-only" htmlFor="inventory-sku">SKU</label><select id="inventory-sku" name="sku" defaultValue={skuId}><option value="">ทุก SKU</option>{skuOptions.map((item) => <option key={item.id} value={item.id}>{item.skuCode} · {item.name}</option>)}</select></> : null}
+      {view === 'ledger' ? <><label className="sr-only" htmlFor="inventory-movement">ประเภทการเคลื่อนไหว</label><select id="inventory-movement" name="movement" defaultValue={movement}><option value="">ทุกประเภท</option>{Object.entries(movementLabels).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></> : null}
+      <button className="button compact-button" type="submit">ค้นหา</button><Link className="button secondary compact-button" href={buildHref(organizationId, { view })}>ล้างตัวกรอง</Link>
     </form>
 
     {!rows.length ? <OperationsEmptyState icon="⌁" title="ยังไม่มีข้อมูลตามมุมมองนี้" description="ลองเปลี่ยนตัวกรอง หรือเริ่มสร้าง Warehouse และรับ Stock" /> : <>
-      <div className="inventory-table-wrap"><table className="inventory-data-table"><thead><tr>{view === 'warehouses' ? <><th>Warehouse</th><th>สาขา</th><th>สถานะ</th><th>แก้ไขล่าสุด</th><th><span className="sr-only">รายละเอียด</span></th></> : view === 'balances' ? <><th>SKU</th><th>Warehouse / Location</th><th>On hand</th><th>Allocated</th><th>Available</th><th>สถานะ Stock</th></> : <><th>เวลา</th><th>Movement</th><th>SKU</th><th>Location</th><th>จำนวน</th><th>เหตุผล / Actor</th></>}</tr></thead><tbody>
+      <div className="inventory-table-wrap"><table className="inventory-data-table"><thead><tr>{view === 'warehouses' ? <><th>คลังสินค้า</th><th>สาขา</th><th>สถานะ</th><th>แก้ไขล่าสุด</th><th><span className="sr-only">รายละเอียด</span></th></> : view === 'balances' ? <><th>SKU</th><th>คลังสินค้า / ตำแหน่ง</th><th>คงเหลือจริง</th><th>จองแล้ว</th><th>พร้อมใช้</th><th>สถานะสต็อก</th></> : <><th>เวลา</th><th>การเคลื่อนไหว</th><th>SKU</th><th>ตำแหน่ง</th><th>จำนวน</th><th>เหตุผล / ผู้ดำเนินการ</th></>}</tr></thead><tbody>
         {view === 'warehouses' ? warehouses.map((item) => <tr key={item.id}><td><strong className="product-code">{item.code}</strong><small>{item.name}</small></td><td>{item.branchName}</td><td><OperationsStatusBadge tone={tone(item.status)}>{statusLabels[item.status]}</OperationsStatusBadge></td><td>{formatDate(item.updatedAt)}</td><td><Link className="product-row-link" href={buildHref(organizationId, { ...preserved, detail: item.id })}>ดูรายละเอียด</Link></td></tr>) : null}
         {view === 'balances' ? balances.map((item) => <tr key={`${item.skuId}-${item.locationId}`}><td><strong className="product-code">{item.skuCode}</strong><small>{item.skuName}</small></td><td><strong>{item.warehouseName}</strong><small>{item.locationName}</small></td><td>{quantity(item.onHand, item.baseUnitCode)}</td><td>{quantity(item.allocated, item.baseUnitCode)}</td><td><strong>{quantity(item.available, item.baseUnitCode)}</strong></td><td><OperationsStatusBadge tone={stockTone(item.available)}>{item.available === 0 ? 'หมด' : item.available <= 5 ? 'ใกล้หมด' : 'พร้อมขาย'}</OperationsStatusBadge></td></tr>) : null}
         {view === 'ledger' ? movements.map((item) => { const location = locationMap.get(item.locationId); const sku = skuMap.get(item.skuId); return <tr key={item.id}><td>{formatDate(item.occurredAt)}</td><td><OperationsStatusBadge tone={item.quantityDelta > 0 ? 'success' : 'warning'}>{movementLabels[item.movementType] ?? item.movementType}</OperationsStatusBadge></td><td><strong className="product-code">{sku?.skuCode ?? item.skuId.slice(0, 8)}</strong><small>{sku?.name ?? 'SKU'}</small></td><td>{location ? `${location.warehouseName} · ${location.name}` : item.locationId.slice(0, 8)}</td><td className={item.quantityDelta > 0 ? 'stock-positive' : 'stock-negative'}>{item.quantityDelta > 0 ? '+' : ''}{quantity(item.quantityDelta, item.baseUnitCode)}</td><td><strong>{item.reasonCode}</strong><small>{item.reasonNote || `Actor ${item.actorUserId.slice(0, 8)}`}</small></td></tr> }) : null}

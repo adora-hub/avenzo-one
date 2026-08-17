@@ -1295,3 +1295,54 @@ final result: blocked
 - Live data inspection: blocked because the Supabase connection does not grant access to project `kenhlerbirchcpzgnfsh`.
 - Visual comparison: blocked because an authenticated browser verification surface was unavailable. The owner must refresh the Products page and expand the Product row to confirm each SKU image.
 - final result: blocked
+## Warehouse & Stock UI standardization — 18 August 2026
+
+### Scope
+
+- Route: `/organizations/:organizationId/inventory`.
+- Reference: `docs/mockups/warehouse-stock-current-reference.png`.
+- UI-only: information hierarchy, component grouping, spacing, labels, responsive layout and visual states.
+- Explicitly excluded: workflow changes, command behavior, permissions, repository queries, stock calculations and persistence.
+
+### Static review
+
+- Global breadcrumb is present in the application header.
+- Page hierarchy follows breadcrumb → heading/status → summaries → view tabs/actions → filters → results.
+- Warehouse setup actions and stock transaction actions remain separate groups.
+- Existing AVENZO button, status badge, tab, filter, table, dialog, sheet and mobile-card patterns are reused.
+- Breadcrumb uses `@tabler/icons-react`; no new handcrafted icon asset was introduced.
+- Table header, borders, control heights, select arrow spacing and light/dark surfaces use shared tokens and approved Product-grid conventions.
+- Mobile rules stack actions and filters and switch the result table to cards without changing data behavior.
+
+### Functional verification
+
+- TypeScript: passed.
+- Operations UI foundation: 4/4 passed.
+- Warehouse & Stock vertical slice: 4/4 passed.
+- Local route: HTTP 200.
+
+### Visual comparison
+
+- Blocked: browser-control runtime could not start because the Windows sandbox helper returned `apply deny-read ACLs`.
+- A post-change screenshot at the same authenticated state and viewport could not be captured in this run.
+- Light/dark and responsive visual inspection still requires Owner verification in the local browser.
+
+final result: blocked
+
+## Warehouse view tabs with icons — 18 August 2026
+
+- Source visual truth: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-f854d301-1f70-49d9-ad7e-0f2b0a63367a.png` (desktop compact tabs with leading icons).
+- Implementation: `/organizations/69408fd5-4f58-4546-9ab4-5b92009bd241/inventory`, light theme, warehouse view.
+- Viewport and pixel dimensions: unavailable because the browser capture runtime and Temp image reader were denied by the Windows ACL helper.
+- Density normalization: unavailable; no valid source/implementation image pair could be opened for comparison.
+- Full-view comparison evidence: blocked before capture by `apply deny-read ACLs`.
+- Focused region comparison evidence: blocked before capture by `apply deny-read ACLs`.
+- Static review: all three tabs now use semantic Tabler icons before the Thai labels, retain the existing link destinations and active state, and share 16px icon sizing with a 7px text gap.
+- Typography: existing tab font, weight and line height are preserved.
+- Spacing/layout: icon and label use centered inline-flex alignment; mobile tabs continue to distribute equally.
+- Colors/tokens: existing tab surface, border, hover and selected tokens are unchanged.
+- Image quality: vector icons come from the repository's existing `@tabler/icons-react` library; no raster or handcrafted SVG asset was introduced.
+- Copy/content: `คลังสินค้า`, `ยอดคงเหลือ` and `การเคลื่อนไหว` are unchanged.
+- Functional verification: TypeScript passed; Operations UI foundation 4/4; Warehouse & Stock vertical slice 4/4; local route HTTP 200.
+- Primary interactions and console errors: not browser-tested because the browser runtime could not start.
+- Manual check required: F5 the Warehouse page and switch all three tabs in desktop and mobile widths.

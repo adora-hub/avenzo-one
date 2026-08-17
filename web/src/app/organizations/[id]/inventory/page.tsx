@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { ApplicationShell } from '@/app/components/application-shell'
+import { InventoryHeaderBreadcrumb } from '@/app/components/inventory-header-breadcrumb'
 import { OperationsCardList, OperationsPageHeader, OperationsStatusBadge, OperationsSummaryCard } from '@/app/components/operations-ui'
 import { uuidPattern } from '@/lib/foundation/contracts'
 import { createFoundationReadRepository } from '@/lib/foundation/server-read'
@@ -60,9 +61,9 @@ export default async function InventoryPage({ params, searchParams }: Props) {
     ? canReadWarehouse
     : canReadInventory && canReadWarehouse && canReadProduct
 
-  if (!canReadView) return <ApplicationShell email={user.email ?? ''} isPlatformAdmin={isPlatformAdmin} section="workspace" organizationId={organizationId} organizationName={organization.name}>
+  if (!canReadView) return <ApplicationShell email={user.email ?? ''} isPlatformAdmin={isPlatformAdmin} section="workspace" organizationId={organizationId} organizationName={organization.name} headerBreadcrumb={<InventoryHeaderBreadcrumb organizationId={organizationId} />}>
     <section className="content inventory-workspace-page">
-      <OperationsPageHeader eyebrow="Phase 2.0.6 · Warehouse/Stock" title="Warehouse & Stock" description="คลัง ตำแหน่ง ยอดคงเหลือ และ Movement Ledger" />
+      <OperationsPageHeader title="คลังสินค้าและสต็อก" description="ดูแลคลังสินค้า ตำแหน่งจัดเก็บ ยอดคงเหลือ และประวัติการเคลื่อนไหว" />
       <div className="operations-empty-state warning" role="alert"><span aria-hidden="true">!</span><div><h3>ไม่มีสิทธิ์อ่านข้อมูลส่วนนี้</h3><p>ต้องได้รับสิทธิ์ {view === 'warehouses' ? 'warehouse.read' : 'inventory.read, warehouse.read และ product.read'} ก่อน</p></div></div>
     </section>
   </ApplicationShell>
@@ -88,13 +89,13 @@ export default async function InventoryPage({ params, searchParams }: Props) {
   const lowStockCount = balances.filter((item) => item.available > 0 && item.available <= 5).length
   const outOfStockCount = balances.filter((item) => item.available === 0).length
 
-  return <ApplicationShell email={user.email ?? ''} isPlatformAdmin={isPlatformAdmin} section="workspace" organizationId={organizationId} organizationName={organization.name}>
+  return <ApplicationShell email={user.email ?? ''} isPlatformAdmin={isPlatformAdmin} section="workspace" organizationId={organizationId} organizationName={organization.name} headerBreadcrumb={<InventoryHeaderBreadcrumb organizationId={organizationId} />}>
     <section className="content inventory-workspace-page">
-      <OperationsPageHeader eyebrow="Phase 2.0.6 · Foundation Vertical Slice" title="Warehouse & Stock" description={`ดูแลคลัง ยอดคงเหลือ และ Movement Ledger ของ ${organization.name} โดยไม่เขียน Balance จาก UI โดยตรง`} actions={<OperationsStatusBadge tone={canManageWarehouse || canReceive || canAdjust || canTransfer ? 'success' : 'info'}>{canManageWarehouse || canReceive || canAdjust || canTransfer ? 'มีสิทธิ์ดำเนินการ' : 'อ่านอย่างเดียว'}</OperationsStatusBadge>} />
-      <OperationsCardList label="สรุป Warehouse และ Stock" columns={3}>
+      <OperationsPageHeader title="คลังสินค้าและสต็อก" description={`ดูแลคลังสินค้า ตำแหน่งจัดเก็บ ยอดคงเหลือ และประวัติการเคลื่อนไหวของ ${organization.name}`} actions={<OperationsStatusBadge tone={canManageWarehouse || canReceive || canAdjust || canTransfer ? 'success' : 'info'}>{canManageWarehouse || canReceive || canAdjust || canTransfer ? 'ดำเนินการได้' : 'ดูข้อมูลเท่านั้น'}</OperationsStatusBadge>} />
+      <OperationsCardList label="ภาพรวมคลังสินค้าและสต็อก" columns={3}>
         <OperationsSummaryCard label="รายการในหน้านี้" value={listResult.items.length} description="สูงสุด 20 รายการต่อหน้า" />
-        <OperationsSummaryCard label="On hand ในหน้านี้" value={view === 'balances' ? totalOnHand.toLocaleString('th-TH') : '—'} description="Allocated = 0 ใน Phase 2.0" />
-        <OperationsSummaryCard label="แจ้งเตือน Stock" value={view === 'balances' ? lowStockCount + outOfStockCount : '—'} description={view === 'balances' ? `ใกล้หมด ${lowStockCount} · หมด ${outOfStockCount}` : 'ดูได้ในมุมมองยอดคงเหลือ'} />
+        <OperationsSummaryCard label="จำนวนคงเหลือในหน้านี้" value={view === 'balances' ? totalOnHand.toLocaleString('th-TH') : '—'} description="แสดงผลเมื่อเลือกยอดคงเหลือ · Allocated = 0" />
+        <OperationsSummaryCard label="สินค้าที่ต้องตรวจสอบ" value={view === 'balances' ? lowStockCount + outOfStockCount : '—'} description={view === 'balances' ? `ใกล้หมด ${lowStockCount} · หมด ${outOfStockCount}` : 'ดูได้ในมุมมองยอดคงเหลือ'} />
       </OperationsCardList>
       <section className="inventory-workspace-panel" aria-label="Warehouse และ Stock workspace">
         <InventoryWorkspace organizationId={organizationId} view={view} search={search} status={status} movement={movement} branchId={branchId} warehouseId={warehouseId} locationId={locationId} skuId={skuId} initialDialog={canAdjust ? initialDialog : null} warehouses={warehouses} balances={balances} movements={movements} warehouseOptions={warehouseOptionsResult.items} locations={locations} skuOptions={skuOptionsResult.items} branches={branchesResult.data ?? []} selectedWarehouse={selectedWarehouse} nextCursor={listResult.nextCursor} canManageWarehouse={canManageWarehouse} canReceive={canReceive} canAdjust={canAdjust} canTransfer={canTransfer} />
