@@ -1015,6 +1015,9 @@ export function ProductSkuWorkspace({
       canAdjustInventory={canAdjustInventory}
       inventoryLocationOptions={inventoryLocationOptions}
       canReadCost={canReadCost}
+      brandOptions={brandOptions}
+      categoryOptions={categoryOptions}
+      tagOptions={tagOptions}
       isPending={isPending}
       onRequestLifecycle={requestLifecycle}
     /> : <>
@@ -1060,8 +1063,7 @@ export function ProductSkuWorkspace({
       selectedProduct={selectedProduct}
       selectedSku={selectedSku}
       closeHref={closeDetailHref}
-      canReadCost={canReadCost}
-    />
+            canReadCost={canReadCost}/>
 
     {bulkSearchOpen ? <div className="product-modal-backdrop product-bulk-search-backdrop" role="presentation" onMouseDown={(event) => {
       if (event.target === event.currentTarget) setBulkSearchOpen(false)

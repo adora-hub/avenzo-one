@@ -1124,3 +1124,109 @@ final result: blocked
 ## Final result
 
 final result: blocked
+---
+
+# Design QA — Production Bulk Product Editing
+
+วันที่ตรวจ: 17 สิงหาคม 2026
+
+## Source visual truth
+
+- `docs/mockups/phase-2.1-products-workspace-ui.html`
+- Owner instruction: นำ Production ให้ตรงกับ mockup 100% โดยไม่เปลี่ยนดีไซน์เอง และหยุดให้ Owner ทดสอบก่อน Commit/Push
+
+## Implementation
+
+- Selection bar แสดงจำนวน Product และ SKU ที่เลือก
+- Action menu แบบ 4 กลุ่ม กว้างสูงสุด 900px ตาม mockup
+- Product master picker กว้างสูงสุด 960px มี Search และรายการ 3 แถวแบบเลื่อนแนวนอน
+- SKU modal กว้างสูงสุด 980px มีขอบเขตทุก SKU/เลือกเฉพาะ SKU, ฟอร์มราคา/ต้นทุน/สต็อก และ Preview
+- ใช้ command/read repository เดิมของระบบจริง ไม่สร้างเส้นทางเขียนข้อมูลนอก trusted command
+
+## Verification evidence
+
+- TypeScript: passed
+- Products data-grid: 7/7 passed
+- Products visual parity: 6/6 passed
+- Products status control: 4/4 passed
+- Products pagination: 4/4 passed
+- `git diff --check`: passed with only line-ending warnings
+- Local server: running; unauthenticated HTTP probe redirects to sign-in as expected
+- Browser-rendered comparison evidence: unavailable because browser runtime is blocked by the Windows workspace ACL
+
+## Findings
+
+- [P1] Owner ต้องตรวจภาพและ interaction ใน authenticated Local session ก่อน Commit/Push
+
+## Final result
+
+final result: blocked
+## Owner comparison correction — 17 สิงหาคม 2026
+
+- Fixed global Product Editor input collision that enlarged Radio/Checkbox to 100% × 44px.
+- Restored approved compact Radio/Checkbox, three-row horizontal master picker, plain close icon, badges, top tooltips, manage row, and zero nested form padding.
+- Real Organization data remains authoritative: Local counts and available brands can differ from mock data.
+- TypeScript, visual parity 6/6, and Products grid 7/7 passed.
+- Browser-rendered verification remains blocked pending Owner refresh/test in authenticated Local session.
+
+final result: blocked
+
+## Owner comparison correction — modal scope and footer — 17 August 2026
+
+- Restored the selected Product/SKU summary surface using Production design tokens.
+- Restored the full-width footer divider using `--border-default`.
+- Matched compact modal actions at 38px height and 13px text; no other Product UI was intentionally changed.
+- TypeScript, visual parity 6/6, and `git diff --check` passed.
+- Browser-rendered verification remains blocked pending Owner refresh/test in authenticated Local session.
+
+final result: blocked
+## Owner icon correction — Product master picker — 17 August 2026
+
+- Replaced the plain text `i` with the open-source Tabler `IconInfoHexagon` at 16px.
+- Preserved the existing top tooltip, accessible label, focus behavior, and theme color inheritance.
+- TypeScript, visual parity 6/6, and `git diff --check` passed.
+- Browser-rendered verification remains blocked because the local in-app browser runtime is denied by the Windows workspace ACL; Owner refresh/test is required.
+
+final result: blocked
+## Master Data Picker Design System promotion — 17 August 2026
+
+- Promoted the approved Brand Picker to `Master Data Picker Dialog` in AVENZO ONE Design System & UI/UX Standards V1.4.
+- Shared production pattern now covers Brand, Category and Tags; recent/frequent badges and 18px `IconInfoHexagon` right tooltip use the same rules.
+- Price, Cost and Stock remain specialized SKU workflows with scope, preview, validation and audit requirements.
+- TypeScript: passed.
+- Products visual parity: 6/6 passed.
+- `git diff --check`: passed with only line-ending warnings.
+- Browser-rendered comparison remains blocked because the browser runtime is denied by the Windows workspace ACL; Owner visual confirmation is still required.
+
+final result: blocked
+## Bulk SKU modal standards correction — 17 August 2026
+
+- Root cause: the modal used undefined legacy tokens (`--border`, `--surface-muted`, `--text-muted`), so borders and surfaces silently disappeared.
+- Replaced all undefined tokens inside the complete Bulk Edit CSS range with current Design System tokens.
+- Standardized 40px segmented controls and 42px inputs/comboboxes with the approved 12px right arrow spacing.
+- Added an outer table border, row/column dividers, sticky header, numeric alignment, 310px maximum preview height, and vertical/horizontal scrolling.
+- Preserved horizontal table scrolling on narrow screens so column meanings are not removed.
+- TypeScript: passed.
+- Products visual parity: 6/6 passed.
+- Products responsive visual matrix: 13/13 passed.
+- Products data grid: 7/7 passed.
+- `git diff --check`: passed with line-ending warnings only.
+- One unrelated pre-existing Products creation page-structure assertion remains stale: it expects the old summary action order (`ตรวจสอบและสร้าง`, `บันทึกร่าง`, `ยกเลิก`). No creation-page code was changed in this correction.
+- Browser-rendered comparison remains blocked by the Windows workspace ACL; Owner visual confirmation is required after refresh.
+
+final result: blocked
+## Bulk Price modal border and scroll correction — 18 August 2026
+
+- Root cause of missing control borders: the Bulk SKU controls referenced undefined `--border-strong`; corrected to the Design System token `--border-default`.
+- Converted the Bulk SKU dialog into a constrained Flex column. Header and Footer are fixed siblings; only the Body is the vertical scroll container.
+- Removed the sticky Footer overlay so the SKU-specific list and Preview table remain reachable and are not covered by actions.
+- Preserved independent scrolling for the SKU selector and the Preview table, including visible scrollbar gutters.
+- Updated AVENZO ONE Design System section 5.5.2 and locked the behavior with visual parity assertions.
+- TypeScript: passed.
+- Products visual parity: 6/6 passed.
+- Products responsive visual matrix: 13/13 passed.
+- Products data grid: 7/7 passed.
+- `git diff --check`: passed with line-ending warnings only.
+- Browser-rendered comparison remains blocked because the in-app browser runtime is denied by the Windows workspace ACL; Owner refresh/test is required.
+
+final result: blocked

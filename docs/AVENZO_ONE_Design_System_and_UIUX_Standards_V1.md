@@ -2,9 +2,9 @@
 
 > มาตรฐานกลางสำหรับออกแบบ พัฒนา ตรวจสอบ และแก้ไขส่วนติดต่อผู้ใช้ของ AVENZO ONE โดยไม่ให้แต่ละหน้าหรือโมดูลค่อย ๆ เพี้ยนออกจากกัน
 
-**เวอร์ชัน:** 1.3
+**เวอร์ชัน:** 1.4
 
-**วันที่:** 15 สิงหาคม 2026
+**วันที่:** 17 สิงหาคม 2026
 
 **สถานะ:** มาตรฐานบังคับสำหรับ Repository
 
@@ -288,6 +288,40 @@ Shared `DataTable` ต้องรองรับตามบริบท:
 - Popover ใช้กับตัวเลือกขนาดเล็ก ไม่ใช้แทน Form ยาว
 - ต้อง Trap Focus, ปิดด้วย Escape เมื่อปลอดภัย และคืน Focus สู่ต้นทาง
 - Destructive Dialog ต้องระบุผลกระทบและไม่ตั้ง Primary Action เป็นค่าเริ่มต้นแบบเสี่ยง
+
+#### 5.5.1 Master Data Picker Dialog
+
+ใช้ Pattern นี้เมื่อผู้ใช้ต้องเลือก Master Data เพื่อนำไปใช้กับหลายรายการ เช่น แบรนด์ หมวดหมู่ และป้ายกำกับสินค้า โดยต้องใช้โครงสร้างและพฤติกรรมเดียวกันทั้งระบบ:
+
+- Header แสดงชื่อการทำงาน คำอธิบายสั้น และปุ่มปิดแบบ Icon
+- Scope summary แสดงจำนวน Product ที่เลือกและจำนวน SKU รวมก่อนเริ่มเลือกค่า
+- ช่องค้นหากรองผลแบบทันที พร้อม Empty state เมื่อไม่พบข้อมูล
+- รายการใช้พื้นที่แนวนอนแบบกระชับ สูง 3 แถว และเลื่อนแนวนอนได้เมื่อมีข้อมูลจำนวนมาก
+- แบรนด์และหมวดหมู่เลือกได้ค่าเดียวด้วย Radio; ป้ายกำกับเลือกได้หลายค่าด้วย Checkbox และต้องระบุโหมด เพิ่ม/นำออก/แทนที่
+- Badge `ใช้ล่าสุด` ใช้พื้นหลังสีแดง ตัวอักษรสีขาว; Badge `ใช้บ่อย` ใช้พื้นหลังสีดำ ตัวอักษรสีขาว และ Badge ต้องไม่ดูเหมือนปุ่ม
+- หากรายการเดียวกันเข้าเงื่อนไขทั้งสองแบบ ให้แสดง `ใช้ล่าสุด` ก่อน
+- ใช้ `IconInfoHexagon` ขนาด 18px โดยไม่มีพื้นหลังหรือกรอบแบบปุ่ม; Hover หรือ Keyboard focus ที่ Icon เท่านั้นจึงแสดง Tooltip ด้านขวา พร้อมจำนวนสินค้าที่ใช้งานค่านั้น
+- Summary ด้านล่างแสดงจำนวนสินค้า จำนวน SKU และจำนวน Master Data ทั้งหมด พร้อมปุ่มจัดการ Master Data ตามสิทธิ์
+- Footer ใช้ปุ่มรอง “ยกเลิก” และปุ่มหลักสีดำ “นำไปใช้กับรายการที่เลือก” ตามมาตรฐาน Button
+- Dialog ต้อง Trap focus, รองรับ Escape, คืน Focus สู่ปุ่มต้นทาง และมี Accessible name/description ครบ
+- Desktop ใช้ความกว้างไม่เกิน `min(960px, 100vw - 32px)`; หน้าจอแคบต้องยังอ่านและใช้งานได้โดยไม่ตัด Action สำคัญ
+
+Pattern นี้ไม่ใช้แทนการแก้ราคา ต้นทุน หรือสต็อก เพราะงานระดับ SKU เหล่านั้นต้องมี Scope, Preview, Validation และ Audit ที่เฉพาะเจาะจง
+
+#### 5.5.2 Bulk SKU Edit Dialog
+
+ใช้ Pattern นี้กับการแก้ราคา ต้นทุน และสต็อกหลาย SKU:
+
+- Dialog แสดง Scope summary, ตัวเลือกขอบเขต SKU, Controls และ Preview ก่อนยืนยันตามลำดับ
+- Segmented control ใช้ความสูง 40px, ตัวอักษร 13px น้ำหนัก 600, เส้นแบ่งชัด และรองรับ Focus-visible
+- Input และ Combobox ใช้ความสูง 42px, Radius 9px และ Border token กลาง; ลูกศร Combobox อยู่ห่างขอบขวา 12px ตาม Select มาตรฐาน
+- Preview table ต้องมีกรอบรอบนอก เส้นแบ่งแถวและคอลัมน์ หัวตาราง Sticky และจัดตัวเลขชิดขวา
+- Preview สูงไม่เกิน 310px และเลื่อนแนวตั้ง/แนวนอนได้ โดยต้องเห็น Scrollbar เมื่อข้อมูลล้น
+- หน้าจอแคบให้เรียง Panel เป็นหนึ่งคอลัมน์และคงตารางแบบเลื่อนแนวนอน เพื่อไม่ให้ชื่อหัวคอลัมน์สูญหาย
+- Dialog ใช้โครงสร้าง Flex column โดย Header และ Footer ไม่ยืด ส่วน Body เป็น Scroll container หลักเพียงจุดเดียว (`flex: 1; min-height: 0; overflow-y: auto`)
+- Footer ต้องเป็น Sibling ต่อจาก Body และห้ามวางซ้อน Preview; เมื่อเลือก SKU เฉพาะรายการ ผู้ใช้ต้องเลื่อน Modal เพื่อเห็น Preview ได้ครบ
+- Footer ใช้ Compact button สูง 38px: Cancel แบบ Secondary อยู่ซ้าย และ Primary สีดำอยู่ขวา
+- ห้ามใช้ Token ที่ไม่มีใน Design System; Border, Surface และ Text ต้องอ้าง `--border-default`, `--surface-elevated`, `--surface-subtle`, `--text-primary` หรือ `--text-secondary`
 
 ### 5.6 Feedback และ System States
 
@@ -611,3 +645,11 @@ Design System ควรพัฒนาเท่าที่ Vertical Slice ต�
 - กำหนด Approved Mockup เป็น Page-level Source of Truth และห้ามเปลี่ยนดีไซน์เอง
 - เพิ่ม Visual Parity และ Owner production approval เข้า UI Definition of Done
 - เชื่อมคู่มือ `AVENZO_ONE_UI_Mockup_First_Implementation_Guide_V1.md`
+
+### V1.4 — 17 สิงหาคม 2026
+
+- เพิ่มมาตรฐาน `Master Data Picker Dialog` สำหรับ Brand, Category และ Tags
+- กำหนด Badge `ใช้ล่าสุด` สีแดง และ `ใช้บ่อย` สีดำ พร้อมลำดับความสำคัญ
+- กำหนด `IconInfoHexagon` 18px และ Tooltip ด้านขวาที่รองรับ Mouse และ Keyboard
+- แยก Pattern เลือก Master Data ออกจากงานแก้ Price, Cost และ Stock ระดับ SKU
+- เพิ่มมาตรฐาน Bulk SKU Edit Dialog สำหรับ Segmented control, Combobox, Preview table, Scrollbar และ Footer

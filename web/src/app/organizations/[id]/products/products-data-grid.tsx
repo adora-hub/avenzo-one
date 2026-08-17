@@ -12,6 +12,7 @@ import {
   type ReactNode,
 } from 'react'
 import { executeFoundationCommandAction } from '@/app/actions/foundation'
+import { ProductsBulkEdit } from './products-bulk-edit'
 import { OperationsEmptyState } from '@/app/components/operations-ui'
 import type { ProductWorkspaceRow } from '@/lib/foundation/repositories'
 import {
@@ -151,7 +152,7 @@ function detailHref(input: { organizationId: string; search: string; status: str
 
 export function ProductsDataGrid({
   organizationId, rows, search, status, dateField, dateFrom, dateTo, brandId, categoryId, tagIds, priceMin, priceMax, stockMin, stockMax, sort, toolbar, clearHref, bulkActiveCount, clearBulkHref, emptyState,
-  page, pageSize, totalCount, canManage, canAdjustInventory, inventoryLocationOptions, canReadCost, isPending, onRequestLifecycle,
+  page, pageSize, totalCount, canManage, canAdjustInventory, inventoryLocationOptions, canReadCost, brandOptions, categoryOptions, tagOptions, isPending, onRequestLifecycle,
 }: {
   organizationId: string
   rows: ProductWorkspaceRow[]
@@ -180,6 +181,9 @@ export function ProductsDataGrid({
   canAdjustInventory: boolean
   inventoryLocationOptions: Array<{ id: string; name: string; code: string; warehouseName: string }>
   canReadCost: boolean
+  brandOptions: Array<{ id: string; name: string }>
+  categoryOptions: Array<{ id: string; name: string }>
+  tagOptions: Array<{ id: string; name: string }>
   isPending: boolean
   onRequestLifecycle: (input: {
     commandType: 'product.activate' | 'product.archive'
@@ -1033,10 +1037,20 @@ export function ProductsDataGrid({
       กำลังค้นหาแบบกลุ่ม <strong>{bulkActiveCount}</strong> รหัส
       <Link className="button compact secondary" href={clearBulkHref}>ล้างกลุ่มรหัส</Link>
     </div> : null}
-    {selectedRows.size > 0 ? <div className="product-grid-selection-active" aria-live="polite">
-      เลือกแล้ว <strong>{selectedRows.size}</strong> รายการ
-      <button className="button compact secondary" type="button" onClick={() => setSelectedRows(new Set())}>ยกเลิกการเลือก</button>
-    </div> : null}
+    {selectedRows.size > 0 ? <ProductsBulkEdit
+      organizationId={organizationId}
+      rows={displayedRows}
+      selectedRows={selectedRows}
+      brandOptions={brandOptions}
+      categoryOptions={categoryOptions}
+      tagOptions={tagOptions}
+      inventoryLocationOptions={inventoryLocationOptions}
+      canManage={canManage}
+      canAdjustInventory={canAdjustInventory}
+      canReadCost={canReadCost}
+      onClear={() => setSelectedRows(new Set())}
+      onCompleted={(message) => { setGridToast(message); router.refresh() }}
+    /> : null}
     {!rows.length ? <OperationsEmptyState icon="＋" title={emptyState.title} description={emptyState.description} /> : <>
     <div className="product-table-wrap product-grid-wrap">
       <table className="product-data-table product-grid-table">
