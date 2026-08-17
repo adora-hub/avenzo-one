@@ -72,6 +72,24 @@ test('R2 returns an exact count and a bounded SKU preview', () => {
   assert.equal(row.skuPreview.length, PRODUCT_WORKSPACE_SKU_PREVIEW_LIMIT)
 })
 
+test('R2 assigns each SKU its own variant image and falls back to the Product cover', () => {
+  const images = [
+    { id: 'cover', productId: 'p1', signedUrl: '/cover.webp', altText: 'รูปหลัก', mimeType: 'image/webp', fileSizeBytes: 100, sortOrder: 0, isCover: true },
+    { id: 'silver', productId: 'p1', signedUrl: '/silver.webp', altText: 'สีเงิน', mimeType: 'image/webp', fileSizeBytes: 100, sortOrder: 1, isCover: false },
+    { id: 'gold', productId: 'p1', signedUrl: '/gold.webp', altText: 'สีทอง', mimeType: 'image/webp', fileSizeBytes: 100, sortOrder: 2, isCover: false },
+  ]
+  const [row] = buildProductWorkspaceRows({
+    products: [product], skus: [sku('001'), sku('002'), sku('003')], balances: [], includeInventory: true,
+    images,
+    variantImageAssignments: [
+      { skuId: '001', productImageId: 'silver', isPrimary: true, sortOrder: 0 },
+      { skuId: '002', productImageId: 'gold', isPrimary: true, sortOrder: 0 },
+    ],
+  })
+  assert.equal(row.skuPreview[0].image?.signedUrl, '/silver.webp')
+  assert.equal(row.skuPreview[1].image?.signedUrl, '/gold.webp')
+  assert.equal(row.skuPreview[2].image?.signedUrl, '/cover.webp')
+})
 test('R2 repository uses bounded batch queries and the page enforces inventory.read', () => {
   assert.match(repository, /async listProductWorkspaceRows/)
   assert.match(repository, /\.in\('product_id', productIds\)/)

@@ -1274,3 +1274,24 @@ final result: blocked
 - Visual comparison remains blocked by the Codex Desktop Windows ACL capture failure; manual F5 verification is required.
 
 final result: blocked
+## Products expanded SKU table column parity — 18 August 2026
+
+- Source target: user screenshot codex-clipboard-bcff06fb-50c4-4681-bef7-eeb3aefead47.png.
+- Heading and description are now one inline sentence, with the description enclosed in parentheses.
+- Expanded SKU rows now inherit the user's visible column set, order, saved widths and pinned positions from the parent Products DataTable, with a fixed actions column.
+- SKU-specific price, stock, status, identifiers, unit, profile and cost values use the existing bounded read model; Product-level metadata is repeated only where it is genuinely shared.
+- Expanded rows render only after the user opens them and do not issue per-row API requests; the preview remains capped at five SKU rows with a link to the full SKU list.
+- Automated verification: expanded variant 1/1; Products R2 5/5; R7.4 default alignment 9/9; R3 DataGrid 7/7; optional columns 6/6; pagination 5/5; TypeScript passed; local Products route HTTP 200.
+- Browser-rendered screenshot comparison remains blocked because the in-app browser runtime is denied by the Windows workspace ACL; Owner F5 verification is required.
+
+final result: blocked
+## Products expanded SKU variant images — 18 August 2026
+
+- Scope: Products expanded SKU rows; the reported silver and gold variants displayed the same Product cover image.
+- Root cause: the variant cell always rendered `row.coverImage`, while the Products list read model did not load `sku_variant_images`.
+- Fix: load SKU image assignments in batches, resolve the primary/first image per SKU, use the Product cover only as fallback, and use a placeholder when neither exists. The hover preview uses the same resolved image.
+- Performance: one batched assignment query and one batched assigned-image query; no per-SKU request.
+- Verification: TypeScript passed; expanded-variant test passed; R2 read-model tests passed 6/6; R3 data-grid tests passed 7/7; R7.4 alignment tests passed 9/9; the local Products route responded HTTP 200.
+- Live data inspection: blocked because the Supabase connection does not grant access to project `kenhlerbirchcpzgnfsh`.
+- Visual comparison: blocked because an authenticated browser verification surface was unavailable. The owner must refresh the Products page and expand the Product row to confirm each SKU image.
+- final result: blocked

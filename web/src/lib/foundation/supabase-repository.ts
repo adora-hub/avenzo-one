@@ -364,7 +364,7 @@ export class SupabaseFoundationReadRepository implements FoundationReadRepositor
     const categoryIds = Array.from(new Set(productRows.map((row) => row.category_id).filter(Boolean))) as string[]
     const brandIds = Array.from(new Set(productRows.map((row) => row.brand_id).filter(Boolean))) as string[]
     const creatorIds = Array.from(new Set(productRows.map((row) => row.created_by).filter(Boolean))) as string[]
-    const [categoryResult, brandResult, assignmentResult, profileResult, costResult, creatorResult, imageResult, balanceResult] = await Promise.all([
+    const [categoryResult, brandResult, assignmentResult, profileResult, costResult, creatorResult, imageResult, variantImageAssignmentResult, balanceResult] = await Promise.all([
       categoryIds.length > 0
         ? this.client.from('product_categories').select('id, name').eq('organization_id', input.organizationId).in('id', categoryIds)
         : Promise.resolve({ data: [], error: null }),
@@ -391,6 +391,13 @@ export class SupabaseFoundationReadRepository implements FoundationReadRepositor
         .eq('organization_id', input.organizationId).in('product_id', productIds)
         .eq('status', 'ready').eq('is_cover', true)
         .order('sort_order', { ascending: true }).limit(productIds.length),
+      skuIds.length > 0
+        ? this.client.from('sku_variant_images')
+          .select('sku_id, product_image_id, is_primary, sort_order')
+          .eq('organization_id', input.organizationId).in('sku_id', skuIds)
+          .order('is_primary', { ascending: false }).order('sort_order', { ascending: true })
+          .limit(skuIds.length * 9)
+        : Promise.resolve({ data: [], error: null }),
       input.includeInventory && skuIds.length > 0
         ? this.client.from('inventory_balances')
           .select('sku_id, branch_id, on_hand, allocated, available')
@@ -398,11 +405,26 @@ export class SupabaseFoundationReadRepository implements FoundationReadRepositor
           .limit(PRODUCT_WORKSPACE_BALANCE_AGGREGATE_LIMIT + 1)
         : Promise.resolve({ data: [], error: null }),
     ])
-    for (const result of [categoryResult, brandResult, assignmentResult, profileResult, costResult, creatorResult, balanceResult]) {
+    for (const result of [categoryResult, brandResult, assignmentResult, profileResult, costResult, creatorResult, variantImageAssignmentResult, balanceResult]) {
       if (result.error) throw mapFoundationError(result.error)
     }
     const { data: imageData, error: imageError } = imageResult
-    const imageRows = productImageRowsOrFallback(imageData, imageError)
+    const coverImageRows = productImageRowsOrFallback(imageData, imageError)
+    const variantImageAssignments = (variantImageAssignmentResult.data ?? []).map((row) => ({
+      skuId: String(row.sku_id),
+      productImageId: String(row.product_image_id),
+      isPrimary: Boolean(row.is_primary),
+      sortOrder: Number(row.sort_order),
+    }))
+    const assignedImageIds = Array.from(new Set(variantImageAssignments.map((assignment) => assignment.productImageId)))
+    let assignedImageRows: Parameters<typeof signProductImages>[1] = []
+    if (assignedImageIds.length > 0) {
+      const assignedImageResult = await this.client.from('product_images')
+        .select('id, product_id, storage_path, alt_text, mime_type, file_size_bytes, sort_order, is_cover')
+        .eq('organization_id', input.organizationId).in('id', assignedImageIds).eq('status', 'ready')
+      assignedImageRows = productImageRowsOrFallback(assignedImageResult.data, assignedImageResult.error)
+    }
+    const imageRows = Array.from(new Map([...coverImageRows, ...assignedImageRows].map((image) => [String(image.id), image])).values())
     const images = await signProductImages(this.client, imageRows)
 
     const tagIds = Array.from(new Set((assignmentResult.data ?? []).map((row) => String(row.tag_id))))
@@ -487,6 +509,7 @@ export class SupabaseFoundationReadRepository implements FoundationReadRepositor
         branchCode: branchCodeById.get(row.branch_id) ?? null,
       })),
       images,
+      variantImageAssignments,
       includeInventory: Boolean(input.includeInventory),
       aggregateCapped: skuAggregateCapped || balanceAggregateCapped,
     })

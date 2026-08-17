@@ -21,6 +21,9 @@ export type ProductWorkspaceSkuPreview = {
   baseUnitCode: string
   status: string
   profile: ProductWorkspaceSkuProfile | null
+  stock?: ProductWorkspaceStockSummary
+  cost?: ProductWorkspaceSkuCost
+  image?: ProductImageReadModel | null
 }
 
 export type ProductWorkspaceNamedReference = {

@@ -81,11 +81,42 @@ function summarizePrices(
   }
 }
 
+function summarizeSkuStock(input: {
+  baseUnitCode: string
+  balances: ProductWorkspaceBalanceSource[]
+  includeInventory: boolean
+}): ProductWorkspaceStockSummary {
+  if (!input.includeInventory) {
+    return {
+      mode: 'not-authorized', baseUnitCode: input.baseUnitCode, onHand: null,
+      allocated: null, available: null, branchCodes: [],
+    }
+  }
+  const branchCodes = Array.from(new Set(input.balances
+    .map((balance) => balance.branchCode)
+    .filter((code): code is string => Boolean(code))))
+    .sort((left, right) => left.localeCompare(right))
+  if (!input.balances.length) {
+    return {
+      mode: 'no-balance', baseUnitCode: input.baseUnitCode, onHand: null,
+      allocated: null, available: null, branchCodes,
+    }
+  }
+  return {
+    mode: 'single-unit',
+    baseUnitCode: input.baseUnitCode,
+    onHand: input.balances.reduce((sum, balance) => sum + balance.onHand, 0),
+    allocated: input.balances.reduce((sum, balance) => sum + balance.allocated, 0),
+    available: input.balances.reduce((sum, balance) => sum + balance.available, 0),
+    branchCodes,
+  }
+}
 export function buildProductWorkspaceRows(input: {
   products: ProductWorkspaceProductSource[]
   skus: ProductWorkspaceSkuSource[]
   balances: ProductWorkspaceBalanceSource[]
   images?: ProductWorkspaceImageSource[]
+  variantImageAssignments?: Array<{ skuId: string; productImageId: string; isPrimary: boolean; sortOrder: number }>
   includeInventory: boolean
   aggregateCapped?: boolean
 }): ProductWorkspaceRow[] {
@@ -103,10 +134,20 @@ export function buildProductWorkspaceRows(input: {
     balancesBySku.set(balance.skuId, rows)
   }
 
+  const imageById = new Map((input.images ?? []).map((image) => [image.id, image]))
   const coverImageByProduct = new Map<string, ProductWorkspaceImageSource>()
   for (const image of input.images ?? []) {
     if (!image.isCover || coverImageByProduct.has(image.productId)) continue
     coverImageByProduct.set(image.productId, image)
+  }
+  const variantImageAssignmentBySku = new Map<string, { image: ProductWorkspaceImageSource; isPrimary: boolean; sortOrder: number }>()
+  for (const assignment of input.variantImageAssignments ?? []) {
+    const image = imageById.get(assignment.productImageId)
+    if (!image) continue
+    const current = variantImageAssignmentBySku.get(assignment.skuId)
+    if (!current || (assignment.isPrimary && !current.isPrimary) || (assignment.isPrimary === current.isPrimary && assignment.sortOrder < current.sortOrder)) {
+      variantImageAssignmentBySku.set(assignment.skuId, { image, isPrimary: assignment.isPrimary, sortOrder: assignment.sortOrder })
+    }
   }
 
   return input.products.map((product) => {
@@ -166,6 +207,13 @@ export function buildProductWorkspaceRows(input: {
         baseUnitCode: sku.baseUnitCode,
         status: sku.status,
         profile: sku.profile ?? null,
+        stock: summarizeSkuStock({
+          baseUnitCode: sku.baseUnitCode,
+          balances: balancesBySku.get(sku.id) ?? [],
+          includeInventory: input.includeInventory,
+        }),
+        cost: sku.cost,
+        image: variantImageAssignmentBySku.get(sku.id)?.image ?? coverImageByProduct.get(product.id) ?? null,
       })),
       price: summarizePrices(productSkus.map((sku) => ({
         amount: sku.profile?.salePrice ?? null,
