@@ -711,3 +711,416 @@ final result: blocked
 - จึงยังไม่สามารถจับ screenshot และตรวจ pixel/interaction บน session ที่ login แล้วได้
 
 final result: blocked
+
+---
+
+# Design QA — Products Bulk Edit Mockup Part 1–4
+
+วันที่ตรวจ: 17 สิงหาคม 2026
+
+## Source visual truth
+
+- Approved product plan: Selection Action Bar, grouped action menu, Product-level modal และ SKU-level modal
+- Design standards: `docs/AVENZO_ONE_Design_System_and_UIUX_Standards_V1.md`
+- Mockup-first contract: `docs/AVENZO_ONE_UI_Mockup_First_Implementation_Guide_V1.md`
+
+## Implementation
+
+- `docs/mockups/phase-2.1-products-workspace-ui.html`
+- Target state: เลือก Product หลายรายการ → เปิดเมนูแก้ไข → Product-level หรือ SKU-level modal → ตรวจ Preview → ยืนยันใน Mockup เท่านั้น
+
+## Verification evidence
+
+- JavaScript parsed successfully with bundled Node runtime
+- Static Part 1–4 contract passed: selection bar, 8 grouped actions, both modal families, SKU scope, Preview, Stock Movement warning และ cost permission warning
+- Existing `test:products-r7-visual-parity`: 5/5 passed
+- `git diff --check`: passed after EOF normalization
+- Existing `test:products-r7-page-structure`: 3/4 passed; one pre-existing production Product Creation action-order assertion failed and is outside this standalone mockup change
+
+## Required fidelity surfaces
+
+- Fonts and typography: uses the existing mockup typography and button hierarchy; browser-rendered comparison unavailable
+- Spacing and layout rhythm: responsive two-panel SKU modal and sticky selection bar implemented; browser-rendered comparison unavailable
+- Colors and visual tokens: reuses existing semantic tokens and table header treatment
+- Image quality and asset fidelity: no new imagery or replacement assets introduced
+- Copy and content: Thai user-facing labels; technical safeguards explain Stock Movement, Audit Log and cost permission
+
+## Browser and interaction QA
+
+- Intended viewport: desktop 1440×900 plus responsive breakpoint at 760px
+- Browser-rendered screenshot: unavailable
+- Primary interactions statically verified: selection count, grouped keyboard menu, Product-level editing, SKU scope, price/cost/stock Preview, modal Escape/backdrop handling
+- Console errors checked: unavailable because the browser runtime could not start under the Windows workspace ACL (`apply deny-read ACLs`)
+
+## Findings
+
+- [P1] Visual comparison and live interaction capture are still required before owner approval.
+  - Evidence: browser runtime was blocked before the local file could be rendered and captured.
+  - Impact: code and structural tests pass, but typography, spacing, focus behavior and responsive layout have not been visually accepted.
+  - Fix: open the local mockup, exercise Part 1–4, and capture the approved state before production implementation.
+
+## Comparison history
+
+- Initial pass: blocked before source/implementation visual capture; no visual fixes claimed from code inspection alone.
+
+## Final result
+
+final result: blocked
+
+---
+
+# Design QA — Bulk Action Menu Wide Group Layout
+
+วันที่ตรวจ: 17 สิงหาคม 2026
+
+## Source visual truth
+
+- User reference: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-1507ccca-bb64-472f-ad97-5f98402dc34d.png`
+- Approved direction: ขยายเมนูและวางกลุ่มข้อมูลสินค้า ราคา/ต้นทุน คลังสินค้า และขั้นสูงไว้ข้างกัน
+- Design standards: `docs/AVENZO_ONE_Design_System_and_UIUX_Standards_V1.md`
+
+## Implementation
+
+- `docs/mockups/phase-2.1-products-workspace-ui.html`
+- Desktop: 4 columns, maximum width 900px
+- Tablet: 2 columns, maximum width 680px
+- Mobile: 1 column, maximum width 340px
+
+## Verification evidence
+
+- JavaScript syntax: passed
+- Responsive layout contract: passed
+- `git diff --check`: passed
+- Browser-rendered screenshot: unavailable because Windows workspace ACL blocked both source-image opening and in-app browser runtime
+
+## Required fidelity surfaces
+
+- Typography: existing approved menu scale preserved
+- Spacing/layout: groups changed from vertical stack to 4/2/1 responsive grid
+- Colors/tokens: existing surface, border and hover tokens preserved
+- Image assets: no new assets introduced
+- Copy/content: all existing labels and actions preserved
+
+## Findings
+
+- [P1] Owner visual review remains required because a rendered screenshot could not be captured in this environment.
+
+## Comparison history
+
+- Static implementation completed; visual side-by-side remains blocked by Windows ACL.
+
+## Final result
+
+final result: blocked
+
+---
+
+# Design QA — Wide Brand Picker
+
+วันที่ตรวจ: 17 สิงหาคม 2026
+
+## Source visual truth
+
+- User reference: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-9a664a79-f87d-4ce5-8aab-72a9c3e7a5f6.png`
+- Approved direction: หน้าต่างเลือกแบรนด์แนวกว้าง ลดภาระการจำชื่อด้วยการค้นหา แบรนด์ล่าสุด แบรนด์ใช้บ่อย และรายการทั้งหมด
+- Design standards: `docs/AVENZO_ONE_Design_System_and_UIUX_Standards_V1.md`
+
+## Implementation
+
+- `docs/mockups/phase-2.1-products-workspace-ui.html`
+- Desktop maximum width 1040px; brand list 4 columns with internal scrolling
+- Recent and frequent brand groups use 2-column cards; mobile collapses to 1 column
+- Includes pinned “ไม่มีแบรนด์”, live search count, empty state, product counts and mock-only Brand master action
+
+## Verification evidence
+
+- JavaScript syntax: passed
+- Brand picker static contracts: 9/9 passed
+- `git diff --check`: passed with only the existing LF-to-CRLF warning
+- Browser-rendered screenshot: unavailable because the Windows workspace ACL blocked the browser runtime
+
+## Required fidelity surfaces
+
+- Fonts and typography: existing mockup hierarchy retained; brand title 13px and supporting count 11px
+- Spacing and layout rhythm: wide 1040px modal, 4/2/1 responsive grid and bounded scroll region implemented
+- Colors and visual tokens: existing surface, border, hover, focus and selected tokens reused
+- Image quality and asset fidelity: no new image assets introduced
+- Copy and content: Thai task labels, search feedback and Brand master guidance included
+
+## Browser and interaction QA
+
+- Intended viewport: desktop 1440×900 plus mobile breakpoint at 760px
+- Primary interactions statically verified: open modal, search filtering, match count, empty state, radio selection, Brand master mock toast and responsive contracts
+- Console errors checked: unavailable because browser-rendered evidence could not be captured
+
+## Findings
+
+- [P1] Owner visual and live interaction review is still required before approval.
+  - Evidence: source screenshot is available, but no implementation screenshot could be captured in the same viewport.
+  - Impact: static code passes, but visual spacing and scroll behavior cannot be marked accepted.
+  - Fix: open the local mockup, select products, choose “เปลี่ยนแบรนด์”, then review search, recent/frequent groups and the all-brand list.
+
+## Comparison history
+
+- Initial pass: static implementation completed; visual side-by-side remains blocked by the workspace ACL.
+
+## Final result
+
+final result: blocked
+
+---
+
+# Design QA — Compact Brand Picker with Badges and Tooltips
+
+วันที่ตรวจ: 17 สิงหาคม 2026
+
+## Source visual truth
+
+- Badge reference: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-78eec268-00bf-456b-9673-2c96638ef809.png`
+- Tooltip reference: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-531d55f0-19ce-4704-9b50-fc981f496d98.png`
+- Owner-approved direction: ลด Modal, รวมรายการแบรนด์, ใช้ Badge “ใช้ล่าสุด/ใช้บ่อย”, ซ่อนจำนวนสินค้าไว้ใน Tooltip และโหลดรายการเริ่มต้นแบบจำกัด
+- Design standards: `docs/AVENZO_ONE_Design_System_and_UIUX_Standards_V1.md`
+
+## Implementation
+
+- `docs/mockups/phase-2.1-products-workspace-ui.html`
+- Modal maximum width 780px
+- Unified 2-column brand list; mobile 1 column
+- Initial set limited to 16 brands, with “แสดงแบรนด์เพิ่มเติม”
+- Live search searches all brands regardless of the initial limit
+- One priority badge per brand: “ใช้ล่าสุด” before “ใช้บ่อย”
+- Product count shown only through top tooltip on hover and keyboard focus
+
+## Verification evidence
+
+- JavaScript syntax: passed
+- Compact Brand Picker contracts: 9/9 passed
+- Obsolete wide-picker contracts removed: 3/3 passed
+- `git diff --check`: passed with only the existing LF-to-CRLF warning
+- Browser-rendered screenshot: unavailable because the in-app browser runtime was blocked by the Windows workspace ACL (`apply deny-read ACLs`)
+
+## Required fidelity surfaces
+
+- Fonts and typography: existing mockup field, button and option hierarchy retained; badges use compact supporting text
+- Spacing and layout rhythm: modal reduced from 1040px to 780px; unified 2/1 responsive list implemented
+- Colors and visual tokens: existing surface, border, hover, focus and selected tokens reused
+- Image quality and asset fidelity: no image assets introduced or replaced
+- Copy and content: Thai search, badges, count tooltip, empty state and show-more wording included
+
+## Browser and interaction QA
+
+- Intended viewport: desktop 1440×900 and mobile breakpoint at 760px
+- Primary interactions statically verified: search all brands, initial limit, show more, radio selection, badge priority, tooltip hover/focus and Brand master mock action
+- Console errors checked: unavailable because browser startup failed before the local file could render
+
+## Findings
+
+- [P1] Owner visual review remains required before mockup approval.
+  - Evidence: both source references exist, but no implementation screenshot could be captured in the same state.
+  - Impact: static behavior passes, but modal density, tooltip placement and responsive wrapping are not visually accepted yet.
+  - Fix: open the local mockup and inspect “เปลี่ยนแบรนด์” at desktop width, then hover/focus the information icon and try search/show-more.
+
+## Comparison history
+
+- Previous wide picker: 1040px, separate recent/frequent/all sections and visible counts.
+- Current iteration: 780px, unified list, priority badges, count tooltips and initial 16-brand limit.
+- Post-fix visual evidence remains blocked by the workspace ACL.
+
+## Final result
+
+final result: blocked
+
+---
+
+# Design QA — Brand Picker Click Target and Compact Spacing
+
+วันที่ตรวจ: 17 สิงหาคม 2026
+
+## Source visual truth
+
+- User reference: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-5d4b067c-79f5-4ea5-a355-f8cfe23716ae.png`
+- Requested change: ยกเลิก Hover แบบปุ่ม, คลิกได้ที่ Radio และชื่อแบรนด์, ลดระยะภายในรายการ
+
+## Implementation
+
+- `docs/mockups/phase-2.1-products-workspace-ui.html`
+- Removed card background hover from `.brand-picker-option`
+- Radio and brand name remain inside the same label click target
+- Reduced list gap from 7px to 5px/6px, label gap from 9px to 6px, item height from 46px to 42px and padding from 8×10px to 6×9px
+- Keyboard focus and information tooltip behavior preserved
+
+## Verification evidence
+
+- JavaScript syntax: passed
+- Radio/name click contract: passed
+- Button-like hover contract removed: passed
+- `git diff --check`: passed with only the existing LF-to-CRLF warning
+- Browser-rendered evidence: unavailable because the in-app browser runtime remains blocked by the Windows workspace ACL
+
+## Required fidelity surfaces
+
+- Typography: unchanged
+- Spacing/layout: compact spacing applied only within Brand Picker options
+- Colors/tokens: hover fill removed; selected and focus tokens retained
+- Image quality: no image assets affected
+- Copy/content: unchanged
+
+## Findings
+
+- [P1] Owner visual review is required because a new browser screenshot could not be captured.
+
+## Comparison history
+
+- Previous: whole option visually behaved like a hover button.
+- Current: no card hover fill; explicit Radio/name label selection remains.
+
+## Final result
+
+final result: blocked
+
+---
+
+# Design QA — Wide Plain Brand Radio Grid
+
+วันที่ตรวจ: 17 สิงหาคม 2026
+
+## Source visual truth
+
+- User reference: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-1feac7ef-e5e8-4939-bfb8-4f2b972da621.png`
+- Requested change: ใช้หน้าต่างเลือกแบรนด์แบบกว้าง แสดงรายการหลายคอลัมน์ พร้อมช่องค้นหาและข้อมูลสรุปข้างปุ่มจัดการแบรนด์
+
+## Implementation
+
+- `docs/mockups/phase-2.1-products-workspace-ui.html`
+- Modal กว้างสูงสุด 960px
+- รายการแบรนด์แบบ Radio ข้อความธรรมดา 5 คอลัมน์บน Desktop, 3 คอลัมน์บน Tablet และ 1 คอลัมน์บน Mobile
+- แสดงแบรนด์ทั้งหมดในพื้นที่เลื่อนได้ และค้นหาจากชื่อแบรนด์ได้ทันที
+- คง Badge `ใช้ล่าสุด` / `ใช้บ่อย` และ Tooltip จำนวนสินค้าที่ใช้แบรนด์
+- Footer แสดงจำนวนสินค้าที่เลือก, จำนวน SKU และจำนวนแบรนด์ทั้งหมดข้างปุ่ม `จัดการแบรนด์`
+
+## Verification evidence
+
+- JavaScript syntax: passed
+- Five-column brand picker contracts: passed 8/8
+- Obsolete compact-list contracts removed: passed 4/4
+- `git diff --check`: passed with only the existing LF-to-CRLF warning
+- Browser-rendered comparison evidence: unavailable because the in-app browser runtime is blocked by the Windows workspace ACL
+
+## Required fidelity surfaces
+
+- Typography: ใช้รูปแบบเดิมของ Products mockup
+- Spacing/layout: เทียบตามหน้าต่างอ้างอิงแบบหลายคอลัมน์และพื้นที่ Footer
+- Colors/tokens: ใช้ Design System เดิม ไม่มี Hover แบบปุ่มในรายการ
+- Interaction: Radio/ชื่อแบรนด์เลือกค่าเดียวกัน, Search filter, Info tooltip และ Manage Brands mock action
+- Responsive: 5/3/1 columns ตามขนาดหน้าจอ
+
+## Findings
+
+- [P1] ต้องให้เจ้าของงานตรวจภาพจริง เพราะไม่สามารถบันทึก Browser screenshot ใหม่เพื่อทำ visual comparison ได้
+
+## Final result
+
+final result: blocked
+
+---
+
+# Design QA — Brand Picker Three-row Horizontal Grid
+
+วันที่ตรวจ: 17 สิงหาคม 2026
+
+## Source visual truth
+
+- User reference: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-d94393f0-acca-4315-9756-516079066bd3.png`
+- Requested change: แสดงรายการแบรนด์เพียง 3 แถว และเลื่อนแนวนอนเพื่อดูรายการถัดไป
+
+## Implementation
+
+- `docs/mockups/phase-2.1-products-workspace-ui.html`
+- รายการแบรนด์เรียงแนวนอนด้วย Grid จำนวน 3 แถวคงที่
+- Desktop ใช้ความกว้างคอลัมน์ 160px, Tablet 150px และ Mobile 140px
+- คง Search, Radio selection, Badge, Tooltip, จำนวนสินค้า/SKU/แบรนด์ และปุ่มจัดการแบรนด์เดิม
+- ซ่อม selector และ media query ที่มีอักขระส่วนเกินใกล้ส่วนนี้
+
+## Verification evidence
+
+- JavaScript syntax: passed (1 script block)
+- Three-row layout contracts: passed 8/8
+- `git diff --check`: passed with only the existing LF-to-CRLF warning
+- Browser-rendered comparison evidence: unavailable because the in-app browser runtime is blocked by the Windows workspace ACL
+
+## Findings
+
+- [P1] ต้องให้เจ้าของงานตรวจภาพจริง เพราะไม่สามารถจับ Browser screenshot เพื่อเปรียบเทียบกับภาพอ้างอิงได้
+
+## Final result
+
+final result: blocked
+
+---
+
+# Design QA — Three-row Brand, Category and Tag Pickers
+
+วันที่ตรวจ: 17 สิงหาคม 2026
+
+## Source visual truth
+
+- Approved visual direction: C:/Users/Windows/AppData/Local/Temp/codex-clipboard-d94393f0-acca-4315-9756-516079066bd3.png
+- Requested scope: นำมาตรฐาน 3 แถวไปใช้กับแบรนด์ หมวดหมู่ และป้ายกำกับ
+
+## Implementation
+
+- docs/mockups/phase-2.1-products-workspace-ui.html
+- Brand และ Category ใช้ Radio เลือกค่าเดียว
+- Tags ใช้ Checkbox เลือกได้หลายค่า พร้อมโหมดเพิ่ม/นำออก/แทนที่
+- ทั้งสามส่วนมี Search, 3-row horizontal grid, empty state, Tooltip จำนวนสินค้า และข้อมูลสรุป
+- ปุ่มจัดการ Master ยังเป็น Mock action และไม่เชื่อมระบบจริง
+
+## Verification evidence
+
+- JavaScript syntax: passed (1 script block)
+- Brand/Category/Tags interaction contracts: passed 10/10
+- git diff --check: passed with only the existing LF-to-CRLF warning
+- Browser-rendered comparison evidence: unavailable because the in-app browser runtime is blocked by the Windows workspace ACL
+
+## Findings
+
+- [P1] ต้องให้เจ้าของงานตรวจภาพและ interaction จริง เนื่องจากไม่สามารถจับ Browser screenshot และตรวจ console ได้
+
+## Final result
+
+final result: blocked
+
+---
+
+# Design QA — SKU Bulk Edit Modal Restructure
+
+วันที่ตรวจ: 17 สิงหาคม 2026
+
+## Source visual truth
+
+- Owner-approved direction: ปรับ Modal แก้ไข SKU แบบกลุ่มเป็น 4 ส่วนตามลำดับ
+- Scope: โครง Modal, ขอบเขต SKU, ฟอร์มราคา/สต็อก และตาราง Preview/Sticky footer
+
+## Implementation
+
+- `docs/mockups/phase-2.1-products-workspace-ui.html`
+- Modal กว้างสูงสุด 980px และใช้ Scroll หลักเพียงชั้นเดียว
+- โหมดทุก SKU แสดงสรุปจำนวน; โหมดเลือกเฉพาะ SKU จึงแสดง Search และ Checkbox list
+- ฟอร์มราคาเรียง 3 ช่องเต็มความกว้าง; ฟอร์มสต็อกคงเหตุผลและคำเตือนเต็มแถว
+- Preview table ไม่มี forced minimum width หรือ nested scroll และเปลี่ยนเป็น label/value บนจอเล็ก
+- Footer อยู่ด้านล่างของ Modal ตลอด พร้อมลำดับ Cancel ก่อน Primary ตาม Design System
+
+## Verification evidence
+
+- JavaScript syntax: passed
+- Four-part static UI contracts: passed 11/11
+- `git diff --check`: passed
+- Browser-rendered comparison evidence: unavailable because the in-app browser runtime is blocked by the Windows workspace ACL
+
+## Findings
+
+- [P1] ต้องให้เจ้าของงานตรวจภาพและ interaction จริง เนื่องจากไม่สามารถจับ Browser screenshot และตรวจ console ได้ในสภาพแวดล้อมนี้
+
+## Final result
+
+final result: blocked

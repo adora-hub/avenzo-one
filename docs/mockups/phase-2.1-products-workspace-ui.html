@@ -382,14 +382,347 @@
       .selection-bar {
         display: none;
         align-items: center;
-        gap: 10px;
-        padding: 9px 14px;
+        justify-content: space-between;
+        gap: 16px;
+        position: sticky;
+        top: 8px;
+        z-index: 14;
+        padding: 10px 14px;
         border-bottom: 1px solid var(--border);
-        background: color-mix(in srgb, var(--focus) 8%, var(--surface));
+        background: var(--surface-strong);
         color: var(--text-soft);
+        box-shadow: var(--shadow);
       }
 
       .selection-bar strong { color: var(--text); }
+
+      .selection-summary,
+      .selection-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .selection-summary-separator { color: var(--text-muted); }
+
+      .bulk-action { position: relative; }
+
+      .bulk-action-menu {
+        position: absolute;
+        top: calc(100% + 8px);
+        right: 0;
+        z-index: 30;
+        display: grid;
+        grid-template-columns: minmax(220px, 1.35fr) repeat(3, minmax(170px, 1fr));
+        width: min(900px, calc(100vw - 32px));
+        overflow: hidden;
+        border: 1px solid var(--border-strong);
+        border-radius: 12px;
+        background: var(--surface);
+        box-shadow: 0 18px 50px rgb(0 0 0 / 0.18);
+      }
+
+      .bulk-action-menu[hidden] { display: none; }
+
+      .bulk-action-group { min-width: 0; padding: 8px; }
+      .bulk-action-group + .bulk-action-group { border-left: 1px solid var(--border); }
+
+      .bulk-action-group-label {
+        margin: 0;
+        padding: 7px 9px 5px;
+        color: var(--text-muted);
+        font-size: 11px;
+        font-weight: 700;
+      }
+
+      .bulk-action-menu button {
+        display: grid;
+        width: 100%;
+        gap: 2px;
+        padding: 9px;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: var(--text);
+        cursor: pointer;
+        text-align: left;
+      }
+
+      .bulk-action-menu button:hover,
+      .bulk-action-menu button:focus-visible { background: var(--surface-hover); }
+
+      .bulk-action-menu strong { font-size: 13px; font-weight: 650; }
+      .bulk-action-menu span { color: var(--text-muted); font-size: 11px; line-height: 1.4; }
+
+      .bulk-edit-modal { width: min(760px, calc(100vw - 28px)); }
+
+      .bulk-edit-scope {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 16px;
+        padding: 11px 12px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--surface-strong);
+      }
+
+      .bulk-edit-scope strong { color: var(--text); }
+      .bulk-edit-scope span { color: var(--text-muted); font-size: 12px; }
+
+      .bulk-edit-form { display: grid; gap: 16px; }
+      .bulk-edit-fieldset { display: grid; gap: 10px; margin: 0; padding: 0; border: 0; }
+      .bulk-edit-fieldset legend { margin-bottom: 5px; font-weight: 700; }
+      .bulk-edit-helper { margin: 0; color: var(--text-muted); font-size: 12px; line-height: 1.5; }
+
+      .bulk-edit-search {
+        width: 100%;
+        min-height: 42px;
+        padding: 9px 11px;
+        border: 1px solid var(--border-strong);
+        border-radius: 9px;
+        background: var(--surface);
+        color: var(--text);
+      }
+
+      .bulk-edit-choice-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        max-height: 260px;
+        overflow: auto;
+      }
+
+      .bulk-edit-choice {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        min-height: 42px;
+        padding: 9px 11px;
+        border: 1px solid var(--border);
+        border-radius: 9px;
+        background: var(--surface);
+        cursor: pointer;
+      }
+
+      .bulk-edit-choice:hover { background: var(--surface-hover); }
+      .bulk-edit-choice:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 2px; }
+      .bulk-edit-choice strong { font-size: 13px; font-weight: 600; }
+
+      #productBulkEditModal.brand-picker-open .bulk-edit-modal { width: min(960px, calc(100vw - 32px)); }
+      .brand-picker { display: grid; gap: 14px; }
+      .brand-picker-search-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+      .brand-picker-results { min-width: 0; padding: 14px 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+      .brand-picker-list { display: grid; grid-template-rows: repeat(3, 28px); grid-auto-flow: column; grid-auto-columns: 160px; align-content: start; gap: 6px 18px; overflow-x: auto; overflow-y: hidden; padding: 0 4px 8px 0; }
+      .brand-picker-option { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px; min-width: 0; min-height: 28px; padding: 3px 2px; }
+      .brand-picker-option label { display: inline-flex; align-items: center; gap: 6px; min-width: 0; width: fit-content; cursor: pointer; user-select: none; }
+      .brand-picker-option:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+      .brand-picker-option-copy { display: inline-flex; align-items: center; gap: 5px; min-width: 0; }
+      .brand-picker-option strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 500; }
+      .brand-picker-badge { flex: 0 0 auto; padding: 2px 6px; border-radius: 999px; background: var(--surface-strong); color: var(--text-muted); font-size: 9px; font-weight: 700; letter-spacing: .02em; }
+      .brand-picker-info { position: relative; display: inline-grid; width: 18px; height: 18px; place-items: center; border: 0; border-radius: 50%; background: transparent; color: var(--text-muted); font: inherit; font-size: 10px; cursor: help; }
+      .brand-picker-info:hover,
+      .brand-picker-info:focus-visible { color: var(--text); }
+      .brand-picker-info:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+      .brand-picker-info::before,
+      .brand-picker-info::after { position: absolute; left: 50%; z-index: 20; pointer-events: none; opacity: 0; transition: opacity 120ms ease, transform 120ms ease; }
+      .brand-picker-info::before { bottom: calc(100% + 8px); min-width: 178px; padding: 6px 8px; border-radius: 6px; background: var(--text); color: var(--surface); content: attr(data-tooltip); font-size: 11px; font-weight: 500; line-height: 1.35; text-align: center; transform: translate(-50%, 3px); }
+      .brand-picker-info::after { bottom: calc(100% + 3px); border: 5px solid transparent; border-top-color: var(--text); content: ""; transform: translate(-50%, 3px); }
+      .brand-picker-info:hover::before,
+      .brand-picker-info:hover::after,
+      .brand-picker-info:focus-visible::before,
+      .brand-picker-info:focus-visible::after { opacity: 1; transform: translate(-50%, 0); }
+      .brand-picker-empty { display: none; padding: 28px; color: var(--text-muted); text-align: center; }
+      .brand-picker-empty.visible { display: block; }
+      .brand-picker-manage-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 2px; }
+      .brand-picker-manage-summary { display: flex; flex-wrap: wrap; gap: 4px 8px; color: var(--text-muted); font-size: 11px; }
+      .brand-picker-manage-summary strong { color: var(--text); font-weight: 600; }
+      .bulk-edit-mode-group {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        overflow: hidden;
+        border: 1px solid var(--border-strong);
+        border-radius: 9px;
+      }
+
+      .bulk-edit-mode-group label { position: relative; cursor: pointer; }
+      .bulk-edit-mode-group label + label { border-left: 1px solid var(--border); }
+      .bulk-edit-mode-group input { position: absolute; opacity: 0; pointer-events: none; }
+      .bulk-edit-mode-group span { display: block; padding: 10px; text-align: center; }
+      .bulk-edit-mode-group label:has(input:checked) span { background: var(--brand); color: var(--brand-text); }
+      .bulk-edit-mode-group label:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: -2px; }
+
+      .bulk-edit-warning {
+        padding: 10px 11px;
+        border: 1px solid color-mix(in srgb, var(--warning) 32%, transparent);
+        border-radius: 9px;
+        background: var(--warning-bg);
+        color: var(--warning);
+        font-size: 12px;
+        line-height: 1.5;
+      }
+
+      .bulk-edit-error {
+        display: none;
+        padding: 10px 11px;
+        border: 1px solid color-mix(in srgb, var(--danger) 32%, transparent);
+        border-radius: 9px;
+        background: var(--danger-bg);
+        color: var(--danger);
+        font-size: 12px;
+      }
+
+      .bulk-edit-error.visible { display: block; }
+
+      .sku-bulk-modal {
+        display: flex;
+        width: min(980px, calc(100vw - 28px));
+        max-height: min(88vh, 860px);
+        flex-direction: column;
+      }
+      .sku-bulk-modal > .modal-header,
+      .sku-bulk-modal > .modal-footer { flex: 0 0 auto; background: var(--surface); }
+      .sku-bulk-modal > .modal-body { min-height: 0; overflow-y: auto; }
+      .sku-bulk-modal > .modal-footer { position: sticky; bottom: 0; z-index: 3; }
+      .sku-bulk-layout { display: grid; grid-template-columns: 1fr; gap: 14px; }
+      .sku-bulk-panel { min-width: 0; padding: 14px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface); }
+      .sku-bulk-panel h3 { margin: 0 0 4px; font-size: 14px; }
+      .sku-bulk-panel > p { margin: 0 0 12px; color: var(--text-muted); font-size: 12px; }
+
+      .sku-scope-toggle {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        overflow: hidden;
+        border: 1px solid var(--border-strong);
+        border-radius: 9px;
+      }
+      .sku-scope-toggle label { position: relative; cursor: pointer; }
+      .sku-scope-toggle label + label { border-left: 1px solid var(--border); }
+      .sku-scope-toggle input { position: absolute; opacity: 0; pointer-events: none; }
+      .sku-scope-toggle span { display: block; padding: 10px 12px; text-align: center; }
+      .sku-scope-toggle label:has(input:checked) span { background: var(--brand); color: var(--brand-text); }
+      .sku-scope-toggle label:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: -2px; }
+      .sku-scope-summary {
+        margin-top: 10px;
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-radius: 9px;
+        background: var(--surface-strong);
+        color: var(--text-soft);
+        font-size: 12px;
+      }
+      .sku-scope-tools { display: grid; gap: 6px; margin-top: 10px; }
+      .sku-scope-tools input {
+        width: 100%;
+        min-height: 40px;
+        padding: 8px 11px;
+        border: 1px solid var(--border-strong);
+        border-radius: 9px;
+        background: var(--surface);
+        color: var(--text);
+        font: inherit;
+        font-size: 13px;
+      }
+      .sku-scope-tools span { color: var(--text-muted); font-size: 11px; }
+      .sku-scope-list { display: grid; gap: 7px; max-height: 220px; margin-top: 10px; overflow: auto; }
+      .sku-scope-summary[hidden],
+      .sku-scope-tools[hidden],
+      .sku-scope-list[hidden],
+      .sku-scope-row[hidden] { display: none; }
+      .sku-scope-row {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 9px;
+        min-height: 44px;
+        padding: 8px 10px;
+        border: 1px solid var(--border);
+        border-radius: 9px;
+      }
+      .sku-scope-row strong,
+      .sku-scope-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .sku-scope-row strong { font-size: 12px; }
+      .sku-scope-row span { color: var(--text-muted); font-size: 11px; }
+      .sku-scope-list[data-scope="all"] .sku-scope-row { opacity: 0.72; }
+      .sku-scope-list[data-scope="all"] input { pointer-events: none; }
+
+      .sku-bulk-control-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+      .sku-bulk-control-grid .field-stack { display: grid; gap: 6px; color: var(--text); font-size: 12px; font-weight: 600; }
+      .sku-bulk-control-grid input,
+      .sku-bulk-control-grid select,
+      .sku-bulk-control-grid textarea {
+        width: 100%;
+        min-height: 42px;
+        padding: 9px 11px;
+        border: 1px solid var(--border-strong);
+        border-radius: 9px;
+        background: var(--surface);
+        color: var(--text);
+      }
+      .sku-bulk-control-grid textarea { min-height: 80px; resize: vertical; }
+      .sku-bulk-control-grid .span-all { grid-column: 1 / -1; }
+
+      .sku-preview-wrap { overflow: hidden; border: 1px solid var(--border); border-radius: 9px; }
+      .sku-preview-table { width: 100%; min-width: 0; border-collapse: collapse; table-layout: fixed; }
+      .sku-preview-table th,
+      .sku-preview-table td { overflow: hidden; padding: 9px 10px; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+      .sku-preview-table th { position: sticky; top: 0; z-index: 1; background: #111; color: #fff; }
+      .sku-preview-table th:nth-child(1) { width: 34%; }
+      .sku-preview-table th:nth-child(2) { width: 24%; }
+      .sku-preview-table th:nth-child(3),
+      .sku-preview-table th:nth-child(4) { width: 21%; text-align: right; }
+      .sku-preview-table td:nth-child(3),
+      .sku-preview-table td:nth-child(4) { text-align: right; font-variant-numeric: tabular-nums; }
+      .sku-preview-table td:last-child { font-weight: 650; }
+      .sku-preview-table tbody tr:last-child td { border-bottom: 0; }
+      .sku-preview-empty { padding: 18px; color: var(--text-muted); text-align: center !important; }
+
+      @media (max-width: 1040px) {
+        .bulk-action-menu { grid-template-columns: repeat(2, minmax(220px, 1fr)); width: min(680px, calc(100vw - 32px)); }
+        .bulk-action-group + .bulk-action-group { border-left: 0; }
+        .bulk-action-group:nth-child(even) { border-left: 1px solid var(--border); }
+        .bulk-action-group:nth-child(n + 3) { border-top: 1px solid var(--border); }
+      }
+
+      @media (max-width: 980px) {
+        .brand-picker-list { grid-auto-columns: 150px; }
+      }
+
+      @media (max-width: 760px) {
+        .selection-bar { align-items: stretch; flex-direction: column; top: 4px; }
+        .selection-actions { display: grid; grid-template-columns: 1fr 1fr; }
+        .selection-actions .button { width: 100%; }
+        .bulk-action-menu { right: auto; left: 0; grid-template-columns: 1fr; width: min(340px, calc(100vw - 32px)); }
+        .bulk-action-group:nth-child(even) { border-left: 0; }
+        .bulk-action-group + .bulk-action-group { border-top: 1px solid var(--border); }
+        .bulk-edit-choice-grid { grid-template-columns: 1fr; }
+        .brand-picker-list { grid-auto-columns: 140px; }
+        .brand-picker-manage-row { align-items: stretch; flex-direction: column; }
+        .bulk-edit-mode-group { grid-template-columns: 1fr; }
+        .bulk-edit-mode-group label + label { border-top: 1px solid var(--border); border-left: 0; }
+        .sku-bulk-layout { grid-template-columns: 1fr; }
+        .sku-bulk-control-grid { grid-template-columns: 1fr; }
+        .sku-bulk-control-grid .span-all { grid-column: auto; }
+        .sku-preview-table thead { display: none; }
+        .sku-preview-table,
+        .sku-preview-table tbody,
+        .sku-preview-table tr,
+        .sku-preview-table td { display: block; width: 100%; }
+        .sku-preview-table tr { padding: 8px 10px; border-bottom: 1px solid var(--border); }
+        .sku-preview-table td {
+          display: grid;
+          grid-template-columns: 112px minmax(0, 1fr);
+          gap: 10px;
+          padding: 5px 0;
+          border: 0;
+          text-align: left !important;
+          white-space: normal;
+        }
+        .sku-preview-table td::before { color: var(--text-muted); content: attr(data-label); font-size: 11px; font-weight: 600; }
+        .sku-preview-table .sku-preview-empty { display: block; }
+        .sku-preview-table .sku-preview-empty::before { content: none; }
+      }
 
       .table-wrap { overflow-x: auto; }
 
@@ -1232,8 +1565,39 @@
           </div>
 
           <div id="selectionBar" class="selection-bar" aria-live="polite">
-            เลือกแล้ว <strong id="selectedCount">0</strong> รายการ
-            <button id="clearSelection" class="button" type="button">ยกเลิกการเลือก</button>
+            <div class="selection-summary">
+              <span>เลือกแล้ว <strong id="selectedCount">0</strong> สินค้า</span>
+              <span class="selection-summary-separator" aria-hidden="true">·</span>
+              <span>รวม <strong id="selectedSkuCount">0</strong> SKU</span>
+            </div>
+            <div class="selection-actions">
+              <div class="bulk-action">
+                <button id="bulkActionButton" class="button primary" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="bulkActionMenu">แก้ไขรายการที่เลือก ▾</button>
+                <div id="bulkActionMenu" class="bulk-action-menu" role="menu" aria-label="แก้ไขรายการที่เลือก" hidden>
+                  <section class="bulk-action-group" role="group" aria-label="ข้อมูลสินค้า">
+                    <p class="bulk-action-group-label">ข้อมูลสินค้า</p>
+                    <button type="button" role="menuitem" data-bulk-action="brand"><strong>เปลี่ยนแบรนด์</strong><span>กำหนดแบรนด์เดียวให้สินค้าที่เลือก</span></button>
+                    <button type="button" role="menuitem" data-bulk-action="category"><strong>เปลี่ยนหมวดหมู่</strong><span>ย้ายสินค้าที่เลือกไปยังหมวดหมู่เดียวกัน</span></button>
+                    <button type="button" role="menuitem" data-bulk-action="tags"><strong>จัดการป้ายกำกับ</strong><span>เพิ่ม นำออก หรือแทนที่ Tags</span></button>
+                    <button type="button" role="menuitem" data-bulk-action="status"><strong>เปลี่ยนสถานะ</strong><span>ใช้งานอยู่ ฉบับร่าง หรือเก็บถาวร</span></button>
+                  </section>
+                  <section class="bulk-action-group" role="group" aria-label="ราคาและต้นทุน">
+                    <p class="bulk-action-group-label">ราคาและต้นทุน</p>
+                    <button type="button" role="menuitem" data-bulk-action="price"><strong>แก้ไขราคาขาย</strong><span>ใช้กับทุก SKU หรือเลือกเฉพาะ SKU</span></button>
+                    <button type="button" role="menuitem" data-bulk-action="cost"><strong>แก้ไขราคาต้นทุน</strong><span>จำกัดตามสิทธิ์และมี Audit Log</span></button>
+                  </section>
+                  <section class="bulk-action-group" role="group" aria-label="คลังสินค้า">
+                    <p class="bulk-action-group-label">คลังสินค้า</p>
+                    <button type="button" role="menuitem" data-bulk-action="stock"><strong>ปรับจำนวนสต็อก</strong><span>สร้าง Stock Movement แยกตาม SKU</span></button>
+                  </section>
+                  <section class="bulk-action-group" role="group" aria-label="ขั้นสูง">
+                    <p class="bulk-action-group-label">ขั้นสูง</p>
+                    <button type="button" role="menuitem" data-bulk-action="advanced"><strong>แก้ไขหลายข้อมูลพร้อมกัน</strong><span>เปิดขั้นตอนแบบแนะนำทีละส่วน</span></button>
+                  </section>
+                </div>
+              </div>
+              <button id="clearSelection" class="button" type="button">ยกเลิกการเลือก</button>
+            </div>
           </div>
 
           <div id="tableWrap" class="table-wrap">
@@ -1359,6 +1723,88 @@
             <button id="applyBulkSearch" class="button primary" type="button" aria-describedby="bulkSearchShortcut">ค้นหา</button>
             <span id="bulkSearchShortcut" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">กด Control และ Enter เพื่อค้นหา</span>
           </span>
+        </footer>
+      </section>
+    </div>
+
+    <div id="productBulkEditModal" class="modal-backdrop" role="presentation">
+      <section class="modal bulk-edit-modal" role="dialog" aria-modal="true" aria-labelledby="productBulkEditTitle" aria-describedby="productBulkEditDescription">
+        <header class="modal-header">
+          <div>
+            <h2 id="productBulkEditTitle">แก้ไขข้อมูลสินค้า</h2>
+            <p id="productBulkEditDescription" class="bulk-edit-helper">แก้ไขข้อมูลเดียวกันให้สินค้าที่เลือก</p>
+          </div>
+          <button id="closeProductBulkEdit" class="modal-close" type="button" aria-label="ปิด">×</button>
+        </header>
+        <div class="modal-body">
+          <div class="bulk-edit-scope">
+            <strong id="productBulkScope">0 สินค้า</strong>
+            <span id="productBulkSkuScope">รวม 0 SKU</span>
+          </div>
+          <form id="productBulkEditForm" class="bulk-edit-form">
+            <div id="productBulkEditBody"></div>
+            <div id="productBulkEditError" class="bulk-edit-error" role="alert"></div>
+          </form>
+        </div>
+        <footer class="modal-footer">
+          <button id="cancelProductBulkEdit" class="button" type="button">ยกเลิก</button>
+          <button id="applyProductBulkEdit" class="button primary" type="submit" form="productBulkEditForm">นำไปใช้กับรายการที่เลือก</button>
+        </footer>
+      </section>
+    </div>
+
+    <div id="skuBulkEditModal" class="modal-backdrop" role="presentation">
+      <section class="modal sku-bulk-modal" role="dialog" aria-modal="true" aria-labelledby="skuBulkEditTitle" aria-describedby="skuBulkEditDescription">
+        <header class="modal-header">
+          <div>
+            <h2 id="skuBulkEditTitle">แก้ไขข้อมูล SKU</h2>
+            <p id="skuBulkEditDescription" class="bulk-edit-helper">เลือก SKU ที่ต้องการแก้ไขก่อนยืนยัน</p>
+          </div>
+          <button id="closeSkuBulkEdit" class="modal-close" type="button" aria-label="ปิด">×</button>
+        </header>
+        <div class="modal-body">
+          <div class="bulk-edit-scope">
+            <strong id="skuBulkProductScope">0 สินค้า</strong>
+            <span id="skuBulkSkuScope">รวม 0 SKU</span>
+          </div>
+          <form id="skuBulkEditForm" class="bulk-edit-form">
+            <div class="sku-bulk-layout">
+              <section class="sku-bulk-panel">
+                <h3>เลือกขอบเขต SKU</h3>
+                <p>ค่าเริ่มต้นใช้กับทุก SKU ภายใต้ Product ที่เลือก</p>
+                <div class="sku-scope-toggle" role="radiogroup" aria-label="ขอบเขต SKU ที่ต้องการแก้ไข">
+                  <label><input type="radio" name="skuScope" value="all" checked><span>ทุก SKU</span></label>
+                  <label><input type="radio" name="skuScope" value="specific"><span>เลือกเฉพาะ SKU</span></label>
+                </div>
+                <div id="skuScopeSummary" class="sku-scope-summary" role="status"></div>
+                <label id="skuScopeSearchWrap" class="sku-scope-tools" hidden>
+                  <input id="skuScopeSearch" type="search" placeholder="ค้นหาชื่อสินค้า หรือ SKU" aria-label="ค้นหา SKU ที่ต้องการเลือก">
+                  <span id="skuScopeSearchSummary">แสดง SKU ที่เลือกได้ทั้งหมด</span>
+                </label>
+                <div id="skuScopeList" class="sku-scope-list" data-scope="all" hidden></div>
+              </section>
+              <section class="sku-bulk-panel">
+                <h3 id="skuBulkControlTitle">กำหนดค่าใหม่</h3>
+                <p id="skuBulkControlHelp">ระบบจะแสดงตัวอย่างก่อนยืนยัน</p>
+                <div id="skuBulkControls" class="sku-bulk-control-grid"></div>
+              </section>
+            </div>
+            <section class="sku-bulk-panel">
+              <h3>ตัวอย่างก่อนเปลี่ยน</h3>
+              <p>ตรวจ SKU ค่าปัจจุบัน และค่าหลังแก้ไขก่อนกดยืนยัน</p>
+              <div class="sku-preview-wrap">
+                <table class="sku-preview-table">
+                  <thead><tr><th>สินค้า</th><th>SKU</th><th>ค่าปัจจุบัน</th><th>ค่าหลังแก้ไข</th></tr></thead>
+                  <tbody id="skuBulkPreview"></tbody>
+                </table>
+              </div>
+            </section>
+            <div id="skuBulkEditError" class="bulk-edit-error" role="alert"></div>
+          </form>
+        </div>
+        <footer class="modal-footer">
+          <button id="cancelSkuBulkEdit" class="button" type="button">ยกเลิก</button>
+          <button id="applySkuBulkEdit" class="button primary" type="submit" form="skuBulkEditForm">ยืนยันใน Mockup</button>
         </footer>
       </section>
     </div>
@@ -1576,6 +2022,8 @@
       const state = { query: "", bulkCodes: [], status: "all", sortKey: "name", sortDirection: "asc", page: 1, pageSize: 8, selected: new Set() };
       let activeMenuProduct = null;
       let customizeDraft = [];
+      let bulkEditAction = null;
+      let skuBulkEditAction = null;
       let toastTimer = null;
 
       const elements = {
@@ -1609,6 +2057,33 @@
         selectAll: document.getElementById("selectAll"),
         selectionBar: document.getElementById("selectionBar"),
         selectedCount: document.getElementById("selectedCount"),
+        selectedSkuCount: document.getElementById("selectedSkuCount"),
+        bulkActionButton: document.getElementById("bulkActionButton"),
+        bulkActionMenu: document.getElementById("bulkActionMenu"),
+        productBulkEditModal: document.getElementById("productBulkEditModal"),
+        productBulkEditForm: document.getElementById("productBulkEditForm"),
+        productBulkEditTitle: document.getElementById("productBulkEditTitle"),
+        productBulkEditDescription: document.getElementById("productBulkEditDescription"),
+        productBulkEditBody: document.getElementById("productBulkEditBody"),
+        productBulkEditError: document.getElementById("productBulkEditError"),
+        productBulkScope: document.getElementById("productBulkScope"),
+        productBulkSkuScope: document.getElementById("productBulkSkuScope"),
+        skuBulkEditModal: document.getElementById("skuBulkEditModal"),
+        skuBulkEditForm: document.getElementById("skuBulkEditForm"),
+        skuBulkEditTitle: document.getElementById("skuBulkEditTitle"),
+        skuBulkEditDescription: document.getElementById("skuBulkEditDescription"),
+        skuBulkProductScope: document.getElementById("skuBulkProductScope"),
+        skuBulkSkuScope: document.getElementById("skuBulkSkuScope"),
+        skuScopeList: document.getElementById("skuScopeList"),
+        skuScopeSummary: document.getElementById("skuScopeSummary"),
+        skuScopeSearchWrap: document.getElementById("skuScopeSearchWrap"),
+        skuScopeSearch: document.getElementById("skuScopeSearch"),
+        skuScopeSearchSummary: document.getElementById("skuScopeSearchSummary"),
+        skuBulkControls: document.getElementById("skuBulkControls"),
+        skuBulkControlTitle: document.getElementById("skuBulkControlTitle"),
+        skuBulkControlHelp: document.getElementById("skuBulkControlHelp"),
+        skuBulkPreview: document.getElementById("skuBulkPreview"),
+        skuBulkEditError: document.getElementById("skuBulkEditError"),
         rowMenu: document.getElementById("rowMenu"),
         quickViewBackdrop: document.getElementById("quickViewBackdrop"),
         quickViewPanel: document.getElementById("quickViewPanel"),
@@ -1765,6 +2240,9 @@
         elements.selectAll.checked = pageIds.length > 0 && selectedOnPage === pageIds.length;
         elements.selectAll.indeterminate = selectedOnPage > 0 && selectedOnPage < pageIds.length;
         elements.selectedCount.textContent = state.selected.size;
+        elements.selectedSkuCount.textContent = products
+          .filter((product) => state.selected.has(product.id))
+          .reduce((sum, product) => sum + product.variants, 0);
         elements.selectionBar.style.display = state.selected.size ? "flex" : "none";
 
         document.querySelectorAll("[id$='Sort']").forEach((node) => node.textContent = "↕");
@@ -2212,7 +2690,403 @@
 
       document.getElementById("clearBulkSearch").addEventListener("click", () => { state.bulkCodes = []; state.page = 1; render(); showToast("ล้างกลุ่มรหัสแล้ว"); });
 
-      document.getElementById("clearSelection").addEventListener("click", () => { state.selected.clear(); render(); });
+      function selectedProducts() {
+        return products.filter((product) => state.selected.has(product.id));
+      }
+
+      function selectedSkuTotal() {
+        return selectedProducts().reduce((sum, product) => sum + product.variants, 0);
+      }
+
+      function setProductBulkError(message = "") {
+        elements.productBulkEditError.textContent = message;
+        elements.productBulkEditError.classList.toggle("visible", Boolean(message));
+      }
+
+      function closeProductBulkEdit({ restoreFocus = false } = {}) {
+        elements.productBulkEditModal.classList.remove("visible", "brand-picker-open");
+        setProductBulkError();
+        bulkEditAction = null;
+        if (restoreFocus) elements.bulkActionButton.focus();
+      }
+
+                  function productBulkBrandMarkup() {
+        const supplementalBrands = ["ไม่มีแบรนด์", "Alexander", "Balenciaga", "Bottega", "Bulgari", "Cartier", "Celine", "Chanel", "Coach", "Fendi", "Givenchy", "Gucci", "Hermès", "Kate Spade", "Kenzo", "Loewe", "Louis Vuitton", "Michael Kors", "Miu Miu", "Pandora", "Prada", "Swarovski", "Tiffany & Co.", "Van Cleef & Arpels", "Versace", "Vivienne Westwood", "YSL"];
+        const brandNames = [...new Set([...products.map((product) => product.brand), ...supplementalBrands])].sort((left, right) => left.localeCompare(right, "th"));
+        const orderedBrands = ["ไม่มีแบรนด์", ...brandNames.filter((name) => name !== "ไม่มีแบรนด์")];
+        const actualCounts = products.reduce((counts, product) => counts.set(product.brand, (counts.get(product.brand) || 0) + 1), new Map());
+        const brandCount = (name) => name === "ไม่มีแบรนด์" ? 0 : Math.max(actualCounts.get(name) || 0, 3 + (brandNames.indexOf(name) * 11) % 96);
+        const recent = ["Dior", "Tory", "MK", "Avenzo"].filter((name) => brandNames.includes(name));
+        const frequent = [...brandNames].filter((name) => name !== "ไม่มีแบรนด์" && !recent.includes(name)).sort((left, right) => brandCount(right) - brandCount(left)).slice(0, 4);
+        const badgeFor = (name) => recent.includes(name) ? "ใช้ล่าสุด" : frequent.includes(name) ? "ใช้บ่อย" : "";
+        const option = (name) => {
+          const count = brandCount(name);
+          const badge = badgeFor(name);
+          const tooltip = name === "ไม่มีแบรนด์" ? "สินค้าที่ไม่กำหนดแบรนด์" : `แบรนด์นี้ใช้กับสินค้า ${count.toLocaleString("th-TH")} รายการ`;
+          return `<div class="brand-picker-option" data-choice-label="${escapeHtml(name).toLocaleLowerCase("th")}"><label><input type="radio" name="bulkProductValue" value="${escapeHtml(name)}"><span class="brand-picker-option-copy"><strong>${escapeHtml(name)}</strong>${badge ? `<span class="brand-picker-badge">${badge}</span>` : ""}</span></label><button class="brand-picker-info" type="button" aria-label="${escapeHtml(tooltip)}" data-tooltip="${escapeHtml(tooltip)}">i</button></div>`;
+        };
+        return `<div class="brand-picker"><div class="brand-picker-search-row"><label class="bulk-edit-fieldset"><span>ค้นหาแบรนด์</span><input id="productBulkChoiceSearch" class="bulk-edit-search" type="search" placeholder="พิมพ์ชื่อแบรนด์..." autocomplete="off"></label></div><div class="brand-picker-results"><div class="brand-picker-list">${orderedBrands.map(option).join("")}</div><div id="productBulkPickerEmpty" class="brand-picker-empty">ไม่พบแบรนด์ที่ค้นหา</div></div><div class="brand-picker-manage-row"><div class="brand-picker-manage-summary"><strong>เลือกแล้ว ${state.selected.size.toLocaleString("th-TH")} สินค้า</strong><span>รวม ${selectedSkuTotal().toLocaleString("th-TH")} SKU</span><span>แบรนด์ทั้งหมด ${orderedBrands.length.toLocaleString("th-TH")}</span></div><button class="button" type="button" data-manage-master data-master-label="Brand">จัดการแบรนด์</button></div></div>`;
+      }
+      function productBulkCategoryMarkup() {
+        const categories = [...new Set(products.map((product) => product.category))].sort((left, right) => left.localeCompare(right, "th"));
+        const option = (name) => {
+          const count = products.filter((product) => product.category === name).length;
+          const tooltip = `หมวดหมู่นี้ใช้กับสินค้า ${count.toLocaleString("th-TH")} รายการ`;
+          return `<div class="brand-picker-option" data-choice-label="${escapeHtml(name).toLocaleLowerCase("th")}"><label><input type="radio" name="bulkProductValue" value="${escapeHtml(name)}"><span class="brand-picker-option-copy"><strong>${escapeHtml(name)}</strong></span></label><button class="brand-picker-info" type="button" aria-label="${escapeHtml(tooltip)}" data-tooltip="${escapeHtml(tooltip)}">i</button></div>`;
+        };
+        return `<div class="brand-picker"><div class="brand-picker-search-row"><label class="bulk-edit-fieldset"><span>ค้นหาหมวดหมู่</span><input id="productBulkChoiceSearch" class="bulk-edit-search" type="search" placeholder="พิมพ์ชื่อหมวดหมู่..." autocomplete="off"></label></div><div class="brand-picker-results"><div class="brand-picker-list">${categories.map(option).join("")}</div><div id="productBulkPickerEmpty" class="brand-picker-empty">ไม่พบหมวดหมู่ที่ค้นหา</div></div><div class="brand-picker-manage-row"><div class="brand-picker-manage-summary"><strong>เลือกแล้ว ${state.selected.size.toLocaleString("th-TH")} สินค้า</strong><span>รวม ${selectedSkuTotal().toLocaleString("th-TH")} SKU</span><span>หมวดหมู่ทั้งหมด ${categories.length.toLocaleString("th-TH")}</span></div><button class="button" type="button" data-manage-master data-master-label="Category">จัดการหมวดหมู่</button></div></div>`;
+      }
+
+      function productBulkChoiceMarkup() {
+        const values = ["active", "draft", "archived"];
+        const warning = '<div class="bulk-edit-warning">การเลือก “เก็บถาวร” จะซ่อนสินค้าจากงานขายใหม่ แต่ยังเก็บประวัติเดิมไว้</div>';
+        return `${warning}<fieldset class="bulk-edit-fieldset"><legend>เลือกค่าใหม่</legend><div id="productBulkChoiceGrid" class="bulk-edit-choice-grid">${values.map((value) => `<label class="bulk-edit-choice"><input type="radio" name="bulkProductValue" value="${escapeHtml(value)}"><strong>${escapeHtml(statusLabels[value])}</strong></label>`).join("")}</div></fieldset>`;
+      }
+
+      function productBulkTagsMarkup() {
+        const tags = [...new Set(products.flatMap((product) => product.tags))].sort((left, right) => left.localeCompare(right, "th"));
+        const option = (tag) => {
+          const count = products.filter((product) => product.tags.includes(tag)).length;
+          const tooltip = `ป้ายนี้ใช้กับสินค้า ${count.toLocaleString("th-TH")} รายการ`;
+          return `<div class="brand-picker-option" data-choice-label="${escapeHtml(tag).toLocaleLowerCase("th")}"><label><input type="checkbox" name="tagValue" value="${escapeHtml(tag)}"><span class="brand-picker-option-copy"><strong>${escapeHtml(tag)}</strong></span></label><button class="brand-picker-info" type="button" aria-label="${escapeHtml(tooltip)}" data-tooltip="${escapeHtml(tooltip)}">i</button></div>`;
+        };
+        return `<fieldset class="bulk-edit-fieldset"><legend>วิธีจัดการป้ายกำกับ</legend><div class="bulk-edit-mode-group"><label><input type="radio" name="tagMode" value="add" checked><span>เพิ่มป้ายกำกับ</span></label><label><input type="radio" name="tagMode" value="remove"><span>นำป้ายออก</span></label><label><input type="radio" name="tagMode" value="replace"><span>แทนที่ทั้งหมด</span></label></div><p class="bulk-edit-helper">ค่าเริ่มต้นคือเพิ่มป้าย โดยไม่ลบป้ายเดิมของสินค้า</p></fieldset><div class="brand-picker"><div class="brand-picker-search-row"><label class="bulk-edit-fieldset"><span>ค้นหาป้ายกำกับ</span><input id="productBulkChoiceSearch" class="bulk-edit-search" type="search" placeholder="เช่น งานใหม่ โปรโมชั่น" autocomplete="off"></label></div><div class="brand-picker-results"><div class="brand-picker-list">${tags.map(option).join("")}</div><div id="productBulkPickerEmpty" class="brand-picker-empty">ไม่พบป้ายกำกับที่ค้นหา</div></div><div class="brand-picker-manage-row"><div class="brand-picker-manage-summary"><strong>เลือกแล้ว ${state.selected.size.toLocaleString("th-TH")} สินค้า</strong><span>รวม ${selectedSkuTotal().toLocaleString("th-TH")} SKU</span><span>ป้ายกำกับทั้งหมด ${tags.length.toLocaleString("th-TH")}</span></div><button class="button" type="button" data-manage-master data-master-label="Tag">จัดการป้ายกำกับ</button></div></div>`;
+      }
+
+      function renderProductBulkEdit(action) {
+        const config = {
+          brand: ["เปลี่ยนแบรนด์", "กำหนดแบรนด์เดียวให้ Product ที่เลือก"],
+          category: ["เปลี่ยนหมวดหมู่", "ย้าย Product ที่เลือกไปยังหมวดหมู่เดียวกัน"],
+          tags: ["จัดการป้ายกำกับ", "เพิ่ม นำออก หรือแทนที่ Tags ของ Product ที่เลือก"],
+          status: ["เปลี่ยนสถานะสินค้า", "กำหนดสถานะเดียวให้ Product ที่เลือก"]
+        }[action];
+        if (!config) return;
+        elements.productBulkEditTitle.textContent = config[0];
+        elements.productBulkEditDescription.textContent = config[1];
+        elements.productBulkScope.textContent = `${state.selected.size} สินค้า`;
+        elements.productBulkSkuScope.textContent = `รวม ${selectedSkuTotal()} SKU`;
+        elements.productBulkEditModal.classList.toggle("brand-picker-open", ["brand", "category", "tags"].includes(action));
+        elements.productBulkEditBody.innerHTML = action === "tags" ? productBulkTagsMarkup() : action === "brand" ? productBulkBrandMarkup() : action === "category" ? productBulkCategoryMarkup() : productBulkChoiceMarkup();
+        setProductBulkError();
+      }
+
+      function openProductBulkEdit(action) {
+        bulkEditAction = action;
+        renderProductBulkEdit(action);
+        elements.productBulkEditModal.classList.add("visible");
+        requestAnimationFrame(() => elements.productBulkEditBody.querySelector("input")?.focus());
+      }
+
+      function applyProductBulkEdit(event) {
+        event.preventDefault();
+        const selected = selectedProducts();
+        const formData = new FormData(elements.productBulkEditForm);
+        if (bulkEditAction === "tags") {
+          const mode = formData.get("tagMode");
+          const values = formData.getAll("tagValue").map(String);
+          if (!values.length) {
+            setProductBulkError("กรุณาเลือกป้ายกำกับอย่างน้อย 1 รายการ");
+            return;
+          }
+          selected.forEach((product) => {
+            if (mode === "replace") product.tags = [...values];
+            else if (mode === "remove") product.tags = product.tags.filter((tag) => !values.includes(tag));
+            else product.tags = [...new Set([...product.tags, ...values])];
+          });
+        } else {
+          const value = formData.get("bulkProductValue");
+          if (!value) {
+            setProductBulkError("กรุณาเลือกค่าใหม่ก่อนนำไปใช้");
+            return;
+          }
+          selected.forEach((product) => { product[bulkEditAction] = String(value); });
+        }
+        persistProducts();
+        render();
+        const changedCount = selected.length;
+        closeProductBulkEdit({ restoreFocus: true });
+        showToast(`อัปเดต ${changedCount} สินค้าใน Mockup แล้ว`);
+      }
+
+      function selectedSkuRows() {
+        return selectedProducts().flatMap((product) => product.skuItems.map((sku, index) => ({
+          key: `${product.id}:${index}`,
+          product,
+          sku,
+          index
+        })));
+      }
+
+      function activeSkuRows() {
+        const rows = selectedSkuRows();
+        const data = new FormData(elements.skuBulkEditForm);
+        if (data.get("skuScope") !== "specific") return rows;
+        const selectedKeys = new Set(data.getAll("skuKey").map(String));
+        return rows.filter((row) => selectedKeys.has(row.key));
+      }
+
+      function setSkuBulkError(message = "") {
+        elements.skuBulkEditError.textContent = message;
+        elements.skuBulkEditError.classList.toggle("visible", Boolean(message));
+      }
+
+      function closeSkuBulkEdit({ restoreFocus = false } = {}) {
+        elements.skuBulkEditModal.classList.remove("visible");
+        setSkuBulkError();
+        skuBulkEditAction = null;
+        if (restoreFocus) elements.bulkActionButton.focus();
+      }
+
+      function skuControlMarkup(action) {
+        if (action === "stock") {
+          return '<label class="field-stack"><span>สาขา / คลังสินค้า</span><select name="stockLocation" required><option value="">เลือกคลังสินค้า</option><option value="BKK-01">BKK-01 · คลังกรุงเทพ</option><option value="PKT-01">PKT-01 · คลังภูเก็ต</option></select></label><label class="field-stack"><span>วิธีปรับสต็อก</span><select name="stockDirection"><option value="increase">ปรับเพิ่ม</option><option value="decrease">ปรับลด</option><option value="set">กำหนดยอดใหม่</option></select></label><label class="field-stack"><span>จำนวน</span><input name="bulkValue" type="number" min="0" step="1" placeholder="0" required></label><label class="field-stack span-all"><span>เหตุผลการปรับ</span><textarea name="stockReason" minlength="3" maxlength="300" placeholder="เช่น ตรวจนับสต็อกหน้าร้าน" required></textarea></label><div class="bulk-edit-warning span-all">การยืนยันในระบบจริงต้องสร้าง Stock Movement พร้อมผู้ดำเนินการและ Audit Log ห้ามแก้ยอดคงเหลือตรง ๆ</div>';
+        }
+        const label = action === "cost" ? "ราคาต้นทุน" : "ราคาขาย";
+        const permission = action === "cost" ? '<div class="bulk-edit-warning span-all">ข้อมูลราคาต้นทุนจะแสดงและแก้ไขได้เฉพาะผู้มีสิทธิ์ product.cost.manage</div>' : "";
+        return `<label class="field-stack"><span>วิธีคำนวณ</span><select name="priceMode"><option value="set">กำหนดราคาใหม่</option><option value="amount">เพิ่ม / ลดเป็นจำนวนเงิน</option><option value="percent">เพิ่ม / ลดเป็นเปอร์เซ็นต์</option></select></label><label class="field-stack"><span>${label} (บาท)</span><input name="bulkValue" type="number" step="0.01" placeholder="0.00" required></label><label class="field-stack"><span>การปัดเศษ</span><select name="rounding"><option value="none">ไม่ปัดเศษ</option><option value="whole">ปัดเป็นจำนวนเต็ม</option><option value="ten">ปัดเป็นหลักสิบ</option></select></label>${permission}`;
+      }
+
+      function skuCurrentValue(row) {
+        if (skuBulkEditAction === "stock") return row.sku.stock;
+        return skuBulkEditAction === "cost" ? row.sku.cost ?? row.product.cost : row.sku.price ?? row.product.price;
+      }
+
+      function skuNextValue(row) {
+        const data = new FormData(elements.skuBulkEditForm);
+        const current = Number(skuCurrentValue(row));
+        const rawInput = String(data.get("bulkValue") ?? "").trim();
+        if (!rawInput) return current;
+        const input = Number(rawInput);
+        if (!Number.isFinite(input)) return current;
+        if (skuBulkEditAction === "stock") {
+          const direction = data.get("stockDirection");
+          if (direction === "increase") return current + input;
+          if (direction === "decrease") return Math.max(0, current - input);
+          return input;
+        }
+        const mode = data.get("priceMode");
+        let next = mode === "amount" ? current + input : mode === "percent" ? current * (1 + input / 100) : input;
+        const rounding = data.get("rounding");
+        if (rounding === "whole") next = Math.round(next);
+        if (rounding === "ten") next = Math.round(next / 10) * 10;
+        return Math.max(0, next);
+      }
+
+      function filterSkuScopeList() {
+        const query = elements.skuScopeSearch.value.trim().toLocaleLowerCase("th-TH");
+        let visibleCount = 0;
+        elements.skuScopeList.querySelectorAll(".sku-scope-row").forEach((row) => {
+          const matches = !query || row.dataset.search.includes(query);
+          row.hidden = !matches;
+          if (matches) visibleCount += 1;
+        });
+        const total = elements.skuScopeList.querySelectorAll(".sku-scope-row").length;
+        elements.skuScopeSearchSummary.textContent = query ? `พบ ${visibleCount} จาก ${total} SKU` : `เลือกได้ทั้งหมด ${total} SKU`;
+      }
+
+      function updateSkuBulkPreview() {
+        const formData = new FormData(elements.skuBulkEditForm);
+        const scope = formData.get("skuScope") || "all";
+        const isAllSku = scope === "all";
+        const totalSku = selectedSkuRows().length;
+        elements.skuScopeList.dataset.scope = scope;
+        elements.skuScopeSummary.hidden = !isAllSku;
+        elements.skuScopeSearchWrap.hidden = isAllSku;
+        elements.skuScopeList.hidden = isAllSku;
+        elements.skuScopeSummary.textContent = `กำลังแก้ไข SKU ทั้งหมด ${totalSku} รายการ`;
+        elements.skuScopeList.querySelectorAll('input[name="skuKey"]').forEach((input) => {
+          input.disabled = isAllSku;
+        });
+        if (!isAllSku) filterSkuScopeList();
+
+        const rows = activeSkuRows();
+        elements.skuBulkPreview.innerHTML = rows.length
+          ? rows.map((row) => {
+            const current = skuCurrentValue(row);
+            const next = skuNextValue(row);
+            const display = (value) => skuBulkEditAction === "stock" ? `${Number(value).toLocaleString("th-TH")} ${row.product.unit}` : formatMoney(value);
+            return `<tr><td data-label="สินค้า">${escapeHtml(row.product.name)}</td><td data-label="SKU">${escapeHtml(row.sku.sku)}</td><td data-label="ค่าปัจจุบัน">${display(current)}</td><td data-label="ค่าหลังแก้ไข">${display(next)}</td></tr>`;
+          }).join("")
+          : '<tr><td class="sku-preview-empty" colspan="4">เลือกอย่างน้อย 1 SKU เพื่อดูตัวอย่าง</td></tr>';
+      }
+
+      function renderSkuBulkEdit(action) {
+        const config = {
+          price: ["แก้ไขราคาขาย", "กำหนดราคาใหม่หรือปรับราคาให้ SKU ที่เลือก"],
+          cost: ["แก้ไขราคาต้นทุน", "จำกัดตามสิทธิ์และบันทึก Audit Log ในระบบจริง"],
+          stock: ["ปรับจำนวนสต็อก", "การยืนยันจริงจะสร้าง Stock Movement แยกตาม SKU"]
+        }[action];
+        if (!config) return;
+        elements.skuBulkEditTitle.textContent = config[0];
+        elements.skuBulkEditDescription.textContent = config[1];
+        elements.skuBulkProductScope.textContent = `${state.selected.size} สินค้า`;
+        elements.skuBulkSkuScope.textContent = `รวม ${selectedSkuTotal()} SKU`;
+        elements.skuBulkControlTitle.textContent = config[0];
+        elements.skuBulkControlHelp.textContent = action === "stock" ? "ระบุคลัง จำนวน และเหตุผลให้ครบ" : "เลือกวิธีคำนวณแล้วตรวจตัวอย่างก่อนยืนยัน";
+        elements.skuBulkControls.innerHTML = skuControlMarkup(action);
+        elements.skuBulkEditForm.querySelector('input[name="skuScope"][value="all"]').checked = true;
+        elements.skuScopeSearch.value = "";
+        elements.skuScopeList.innerHTML = selectedSkuRows().map((row) => `<label class="sku-scope-row" data-search="${escapeHtml(`${row.sku.sku} ${row.product.name}`.toLocaleLowerCase("th-TH"))}"><input type="checkbox" name="skuKey" value="${row.key}" checked disabled><strong>${escapeHtml(row.sku.sku)}</strong><span>${escapeHtml(row.product.name)}</span></label>`).join("");
+        setSkuBulkError();
+        updateSkuBulkPreview();
+      }
+
+      function openSkuBulkEdit(action) {
+        skuBulkEditAction = action;
+        renderSkuBulkEdit(action);
+        elements.skuBulkEditModal.classList.add("visible");
+        requestAnimationFrame(() => elements.skuBulkEditModal.querySelector("input, select")?.focus());
+      }
+
+      function applySkuBulkEdit(event) {
+        event.preventDefault();
+        const rows = activeSkuRows();
+        if (!rows.length) {
+          setSkuBulkError("กรุณาเลือก SKU อย่างน้อย 1 รายการ");
+          return;
+        }
+        const data = new FormData(elements.skuBulkEditForm);
+        const rawInput = String(data.get("bulkValue") ?? "").trim();
+        const input = Number(rawInput);
+        if (!rawInput || !Number.isFinite(input) || input < 0) {
+          setSkuBulkError("กรุณากรอกค่าที่ต้องการเปลี่ยนให้ถูกต้อง");
+          return;
+        }
+        if (skuBulkEditAction === "stock" && (!data.get("stockLocation") || String(data.get("stockReason") || "").trim().length < 3)) {
+          setSkuBulkError("กรุณาเลือกคลังและระบุเหตุผลอย่างน้อย 3 ตัวอักษร");
+          return;
+        }
+        rows.forEach((row) => {
+          const next = skuNextValue(row);
+          if (skuBulkEditAction === "stock") row.sku.stock = next;
+          else row.sku[skuBulkEditAction] = next;
+        });
+        const changedCount = rows.length;
+        persistProducts();
+        render();
+        closeSkuBulkEdit({ restoreFocus: true });
+        showToast(`จำลองการอัปเดต ${changedCount} SKU แล้ว — ยังไม่เขียนระบบจริง`);
+      }
+
+      function closeBulkActionMenu({ restoreFocus = false } = {}) {
+        elements.bulkActionMenu.hidden = true;
+        elements.bulkActionButton.setAttribute("aria-expanded", "false");
+        if (restoreFocus) elements.bulkActionButton.focus();
+      }
+
+      function openBulkActionMenu() {
+        elements.bulkActionMenu.hidden = false;
+        elements.bulkActionButton.setAttribute("aria-expanded", "true");
+      }
+
+      elements.bulkActionButton.addEventListener("click", () => {
+        if (elements.bulkActionMenu.hidden) openBulkActionMenu();
+        else closeBulkActionMenu({ restoreFocus: true });
+      });
+
+      elements.bulkActionButton.addEventListener("keydown", (event) => {
+        if (event.key !== "ArrowDown") return;
+        event.preventDefault();
+        openBulkActionMenu();
+        elements.bulkActionMenu.querySelector('[role="menuitem"]')?.focus();
+      });
+
+      elements.bulkActionMenu.addEventListener("keydown", (event) => {
+        const items = [...elements.bulkActionMenu.querySelectorAll('[role="menuitem"]')];
+        const currentIndex = items.indexOf(document.activeElement);
+        if (event.key === "Escape") {
+          event.preventDefault();
+          closeBulkActionMenu({ restoreFocus: true });
+          return;
+        }
+        let nextIndex = currentIndex;
+        if (event.key === "ArrowDown") nextIndex = (currentIndex + 1) % items.length;
+        else if (event.key === "ArrowUp") nextIndex = (currentIndex - 1 + items.length) % items.length;
+        else if (event.key === "Home") nextIndex = 0;
+        else if (event.key === "End") nextIndex = items.length - 1;
+        else return;
+        event.preventDefault();
+        items[nextIndex].focus();
+      });
+
+      elements.bulkActionMenu.addEventListener("click", (event) => {
+        const action = event.target.closest("[data-bulk-action]")?.dataset.bulkAction;
+        if (!action) return;
+        closeBulkActionMenu();
+        if (["brand", "category", "tags", "status"].includes(action)) {
+          openProductBulkEdit(action);
+          return;
+        }
+        if (["price", "cost", "stock"].includes(action)) {
+          openSkuBulkEdit(action);
+          return;
+        }
+        showToast("การแก้ไขหลายข้อมูลพร้อมกันจะอยู่ในระยะถัดไป");
+      });
+
+      elements.productBulkEditForm.addEventListener("submit", applyProductBulkEdit);
+      document.getElementById("closeProductBulkEdit").addEventListener("click", () => closeProductBulkEdit({ restoreFocus: true }));
+      document.getElementById("cancelProductBulkEdit").addEventListener("click", () => closeProductBulkEdit({ restoreFocus: true }));
+      elements.productBulkEditModal.addEventListener("click", (event) => {
+        if (event.target === elements.productBulkEditModal) closeProductBulkEdit({ restoreFocus: true });
+      });
+      elements.productBulkEditModal.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          closeProductBulkEdit({ restoreFocus: true });
+          return;
+        }
+        keepFocusInside(elements.productBulkEditModal, event);
+      });
+                  elements.productBulkEditModal.addEventListener("input", (event) => {
+        if (event.target.id !== "productBulkChoiceSearch") return;
+        const query = event.target.value.trim().toLocaleLowerCase("th");
+        const choices = [...elements.productBulkEditModal.querySelectorAll("[data-choice-label]")];
+        choices.forEach((choice) => {
+          choice.hidden = Boolean(query) && !choice.dataset.choiceLabel.includes(query);
+        });
+
+        const matchCount = choices.filter((choice) => !choice.hidden).length;
+        const empty = document.getElementById("productBulkPickerEmpty");
+        if (empty) {
+          const itemLabel = bulkEditAction === "brand" ? "แบรนด์" : bulkEditAction === "category" ? "หมวดหมู่" : "ป้ายกำกับ";
+          empty.textContent = query ? `ไม่พบ${itemLabel} “${event.target.value.trim()}”` : `ไม่พบ${itemLabel}ที่ค้นหา`;
+          empty.classList.toggle("visible", Boolean(query) && matchCount === 0);
+        }
+      });
+      elements.productBulkEditModal.addEventListener("click", (event) => {
+        const infoButton = event.target.closest(".brand-picker-info");
+        if (infoButton) {
+          event.preventDefault();
+          return;
+        }
+        const manageButton = event.target.closest("[data-manage-master]");
+        if (!manageButton) return;
+        showToast(`เปิด ${manageButton.dataset.masterLabel} master ใน Mockup — ยังไม่เชื่อมระบบจริง`);
+      });
+      elements.skuBulkEditForm.addEventListener("input", updateSkuBulkPreview);
+      elements.skuBulkEditForm.addEventListener("change", updateSkuBulkPreview);
+      elements.skuScopeSearch.addEventListener("input", filterSkuScopeList);
+      elements.skuBulkEditForm.addEventListener("submit", applySkuBulkEdit);
+      document.getElementById("closeSkuBulkEdit").addEventListener("click", () => closeSkuBulkEdit({ restoreFocus: true }));
+      document.getElementById("cancelSkuBulkEdit").addEventListener("click", () => closeSkuBulkEdit({ restoreFocus: true }));
+      elements.skuBulkEditModal.addEventListener("click", (event) => {
+        if (event.target === elements.skuBulkEditModal) closeSkuBulkEdit({ restoreFocus: true });
+      });
+      elements.skuBulkEditModal.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          closeSkuBulkEdit({ restoreFocus: true });
+          return;
+        }
+        keepFocusInside(elements.skuBulkEditModal, event);
+      });
+
+      document.getElementById("clearSelection").addEventListener("click", () => {
+        closeBulkActionMenu();
+        state.selected.clear();
+        render();
+      });
 
       elements.selectAll.addEventListener("change", (event) => {
         const filtered = filteredProducts();
@@ -2346,6 +3220,7 @@
         if (!event.target.closest("[data-menu-id]") && !event.target.closest("#rowMenu")) elements.rowMenu.style.display = "none";
         if (elements.customizePopover.classList.contains("visible") && !event.target.closest("#customizeColumnsPopover") && !event.target.closest("#customizeColumnsButton")) closeCustomizeColumns();
         if (elements.excelMenu.classList.contains("visible") && !event.target.closest("#excelToolsMenu") && !event.target.closest("#excelToolsButton")) closeExcelToolsMenu();
+        if (!elements.bulkActionMenu.hidden && !event.target.closest(".bulk-action")) closeBulkActionMenu();
       });
 
       document.getElementById("bulkSearchButton").addEventListener("click", openBulkSearch);
