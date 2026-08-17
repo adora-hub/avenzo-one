@@ -41,6 +41,17 @@ type Props = {
   dateField: DateFilterField
   dateFrom: string
   dateTo: string
+  brandId: string
+  brandOptions: Array<{ id: string; name: string }>
+  categoryId: string
+  categoryOptions: Array<{ id: string; name: string }>
+  tagIds: string[]
+  tagOptions: Array<{ id: string; name: string }>
+  priceMin: string
+  priceMax: string
+  stockMin: string
+  stockMax: string
+  canReadInventory: boolean
   sort: 'updated_desc' | 'updated_asc'
   productWorkspaceRows: ProductWorkspaceRow[]
   productPage: number
@@ -139,6 +150,17 @@ export function ProductSkuWorkspace({
   dateField,
   dateFrom,
   dateTo,
+  brandId,
+  brandOptions,
+  categoryId,
+  categoryOptions,
+  tagIds,
+  tagOptions,
+  priceMin,
+  priceMax,
+  stockMin,
+  stockMax,
+  canReadInventory,
   sort,
   productWorkspaceRows,
   productPage,
@@ -163,6 +185,8 @@ export function ProductSkuWorkspace({
   const statusFilterButtonRef = useRef<HTMLButtonElement>(null)
   const advancedFilterRef = useRef<HTMLDivElement>(null)
   const advancedFilterButtonRef = useRef<HTMLButtonElement>(null)
+  const tagComboboxRef = useRef<HTMLDivElement>(null)
+  const tagSearchInputRef = useRef<HTMLInputElement>(null)
   const [editorMode, setEditorMode] = useState<EditorMode>(null)
   const [bulkSearchOpen, setBulkSearchOpen] = useState(false)
   const [bulkCodes, setBulkCodes] = useState(bulkSearchActive ? search.replaceAll(',', '\n') : '')
@@ -174,6 +198,16 @@ export function ProductSkuWorkspace({
   const [dateFieldFilter, setDateFieldFilter] = useState<DateFilterField>(dateField)
   const [dateFromFilter, setDateFromFilter] = useState(dateFrom)
   const [dateToFilter, setDateToFilter] = useState(dateTo)
+  const [brandIdFilter, setBrandIdFilter] = useState(brandId)
+  const [categoryIdFilter, setCategoryIdFilter] = useState(categoryId)
+  const [tagIdsFilter, setTagIdsFilter] = useState(tagIds)
+  const [tagComboboxOpen, setTagComboboxOpen] = useState(false)
+  const [tagSearchInput, setTagSearchInput] = useState('')
+  const [activeTagOptionIndex, setActiveTagOptionIndex] = useState(0)
+  const [priceMinFilter, setPriceMinFilter] = useState(priceMin)
+  const [priceMaxFilter, setPriceMaxFilter] = useState(priceMax)
+  const [stockMinFilter, setStockMinFilter] = useState(stockMin)
+  const [stockMaxFilter, setStockMaxFilter] = useState(stockMax)
   const [advancedFilterError, setAdvancedFilterError] = useState('')
   const [feedback, setFeedback] = useState<{ tone: 'success' | 'danger' | 'info'; text: string; code?: string } | null>(null)
   const [pendingLifecycle, setPendingLifecycle] = useState<PendingLifecycle | null>(null)
@@ -245,6 +279,7 @@ export function ProductSkuWorkspace({
     function closeAdvancedFilterOnEscape(event: KeyboardEvent) {
       if (event.key !== 'Escape') return
       event.preventDefault()
+      setTagComboboxOpen(false)
       setAdvancedFilterOpen(false)
       advancedFilterButtonRef.current?.focus()
     }
@@ -255,6 +290,15 @@ export function ProductSkuWorkspace({
       window.removeEventListener('keydown', closeAdvancedFilterOnEscape)
     }
   }, [advancedFilterOpen])
+
+  useEffect(() => {
+    if (!tagComboboxOpen) return
+    function closeTagCombobox(event: PointerEvent) {
+      if (!tagComboboxRef.current?.contains(event.target as Node)) setTagComboboxOpen(false)
+    }
+    document.addEventListener('pointerdown', closeTagCombobox)
+    return () => document.removeEventListener('pointerdown', closeTagCombobox)
+  }, [tagComboboxOpen])
 
   useEffect(() => {
     function closeCreateMenu(event: PointerEvent) {
@@ -281,8 +325,15 @@ export function ProductSkuWorkspace({
     setDateFieldFilter(dateField)
     setDateFromFilter(dateFrom)
     setDateToFilter(dateTo)
+    setBrandIdFilter(brandId)
+    setCategoryIdFilter(categoryId)
+    setTagIdsFilter(tagIds)
+    setPriceMinFilter(priceMin)
+    setPriceMaxFilter(priceMax)
+    setStockMinFilter(stockMin)
+    setStockMaxFilter(stockMax)
     if (bulkSearchActive) setBulkCodes(search.replaceAll(',', '\n'))
-  }, [bulkSearchActive, dateField, dateFrom, dateTo, search, status])
+  }, [brandId, bulkSearchActive, categoryId, dateField, dateFrom, dateTo, priceMax, priceMin, search, status, stockMax, stockMin, tagIds])
 
   useEffect(() => () => {
     if (searchTimerRef.current !== null) window.clearTimeout(searchTimerRef.current)
@@ -302,6 +353,13 @@ export function ProductSkuWorkspace({
     nextDateField: DateFilterField = dateField,
     nextDateFrom = dateFrom,
     nextDateTo = dateTo,
+    nextBrandId = brandId,
+    nextCategoryId = categoryId,
+    nextTagIds: string[] = tagIds,
+    nextPriceMin = priceMin,
+    nextPriceMax = priceMax,
+    nextStockMin = stockMin,
+    nextStockMax = stockMax,
   ) {
     clearSearchTimer()
     const href = buildHref(organizationId, {
@@ -311,9 +369,16 @@ export function ProductSkuWorkspace({
       date_by: nextDateFrom || nextDateTo ? nextDateField : undefined,
       date_from: nextDateFrom,
       date_to: nextDateTo,
+      brand_id: nextBrandId,
       sort,
+      category_id: nextCategoryId,
       page_size: view === 'products' ? String(productPageSize) : undefined,
+      tag_ids: nextTagIds.join(','),
       bulk: nextBulkSearchActive ? '1' : undefined,
+      price_min: nextPriceMin,
+      price_max: nextPriceMax,
+      stock_min: nextStockMin,
+      stock_max: nextStockMax,
     })
     startSearchTransition(() => {
       if (mode === 'push') router.push(href, { scroll: false })
@@ -365,12 +430,28 @@ export function ProductSkuWorkspace({
     }
   }
 
+  function toggleTagFilterOption(tagId: string) {
+    setTagIdsFilter((current) => current.includes(tagId)
+      ? current.filter((id) => id !== tagId)
+      : current.length < 12 ? [...current, tagId] : current)
+    setAdvancedFilterError('')
+  }
+
   function clearAdvancedFilterDraft() {
     setStatusFilter('')
     setDateFieldFilter('created')
     setDateFromFilter('')
     setDateToFilter('')
+    setBrandIdFilter('')
+    setCategoryIdFilter('')
+    setTagIdsFilter([])
+    setTagSearchInput('')
+    setTagComboboxOpen(false)
+    setPriceMinFilter('')
+    setPriceMaxFilter('')
     setAdvancedFilterError('')
+    setStockMinFilter('')
+    setStockMaxFilter('')
   }
 
   function applyAdvancedFilters() {
@@ -378,9 +459,18 @@ export function ProductSkuWorkspace({
       setAdvancedFilterError('วันที่เริ่มต้นต้องไม่อยู่หลังวันที่สิ้นสุด')
       return
     }
+    if (priceMinFilter && priceMaxFilter && Number(priceMinFilter) > Number(priceMaxFilter)) {
+      setAdvancedFilterError('ราคาต่ำสุดต้องไม่มากกว่าราคาสูงสุด')
+      return
+    }
+    if (stockMinFilter && stockMaxFilter && Number(stockMinFilter) > Number(stockMaxFilter)) {
+      setAdvancedFilterError('จำนวนสต๊อกต่ำสุดต้องไม่มากกว่าจำนวนสูงสุด')
+      return
+    }
     setAdvancedFilterError('')
+    setTagComboboxOpen(false)
     setAdvancedFilterOpen(false)
-    navigateFilters(bulkSearchActive ? search : searchInput, statusFilter, 'replace', bulkSearchActive, dateFieldFilter, dateFromFilter, dateToFilter)
+    navigateFilters(bulkSearchActive ? search : searchInput, statusFilter, 'replace', bulkSearchActive, dateFieldFilter, dateFromFilter, dateToFilter, brandIdFilter, categoryIdFilter, tagIdsFilter, priceMinFilter, priceMaxFilter, stockMinFilter, stockMaxFilter)
     advancedFilterButtonRef.current?.focus()
   }
 
@@ -518,10 +608,25 @@ export function ProductSkuWorkspace({
   })
 
 
-  const advancedFilterDirty = statusFilter !== status || dateFieldFilter !== dateField || dateFromFilter !== dateFrom || dateToFilter !== dateTo
-  const hasAdvancedFilterDraft = Boolean(statusFilter || dateFromFilter || dateToFilter)
+  const normalizedTagSearch = tagSearchInput.trim().toLocaleLowerCase('th-TH')
+  const filteredTagOptions = tagOptions.filter((option) => !normalizedTagSearch || option.name.toLocaleLowerCase('th-TH').includes(normalizedTagSearch))
+  const selectedTagOptions = tagIdsFilter.flatMap((id) => {
+    const option = tagOptions.find((candidate) => candidate.id === id)
+    return option ? [option] : []
+  })
+  const appliedAdvancedFilterCount = [
+    status,
+    dateFrom || dateTo,
+    brandId,
+    categoryId,
+    tagIds.length ? 'tags' : '',
+    priceMin || priceMax,
+    stockMin || stockMax,
+  ].filter(Boolean).length
+  const advancedFilterDirty = statusFilter !== status || dateFieldFilter !== dateField || dateFromFilter !== dateFrom || dateToFilter !== dateTo || brandIdFilter !== brandId || categoryIdFilter !== categoryId || tagIdsFilter.join(',') !== tagIds.join(',') || priceMinFilter !== priceMin || priceMaxFilter !== priceMax || stockMinFilter !== stockMin || stockMaxFilter !== stockMax
+  const hasAdvancedFilterDraft = Boolean(statusFilter || dateFromFilter || dateToFilter || brandIdFilter || categoryIdFilter || tagIdsFilter.length || priceMinFilter || priceMaxFilter || stockMinFilter || stockMaxFilter)
 
-  const filterForm = <form className="operations-filter-bar product-filter-bar" method="get" aria-label="ค้นหาและกรอง Product SKU" onSubmit={(event) => {
+  const filterForm = <form className={`operations-filter-bar product-filter-bar${view === 'products' ? ' product-filter-bar-advanced' : ''}`} method="get" aria-label="ค้นหาและกรอง Product SKU" onSubmit={(event) => {
     if (view === 'products') {
       event.preventDefault()
       openBulkSearch(searchInput)
@@ -550,7 +655,8 @@ export function ProductSkuWorkspace({
       </div>
       {view === 'products' ? <button className="button secondary product-bulk-search-trigger" type="button" onClick={() => openBulkSearch()}><span aria-hidden="true">⌘</span> ค้นหาหลายรหัส</button> : null}
     </div>
-    <label className="sr-only" htmlFor="product-status">สถานะ</label>
+        {view === 'skus' ? <>
+<label className="sr-only" htmlFor="product-status">สถานะ</label>
     <div className="product-status-combobox" ref={statusFilterRef}>
       <input type="hidden" name="status" value={statusFilter} />
       <button
@@ -608,6 +714,7 @@ export function ProductSkuWorkspace({
         >{option.label}</button>)}
       </div> : null}
     </div>
+    </> : null}
     {view === 'products' ? <div className="product-advanced-filter-slot">
       <div className="product-advanced-filter" ref={advancedFilterRef}>
         <button
@@ -622,23 +729,32 @@ export function ProductSkuWorkspace({
             setAdvancedFilterOpen((open) => !open)
           }}
         >
-          <span>ตัวกรองเพิ่มเติม</span>
+          <span className="product-advanced-filter-trigger-label">ค้นหาแบบละเอียด{appliedAdvancedFilterCount ? <span className="product-advanced-filter-count">{appliedAdvancedFilterCount}</span> : null}</span>
           <span className="product-status-combobox-arrow" aria-hidden="true" />
         </button>
         {advancedFilterOpen ? <section id="product-advanced-filter-panel" className="product-advanced-filter-panel" role="dialog" aria-modal="false" aria-labelledby="product-advanced-filter-title">
           <header>
-            <div><h2 id="product-advanced-filter-title">ตัวกรองเพิ่มเติม</h2><p>เลือกเงื่อนไขให้ครบ แล้วกดค้นหาเพียงครั้งเดียว</p></div>
-            <button className="product-advanced-filter-close" type="button" aria-label="ปิดตัวกรองเพิ่มเติม" onClick={() => {
+            <div><h2 id="product-advanced-filter-title">ตัวกรองขั้นสูง (Advanced Filter)</h2><p>เลือกเงื่อนไขที่ต้องการ แล้วกดค้นหาเพียงครั้งเดียว</p></div>
+            <button className="product-advanced-filter-close" type="button" aria-label="ปิดตัวกรองขั้นสูง" onClick={() => {
+              setTagComboboxOpen(false)
               setAdvancedFilterOpen(false)
               advancedFilterButtonRef.current?.focus()
             }}>×</button>
           </header>
           <div className="product-advanced-filter-body">
-            <div className="product-advanced-filter-selection" aria-live="polite">
-              <span>สถานะที่เลือก</span>
-              <strong>{statusFilterOptions.find((option) => option.value === statusFilter)?.label ?? 'ทุกสถานะ'}</strong>
-              <small>สถานะและช่วงวันที่จะเริ่มกรองพร้อมกันเมื่อกดค้นหา</small>
-            </div>
+            <fieldset className="product-advanced-filter-fieldset product-advanced-filter-status">
+              <legend>สถานะ</legend>
+              <p id="product-status-filter-help">เลือกสถานะสินค้าที่ต้องการ หรือเลือกทุกสถานะเพื่อไม่จำกัดผลลัพธ์</p>
+              <label className="product-advanced-filter-control">
+                <span>สถานะสินค้า</span>
+                <select value={statusFilter} aria-describedby="product-status-filter-help" onChange={(event) => {
+                  setStatusFilter(event.target.value)
+                  setAdvancedFilterError('')
+                }}>
+                  {statusFilterOptions.map((option) => <option key={option.value || 'all'} value={option.value}>{option.label}</option>)}
+                </select>
+              </label>
+            </fieldset>
             <fieldset className="product-date-filter-fieldset">
               <legend>วันที่สร้าง / วันที่แก้ไข</legend>
               <p id="product-date-filter-help">เลือกประเภทวันที่และช่วงเวลาที่ต้องการค้นหา โดยเว้นช่องใดช่องหนึ่งได้</p>
@@ -668,6 +784,163 @@ export function ProductSkuWorkspace({
                   }} />
                 </label>
               </div>
+            </fieldset>
+            <fieldset className="product-advanced-filter-fieldset">
+              <legend>แบรนด์</legend>
+              <p id="product-brand-filter-help">เลือกแบรนด์ที่ต้องการค้นหา หรือเลือกทุกแบรนด์เพื่อไม่จำกัดผลลัพธ์</p>
+              <label className="product-advanced-filter-control">
+                <span>แบรนด์สินค้า</span>
+                <select value={brandIdFilter} aria-describedby="product-brand-filter-help" onChange={(event) => {
+                  setBrandIdFilter(event.target.value)
+                  setAdvancedFilterError('')
+                }}>
+                  <option value="">ทุกแบรนด์</option>
+                  {brandOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
+                </select>
+              </label>
+            </fieldset>
+            <fieldset className="product-advanced-filter-fieldset">
+              <legend>หมวดหมู่</legend>
+              <p id="product-category-filter-help">เลือกหมวดหมู่ที่ต้องการค้นหา หรือเลือกทุกหมวดหมู่เพื่อไม่จำกัดผลลัพธ์</p>
+              <label className="product-advanced-filter-control">
+                <span>หมวดหมู่สินค้า</span>
+                <select value={categoryIdFilter} aria-describedby="product-category-filter-help" onChange={(event) => {
+                  setCategoryIdFilter(event.target.value)
+                  setAdvancedFilterError('')
+                }}>
+                  <option value="">ทุกหมวดหมู่</option>
+                  {categoryOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
+                </select>
+              </label>
+            </fieldset>
+            <fieldset className="product-advanced-filter-fieldset product-advanced-filter-tags">
+              <legend>ป้ายกำกับ (Tags)</legend>
+              <p id="product-tag-filter-help">ค้นหาและเลือกได้หลายป้าย ผลลัพธ์จะแสดงสินค้าที่มีอย่างน้อยหนึ่งป้ายตรงกับที่เลือก</p>
+              {tagOptions.length ? <div className="product-tag-multiselect" ref={tagComboboxRef}>
+                <div className={`product-tag-multiselect-control${tagComboboxOpen ? ' is-open' : ''}`}>
+                  <div className="product-tag-multiselect-values">
+                    {selectedTagOptions.map((option) => <span className="product-tag-multiselect-chip" key={option.id}>
+                      <span>{option.name}</span>
+                      <button type="button" aria-label={`ลบป้ายกำกับ ${option.name}`} onClick={() => toggleTagFilterOption(option.id)}>×</button>
+                    </span>)}
+                    <input
+                      ref={tagSearchInputRef}
+                      type="text"
+                      role="combobox"
+                      aria-label="ค้นหาและเลือกป้ายกำกับ"
+                      aria-describedby="product-tag-filter-help"
+                      aria-autocomplete="list"
+                      aria-expanded={tagComboboxOpen}
+                      aria-controls="product-tag-filter-options"
+                      aria-activedescendant={tagComboboxOpen && filteredTagOptions[activeTagOptionIndex] ? `product-tag-option-${filteredTagOptions[activeTagOptionIndex].id}` : undefined}
+                      value={tagSearchInput}
+                      placeholder={selectedTagOptions.length ? 'ค้นหา Tags เพิ่ม...' : 'ค้นหาและเลือก Tags...'}
+                      maxLength={80}
+                      onFocus={() => setTagComboboxOpen(true)}
+                      onChange={(event) => {
+                        setTagSearchInput(event.target.value)
+                        setActiveTagOptionIndex(0)
+                        setTagComboboxOpen(true)
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                          event.preventDefault()
+                          setTagComboboxOpen(true)
+                          if (!filteredTagOptions.length) return
+                          const offset = event.key === 'ArrowDown' ? 1 : -1
+                          setActiveTagOptionIndex((current) => (current + offset + filteredTagOptions.length) % filteredTagOptions.length)
+                        } else if (event.key === 'Enter' && tagComboboxOpen && filteredTagOptions[activeTagOptionIndex]) {
+                          event.preventDefault()
+                          toggleTagFilterOption(filteredTagOptions[activeTagOptionIndex].id)
+                          setTagSearchInput('')
+                          setActiveTagOptionIndex(0)
+                        } else if (event.key === 'Escape' && tagComboboxOpen) {
+                          event.preventDefault()
+                          event.stopPropagation()
+                          setTagComboboxOpen(false)
+                        } else if (event.key === 'Backspace' && !tagSearchInput && selectedTagOptions.length) {
+                          toggleTagFilterOption(selectedTagOptions[selectedTagOptions.length - 1].id)
+                        }
+                      }}
+                    />
+                  </div>
+                  <button className="product-tag-multiselect-toggle" type="button" aria-label={tagComboboxOpen ? 'ปิดรายการป้ายกำกับ' : 'เปิดรายการป้ายกำกับ'} aria-expanded={tagComboboxOpen} onClick={() => {
+                    const nextOpen = !tagComboboxOpen
+                    setTagComboboxOpen(nextOpen)
+                    if (nextOpen) window.requestAnimationFrame(() => tagSearchInputRef.current?.focus())
+                  }}>
+                    <span className="product-status-combobox-arrow" aria-hidden="true" />
+                  </button>
+                </div>
+                {tagComboboxOpen ? <div id="product-tag-filter-options" className="product-tag-multiselect-options" role="listbox" aria-label="รายการป้ายกำกับ" aria-multiselectable="true">
+                  <div className="product-tag-multiselect-option-list">
+                    {filteredTagOptions.length ? filteredTagOptions.map((option, index) => {
+                      const selected = tagIdsFilter.includes(option.id)
+                      const disabled = !selected && tagIdsFilter.length >= 12
+                      return <button
+                        id={`product-tag-option-${option.id}`}
+                        key={option.id}
+                        className={index === activeTagOptionIndex ? 'is-active' : undefined}
+                        type="button"
+                        role="option"
+                        aria-selected={selected}
+                        disabled={disabled}
+                        onMouseEnter={() => setActiveTagOptionIndex(index)}
+                        onClick={() => {
+                          toggleTagFilterOption(option.id)
+                          setTagSearchInput('')
+                          setActiveTagOptionIndex(0)
+                          window.requestAnimationFrame(() => tagSearchInputRef.current?.focus())
+                        }}
+                      >
+                        <span>{option.name}</span>
+                        <small>{selected ? 'เลือกแล้ว' : 'เลือก'}</small>
+                      </button>
+                    }) : <p className="product-tag-multiselect-empty">ไม่พบป้ายกำกับที่ตรงกับ “{tagSearchInput.trim()}”</p>}
+                  </div>
+                  <footer>
+                    <span>{tagIdsFilter.length}/12 ป้าย</span>
+                    <button type="button" disabled={!tagIdsFilter.length} onClick={() => {
+                      setTagIdsFilter([])
+                      setAdvancedFilterError('')
+                      tagSearchInputRef.current?.focus()
+                    }}>ล้าง Tags ที่เลือก</button>
+                  </footer>
+                </div> : null}
+              </div> : <p className="product-advanced-filter-no-options">ยังไม่มีป้ายกำกับที่ใช้งานได้</p>}
+              <small>{tagIdsFilter.length ? `เลือกแล้ว ${tagIdsFilter.length} ป้าย` : 'ยังไม่ได้เลือกป้ายกำกับ'}</small>
+            </fieldset>
+            <fieldset className="product-advanced-filter-fieldset">
+              <legend>ช่วงราคาขาย</legend>
+              <p id="product-price-filter-help">ค้นหา Product ที่มีอย่างน้อยหนึ่ง SKU อยู่ในช่วงราคาที่กำหนด</p>
+              <div className="product-advanced-filter-range">
+                <label>
+                  <span>ราคาต่ำสุด</span>
+                  <input type="number" inputMode="decimal" min="0" max="999999999.99" step="0.01" value={priceMinFilter} placeholder="เช่น 100" aria-describedby="product-price-filter-help" onChange={(event) => { setPriceMinFilter(event.target.value); setAdvancedFilterError('') }} />
+                </label>
+                <label>
+                  <span>ราคาสูงสุด</span>
+                  <input type="number" inputMode="decimal" min="0" max="999999999.99" step="0.01" value={priceMaxFilter} placeholder="เช่น 5,000" aria-describedby="product-price-filter-help" onChange={(event) => { setPriceMaxFilter(event.target.value); setAdvancedFilterError('') }} />
+                </label>
+              </div>
+              <small>หน่วยบาท · เว้นว่างด้านใดด้านหนึ่งได้</small>
+            </fieldset>
+            <fieldset className="product-advanced-filter-fieldset">
+              <legend>จำนวนสต๊อกที่ใช้ได้</legend>
+              <p id="product-stock-filter-help">ค้นหา Product ที่มีอย่างน้อยหนึ่ง SKU ซึ่งยอด Available รวมทุกตำแหน่งอยู่ในช่วงที่กำหนด</p>
+              {canReadInventory ? <>
+                <div className="product-advanced-filter-range">
+                  <label>
+                    <span>จำนวนต่ำสุด</span>
+                    <input type="number" inputMode="decimal" min="0" max="999999999999.999" step="0.001" value={stockMinFilter} placeholder="เช่น 1" aria-describedby="product-stock-filter-help" onChange={(event) => { setStockMinFilter(event.target.value); setAdvancedFilterError('') }} />
+                  </label>
+                  <label>
+                    <span>จำนวนสูงสุด</span>
+                    <input type="number" inputMode="decimal" min="0" max="999999999999.999" step="0.001" value={stockMaxFilter} placeholder="เช่น 100" aria-describedby="product-stock-filter-help" onChange={(event) => { setStockMaxFilter(event.target.value); setAdvancedFilterError('') }} />
+                  </label>
+                </div>
+                <small>เว้นว่างด้านใดด้านหนึ่งได้ · สินค้าที่ไม่มี Stock นับเป็น 0</small>
+              </> : <p className="product-advanced-filter-no-options">บัญชีนี้ไม่มีสิทธิ์ดูจำนวนสต๊อก</p>}
             </fieldset>
             {advancedFilterError ? <p className="product-advanced-filter-error" role="alert">{advancedFilterError}</p> : null}
           </div>
@@ -720,11 +993,18 @@ export function ProductSkuWorkspace({
       dateFrom={dateFrom}
       dateTo={dateTo}
       sort={sort}
+      brandId={brandId}
       toolbar={filterForm}
+      categoryId={categoryId}
+      tagIds={tagIds}
+      priceMin={priceMin}
+      priceMax={priceMax}
+      stockMin={stockMin}
+      stockMax={stockMax}
       clearHref={buildHref(organizationId, { view })}
       bulkActiveCount={activeBulkCodes.length}
-      clearBulkHref={buildHref(organizationId, { view, status, date_by: dateFrom || dateTo ? dateField : undefined, date_from: dateFrom, date_to: dateTo, sort })}
-      emptyState={search || status || dateFrom || dateTo ? {
+      clearBulkHref={buildHref(organizationId, { view, status, date_by: dateFrom || dateTo ? dateField : undefined, date_from: dateFrom, date_to: dateTo, brand_id: brandId, category_id: categoryId, tag_ids: tagIds.join(','), price_min: priceMin, price_max: priceMax, stock_min: stockMin, stock_max: stockMax, sort })}
+      emptyState={search || status || dateFrom || dateTo || brandId || categoryId || tagIds.length || priceMin || priceMax || stockMin || stockMax ? {
         title: 'ไม่พบรายการตามตัวกรอง',
         description: 'ลองเปลี่ยนคำค้นหา สถานะ หรือช่วงวันที่',
       } : {

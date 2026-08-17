@@ -76,7 +76,9 @@ test('R7.4.4 keeps cost out of the Browser contract unless the server grants pro
 })
 
 test('R7.4.4 does not expose internal note or mutate business data from Customize', () => {
+  const customizeFlow = grid.slice(grid.indexOf('function openCustomizeColumns'), grid.indexOf('function startColumnResize'))
   assert.doesNotMatch(grid, /internalNote/)
-  assert.doesNotMatch(grid, /executeFoundationCommandAction/)
+  assert.doesNotMatch(customizeFlow, /executeFoundationCommandAction/)
   assert.match(grid, /commitColumns\(customizeDraft\)/)
+  assert.match(grid, /executeFoundationCommandAction\(command\)/)
 })

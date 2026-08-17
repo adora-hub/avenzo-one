@@ -7,12 +7,12 @@ const formPath = '../src/app/organizations/[id]/products/new/unified-product-cre
 
 test('R7.2.3C renders the approved SKU heading and name assistant composition', async () => {
   const form = await read(formPath)
-  assert.match(form, /<h2>SKU แรกและรหัสสินค้า<\/h2>/)
+  assert.match(form, /structure === 'variant' \? 'SKU Variant และตัวเลือกสินค้า' : 'SKU แรกและรหัสสินค้า'/)
   assert.match(form, /SKU คือรายการที่ขายและนับ Stock จริง/)
   assert.match(form, /useProductNameForSku/)
   assert.match(form, /ใช้ชื่อเดียวกับสินค้า/)
-  assert.match(form, /product-variant-name-assistant/)
-  assert.match(form, /ชื่อที่ระบบแนะนำ/)
+  assert.match(form, /product-auto-fill-choice/)
+  assert.match(form, /ระบบจะนำชื่อสินค้ามาใส่ให้อัตโนมัติ/)
 })
 
 test('R7.2.3C adds the approved identifier information guides and modes', async () => {
@@ -60,7 +60,7 @@ test('R7.2.3C renders the SKU staging surface while preserving the initial-SKU c
   assert.match(form, /storeCurrentSkuDraft/)
   assert.match(form, /Atomic command ปัจจุบันสร้างได้ครั้งละ 1 SKU/)
   assert.match(form, /product-sku-staging-table/)
-  assert.match(form, /commandType: 'product\.create_with_initial_sku'/)
+  assert.match(form, /'product\.create_with_variants' : 'product\.create_with_initial_sku'/)
   assert.doesNotMatch(form, /commandType: 'sku\.create'/)
 })
 

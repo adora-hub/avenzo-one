@@ -83,7 +83,7 @@ test('R7.2.4E keeps bounded plain-text safety and server authority visible', asy
   assert.match(form, /FORBIDDEN_CONTROL_CHARACTERS\.test\(payload\.name\)/)
   assert.match(form, /byteLength > DRAFT_MAX_BYTES/)
   assert.match(form, /Server transaction เป็น Authority ขั้นสุดท้ายเสมอ/)
-  assert.match(form, /commandType: 'product\.create_with_initial_sku'/)
+  assert.match(form, /'product\.create_with_variants' : 'product\.create_with_initial_sku'/)
 })
 
 test('R7.2.4E styles errors with semantic tokens in light and dark themes', async () => {

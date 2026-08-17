@@ -72,8 +72,8 @@ test('R7.2.4D maps one staged SKU to the existing atomic initial-SKU payload', a
   assert.match(form, /const initialSku = skuDrafts\[0\]/)
   assert.match(form, /sku_name: initialSku\?\.name/)
   assert.match(form, /sku_code: initialSku\?\.skuCode/)
-  assert.match(form, /base_unit_code: initialSku\?\.baseUnitCode/)
-  assert.match(form, /commandType: 'product\.create_with_initial_sku'/)
+  assert.match(form, /base_unit_code: structure === 'variant' \? formString\(data, 'baseUnitCode'\) : initialSku\?\.baseUnitCode/)
+  assert.match(form, /'product\.create_with_variants' : 'product\.create_with_initial_sku'/)
 })
 
 test('R7.2.4D prevents silent multi-SKU loss instead of inventing a non-atomic write path', async () => {

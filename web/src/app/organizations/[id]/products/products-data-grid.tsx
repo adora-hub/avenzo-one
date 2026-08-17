@@ -128,13 +128,20 @@ function formatPriceSummary(summary: ProductWorkspaceRow['price'] | null) {
     : formatter.format(summary.minimum)
 }
 
-function detailHref(input: { organizationId: string; search: string; status: string; dateField: 'created' | 'updated'; dateFrom: string; dateTo: string; sort: string; productId: string; skuId?: string; page: number; pageSize: number; bulkSearchActive: boolean; action?: 'edit' | 'skus' | 'price' }) {
+function detailHref(input: { organizationId: string; search: string; status: string; dateField: 'created' | 'updated'; dateFrom: string; dateTo: string; brandId: string; categoryId: string; tagIds: string[]; priceMin: string; priceMax: string; stockMin: string; stockMax: string; sort: string; productId: string; skuId?: string; page: number; pageSize: number; bulkSearchActive: boolean; action?: 'edit' | 'skus' | 'price' }) {
   const params = new URLSearchParams({ view: 'products', product: input.productId, page: String(input.page), page_size: String(input.pageSize) })
   if (input.search) params.set('q', input.search)
   if (input.status) params.set('status', input.status)
   if (input.dateFrom || input.dateTo) params.set('date_by', input.dateField)
   if (input.dateFrom) params.set('date_from', input.dateFrom)
   if (input.dateTo) params.set('date_to', input.dateTo)
+  if (input.brandId) params.set('brand_id', input.brandId)
+  if (input.categoryId) params.set('category_id', input.categoryId)
+  if (input.tagIds.length) params.set('tag_ids', input.tagIds.join(','))
+  if (input.priceMin) params.set('price_min', input.priceMin)
+  if (input.priceMax) params.set('price_max', input.priceMax)
+  if (input.stockMin) params.set('stock_min', input.stockMin)
+  if (input.stockMax) params.set('stock_max', input.stockMax)
   if (input.sort) params.set('sort', input.sort)
   if (input.bulkSearchActive) params.set('bulk', '1')
   if (input.skuId) params.set('sku', input.skuId)
@@ -143,7 +150,7 @@ function detailHref(input: { organizationId: string; search: string; status: str
 }
 
 export function ProductsDataGrid({
-  organizationId, rows, search, status, dateField, dateFrom, dateTo, sort, toolbar, clearHref, bulkActiveCount, clearBulkHref, emptyState,
+  organizationId, rows, search, status, dateField, dateFrom, dateTo, brandId, categoryId, tagIds, priceMin, priceMax, stockMin, stockMax, sort, toolbar, clearHref, bulkActiveCount, clearBulkHref, emptyState,
   page, pageSize, totalCount, canManage, canAdjustInventory, inventoryLocationOptions, canReadCost, isPending, onRequestLifecycle,
 }: {
   organizationId: string
@@ -155,9 +162,16 @@ export function ProductsDataGrid({
   dateFrom: string
   dateTo: string
   toolbar: ReactNode
+  brandId: string
+  categoryId: string
   clearHref: string
+  tagIds: string[]
   bulkActiveCount: number
+  priceMin: string
+  priceMax: string
   clearBulkHref: string
+  stockMin: string
+  stockMax: string
   emptyState: { title: string; description: string }
   page: number
   pageSize: number
@@ -414,6 +428,13 @@ export function ProductsDataGrid({
     if (dateFrom || dateTo) params.set('date_by', dateField)
     if (dateFrom) params.set('date_from', dateFrom)
     if (dateTo) params.set('date_to', dateTo)
+    if (brandId) params.set('brand_id', brandId)
+    if (categoryId) params.set('category_id', categoryId)
+    if (tagIds.length) params.set('tag_ids', tagIds.join(','))
+    if (priceMin) params.set('price_min', priceMin)
+    if (priceMax) params.set('price_max', priceMax)
+    if (stockMin) params.set('stock_min', stockMin)
+    if (stockMax) params.set('stock_max', stockMax)
     return `/organizations/${organizationId}/products?${params}`
   }
 
@@ -932,7 +953,7 @@ export function ProductsDataGrid({
           <span role="cell"><span className={`product-grid-variant-status ${sku.status}`}><i aria-hidden="true" />{statusLabel(sku.status)}</span></span>
         </div>)}
       </div>
-      {hiddenCount > 0 ? <footer>แสดง {row.skuPreview.length} จาก {row.skuCount} SKU <Link href={detailHref({ organizationId, search, status, dateField, dateFrom, dateTo, sort, productId: row.id, page: currentPage, pageSize, bulkSearchActive, action: 'skus' })}>ดูรายการทั้งหมด</Link></footer> : null}
+      {hiddenCount > 0 ? <footer>แสดง {row.skuPreview.length} จาก {row.skuCount} SKU <Link href={detailHref({ organizationId, search, status, dateField, dateFrom, dateTo, brandId, categoryId, tagIds, priceMin, priceMax, stockMin, stockMax, sort, productId: row.id, page: currentPage, pageSize, bulkSearchActive, action: 'skus' })}>ดูรายการทั้งหมด</Link></footer> : null}
     </section>
   }
 
@@ -1060,7 +1081,7 @@ export function ProductsDataGrid({
         <small>{row.stock.mode === 'single-unit' ? `Stock ${row.stock.onHand} · Available ${row.stock.available}` : row.stock.mode === 'mixed-units' ? 'Stock หลายหน่วย' : 'ยังไม่มียอด Stock'}</small>
         {row.skuCount > 1 ? <button className="product-grid-mobile-variant-toggle" type="button" aria-expanded={expandedRows.has(row.id)} aria-controls={`product-grid-variants-${row.id}-mobile`} onClick={() => toggleVariantRow(row.id)}>{expandedRows.has(row.id) ? 'ซ่อนตัวเลือก' : `ดู ${row.skuCount} ตัวเลือก`}</button> : null}
         {expandedRows.has(row.id) && row.skuCount > 1 ? variantPanel(row, 'mobile') : null}
-        <Link className="product-row-link" href={detailHref({ organizationId, search, status, dateField, dateFrom, dateTo, sort, productId: row.id, page: currentPage, pageSize, bulkSearchActive })}>ดูรายละเอียด</Link>
+        <Link className="product-row-link" href={detailHref({ organizationId, search, status, dateField, dateFrom, dateTo, brandId, categoryId, tagIds, priceMin, priceMax, stockMin, stockMax, sort, productId: row.id, page: currentPage, pageSize, bulkSearchActive })}>ดูรายละเอียด</Link>
       </article>)}
     </div>
     </>}
@@ -1108,9 +1129,9 @@ export function ProductsDataGrid({
       event.preventDefault()
       items[(Math.max(currentIndex, 0) + delta + items.length) % items.length]?.focus()
     }}>
-      <Link role="menuitem" href={detailHref({ organizationId, search, status, dateField, dateFrom, dateTo, sort, productId: rowMenu.rowId, page: currentPage, pageSize, bulkSearchActive })}>ดูรายละเอียดแบบ Quick View</Link>
-      <Link role="menuitem" href={detailHref({ organizationId, search, status, dateField, dateFrom, dateTo, sort, productId: rowMenu.rowId, page: currentPage, pageSize, bulkSearchActive, action: 'edit' })}>แก้ไขสินค้า</Link>
-      <Link role="menuitem" href={detailHref({ organizationId, search, status, dateField, dateFrom, dateTo, sort, productId: rowMenu.rowId, page: currentPage, pageSize, bulkSearchActive, action: 'skus' })}>จัดการ SKU</Link>
+      <Link role="menuitem" href={detailHref({ organizationId, search, status, dateField, dateFrom, dateTo, brandId, categoryId, tagIds, priceMin, priceMax, stockMin, stockMax, sort, productId: rowMenu.rowId, page: currentPage, pageSize, bulkSearchActive })}>ดูรายละเอียดแบบ Quick View</Link>
+      <Link role="menuitem" href={detailHref({ organizationId, search, status, dateField, dateFrom, dateTo, brandId, categoryId, tagIds, priceMin, priceMax, stockMin, stockMax, sort, productId: rowMenu.rowId, page: currentPage, pageSize, bulkSearchActive, action: 'edit' })}>แก้ไขสินค้า</Link>
+      <Link role="menuitem" href={detailHref({ organizationId, search, status, dateField, dateFrom, dateTo, brandId, categoryId, tagIds, priceMin, priceMax, stockMin, stockMax, sort, productId: rowMenu.rowId, page: currentPage, pageSize, bulkSearchActive, action: 'skus' })}>จัดการ SKU</Link>
     </div> : null}
     {quickEdit ? <div ref={quickEditRef} className="product-grid-quick-editor" data-kind={quickEdit.kind} role="dialog" aria-modal="false" aria-labelledby="product-grid-quick-editor-title" style={{ left: quickEdit.left, top: quickEdit.top }}>
       <header><div><h2 id="product-grid-quick-editor-title">{quickEdit.kind === 'price' ? 'แก้ไขราคาขาย' : 'ปรับจำนวนสต๊อก'}</h2><p title={`${quickEdit.row.name} · ${quickEdit.sku.skuCode}`}>{quickEdit.row.name} · <span className="product-code">{quickEdit.sku.skuCode}</span></p></div><button type="button" aria-label="ปิด" disabled={quickEditPending} onClick={() => setQuickEdit(null)}>×</button></header>

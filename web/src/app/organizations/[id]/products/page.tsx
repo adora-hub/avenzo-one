@@ -24,6 +24,20 @@ function validDateParam(value: string) {
   const parsed = new Date(`${value}T00:00:00Z`)
   return Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value ? '' : value
 }
+function validMoneyParam(value: string) {
+  const normalized = value.trim()
+  if (!/^\d{1,9}(?:\.\d{1,2})?$/.test(normalized)) return ''
+  const amount = Number(normalized)
+  return Number.isFinite(amount) && amount <= 999_999_999.99 ? normalized : ''
+}
+
+function validQuantityParam(value: string) {
+  const normalized = value.trim()
+  if (!/^\d{1,12}(?:\.\d{1,3})?$/.test(normalized)) return ''
+  const amount = Number(normalized)
+  return Number.isFinite(amount) && amount <= 999_999_999_999.999 ? normalized : ''
+}
+
 
 export default async function ProductSkuPage({ params, searchParams }: Props) {
   const [{ id: organizationId }, query] = await Promise.all([params, searchParams])
@@ -35,6 +49,13 @@ export default async function ProductSkuPage({ params, searchParams }: Props) {
   const dateField = firstParam(query.date_by) === 'updated' ? 'updated' : 'created'
   const dateFrom = validDateParam(firstParam(query.date_from))
   const dateTo = validDateParam(firstParam(query.date_to))
+  const brandId = uuidPattern.test(firstParam(query.brand_id)) ? firstParam(query.brand_id) : ''
+  const categoryId = uuidPattern.test(firstParam(query.category_id)) ? firstParam(query.category_id) : ''
+  const tagIds = Array.from(new Set(firstParam(query.tag_ids).split(',').filter((value) => uuidPattern.test(value)))).slice(0, 12)
+  const priceMin = validMoneyParam(firstParam(query.price_min))
+  const priceMax = validMoneyParam(firstParam(query.price_max))
+  const stockMin = validQuantityParam(firstParam(query.stock_min))
+  const stockMax = validQuantityParam(firstParam(query.stock_max))
   const cursor = firstParam(query.cursor) || null
   const requestedProductPageSize = Number(firstParam(query.page_size))
   const productPageSize = productPageSizes.has(requestedProductPageSize) ? requestedProductPageSize : 25
@@ -92,16 +113,26 @@ export default async function ProductSkuPage({ params, searchParams }: Props) {
       dateField,
       dateFrom: dateFrom || undefined,
       dateTo: dateTo || undefined,
+      brandId: brandId || undefined,
+      categoryId: categoryId || undefined,
+      tagIds,
       page: productPage,
+      priceMin: priceMin ? Number(priceMin) : undefined,
+      priceMax: priceMax ? Number(priceMax) : undefined,
+      stockMin: canReadInventory && stockMin ? Number(stockMin) : undefined,
+      stockMax: canReadInventory && stockMax ? Number(stockMax) : undefined,
       pageSize: productPageSize,
       includeInventory: canReadInventory,
       includeCost: canReadCost,
       sort,
     })
     : repository.listSkus({ organizationId, search, status: status || undefined, cursor, pageSize: 20 })
-  const [listResult, productOptionsResult, selectedProduct, selectedSku, inventoryLocationsResult, activeWarehousesResult] = await Promise.all([
+  const [listResult, productOptionsResult, brandOptionsResult, categoryOptionsResult, tagOptionsResult, selectedProduct, selectedSku, inventoryLocationsResult, activeWarehousesResult] = await Promise.all([
     listPromise,
     repository.listProducts({ organizationId, pageSize: 100 }),
+    supabase.from('product_brands').select('id, name').eq('organization_id', organizationId).eq('status', 'active').order('name').limit(200),
+    supabase.from('product_categories').select('id, name').eq('organization_id', organizationId).eq('status', 'active').order('name').limit(200),
+    supabase.from('product_tags').select('id, name').eq('organization_id', organizationId).eq('status', 'active').order('name').limit(200),
     productId ? repository.getProductWorkspaceDetail({
       organizationId, productId, includeInventory: canReadInventory, includeCost: canReadCost,
     }) : Promise.resolve(null),
@@ -127,7 +158,14 @@ export default async function ProductSkuPage({ params, searchParams }: Props) {
     if (dateFrom || dateTo) normalizedQuery.set('date_by', dateField)
     if (dateFrom) normalizedQuery.set('date_from', dateFrom)
     if (dateTo) normalizedQuery.set('date_to', dateTo)
+    if (brandId) normalizedQuery.set('brand_id', brandId)
+    if (categoryId) normalizedQuery.set('category_id', categoryId)
+    if (tagIds.length) normalizedQuery.set('tag_ids', tagIds.join(','))
     if (sort) normalizedQuery.set('sort', sort)
+    if (priceMin) normalizedQuery.set('price_min', priceMin)
+    if (priceMax) normalizedQuery.set('price_max', priceMax)
+    if (canReadInventory && stockMin) normalizedQuery.set('stock_min', stockMin)
+    if (canReadInventory && stockMax) normalizedQuery.set('stock_max', stockMax)
     redirect(`/organizations/${organizationId}/products?${normalizedQuery}`)
   }
   return <ApplicationShell
@@ -150,7 +188,18 @@ export default async function ProductSkuPage({ params, searchParams }: Props) {
         dateField={dateField}
         dateFrom={dateFrom}
         dateTo={dateTo}
+        brandId={brandId}
+        brandOptions={(brandOptionsResult.data ?? []).map((option) => ({ id: String(option.id), name: String(option.name) }))}
+        categoryId={categoryId}
+        categoryOptions={(categoryOptionsResult.data ?? []).map((option) => ({ id: String(option.id), name: String(option.name) }))}
+        tagIds={tagIds}
+        tagOptions={(tagOptionsResult.data ?? []).map((option) => ({ id: String(option.id), name: String(option.name) }))}
         sort={sort}
+        priceMin={priceMin}
+        priceMax={priceMax}
+        stockMin={canReadInventory ? stockMin : ''}
+        stockMax={canReadInventory ? stockMax : ''}
+        canReadInventory={canReadInventory}
         productWorkspaceRows={productWorkspaceRows}
         productPage={productPage}
         productPageSize={productPageSize}

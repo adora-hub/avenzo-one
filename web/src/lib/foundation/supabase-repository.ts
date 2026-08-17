@@ -181,6 +181,13 @@ export class SupabaseFoundationReadRepository implements FoundationReadRepositor
     dateField?: 'created' | 'updated'
     dateFrom?: string
     dateTo?: string
+    brandId?: string
+    tagIds?: string[]
+    priceMin?: number
+    priceMax?: number
+    stockMin?: number
+    stockMax?: number
+    categoryId?: string
     cursor?: string | null
     page?: number
     pageSize?: number
@@ -212,13 +219,107 @@ export class SupabaseFoundationReadRepository implements FoundationReadRepositor
     }
 
     const sortAscending = input.sort === 'updated_asc'
+    let matchingTagProductIds: string[] | null = null
+    if (input.tagIds?.length) {
+      const { data, error } = await this.client.from('product_tag_assignments')
+        .select('product_id')
+        .eq('organization_id', input.organizationId)
+        .in('tag_id', input.tagIds)
+        .limit(PRODUCT_WORKSPACE_TAG_AGGREGATE_LIMIT)
+      if (error) throw mapFoundationError(error)
+      matchingTagProductIds = Array.from(new Set((data ?? []).map((row) => String(row.product_id))))
+      if (matchingTagProductIds.length === 0) {
+        return {
+          items: [],
+          nextCursor: null,
+          totalCount: useOffsetPagination ? 0 : undefined,
+        }
+      }
+    }
+    let matchingPriceProductIds: string[] | null = null
+    if (input.priceMin !== undefined || input.priceMax !== undefined) {
+      let profileQuery = this.client.from('sku_product_profiles')
+        .select('sku_id')
+        .eq('organization_id', input.organizationId)
+        .not('sale_price', 'is', null)
+        .limit(PRODUCT_WORKSPACE_SKU_AGGREGATE_LIMIT)
+      if (input.priceMin !== undefined) profileQuery = profileQuery.gte('sale_price', input.priceMin)
+      if (input.priceMax !== undefined) profileQuery = profileQuery.lte('sale_price', input.priceMax)
+      const { data: profileData, error: profileError } = await profileQuery
+      if (profileError) throw mapFoundationError(profileError)
+      const priceSkuIds = Array.from(new Set((profileData ?? []).map((row) => String(row.sku_id))))
+      if (priceSkuIds.length === 0) {
+        return {
+          items: [],
+          nextCursor: null,
+          totalCount: useOffsetPagination ? 0 : undefined,
+        }
+      }
+      const { data: skuData, error: skuError } = await this.client.from('skus')
+        .select('product_id')
+        .eq('organization_id', input.organizationId)
+        .in('id', priceSkuIds)
+        .limit(PRODUCT_WORKSPACE_SKU_AGGREGATE_LIMIT)
+      if (skuError) throw mapFoundationError(skuError)
+      matchingPriceProductIds = Array.from(new Set((skuData ?? []).map((row) => String(row.product_id))))
+      if (matchingPriceProductIds.length === 0) {
+        return {
+          items: [],
+          nextCursor: null,
+          totalCount: useOffsetPagination ? 0 : undefined,
+        }
+      }
+    }
+    let matchingStockProductIds: string[] | null = null
+    if (input.stockMin !== undefined || input.stockMax !== undefined) {
+      const [skuResult, balanceResult] = await Promise.all([
+        this.client.from('skus')
+          .select('id, product_id')
+          .eq('organization_id', input.organizationId)
+          .limit(PRODUCT_WORKSPACE_SKU_AGGREGATE_LIMIT),
+        this.client.from('inventory_balances')
+          .select('sku_id, available')
+          .eq('organization_id', input.organizationId)
+          .limit(PRODUCT_WORKSPACE_BALANCE_AGGREGATE_LIMIT),
+      ])
+      for (const result of [skuResult, balanceResult]) {
+        if (result.error) throw mapFoundationError(result.error)
+      }
+      const availableBySku = new Map<string, number>()
+      for (const row of balanceResult.data ?? []) {
+        const skuId = String(row.sku_id)
+        availableBySku.set(skuId, (availableBySku.get(skuId) ?? 0) + Number(row.available ?? 0))
+      }
+      const matchingProducts = (skuResult.data ?? [])
+        .filter((row) => {
+          const available = availableBySku.get(String(row.id)) ?? 0
+          return (input.stockMin === undefined || available >= input.stockMin)
+            && (input.stockMax === undefined || available <= input.stockMax)
+        })
+        .map((row) => String(row.product_id))
+      matchingStockProductIds = Array.from(new Set(matchingProducts))
+      if (matchingStockProductIds.length === 0) {
+        return {
+          items: [],
+          nextCursor: null,
+          totalCount: useOffsetPagination ? 0 : undefined,
+        }
+      }
+    }
+
+
     let productQuery = this.client.from('products')
       .select('id, organization_id, name, description, category_id, brand_id, structure_type, internal_note, status, version, created_at, created_by, updated_at', useOffsetPagination ? { count: 'exact' } : undefined)
       .eq('organization_id', input.organizationId)
       .order('updated_at', { ascending: sortAscending })
       .order('id', { ascending: sortAscending })
     if (input.status) productQuery = productQuery.eq('status', input.status)
+    if (input.brandId) productQuery = productQuery.eq('brand_id', input.brandId)
+    if (input.categoryId) productQuery = productQuery.eq('category_id', input.categoryId)
+    if (matchingTagProductIds) productQuery = productQuery.in('id', matchingTagProductIds)
+    if (matchingPriceProductIds) productQuery = productQuery.in('id', matchingPriceProductIds)
     const dateColumn = input.dateField === 'created' ? 'created_at' : 'updated_at'
+    if (matchingStockProductIds) productQuery = productQuery.in('id', matchingStockProductIds)
     if (input.dateFrom) {
       productQuery = productQuery.gte(dateColumn, `${input.dateFrom}T00:00:00+07:00`)
     }

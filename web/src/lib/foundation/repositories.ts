@@ -229,6 +229,13 @@ export interface FoundationReadRepository {
     dateField?: 'created' | 'updated'
     dateFrom?: string
     dateTo?: string
+    brandId?: string
+    categoryId?: string
+    tagIds?: string[]
+    priceMin?: number
+    priceMax?: number
+    stockMin?: number
+    stockMax?: number
     cursor?: string | null
     page?: number
     pageSize?: number

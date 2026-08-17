@@ -90,7 +90,7 @@ test('R7.2.4C preserves sequence preview and atomic uniqueness authority', async
   const form = await read(formPath)
   assert.match(form, /Preview ยังไม่จองเลข/)
   assert.match(form, /Server transaction เป็นผู้ยืนยัน Unique ขั้นสุดท้าย/)
-  assert.match(form, /commandType: 'product\.create_with_initial_sku'/)
+  assert.match(form, /'product\.create_with_variants' : 'product\.create_with_initial_sku'/)
   assert.doesNotMatch(form, /commandType: 'sku\.create'/)
   assert.doesNotMatch(form, /reserveSales|allocateSales|sales_sequence\.reserve/)
 })

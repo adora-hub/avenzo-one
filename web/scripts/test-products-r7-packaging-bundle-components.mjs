@@ -57,7 +57,7 @@ test('R7.2.3F maps supported multiple rows to the existing atomic payload only',
   assert.match(form, /unit_code: unit\.unitCode\.toLowerCase\(\), name: unit\.name\.trim\(\)/)
   assert.match(form, /bundle_components: structure === 'bundle' \? bundleComponents\.map/)
   assert.match(form, /sku_id: component\.skuId, quantity: component\.quantity/)
-  assert.match(form, /commandType: 'product\.create_with_initial_sku'/)
+  assert.match(form, /'product\.create_with_variants' : 'product\.create_with_initial_sku'/)
   assert.doesNotMatch(form, /commandType: 'sku\.sell_units\.replace'/)
   assert.doesNotMatch(form, /commandType: 'sku\.bundle\.replace'/)
 })

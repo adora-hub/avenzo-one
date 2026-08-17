@@ -45,7 +45,7 @@ test('R7.2.3E enforces all approved cross-field comparisons before the atomic co
   }
   assert.match(form, /const physicalErrors = physicalValidationErrors\(data\)/)
   assert.match(form, /setPhysicalTab\('box'\)/)
-  assert.ok(form.indexOf('const physicalErrors = physicalValidationErrors(data)') < form.indexOf("commandType: 'product.create_with_initial_sku'"))
+  assert.ok(form.indexOf('const physicalErrors = physicalValidationErrors(data)') < form.indexOf("'product.create_with_variants' : 'product.create_with_initial_sku'"))
 })
 
 test('R7.2.3E preserves the existing physical payload and command boundary', async () => {
@@ -53,7 +53,7 @@ test('R7.2.3E preserves the existing physical payload and command boundary', asy
   for (const key of ['product_weight_kg', 'product_length_cm', 'product_width_cm', 'product_height_cm', 'package_weight_kg', 'package_length_cm', 'package_width_cm', 'package_height_cm']) {
     assert.match(form, new RegExp(`${key}: optionalNumber`))
   }
-  assert.match(form, /commandType: 'product\.create_with_initial_sku'/)
+  assert.match(form, /'product\.create_with_variants' : 'product\.create_with_initial_sku'/)
   assert.doesNotMatch(form, /commandType: 'sku\.profile\.upsert'/)
 })
 

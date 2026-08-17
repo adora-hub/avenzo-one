@@ -11,7 +11,7 @@ test('R7.2.3A adds every approved information guide without changing the command
   for (const label of ['ชื่อสินค้า', 'รูปแบบสินค้า', 'Stock ของสินค้านี้นับอย่างไร\\?']) {
     assert.match(form, new RegExp(`ProductInfoGuide label="${label}"`))
   }
-  assert.match(form, /commandType: 'product\.create_with_initial_sku'/)
+  assert.match(form, /'product\.create_with_variants' : 'product\.create_with_initial_sku'/)
   assert.doesNotMatch(form, /commandType: 'product\.create'/)
 })
 
