@@ -40,7 +40,8 @@ test('R7.2.2 summary mirrors the approved progress, facts, timeline and action o
   assert.match(form, /กำลังกรอก/)
   assert.match(form, /เสร็จแล้ว/)
   assert.match(styles, /\.product-section-timeline::before/)
-  assert.match(form, /product-summary-actions[\s\S]*ตรวจสอบและสร้าง[\s\S]*บันทึกร่าง[\s\S]*ยกเลิก/)
+  assert.match(form, /const primaryActionLabel =[\s\S]*'ตรวจสอบและสร้าง'/)
+  assert.match(form, /product-summary-actions[\s\S]*\{primaryActionLabel\}[\s\S]*บันทึกร่าง[\s\S]*ยกเลิก/)
 })
 
 test('R7.2.2 uses the approved responsive canvas and action hierarchy', async () => {

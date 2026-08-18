@@ -116,7 +116,7 @@ type ProductSummaryFields = {
 }
 
 const DRAFT_SCHEMA_VERSION = 2
-const DRAFT_MAX_BYTES = 1024 * 1024
+const DRAFT_MAX_BYTES = 256 * 1024
 const PENDING_DRAFT_MAX_AGE_MS = 24 * 60 * 60 * 1000
 const SKU_DRAFT_MAX_ITEMS = 100
 const IDENTIFIER_CODE_PATTERN = /^[A-Z0-9][A-Z0-9._-]*$/
@@ -125,6 +125,10 @@ const IDENTIFIER_AUTO_CHECK_MIN_INTERVAL_MS = 900
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const FORBIDDEN_CONTROL_CHARACTERS = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/
 const BASE_UNIT_CODES = new Set(['piece', 'pair', 'pack', 'box', 'set', 'case', 'kg', 'g', 'litre', 'ml'])
+const BASE_UNIT_LABELS: Record<string, string> = {
+  piece: 'ชิ้น', pair: 'คู่', pack: 'แพ็ค', box: 'กล่อง', set: 'ชุด', case: 'ลัง',
+  kg: 'กิโลกรัม', g: 'กรัม', litre: 'ลิตร', ml: 'มิลลิลิตร',
+}
 const identifierFieldLabels = {
   sku_code: 'SKU Code',
   sales_code: 'Sales Code',
@@ -1015,6 +1019,16 @@ export function UnifiedProductCreationForm({
   const [bundleStockMode, setBundleStockMode] = useState<BundleStockMode>('virtual')
   const [bundleComponents, setBundleComponents] = useState<BundleComponentDraft[]>([])
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>(() => branches.map((branch) => branch.id))
+  const [imagesSectionOpen, setImagesSectionOpen] = useState(true)
+  const [physicalSectionOpen, setPhysicalSectionOpen] = useState(false)
+  const [metadataSectionOpen, setMetadataSectionOpen] = useState(false)
+  const [initialStockEnabled, setInitialStockEnabled] = useState(false)
+  const [initialStockBranchId, setInitialStockBranchId] = useState(() => branches[0]?.id ?? '')
+  const [initialStockWarehouse, setInitialStockWarehouse] = useState('main')
+  const [initialStockLocation, setInitialStockLocation] = useState('available')
+  const [initialStockQuantities, setInitialStockQuantities] = useState<Record<string, string>>({})
+  const [initialStockBulkQuantity, setInitialStockBulkQuantity] = useState('')
+  const [bundleInitialStockQuantity, setBundleInitialStockQuantity] = useState('')
   const [inventoryFeedback, setInventoryFeedback] = useState<string[]>([])
   const [identifierFeedback, setIdentifierFeedback] = useState<Feedback>({ tone: 'info', text: 'ยังไม่ได้ตรวจ SKU Code, Sales Code และ Barcode' })
   const [identifierStatuses, setIdentifierStatuses] = useState<IdentifierStatusMap>({
@@ -1154,7 +1168,7 @@ export function UnifiedProductCreationForm({
       variantGroups, variantCombinations, savedAt: new Date().toISOString(),
     })
     if (new TextEncoder().encode(serializedDraft).byteLength > DRAFT_MAX_BYTES) {
-      setFeedback({ tone: 'danger', text: 'Browser Draft มีขนาดเกิน 1 MB กรุณาลดจำนวนรายการหรือรายละเอียดก่อนบันทึกร่าง' })
+      setFeedback({ tone: 'danger', text: 'Browser Draft มีขนาดเกิน 256 KB กรุณาลดจำนวนรายการหรือรายละเอียดก่อนบันทึกร่าง' })
       return
     }
     window.localStorage.setItem(localDraftKey, serializedDraft)
@@ -1616,6 +1630,13 @@ export function UnifiedProductCreationForm({
     setSellUnits([])
     setBundleStockMode('virtual')
     setBundleComponents([])
+    setInitialStockEnabled(false)
+    setInitialStockBranchId(branches[0]?.id ?? '')
+    setInitialStockWarehouse('main')
+    setInitialStockLocation('available')
+    setInitialStockQuantities({})
+    setInitialStockBulkQuantity('')
+    setBundleInitialStockQuantity('')
     setPhysicalFeedback([])
     setInventoryFeedback([])
     setValidationIssues([])
@@ -2229,6 +2250,16 @@ export function UnifiedProductCreationForm({
   }
 
   function focusValidationIssue(issue: ValidationIssue) {
+    if (issue.sectionId === 'images' && !imagesSectionOpen) {
+      setImagesSectionOpen(true)
+      window.setTimeout(() => focusValidationIssue(issue), 0)
+      return
+    }
+    if (issue.sectionId === 'physical' && !physicalSectionOpen) {
+      setPhysicalSectionOpen(true)
+      window.setTimeout(() => focusValidationIssue(issue), 0)
+      return
+    }
     const target = validationTarget(issue)
     if (!target) return
     target.setAttribute('data-validation-invalid', 'true')
@@ -2619,6 +2650,62 @@ export function UnifiedProductCreationForm({
     ? `พร้อมตรวจสอบ ${queueCompleteCount} / ${skuDrafts.length} รายการ`
     : activeCategories.find((option) => option.id === categoryId)?.name ?? 'ยังไม่เลือกหมวดหมู่'
   const enabledVariantCombinations = variantCombinations.filter((combination) => combination.enabled)
+  const variantOptionNames = new Map(variantGroups.flatMap((group) => group.values.map((value) => [value.id, value.name] as const)))
+  const initialStockRows = structure === 'variant'
+    ? enabledVariantCombinations.map((combination) => ({
+        key: combination.key,
+        skuCode: combination.skuCode.trim() || 'ยังไม่กำหนด SKU',
+        name: combination.optionValueIds.map((id) => variantOptionNames.get(id)).filter(Boolean).join(' / ') || 'ตัวเลือกสินค้า',
+        baseUnitCode: summaryFields.baseUnitCode || 'piece',
+      }))
+    : [{
+        key: 'standard',
+        skuCode: summaryFields.skuCode.trim() || 'ยังไม่กำหนด SKU',
+        name: summaryFields.skuName.trim() || summaryFields.name.trim() || 'สินค้าใหม่',
+        baseUnitCode: summaryFields.baseUnitCode || 'piece',
+      }]
+  const initialStockTotal = initialStockRows.reduce((total, row) => {
+    const quantity = Number(initialStockQuantities[row.key] ?? 0)
+    return total + (Number.isFinite(quantity) && quantity > 0 ? quantity : 0)
+  }, 0)
+  const standardInitialStockValue = initialStockQuantities.standard ?? ''
+  const standardInitialStockErrors = structure === 'standard' && initialStockEnabled
+    ? [
+        !initialStockBranchId ? 'กรุณาเลือกสาขารับสต็อก' : '',
+        standardInitialStockValue.trim() === '' ? 'กรุณากรอกจำนวนตั้งต้น' : '',
+        standardInitialStockValue.trim() !== '' && (!Number.isFinite(Number(standardInitialStockValue)) || Number(standardInitialStockValue) < 0) ? 'จำนวนตั้งต้นต้องเป็น 0 หรือมากกว่า' : '',
+        standardInitialStockValue.trim() !== '' && Number(standardInitialStockValue) > 999999999 ? 'จำนวนตั้งต้นต้องไม่เกิน 999,999,999' : '',
+        standardInitialStockValue.includes('.') && (standardInitialStockValue.split('.')[1]?.length ?? 0) > 6 ? 'จำนวนตั้งต้นใส่ทศนิยมได้ไม่เกิน 6 ตำแหน่ง' : '',
+      ].filter(Boolean)
+    : []
+  const initialStockQuantityError = (value: string) => {
+    if (value.trim() === '') return 'กรุณากรอกจำนวน'
+    if (!Number.isFinite(Number(value)) || Number(value) < 0) return 'ต้องเป็น 0 หรือมากกว่า'
+    if (Number(value) > 999999999) return 'ต้องไม่เกิน 999,999,999'
+    if (value.includes('.') && (value.split('.')[1]?.length ?? 0) > 6) return 'ทศนิยมไม่เกิน 6 ตำแหน่ง'
+    return ''
+  }
+  const variantInitialStockInvalidKeys = new Set(structure === 'variant' && initialStockEnabled
+    ? initialStockRows.filter((row) => initialStockQuantityError(initialStockQuantities[row.key] ?? '')).map((row) => row.key)
+    : [])
+  const variantInitialStockFilledCount = structure === 'variant'
+    ? initialStockRows.filter((row) => !initialStockQuantityError(initialStockQuantities[row.key] ?? '')).length
+    : 0
+  const variantInitialStockErrors = structure === 'variant' && initialStockEnabled
+    ? [
+        !initialStockBranchId ? 'กรุณาเลือกสาขารับสต็อก' : '',
+        initialStockRows.length === 0 ? 'ยังไม่มี SKU Combination สำหรับกำหนดสต็อก' : '',
+        variantInitialStockInvalidKeys.size ? `กรุณาตรวจจำนวนตั้งต้น ${variantInitialStockInvalidKeys.size} SKU` : '',
+      ].filter(Boolean)
+    : []
+  const initialStockBulkError = initialStockBulkQuantity.trim() === '' ? '' : initialStockQuantityError(initialStockBulkQuantity)
+  const initialStockHasDraftValues = Object.values(initialStockQuantities).some((value) => value.trim() !== '') || initialStockBulkQuantity.trim() !== '' || bundleInitialStockQuantity.trim() !== ''
+  const bundleInitialStockErrors = structure === 'bundle' && bundleStockMode === 'assembled'
+    ? [
+        !initialStockBranchId ? 'กรุณาเลือกสาขารับสต็อก' : '',
+        initialStockQuantityError(bundleInitialStockQuantity),
+      ].filter(Boolean)
+    : []
   const variantPrices = enabledVariantCombinations
     .filter((combination) => combination.price.trim() !== '')
     .map((combination) => Number(combination.price))
@@ -2677,9 +2764,9 @@ export function UnifiedProductCreationForm({
     { id: 'images', label: 'รูปสินค้า', optional: false },
     { id: 'sku', label: structure === 'variant' ? 'SKU Variant' : 'SKU แรก', optional: false },
     { id: 'pricing', label: 'ราคาและภาษี', optional: false },
-    { id: 'physical', label: 'น้ำหนักและขนาด', optional: true },
-    { id: 'packaging', label: 'Packaging / Bundle', optional: true },
     { id: 'inventory', label: 'สาขาและสต๊อก', optional: false },
+    { id: 'packaging', label: 'Packaging / Bundle', optional: true },
+    { id: 'physical', label: 'น้ำหนักและขนาด', optional: true },
     { id: 'metadata', label: 'ข้อมูลระบบ', optional: false },
   ] as const
   const currentSectionId = validationAttempted && validationIssues.length
@@ -2788,7 +2875,8 @@ export function UnifiedProductCreationForm({
         </section>
 
         <section id="images" className="product-creation-card">
-          <header><span>2</span><div><h2>รูปสินค้า</h2><p>เพิ่ม 1–9 ภาพ อัตราส่วน 1:1 จัดลำดับ และกำหนดภาพปก</p></div><small className="product-section-status">{images.length} / {PRODUCT_IMAGE_MAX_FILES} ภาพ</small></header>
+          <header><span>2</span><div><h2>รูปสินค้า</h2><p>เพิ่ม 1–9 ภาพ อัตราส่วน 1:1 จัดลำดับ และกำหนดภาพปก</p></div><div className="product-section-toggle-meta"><small className="product-section-status">{images.length} / {PRODUCT_IMAGE_MAX_FILES} ภาพ</small><label className="product-switch"><input type="checkbox" checked={imagesSectionOpen} onChange={(event) => setImagesSectionOpen(event.target.checked)} aria-label="เปิดหรือปิดส่วนรูปสินค้า" aria-expanded={imagesSectionOpen} /><span aria-hidden="true" /></label></div></header>
+          {imagesSectionOpen ? <>
           <div className="product-image-toolbar">
             <label className="button compact secondary product-image-picker"><input type="file" accept={PRODUCT_IMAGE_ALLOWED_MIME_TYPES.join(',')} multiple onChange={(event) => { selectImages(event.target.files); event.currentTarget.value = '' }} /><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg><span>เลือกภาพจากเครื่อง</span></label>
             <span className="product-image-cover-note">ภาพแรกเป็นภาพปกโดยอัตโนมัติ</span>
@@ -2796,6 +2884,7 @@ export function UnifiedProductCreationForm({
           <div className="product-image-grid" aria-live="polite">{images.length ? images.map((image, index) => <article className="product-image-card" key={image.id}><div className="product-image-media"><Image src={image.previewUrl} alt={`ตัวอย่าง ${image.file.name}`} width={600} height={600} sizes="(max-width: 760px) 50vw, 180px" unoptimized />{index === 0 ? <span className="product-image-cover-label">ภาพปก</span> : null}</div><div className="product-image-name" title={image.file.name}>{image.file.name}</div><div className="product-image-actions"><button type="button" onClick={() => moveImage(index, -1)} disabled={index === 0 || isPending} aria-label="เลื่อนภาพไปซ้าย"><span aria-hidden="true">←</span></button><button className={index === 0 ? 'active' : ''} type="button" onClick={() => setCoverImage(index)} disabled={isPending} aria-label={index === 0 ? 'ภาพปกปัจจุบัน' : 'ตั้งเป็นภาพปก'} aria-pressed={index === 0}><span aria-hidden="true">★</span></button><button type="button" onClick={() => moveImage(index, 1)} disabled={index === images.length - 1 || isPending} aria-label="เลื่อนภาพไปขวา"><span aria-hidden="true">→</span></button><button type="button" onClick={() => removeImage(image.id)} disabled={isPending} aria-label="ลบภาพ"><span aria-hidden="true">×</span></button></div></article>) : <div className="product-image-empty"><div><strong>ยังไม่มีรูปสินค้า</strong><span>เลือกไฟล์ภาพจริงจากเครื่องเพื่อดูตัวอย่าง</span></div></div>}</div>
           <div className="product-image-policy" role="note"><span aria-hidden="true">ⓘ</span><span>รองรับ JPEG, PNG และ WebP · ไม่เกิน {Math.round(PRODUCT_IMAGE_MAX_BYTES / 1_048_576)} MB ต่อภาพ · แนะนำภาพสี่เหลี่ยม 1200 × 1200 px</span></div>
           <div className={`product-image-upload-status ${imageUploadStatus?.tone ?? ''}`} role="status" aria-live="polite">{imageUploadStatus?.text ?? ''}</div>
+          </> : <p className="product-form-note product-collapsed-section-note">ส่วนรูปสินค้าถูกย่อไว้ · เลือกเปิดเพื่อเพิ่มหรือจัดการรูปภาพ</p>}
         </section>
 
         <section id="sku" className="product-creation-card">
@@ -2883,8 +2972,84 @@ export function UnifiedProductCreationForm({
           </div>
         </section>
 
+        <section id="inventory" className="product-creation-card">
+          <header><span>5</span><div><h2>สาขาและนโยบายสต๊อก</h2><p>การเปิดขายและค่าควบคุมต่อ SKU + Location ไม่ใช่ข้อมูล Product โดยตรง</p></div><small>Inventory Policy</small></header>
+          <div className="product-branch-field">
+            <span className="product-field-label">สาขาที่เปิดขาย</span>
+            {branches.length ? <div className="product-branch-grid">{branches.map((branch) => {
+              const checked = selectedBranchIds.includes(branch.id)
+              return <label className={`product-branch-option${checked ? ' selected' : ''}`} key={branch.id}><input type="checkbox" value={branch.id} checked={checked} onChange={(event) => updateBranchSelection(branch.id, event.target.checked)} /><span><strong>{branch.code}</strong><small>{branch.name}</small></span></label>
+            })}</div> : <p className="product-form-note">ยังไม่มีสาขาที่ใช้งาน</p>}
+          </div>
+          <div className="product-inline-note warning">การเลือกสาขารอบนี้บันทึกใน Browser Draft เพื่อทดสอบ UI เท่านั้น; R7.1 ยังไม่มี Branch sales-scope contract จึงยังไม่ส่งค่าชุดนี้ไป Backend</div>
+          <div className="product-initial-stock-section" data-ui-only="true">
+            <div className="product-initial-stock-heading">
+              <div><span className="product-initial-stock-title"><strong>สต็อกเริ่มต้น</strong><span className="product-initial-stock-prototype-badge">UI ทดลอง</span></span><small>เตรียมยอดตั้งต้นสำหรับรับสินค้าเข้าคลังหลังสร้าง SKU</small></div>
+              {structure !== 'bundle' ? <label className="product-switch"><input type="checkbox" checked={initialStockEnabled} onChange={(event) => setInitialStockEnabled(event.target.checked)} aria-label="กำหนดสต็อกเริ่มต้น" /><span aria-hidden="true" /></label> : null}
+            </div>
+            {structure === 'bundle'
+              ? bundleStockMode === 'virtual'
+                ? <div className="product-bundle-stock-mode-note"><span className="product-status-pill active"><i aria-hidden="true" />Virtual Bundle</span><div><strong>ไม่เก็บสต็อกของชุด Bundle</strong><p>เมื่อขาย ระบบจะตัดสต็อกจาก Component SKU ตามจำนวนที่กำหนดในข้อ 6 จึงไม่มีช่องกรอกยอดตั้งต้นของ Bundle</p></div></div>
+                : <div className="product-bundle-initial-stock">
+                    <div className="product-bundle-stock-mode-note assembled"><span className="product-status-pill draft"><i aria-hidden="true" />Pre-assembled</span><div><strong>เตรียมยอดชุดที่ประกอบไว้แล้ว</strong><p>UI นี้ใช้ทดลองกำหนดจำนวน Bundle สำเร็จรูป ยังไม่ลด Component และยังไม่เพิ่ม Stock ของ Bundle จริง</p></div></div>
+                    <div className="product-form-grid three product-initial-stock-destination">
+                      <label><span>สาขารับชุดประกอบ</span><span className="product-select-control"><select value={initialStockBranchId} onChange={(event) => setInitialStockBranchId(event.target.value)} aria-label="สาขารับสต็อก Bundle"><option value="">เลือกสาขา</option>{branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.code} · {branch.name}</option>)}</select></span></label>
+                      <label><span>คลัง (UI ทดลอง)</span><span className="product-select-control"><select value={initialStockWarehouse} onChange={(event) => setInitialStockWarehouse(event.target.value)} aria-label="คลังรับสต็อก Bundle"><option value="main">คลังหลัก</option><option value="storefront">คลังหน้าร้าน</option><option value="live">คลังขายไลฟ์</option></select></span></label>
+                      <label><span>ตำแหน่งจัดเก็บ (UI ทดลอง)</span><span className="product-select-control"><select value={initialStockLocation} onChange={(event) => setInitialStockLocation(event.target.value)} aria-label="ตำแหน่งรับสต็อก Bundle"><option value="available">พร้อมขาย</option><option value="receiving">พื้นที่รับสินค้า</option><option value="reserve">พื้นที่สำรอง</option></select></span></label>
+                    </div>
+                    <div className="product-bundle-initial-stock-row"><span><strong>{summaryFields.skuCode || 'ยังไม่กำหนด Bundle SKU'}</strong><small>{summaryFields.skuName || summaryFields.name || 'Bundle / Kit'} · {BASE_UNIT_LABELS[summaryFields.baseUnitCode] ?? (summaryFields.baseUnitCode || 'หน่วย')}</small></span><label><span>จำนวนชุดที่ประกอบแล้ว</span><input type="number" min="0" max="999999999" step="0.000001" inputMode="decimal" value={bundleInitialStockQuantity} onChange={(event) => setBundleInitialStockQuantity(event.target.value)} placeholder="0" aria-label="จำนวนสต็อกเริ่มต้นของ Bundle" aria-invalid={bundleInitialStockErrors.length > 0} /></label></div>
+                    {bundleInitialStockErrors.length ? <div className="product-initial-stock-validation danger" role="alert"><strong>กรุณาตรวจสต็อก Bundle</strong><ul>{bundleInitialStockErrors.map((error) => <li key={error}>{error}</li>)}</ul></div> : null}
+                    <div className="product-inline-note warning">ค่าชุดประกอบนี้จะคงอยู่เมื่อสลับรูปแบบสินค้า และถูกล้างเมื่อเริ่มสร้างสินค้ารายการใหม่</div>
+                  </div>
+              : initialStockEnabled
+                ? <>
+                    <div className="product-form-grid three product-initial-stock-destination">
+                      <label><span>สาขารับสต็อก</span><span className="product-select-control"><select value={initialStockBranchId} onChange={(event) => setInitialStockBranchId(event.target.value)} aria-label="สาขารับสต็อกเริ่มต้น"><option value="">เลือกสาขา</option>{branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.code} · {branch.name}</option>)}</select></span><small>เลือกสาขาที่จะรับยอดตั้งต้น</small></label>
+                      <label><span>คลัง (UI ทดลอง)</span><span className="product-select-control"><select value={initialStockWarehouse} onChange={(event) => setInitialStockWarehouse(event.target.value)} aria-label="คลังรับสต็อกเริ่มต้น"><option value="main">คลังหลัก</option><option value="storefront">คลังหน้าร้าน</option><option value="live">คลังขายไลฟ์</option></select></span><small>ยังไม่อ่านข้อมูล Warehouse จริง</small></label>
+                      <label><span>ตำแหน่งจัดเก็บ (UI ทดลอง)</span><span className="product-select-control"><select value={initialStockLocation} onChange={(event) => setInitialStockLocation(event.target.value)} aria-label="ตำแหน่งรับสต็อกเริ่มต้น"><option value="available">พร้อมขาย</option><option value="receiving">พื้นที่รับสินค้า</option><option value="reserve">พื้นที่สำรอง</option></select></span><small>ยังไม่อ่านข้อมูล Location จริง</small></label>
+                    </div>
+                    {structure === 'variant' && initialStockRows.length ? <div className="product-initial-stock-bulk"><label><span>ใส่จำนวนเดียวกันทุก SKU</span><input type="number" min="0" max="999999999" step="0.000001" inputMode="decimal" value={initialStockBulkQuantity} onChange={(event) => setInitialStockBulkQuantity(event.target.value)} placeholder="0" aria-label="จำนวนสต็อกเริ่มต้นสำหรับทุก SKU" aria-invalid={Boolean(initialStockBulkError)} />{initialStockBulkError ? <small className="product-field-error">{initialStockBulkError}</small> : null}</label><button className="button compact product-primary-action" type="button" disabled={!initialStockBulkQuantity.trim() || Boolean(initialStockBulkError)} onClick={() => setInitialStockQuantities((current) => ({ ...current, ...Object.fromEntries(initialStockRows.map((row) => [row.key, initialStockBulkQuantity])) }))}>ใส่ให้ทุก SKU</button><span className="product-initial-stock-progress">กรอกแล้ว <strong>{variantInitialStockFilledCount}/{initialStockRows.length}</strong> SKU</span></div> : null}                    {initialStockRows.length ? <div className="product-editor-scroll product-initial-stock-scroll"><table className="product-editor-table product-initial-stock-table"><thead><tr><th>SKU</th><th>สินค้า / ตัวเลือก</th><th>หน่วยนับ</th><th>จำนวนตั้งต้น</th></tr></thead><tbody>{initialStockRows.map((row) => <tr key={row.key}><td><code className="product-code">{row.skuCode}</code></td><td>{row.name}</td><td><span className="product-initial-stock-unit"><strong>{BASE_UNIT_LABELS[row.baseUnitCode] ?? row.baseUnitCode}</strong><small>{row.baseUnitCode}</small></span></td><td><div className="product-initial-stock-quantity"><input type="number" min="0" max="999999999" step="0.000001" inputMode="decimal" value={initialStockQuantities[row.key] ?? ''} aria-invalid={(structure === 'standard' && row.key === 'standard' && standardInitialStockErrors.length > 0) || (structure === 'variant' && variantInitialStockInvalidKeys.has(row.key))} onChange={(event) => setInitialStockQuantities((current) => ({ ...current, [row.key]: event.target.value }))} placeholder="0" aria-label={`จำนวนสต็อกเริ่มต้น ${row.skuCode}`} />{structure === 'variant' && variantInitialStockInvalidKeys.has(row.key) ? <small className="product-field-error">{initialStockQuantityError(initialStockQuantities[row.key] ?? '')}</small> : null}</div></td></tr>)}</tbody></table></div> : <p className="product-form-note">เพิ่มตัวเลือกและสร้าง SKU Combination ในส่วนที่ 3 ก่อนกำหนดสต็อกเริ่มต้น</p>}
+                    {structure === 'standard' && standardInitialStockErrors.length ? <div className="product-initial-stock-validation danger" role="alert"><strong>กรุณาตรวจข้อมูลสต็อกเริ่มต้น</strong><ul>{standardInitialStockErrors.map((error) => <li key={error}>{error}</li>)}</ul></div> : null}
+                    {structure === 'variant' && variantInitialStockErrors.length ? <div className="product-initial-stock-validation danger" role="alert"><strong>กรุณาตรวจสต็อกของ SKU Combination</strong><ul>{variantInitialStockErrors.map((error) => <li key={error}>{error}</li>)}</ul></div> : null}
+                    <div className="product-initial-stock-summary"><span>รวมยอดตั้งต้น</span><strong>{new Intl.NumberFormat('th-TH', { maximumFractionDigits: 6 }).format(initialStockTotal)} {BASE_UNIT_LABELS[summaryFields.baseUnitCode] ?? (summaryFields.baseUnitCode || 'หน่วย')}</strong></div>
+                    <div className="product-inline-note">ค่าที่กรอกจะไม่หายเมื่อปิด–เปิดหรือสลับรูปแบบสินค้า และถูกล้างเมื่อเริ่มสินค้ารายการใหม่</div>
+                  </>
+                : <p className="product-form-note">{initialStockHasDraftValues ? 'ปิดการแสดงผลไว้ · ค่าที่กรอกก่อนหน้ายังคงอยู่และจะแสดงเมื่อเปิดอีกครั้ง' : 'ยังไม่กำหนดสต็อกเริ่มต้น — สามารถสร้างสินค้าไว้ก่อน แล้วรับสินค้าเข้าคลังภายหลังได้'}</p>}
+            <div className="product-initial-stock-write-guard" role="note"><span aria-hidden="true">ⓘ</span><span><strong>ยังไม่บันทึกสต็อกจริง</strong> · UI นี้ไม่ส่งค่าไป Backend, ไม่เปลี่ยนยอดคงเหลือ และไม่สร้าง Stock Movement</span></div>
+          </div>
+          <div className="product-form-grid three product-inventory-policy-grid">
+            <label><span>กันสต๊อกสินค้า (Safety Stock)</span><input name="safetyStock" type="number" min="0" max="999999999" step="0.000001" inputMode="decimal" defaultValue="0" /><small>จำนวน Buffer ที่ไม่ต้องการนำไปเสนอขาย</small></label>
+            <label><span>จำนวน Min ในการเติม</span><input name="reorderMin" type="number" min="0" max="999999999" step="0.000001" inputMode="decimal" placeholder="0" />{inventoryFeedback.includes('Min ต้องไม่น้อยกว่า Safety Stock') ? <small className="product-field-error">Min ต้องไม่น้อยกว่า Safety Stock</small> : null}</label>
+            <label><span>จำนวน Max ในการเติม</span><input name="reorderMax" type="number" min="0" max="999999999" step="0.000001" inputMode="decimal" placeholder="0" />{inventoryFeedback.includes('Max ต้องไม่น้อยกว่า Min') ? <small className="product-field-error">Max ต้องไม่น้อยกว่า Min</small> : null}</label>
+            <label><span>จำนวนที่ใช้ได้</span><input type="text" value="คำนวณหลังสร้าง SKU และรับ Stock" readOnly /><small>Derived value ห้ามกรอกหรือแก้โดยตรง</small></label>
+          </div>
+          {inventoryFeedback.length ? <div className="product-inventory-validation danger" role="alert">{inventoryFeedback.join(' · ')}</div> : null}
+          <div className="product-inline-note warning">Reserved/Allocated จาก Order เป็น Transaction คนละส่วนกับ Safety Stock และยังไม่เปิดใช้ใน Contract ปัจจุบัน</div>
+        </section>
+
+        <section id="packaging" className="product-creation-card">
+          <header><span>6</span><div><h2>หน่วยบรรจุและ Bundle</h2><p>ทดลองขายยกแพ็ก/ลัง หรือรวมหลาย SKU โดย Stock ยัง resolve เป็น Component SKU</p></div><small>Future contract</small></header>
+          <div className="product-switch-row"><div><strong>ขายหลายหน่วยบรรจุ</strong><small>เช่น 1 แพ็ก = 6 ชิ้น หรือ 1 ลัง = 24 ชิ้น</small></div><label className="product-switch"><input name="packagingEnabled" type="checkbox" checked={packagingEnabled} onChange={(event) => setPackagingEnabled(event.target.checked)} /><span aria-hidden="true" /></label></div>
+          {packagingEnabled ? <div className="product-packaging-editor">
+            <div className="product-editor-scroll"><table className="product-editor-table"><thead><tr><th>ชื่อหน่วยขาย</th><th>Unit Code</th><th>ตัวคูณ Base Unit</th><th>การตัด Stock</th><th>Barcode</th><th>Sales Code</th><th>ราคาขาย</th><th /></tr></thead><tbody>
+              <tr className="base-row"><td><input value={`หน่วยฐาน (${summaryFields.baseUnitCode || 'piece'})`} readOnly aria-label="ชื่อหน่วยฐาน" /></td><td><input value={summaryFields.baseUnitCode || 'piece'} readOnly aria-label="Unit Code หน่วยฐาน" /></td><td><input value="1" readOnly aria-label="ตัวคูณหน่วยฐาน" /></td><td><span className="product-conversion-preview"><strong>1 หน่วยฐาน</strong>= 1 {summaryFields.baseUnitCode || 'piece'}</span></td><td><input value="—" readOnly aria-label="Barcode หน่วยฐาน" /></td><td><input value="—" readOnly aria-label="Sales Code หน่วยฐาน" /></td><td><input value="—" readOnly aria-label="ราคาหน่วยฐาน" /></td><td /></tr>
+              {sellUnits.map((unit) => <tr key={unit.id}><td><input value={unit.name} maxLength={80} onChange={(event) => updateSellUnit(unit.id, { name: event.target.value })} aria-label="ชื่อหน่วยขาย" /></td><td><input value={unit.unitCode} maxLength={32} pattern="[a-z][a-z0-9_]{0,31}" onChange={(event) => updateSellUnit(unit.id, { unitCode: event.target.value.toLowerCase() })} aria-label="Unit Code" /></td><td><input value={unit.baseQuantity} type="number" min="1.000001" max="999999999" step="0.000001" onChange={(event) => updateSellUnit(unit.id, { baseQuantity: Number(event.target.value) })} aria-label="ตัวคูณ Base Unit" /></td><td><span className="product-conversion-preview"><strong>1 {unit.name || 'หน่วยขาย'}</strong>= {unit.baseQuantity || 0} {summaryFields.baseUnitCode || 'piece'}<br />ขาย 2 → ตัด {(unit.baseQuantity || 0) * 2} {summaryFields.baseUnitCode || 'piece'}</span></td><td><input value={unit.barcode} maxLength={128} onChange={(event) => updateSellUnit(unit.id, { barcode: event.target.value })} aria-label="Barcode หน่วยขาย" /></td><td><input value="Future contract" readOnly disabled title="R7.1 ยังไม่รองรับ Sales Code แยกต่อ Sell Unit" aria-label="Sales Code ยังไม่รองรับ" /></td><td><input value="Future contract" readOnly disabled title="R7.1 ยังไม่รองรับราคาแยกต่อ Sell Unit" aria-label="ราคาขายยังไม่รองรับ" /></td><td><button className="product-table-action" type="button" onClick={() => setSellUnits((current) => current.filter((item) => item.id !== unit.id))} aria-label={`ลบหน่วยขาย ${unit.name}`}>×</button></td></tr>)}
+            </tbody></table></div>
+            <div className="product-packaging-presets" aria-label="เพิ่มหน่วยขายอย่างรวดเร็ว"><span>เพิ่มอย่างรวดเร็ว:</span><button type="button" onClick={() => addSellUnitPreset('pair')}>คู่ ×2</button><button type="button" onClick={() => addSellUnitPreset('pack')}>แพ็ค ×6</button><button type="button" onClick={() => addSellUnitPreset('box')}>กล่อง ×12</button><button type="button" onClick={() => addSellUnitPreset('case')}>ลัง ×24</button><button type="button" onClick={() => addSellUnitPreset('custom')}>＋ กำหนดเอง</button></div>
+            <div className="product-inline-note">Base Unit คือหน่วยที่ Stock เก็บจริง ส่วนหน่วยขายเป็นตัวแปลง เช่น Base Unit = ชิ้น, 1 แพ็ค = 6 ชิ้น; ขาย 2 แพ็คต้องตัด 12 ชิ้นจาก SKU เดิม</div>
+            <div className="product-inline-note warning">R7.1 บันทึกชื่อ, Unit Code, ตัวคูณและ Barcode ได้แล้ว ส่วน Sales Code/ราคาแยกต่อหน่วยขายยังเป็น Future contract</div>
+          </div> : null}
+          {structure === 'bundle' ? <div className="product-bundle-editor">
+            <div className="product-form-grid two"><label><span>วิธีจัดการ Stock ของ Bundle</span><span className="product-select-control"><select name="bundleStockMode" value={bundleStockMode} onChange={(event) => setBundleStockMode(event.target.value as BundleStockMode)}><option value="virtual">Virtual Bundle — ตัด Component ตอนขาย</option><option value="assembled">Pre-assembled — ประกอบเป็น Stock ชุด</option></select></span></label><label><span>Bundle SKU Code</span><input value={summaryFields.skuCode || 'ใช้ SKU Code ในส่วนที่ 3'} readOnly /></label></div>
+            <div className={`product-inline-note ${bundleStockMode === 'assembled' ? 'warning' : ''}`}>{bundleStockMode === 'assembled' ? 'Pre-assembled Bundle ต้องใช้ Assembly Command ลด Component และเพิ่ม Stock ของ Bundle SKU ก่อนนำไปขาย — R7.1 ยังไม่รองรับการบันทึกโหมดนี้' : 'Bundle แบบ Virtual ไม่มี Stock ของชุดเอง เมื่อขายต้องตัด Component SKU ทุกตัวตามจำนวน'}</div>
+            <div className="product-editor-scroll"><table className="product-editor-table product-bundle-table"><thead><tr><th>Component SKU</th><th>ชื่อสินค้า</th><th>จำนวน</th><th>Base Unit</th><th /></tr></thead><tbody>{bundleComponents.map((component) => { const selected = bundleSkus.find((sku) => sku.id === component.skuId); return <tr key={component.id}><td><span className="product-select-control"><select value={component.skuId} onChange={(event) => updateBundleComponent(component.id, { skuId: event.target.value })} aria-label="Component SKU">{bundleSkus.map((sku) => <option key={sku.id} value={sku.id}>{sku.skuCode}</option>)}</select></span></td><td>{selected?.name ?? '—'}</td><td><input value={component.quantity} type="number" min="0.000001" max="999999999" step="0.000001" onChange={(event) => updateBundleComponent(component.id, { quantity: Number(event.target.value) })} aria-label="จำนวน Component" /></td><td>อ่านจาก SKU</td><td><button className="product-table-action" type="button" onClick={() => setBundleComponents((current) => current.filter((item) => item.id !== component.id))} aria-label={`ลบ Component ${selected?.skuCode ?? ''}`}>×</button></td></tr> })}</tbody></table></div>
+            <button className="button compact secondary product-add-component" type="button" onClick={addBundleComponent} disabled={bundleComponents.length >= bundleSkus.length}>＋ เพิ่ม Component SKU</button>
+          </div> : <p className="product-form-note">เลือก “Bundle / Kit” ในข้อมูลทั่วไปเพื่อกำหนดส่วนประกอบ</p>}
+        </section>
+
         <section id="physical" className="product-creation-card">
-          <header><span>5</span><div><h2>น้ำหนักและขนาด</h2><p>ข้อมูลสำหรับขนส่ง คำนวณพื้นที่ และเลือกบรรจุภัณฑ์</p></div><small>SKU / Packaging</small></header>
+          <header><span>7</span><div><h2>น้ำหนักและขนาด</h2><p>ข้อมูลสำหรับขนส่ง คำนวณพื้นที่ และเลือกบรรจุภัณฑ์</p></div><div className="product-section-toggle-meta"><small>SKU / Packaging</small><label className="product-switch"><input type="checkbox" checked={physicalSectionOpen} onChange={(event) => setPhysicalSectionOpen(event.target.checked)} aria-label="เปิดหรือปิดส่วนน้ำหนักและขนาด" aria-expanded={physicalSectionOpen} /><span aria-hidden="true" /></label></div></header>
+          {physicalSectionOpen ? <>
           <div className="product-physical-tabs" role="tablist" aria-label="ชนิดน้ำหนักและขนาด">
             <button id="productPhysicalTab" className="product-physical-tab" type="button" role="tab" aria-selected={physicalTab === 'product'} aria-controls="productPhysicalPanel" tabIndex={physicalTab === 'product' ? 0 : -1} onClick={() => setPhysicalTab('product')}>น้ำหนักและขนาดสินค้า</button>
             <button id="boxPhysicalTab" className="product-physical-tab" type="button" role="tab" aria-selected={physicalTab === 'box'} aria-controls="boxPhysicalPanel" tabIndex={physicalTab === 'box' ? 0 : -1} onClick={() => setPhysicalTab('box')}>น้ำหนักและขนาดกล่อง</button>
@@ -2908,50 +3073,12 @@ export function UnifiedProductCreationForm({
             <div className="product-inline-note warning">ถ้ามีหลายหน่วยบรรจุ ระบบจริงควรเก็บน้ำหนักและขนาดกล่องแยกต่อ Packaging Level</div>
           </div>
           <div className={`product-physical-validation ${physicalFeedback.length ? 'danger' : ''}`} role="status" aria-live="polite">{physicalFeedback.join(' · ')}</div>
-        </section>
-
-        <section id="packaging" className="product-creation-card">
-          <header><span>6</span><div><h2>หน่วยบรรจุและ Bundle</h2><p>ทดลองขายยกแพ็ก/ลัง หรือรวมหลาย SKU โดย Stock ยัง resolve เป็น Component SKU</p></div><small>Future contract</small></header>
-          <div className="product-switch-row"><div><strong>ขายหลายหน่วยบรรจุ</strong><small>เช่น 1 แพ็ก = 6 ชิ้น หรือ 1 ลัง = 24 ชิ้น</small></div><label className="product-switch"><input name="packagingEnabled" type="checkbox" checked={packagingEnabled} onChange={(event) => setPackagingEnabled(event.target.checked)} /><span aria-hidden="true" /></label></div>
-          {packagingEnabled ? <div className="product-packaging-editor">
-            <div className="product-editor-scroll"><table className="product-editor-table"><thead><tr><th>ชื่อหน่วยขาย</th><th>Unit Code</th><th>ตัวคูณ Base Unit</th><th>การตัด Stock</th><th>Barcode</th><th>Sales Code</th><th>ราคาขาย</th><th /></tr></thead><tbody>
-              <tr className="base-row"><td><input value={`หน่วยฐาน (${summaryFields.baseUnitCode || 'piece'})`} readOnly aria-label="ชื่อหน่วยฐาน" /></td><td><input value={summaryFields.baseUnitCode || 'piece'} readOnly aria-label="Unit Code หน่วยฐาน" /></td><td><input value="1" readOnly aria-label="ตัวคูณหน่วยฐาน" /></td><td><span className="product-conversion-preview"><strong>1 หน่วยฐาน</strong>= 1 {summaryFields.baseUnitCode || 'piece'}</span></td><td><input value="—" readOnly aria-label="Barcode หน่วยฐาน" /></td><td><input value="—" readOnly aria-label="Sales Code หน่วยฐาน" /></td><td><input value="—" readOnly aria-label="ราคาหน่วยฐาน" /></td><td /></tr>
-              {sellUnits.map((unit) => <tr key={unit.id}><td><input value={unit.name} maxLength={80} onChange={(event) => updateSellUnit(unit.id, { name: event.target.value })} aria-label="ชื่อหน่วยขาย" /></td><td><input value={unit.unitCode} maxLength={32} pattern="[a-z][a-z0-9_]{0,31}" onChange={(event) => updateSellUnit(unit.id, { unitCode: event.target.value.toLowerCase() })} aria-label="Unit Code" /></td><td><input value={unit.baseQuantity} type="number" min="1.000001" max="999999999" step="0.000001" onChange={(event) => updateSellUnit(unit.id, { baseQuantity: Number(event.target.value) })} aria-label="ตัวคูณ Base Unit" /></td><td><span className="product-conversion-preview"><strong>1 {unit.name || 'หน่วยขาย'}</strong>= {unit.baseQuantity || 0} {summaryFields.baseUnitCode || 'piece'}<br />ขาย 2 → ตัด {(unit.baseQuantity || 0) * 2} {summaryFields.baseUnitCode || 'piece'}</span></td><td><input value={unit.barcode} maxLength={128} onChange={(event) => updateSellUnit(unit.id, { barcode: event.target.value })} aria-label="Barcode หน่วยขาย" /></td><td><input value="Future contract" readOnly disabled title="R7.1 ยังไม่รองรับ Sales Code แยกต่อ Sell Unit" aria-label="Sales Code ยังไม่รองรับ" /></td><td><input value="Future contract" readOnly disabled title="R7.1 ยังไม่รองรับราคาแยกต่อ Sell Unit" aria-label="ราคาขายยังไม่รองรับ" /></td><td><button className="product-table-action" type="button" onClick={() => setSellUnits((current) => current.filter((item) => item.id !== unit.id))} aria-label={`ลบหน่วยขาย ${unit.name}`}>×</button></td></tr>)}
-            </tbody></table></div>
-            <div className="product-packaging-presets" aria-label="เพิ่มหน่วยขายอย่างรวดเร็ว"><span>เพิ่มอย่างรวดเร็ว:</span><button type="button" onClick={() => addSellUnitPreset('pair')}>คู่ ×2</button><button type="button" onClick={() => addSellUnitPreset('pack')}>แพ็ค ×6</button><button type="button" onClick={() => addSellUnitPreset('box')}>กล่อง ×12</button><button type="button" onClick={() => addSellUnitPreset('case')}>ลัง ×24</button><button type="button" onClick={() => addSellUnitPreset('custom')}>＋ กำหนดเอง</button></div>
-            <div className="product-inline-note">Base Unit คือหน่วยที่ Stock เก็บจริง ส่วนหน่วยขายเป็นตัวแปลง เช่น Base Unit = ชิ้น, 1 แพ็ค = 6 ชิ้น; ขาย 2 แพ็คต้องตัด 12 ชิ้นจาก SKU เดิม</div>
-            <div className="product-inline-note warning">R7.1 บันทึกชื่อ, Unit Code, ตัวคูณและ Barcode ได้แล้ว ส่วน Sales Code/ราคาแยกต่อหน่วยขายยังเป็น Future contract</div>
-          </div> : null}
-          {structure === 'bundle' ? <div className="product-bundle-editor">
-            <div className="product-form-grid two"><label><span>วิธีจัดการ Stock ของ Bundle</span><span className="product-select-control"><select name="bundleStockMode" value={bundleStockMode} onChange={(event) => setBundleStockMode(event.target.value as BundleStockMode)}><option value="virtual">Virtual Bundle — ตัด Component ตอนขาย</option><option value="assembled">Pre-assembled — ประกอบเป็น Stock ชุด</option></select></span></label><label><span>Bundle SKU Code</span><input value={summaryFields.skuCode || 'ใช้ SKU Code ในส่วนที่ 3'} readOnly /></label></div>
-            <div className={`product-inline-note ${bundleStockMode === 'assembled' ? 'warning' : ''}`}>{bundleStockMode === 'assembled' ? 'Pre-assembled Bundle ต้องใช้ Assembly Command ลด Component และเพิ่ม Stock ของ Bundle SKU ก่อนนำไปขาย — R7.1 ยังไม่รองรับการบันทึกโหมดนี้' : 'Bundle แบบ Virtual ไม่มี Stock ของชุดเอง เมื่อขายต้องตัด Component SKU ทุกตัวตามจำนวน'}</div>
-            <div className="product-editor-scroll"><table className="product-editor-table product-bundle-table"><thead><tr><th>Component SKU</th><th>ชื่อสินค้า</th><th>จำนวน</th><th>Base Unit</th><th /></tr></thead><tbody>{bundleComponents.map((component) => { const selected = bundleSkus.find((sku) => sku.id === component.skuId); return <tr key={component.id}><td><span className="product-select-control"><select value={component.skuId} onChange={(event) => updateBundleComponent(component.id, { skuId: event.target.value })} aria-label="Component SKU">{bundleSkus.map((sku) => <option key={sku.id} value={sku.id}>{sku.skuCode}</option>)}</select></span></td><td>{selected?.name ?? '—'}</td><td><input value={component.quantity} type="number" min="0.000001" max="999999999" step="0.000001" onChange={(event) => updateBundleComponent(component.id, { quantity: Number(event.target.value) })} aria-label="จำนวน Component" /></td><td>อ่านจาก SKU</td><td><button className="product-table-action" type="button" onClick={() => setBundleComponents((current) => current.filter((item) => item.id !== component.id))} aria-label={`ลบ Component ${selected?.skuCode ?? ''}`}>×</button></td></tr> })}</tbody></table></div>
-            <button className="button compact secondary product-add-component" type="button" onClick={addBundleComponent} disabled={bundleComponents.length >= bundleSkus.length}>＋ เพิ่ม Component SKU</button>
-          </div> : <p className="product-form-note">เลือก “Bundle / Kit” ในข้อมูลทั่วไปเพื่อกำหนดส่วนประกอบ</p>}
-        </section>
-
-        <section id="inventory" className="product-creation-card">
-          <header><span>7</span><div><h2>สาขาและนโยบายสต๊อก</h2><p>การเปิดขายและค่าควบคุมต่อ SKU + Location ไม่ใช่ข้อมูล Product โดยตรง</p></div><small>Inventory Policy</small></header>
-          <div className="product-branch-field">
-            <span className="product-field-label">สาขาที่เปิดขาย</span>
-            {branches.length ? <div className="product-branch-grid">{branches.map((branch) => {
-              const checked = selectedBranchIds.includes(branch.id)
-              return <label className={`product-branch-option${checked ? ' selected' : ''}`} key={branch.id}><input type="checkbox" value={branch.id} checked={checked} onChange={(event) => updateBranchSelection(branch.id, event.target.checked)} /><span><strong>{branch.code}</strong><small>{branch.name}</small></span></label>
-            })}</div> : <p className="product-form-note">ยังไม่มีสาขาที่ใช้งาน</p>}
-          </div>
-          <div className="product-inline-note warning">การเลือกสาขารอบนี้บันทึกใน Browser Draft เพื่อทดสอบ UI เท่านั้น; R7.1 ยังไม่มี Branch sales-scope contract จึงยังไม่ส่งค่าชุดนี้ไป Backend</div>
-          <div className="product-form-grid three product-inventory-policy-grid">
-            <label><span>กันสต๊อกสินค้า (Safety Stock)</span><input name="safetyStock" type="number" min="0" max="999999999" step="0.000001" inputMode="decimal" defaultValue="0" /><small>จำนวน Buffer ที่ไม่ต้องการนำไปเสนอขาย</small></label>
-            <label><span>จำนวน Min ในการเติม</span><input name="reorderMin" type="number" min="0" max="999999999" step="0.000001" inputMode="decimal" placeholder="0" />{inventoryFeedback.includes('Min ต้องไม่น้อยกว่า Safety Stock') ? <small className="product-field-error">Min ต้องไม่น้อยกว่า Safety Stock</small> : null}</label>
-            <label><span>จำนวน Max ในการเติม</span><input name="reorderMax" type="number" min="0" max="999999999" step="0.000001" inputMode="decimal" placeholder="0" />{inventoryFeedback.includes('Max ต้องไม่น้อยกว่า Min') ? <small className="product-field-error">Max ต้องไม่น้อยกว่า Min</small> : null}</label>
-            <label><span>จำนวนที่ใช้ได้</span><input type="text" value="คำนวณหลังสร้าง SKU และรับ Stock" readOnly /><small>Derived value ห้ามกรอกหรือแก้โดยตรง</small></label>
-          </div>
-          {inventoryFeedback.length ? <div className="product-inventory-validation danger" role="alert">{inventoryFeedback.join(' · ')}</div> : null}
-          <div className="product-inline-note warning">Reserved/Allocated จาก Order เป็น Transaction คนละส่วนกับ Safety Stock และยังไม่เปิดใช้ใน Contract ปัจจุบัน</div>
+          </> : <p className="product-form-note product-collapsed-section-note">ข้อมูลส่วนนี้ไม่บังคับ · เลือกเปิดเมื่อต้องการกรอกน้ำหนักหรือขนาดสินค้าและกล่อง</p>}
         </section>
 
         <section id="metadata" className="product-creation-card">
-          <header><span>8</span><div><h2>ข้อมูลระบบ</h2><p>ระบบสร้างอัตโนมัติและแสดงแบบอ่านอย่างเดียวหลังบันทึก</p></div><small>Read-only</small></header>
+          <header><span>8</span><div><h2>ข้อมูลระบบ</h2><p>ระบบสร้างอัตโนมัติและแสดงแบบอ่านอย่างเดียวหลังบันทึก</p></div><div className="product-section-toggle-meta"><small>Read-only</small><label className="product-switch"><input type="checkbox" checked={metadataSectionOpen} onChange={(event) => setMetadataSectionOpen(event.target.checked)} aria-label="เปิดหรือปิดส่วนข้อมูลระบบ" aria-expanded={metadataSectionOpen} /><span aria-hidden="true" /></label></div></header>
+          {metadataSectionOpen ? <>
           <dl className="product-system-metadata">
             <div><dt>วันที่สร้าง</dt><dd>กำหนดหลังบันทึก</dd></div>
             <div><dt>แก้ไขล่าสุด</dt><dd>กำหนดหลังบันทึก</dd></div>
@@ -2969,6 +3096,7 @@ export function UnifiedProductCreationForm({
             </ul>
             <div className="product-security-validation-status warning" role="status" aria-live="polite">Guardrails ปัจจุบันทำงาน · Image content hardening ยังเป็น Known gap</div>
           </div>
+          </> : <p className="product-form-note product-collapsed-section-note">ข้อมูลส่วนนี้ระบบกำหนดให้อัตโนมัติ · เลือกเปิดเมื่อต้องการดูรายละเอียด</p>}
         </section>
       </main>
 

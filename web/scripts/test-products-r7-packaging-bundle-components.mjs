@@ -29,8 +29,9 @@ test('R7.2.3F discloses unsupported per-unit Sales Code and price instead of per
   const form = await read(formPath)
   assert.match(form, /R7\.1 ยังไม่รองรับ Sales Code แยกต่อ Sell Unit/)
   assert.match(form, /R7\.1 ยังไม่รองรับราคาแยกต่อ Sell Unit/)
-  assert.doesNotMatch(form, /sell_units:[\s\S]{0,450}sales_code:/)
-  assert.doesNotMatch(form, /sell_units:[\s\S]{0,450}sale_price:/)
+  const sellUnitsPayload = form.slice(form.indexOf('sell_units: packagingEnabled'), form.indexOf('})) : [],', form.indexOf('sell_units: packagingEnabled')) + 8)
+  assert.doesNotMatch(sellUnitsPayload, /sales_code:/)
+  assert.doesNotMatch(sellUnitsPayload, /sale_price:/)
 })
 
 test('R7.2.3F renders Virtual and Pre-assembled modes plus a multi-component editor', async () => {
