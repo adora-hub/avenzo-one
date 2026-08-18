@@ -313,7 +313,7 @@ Stop gate: **หยุดให้ Owner ทดสอบ UI และข้อ�
 ## 10. Warehouse, Initial Stock & Live Commerce Integration Plan
 
 วันที่บันทึกแนวคิด: 18 สิงหาคม 2026
-สถานะ: **Concept approved for roadmap only — ยังไม่เริ่มพัฒนา**
+สถานะ: **Initial Stock UI S1–S5, T1 Data Contract, T2 Read Integration และ T3 Application Workflow completed locally · UI ยังไม่เขียน Stock จนถึง T5**
 
 ### 10.1 สถานะระบบ Warehouse/Stock ปัจจุบัน
 
@@ -373,7 +373,7 @@ Facebook Comment / Manual CF
 ### 10.5 แผนพัฒนาแบบ Sequential Gate
 
 1. **W1 — Warehouse UX & Current Flow Audit**: ทดสอบ Warehouse, Location, Receive, Adjust, Transfer, Balance และ Ledger ของระบบจริง พร้อมปรับคำที่ผู้ใช้เข้าใจยากโดยไม่เปลี่ยน Ledger contract
-2. **W2 — Initial Stock at Product Creation**: ออกแบบ UI ให้เลือกคลังและกรอกยอดเริ่มต้นแยก SKU จากนั้นเชื่อม Inventory Command พร้อม rollback/recovery และ Audit
+2. **W2 — Initial Stock at Product Creation**: UI S1–S5, T1 Data Contract, T2 Read Integration/Lazy Loading และ T3 Application Workflow ผ่านแล้ว; ขั้นถัดไป T4 Database/Security Tests → T5 UI/E2E Gate
 3. **W3 — Reservation Data Contract**: เพิ่ม Reservation/Allocation/TTL/Release และปรับ `allocated`/`available` ให้เป็น read model จริง พร้อม concurrency และ oversell tests
 4. **W4 — Live Session Inventory Scope**: เลือก Fulfillment Warehouse/Location, Live Catalog, SKU quota และ optional Live Staging Location โดยยังไม่เชื่อม Facebook
 5. **W5 — Facebook Live CF → Order**: Webhook inbox → deterministic parser → SKU resolver → Reservation → Customer/Order/Invoice พร้อม idempotency และ ambiguous-message handling
@@ -393,3 +393,5 @@ Facebook Comment / Manual CF
 | 18 ส.ค. 2026 | Initial Stock ในหน้าสร้างสินค้าเป็น Optional UX แต่ต้องสร้าง Inventory Movement ต่อ SKU/Location ห้ามแก้ Balance โดยตรง |
 | 18 ส.ค. 2026 | เลือกสินค้าเข้ารอบ Live ไม่ลด on_hand; CF ต้องสร้าง Reservation ก่อน และขายออกเมื่อถึง Fulfillment milestone ที่อนุมัติ |
 | 18 ส.ค. 2026 | Live Session ระยะแรกใช้ Fulfillment Warehouse/Location ที่ชัดเจน ไม่ตัด Stock กลางระดับ Organization |
+| 18 ส.ค. 2026 | T1 ล็อก Initial Stock เป็น recoverable two-stage workflow: สร้าง/activate Product+SKU ก่อน แล้วใช้ idempotent `receive` ต่อ SKU/Location; draft ไม่ post stock, Virtual Bundle ไม่รับยอด และ Preassembled Bundle รอ Assembly contract |
+| 18 ส.ค. 2026 | T2 เชื่อม Warehouse/Location แบบ read-only lazy loading หลังเปิด switch พร้อม session, membership, warehouse.read, inventory.receive, RLS และ cascading selection; ยังไม่มี Stock write |

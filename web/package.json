@@ -54,6 +54,8 @@
     "test:products-r7-physical-components": "node --test scripts/test-products-r7-physical-components.mjs",
     "test:products-r7-packaging-bundle-components": "node --test scripts/test-products-r7-packaging-bundle-components.mjs",
     "test:products-r7-inventory-components": "node --test scripts/test-products-r7-inventory-components.mjs",
+    "test:products-initial-stock-t2-read": "node --test scripts/test-products-initial-stock-t2-read.mjs",
+    "test:products-initial-stock-t3-workflow": "node --experimental-strip-types --test scripts/test-products-initial-stock-t3-workflow.mjs",
     "test:products-r7-metadata-security-components": "node --test scripts/test-products-r7-metadata-security-components.mjs",
     "test:products-r7-master-data-interaction": "node --test scripts/test-products-r7-master-data-interaction.mjs",
     "test:products-r7-saved-tags-interaction": "node --test scripts/test-products-r7-saved-tags-interaction.mjs",

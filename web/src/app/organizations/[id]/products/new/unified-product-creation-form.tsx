@@ -8,6 +8,7 @@ import {
   checkProductIdentifiersAction,
   executeFoundationCommandAction,
   executeProductImageCleanupAction,
+  loadInitialStockDestinationsAction,
 } from '@/app/actions/foundation'
 import { createClient } from '@/lib/supabase/browser'
 import {
@@ -37,6 +38,7 @@ type Props = {
   organizationName: string
   productsHref: string
   canManage: boolean
+  canLoadInitialStockDestinations: boolean
   actorEmail: string
   categories: ProductMasterOption[]
   brands: ProductMasterOption[]
@@ -53,6 +55,9 @@ type PhysicalTab = 'product' | 'box'
 type BundleStockMode = 'virtual' | 'assembled'
 type SellUnitDraft = { id: string; name: string; unitCode: string; baseQuantity: number; barcode: string }
 type BundleComponentDraft = { id: string; skuId: string; quantity: number }
+type InitialStockWarehouseOption = { id: string; branchId: string; code: string; name: string }
+type InitialStockLocationOption = { id: string; branchId: string; warehouseId: string; code: string; name: string; isDefault: boolean }
+type InitialStockDestinationStatus = 'idle' | 'loading' | 'ready' | 'error'
 type ProductDraftSnapshot = {
   fields: Record<string, string>
   checkedFields: string[]
@@ -952,6 +957,7 @@ export function UnifiedProductCreationForm({
   organizationName,
   productsHref,
   canManage,
+  canLoadInitialStockDestinations,
   actorEmail,
   categories: initialCategories,
   brands: initialBrands,
@@ -966,6 +972,7 @@ export function UnifiedProductCreationForm({
   const successReturnFocusRef = useRef<HTMLElement | null>(null)
   const imageUrlsRef = useRef<string[]>([])
   const identifierCheckRequestRef = useRef(0)
+  const initialStockLoadRequestRef = useRef(0)
   const identifierAutoCheckTimerRef = useRef<number | null>(null)
   const identifierAutoCheckLastSignatureRef = useRef('')
   const identifierAutoCheckLastStartedAtRef = useRef(0)
@@ -1024,8 +1031,12 @@ export function UnifiedProductCreationForm({
   const [metadataSectionOpen, setMetadataSectionOpen] = useState(false)
   const [initialStockEnabled, setInitialStockEnabled] = useState(false)
   const [initialStockBranchId, setInitialStockBranchId] = useState(() => branches[0]?.id ?? '')
-  const [initialStockWarehouse, setInitialStockWarehouse] = useState('main')
-  const [initialStockLocation, setInitialStockLocation] = useState('available')
+  const [initialStockWarehouse, setInitialStockWarehouse] = useState('')
+  const [initialStockLocation, setInitialStockLocation] = useState('')
+  const [initialStockWarehouses, setInitialStockWarehouses] = useState<InitialStockWarehouseOption[]>([])
+  const [initialStockLocations, setInitialStockLocations] = useState<InitialStockLocationOption[]>([])
+  const [initialStockDestinationStatus, setInitialStockDestinationStatus] = useState<InitialStockDestinationStatus>('idle')
+  const [initialStockDestinationError, setInitialStockDestinationError] = useState('')
   const [initialStockQuantities, setInitialStockQuantities] = useState<Record<string, string>>({})
   const [initialStockBulkQuantity, setInitialStockBulkQuantity] = useState('')
   const [bundleInitialStockQuantity, setBundleInitialStockQuantity] = useState('')
@@ -1047,6 +1058,36 @@ export function UnifiedProductCreationForm({
   const pendingDraftKey = `${localDraftKey}:pending`
   const queueRecoveryKey = `${localDraftKey}:queue-recovery`
 
+  useEffect(() => {
+    if (!initialStockEnabled || !canLoadInitialStockDestinations || initialStockDestinationStatus !== 'idle') return
+    const requestId = ++initialStockLoadRequestRef.current
+    setInitialStockDestinationStatus('loading')
+    setInitialStockDestinationError('')
+    void loadInitialStockDestinationsAction({ organizationId }).then((result) => {
+      if (requestId !== initialStockLoadRequestRef.current) return
+      if (!result.ok) {
+        setInitialStockDestinationStatus('error')
+        setInitialStockDestinationError(result.error === 'permission_denied'
+          ? 'ไม่มีสิทธิ์ดูคลังหรือรับสต็อก กรุณาติดต่อผู้ดูแลระบบ'
+          : 'โหลดคลังและตำแหน่งจัดเก็บไม่สำเร็จ กรุณาลองใหม่')
+        return
+      }
+      setInitialStockWarehouses(result.data.warehouses)
+      setInitialStockLocations(result.data.locations)
+      const firstWarehouse = result.data.warehouses.find((warehouse) => warehouse.branchId === initialStockBranchId)
+        ?? result.data.warehouses[0]
+      const firstLocation = firstWarehouse
+        ? result.data.locations.find((location) => location.warehouseId === firstWarehouse.id && location.isDefault)
+          ?? result.data.locations.find((location) => location.warehouseId === firstWarehouse.id)
+        : undefined
+      if (firstWarehouse) {
+        setInitialStockBranchId(firstWarehouse.branchId)
+        setInitialStockWarehouse(firstWarehouse.id)
+      }
+      if (firstLocation) setInitialStockLocation(firstLocation.id)
+      setInitialStockDestinationStatus('ready')
+    })
+  }, [canLoadInitialStockDestinations, initialStockBranchId, initialStockDestinationStatus, initialStockEnabled, organizationId])
   useEffect(() => {
     if (!validationNoticeVisible) return
     const timeoutId = window.setTimeout(() => setValidationNoticeVisible(false), 6000)
@@ -1631,9 +1672,14 @@ export function UnifiedProductCreationForm({
     setBundleStockMode('virtual')
     setBundleComponents([])
     setInitialStockEnabled(false)
-    setInitialStockBranchId(branches[0]?.id ?? '')
-    setInitialStockWarehouse('main')
-    setInitialStockLocation('available')
+    const nextInitialStockWarehouse = initialStockWarehouses.find((warehouse) => warehouse.branchId === branches[0]?.id) ?? initialStockWarehouses[0]
+    const nextInitialStockLocation = nextInitialStockWarehouse
+      ? initialStockLocations.find((location) => location.warehouseId === nextInitialStockWarehouse.id && location.isDefault)
+        ?? initialStockLocations.find((location) => location.warehouseId === nextInitialStockWarehouse.id)
+      : undefined
+    setInitialStockBranchId(nextInitialStockWarehouse?.branchId ?? branches[0]?.id ?? '')
+    setInitialStockWarehouse(nextInitialStockWarehouse?.id ?? '')
+    setInitialStockLocation(nextInitialStockLocation?.id ?? '')
     setInitialStockQuantities({})
     setInitialStockBulkQuantity('')
     setBundleInitialStockQuantity('')
@@ -2668,10 +2714,34 @@ export function UnifiedProductCreationForm({
     const quantity = Number(initialStockQuantities[row.key] ?? 0)
     return total + (Number.isFinite(quantity) && quantity > 0 ? quantity : 0)
   }, 0)
+  const filteredInitialStockWarehouses = initialStockWarehouses.filter((warehouse) => warehouse.branchId === initialStockBranchId)
+  const filteredInitialStockLocations = initialStockLocations.filter((location) => location.warehouseId === initialStockWarehouse)
+  const selectInitialStockWarehouse = (warehouseId: string) => {
+    setInitialStockWarehouse(warehouseId)
+    const defaultLocation = initialStockLocations.find((location) => location.warehouseId === warehouseId && location.isDefault)
+      ?? initialStockLocations.find((location) => location.warehouseId === warehouseId)
+    setInitialStockLocation(defaultLocation?.id ?? '')
+  }
+  const selectInitialStockBranch = (branchId: string) => {
+    setInitialStockBranchId(branchId)
+    const firstWarehouse = initialStockWarehouses.find((warehouse) => warehouse.branchId === branchId)
+    selectInitialStockWarehouse(firstWarehouse?.id ?? '')
+  }
+  const reloadInitialStockDestinations = () => {
+    setInitialStockWarehouses([])
+    setInitialStockLocations([])
+    setInitialStockWarehouse('')
+    setInitialStockLocation('')
+    setInitialStockDestinationError('')
+    setInitialStockDestinationStatus('idle')
+  }
   const standardInitialStockValue = initialStockQuantities.standard ?? ''
   const standardInitialStockErrors = structure === 'standard' && initialStockEnabled
     ? [
+        initialStockDestinationStatus !== 'ready' ? 'กรุณารอโหลดคลังและตำแหน่งจัดเก็บ' : '',
         !initialStockBranchId ? 'กรุณาเลือกสาขารับสต็อก' : '',
+        !initialStockWarehouse ? 'กรุณาเลือกคลังรับสต็อก' : '',
+        !initialStockLocation ? 'กรุณาเลือกตำแหน่งจัดเก็บ' : '',
         standardInitialStockValue.trim() === '' ? 'กรุณากรอกจำนวนตั้งต้น' : '',
         standardInitialStockValue.trim() !== '' && (!Number.isFinite(Number(standardInitialStockValue)) || Number(standardInitialStockValue) < 0) ? 'จำนวนตั้งต้นต้องเป็น 0 หรือมากกว่า' : '',
         standardInitialStockValue.trim() !== '' && Number(standardInitialStockValue) > 999999999 ? 'จำนวนตั้งต้นต้องไม่เกิน 999,999,999' : '',
@@ -2693,7 +2763,10 @@ export function UnifiedProductCreationForm({
     : 0
   const variantInitialStockErrors = structure === 'variant' && initialStockEnabled
     ? [
+        initialStockDestinationStatus !== 'ready' ? 'กรุณารอโหลดคลังและตำแหน่งจัดเก็บ' : '',
         !initialStockBranchId ? 'กรุณาเลือกสาขารับสต็อก' : '',
+        !initialStockWarehouse ? 'กรุณาเลือกคลังรับสต็อก' : '',
+        !initialStockLocation ? 'กรุณาเลือกตำแหน่งจัดเก็บ' : '',
         initialStockRows.length === 0 ? 'ยังไม่มี SKU Combination สำหรับกำหนดสต็อก' : '',
         variantInitialStockInvalidKeys.size ? `กรุณาตรวจจำนวนตั้งต้น ${variantInitialStockInvalidKeys.size} SKU` : '',
       ].filter(Boolean)
@@ -2984,8 +3057,8 @@ export function UnifiedProductCreationForm({
           <div className="product-inline-note warning">การเลือกสาขารอบนี้บันทึกใน Browser Draft เพื่อทดสอบ UI เท่านั้น; R7.1 ยังไม่มี Branch sales-scope contract จึงยังไม่ส่งค่าชุดนี้ไป Backend</div>
           <div className="product-initial-stock-section" data-ui-only="true">
             <div className="product-initial-stock-heading">
-              <div><span className="product-initial-stock-title"><strong>สต็อกเริ่มต้น</strong><span className="product-initial-stock-prototype-badge">UI ทดลอง</span></span><small>เตรียมยอดตั้งต้นสำหรับรับสินค้าเข้าคลังหลังสร้าง SKU</small></div>
-              {structure !== 'bundle' ? <label className="product-switch"><input type="checkbox" checked={initialStockEnabled} onChange={(event) => setInitialStockEnabled(event.target.checked)} aria-label="กำหนดสต็อกเริ่มต้น" /><span aria-hidden="true" /></label> : null}
+              <div><span className="product-initial-stock-title"><strong>สต็อกเริ่มต้น</strong><span className="product-initial-stock-prototype-badge">T2 · อ่านข้อมูลจริง</span></span><small>เตรียมยอดตั้งต้นสำหรับรับสินค้าเข้าคลังหลังสร้าง SKU</small></div>
+              {structure !== 'bundle' ? <label className="product-switch"><input type="checkbox" checked={initialStockEnabled} disabled={!canLoadInitialStockDestinations} onChange={(event) => setInitialStockEnabled(event.target.checked)} aria-label="กำหนดสต็อกเริ่มต้น" /><span aria-hidden="true" /></label> : null}
             </div>
             {structure === 'bundle'
               ? bundleStockMode === 'virtual'
@@ -3003,10 +3076,13 @@ export function UnifiedProductCreationForm({
                   </div>
               : initialStockEnabled
                 ? <>
+                    {initialStockDestinationStatus === 'loading' ? <div className="product-inline-note" role="status">กำลังโหลดคลังและตำแหน่งจัดเก็บ…</div> : null}
+                    {initialStockDestinationStatus === 'error' ? <div className="product-initial-stock-validation danger" role="alert"><span>{initialStockDestinationError}</span><button className="button compact secondary" type="button" onClick={reloadInitialStockDestinations}>ลองใหม่</button></div> : null}
+                    {initialStockDestinationStatus === 'ready' && !initialStockWarehouses.length ? <div className="product-inline-note warning" role="status">ยังไม่มีคลังและตำแหน่งจัดเก็บที่พร้อมใช้งาน</div> : null}
                     <div className="product-form-grid three product-initial-stock-destination">
-                      <label><span>สาขารับสต็อก</span><span className="product-select-control"><select value={initialStockBranchId} onChange={(event) => setInitialStockBranchId(event.target.value)} aria-label="สาขารับสต็อกเริ่มต้น"><option value="">เลือกสาขา</option>{branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.code} · {branch.name}</option>)}</select></span><small>เลือกสาขาที่จะรับยอดตั้งต้น</small></label>
-                      <label><span>คลัง (UI ทดลอง)</span><span className="product-select-control"><select value={initialStockWarehouse} onChange={(event) => setInitialStockWarehouse(event.target.value)} aria-label="คลังรับสต็อกเริ่มต้น"><option value="main">คลังหลัก</option><option value="storefront">คลังหน้าร้าน</option><option value="live">คลังขายไลฟ์</option></select></span><small>ยังไม่อ่านข้อมูล Warehouse จริง</small></label>
-                      <label><span>ตำแหน่งจัดเก็บ (UI ทดลอง)</span><span className="product-select-control"><select value={initialStockLocation} onChange={(event) => setInitialStockLocation(event.target.value)} aria-label="ตำแหน่งรับสต็อกเริ่มต้น"><option value="available">พร้อมขาย</option><option value="receiving">พื้นที่รับสินค้า</option><option value="reserve">พื้นที่สำรอง</option></select></span><small>ยังไม่อ่านข้อมูล Location จริง</small></label>
+                      <label><span>สาขารับสต็อก</span><span className="product-select-control"><select value={initialStockBranchId} disabled={initialStockDestinationStatus !== 'ready'} onChange={(event) => selectInitialStockBranch(event.target.value)} aria-label="สาขารับสต็อกเริ่มต้น"><option value="">เลือกสาขา</option>{branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.code} · {branch.name}</option>)}</select></span><small>แสดงเฉพาะสาขาที่บัญชีนี้เข้าถึงได้</small></label>
+                      <label><span>คลังรับสต็อก</span><span className="product-select-control"><select value={initialStockWarehouse} disabled={initialStockDestinationStatus !== 'ready' || !initialStockBranchId} onChange={(event) => selectInitialStockWarehouse(event.target.value)} aria-label="คลังรับสต็อกเริ่มต้น"><option value="">เลือกคลัง</option>{filteredInitialStockWarehouses.map((warehouse) => <option key={warehouse.id} value={warehouse.id}>{warehouse.code} · {warehouse.name}</option>)}</select></span><small>{initialStockBranchId && !filteredInitialStockWarehouses.length ? 'สาขานี้ยังไม่มีคลังที่พร้อมใช้งาน' : 'เลือกคลังปลายทางจริง'}</small></label>
+                      <label><span>ตำแหน่งจัดเก็บ</span><span className="product-select-control"><select value={initialStockLocation} disabled={initialStockDestinationStatus !== 'ready' || !initialStockWarehouse} onChange={(event) => setInitialStockLocation(event.target.value)} aria-label="ตำแหน่งรับสต็อกเริ่มต้น"><option value="">เลือกตำแหน่ง</option>{filteredInitialStockLocations.map((location) => <option key={location.id} value={location.id}>{location.code} · {location.name}{location.isDefault ? ' · ค่าเริ่มต้น' : ''}</option>)}</select></span><small>{initialStockWarehouse && !filteredInitialStockLocations.length ? 'คลังนี้ยังไม่มีตำแหน่งที่พร้อมใช้งาน' : 'ระบบเลือกตำแหน่งค่าเริ่มต้นให้อัตโนมัติ'}</small></label>
                     </div>
                     {structure === 'variant' && initialStockRows.length ? <div className="product-initial-stock-bulk"><label><span>ใส่จำนวนเดียวกันทุก SKU</span><input type="number" min="0" max="999999999" step="0.000001" inputMode="decimal" value={initialStockBulkQuantity} onChange={(event) => setInitialStockBulkQuantity(event.target.value)} placeholder="0" aria-label="จำนวนสต็อกเริ่มต้นสำหรับทุก SKU" aria-invalid={Boolean(initialStockBulkError)} />{initialStockBulkError ? <small className="product-field-error">{initialStockBulkError}</small> : null}</label><button className="button compact product-primary-action" type="button" disabled={!initialStockBulkQuantity.trim() || Boolean(initialStockBulkError)} onClick={() => setInitialStockQuantities((current) => ({ ...current, ...Object.fromEntries(initialStockRows.map((row) => [row.key, initialStockBulkQuantity])) }))}>ใส่ให้ทุก SKU</button><span className="product-initial-stock-progress">กรอกแล้ว <strong>{variantInitialStockFilledCount}/{initialStockRows.length}</strong> SKU</span></div> : null}                    {initialStockRows.length ? <div className="product-editor-scroll product-initial-stock-scroll"><table className="product-editor-table product-initial-stock-table"><thead><tr><th>SKU</th><th>สินค้า / ตัวเลือก</th><th>หน่วยนับ</th><th>จำนวนตั้งต้น</th></tr></thead><tbody>{initialStockRows.map((row) => <tr key={row.key}><td><code className="product-code">{row.skuCode}</code></td><td>{row.name}</td><td><span className="product-initial-stock-unit"><strong>{BASE_UNIT_LABELS[row.baseUnitCode] ?? row.baseUnitCode}</strong><small>{row.baseUnitCode}</small></span></td><td><div className="product-initial-stock-quantity"><input type="number" min="0" max="999999999" step="0.000001" inputMode="decimal" value={initialStockQuantities[row.key] ?? ''} aria-invalid={(structure === 'standard' && row.key === 'standard' && standardInitialStockErrors.length > 0) || (structure === 'variant' && variantInitialStockInvalidKeys.has(row.key))} onChange={(event) => setInitialStockQuantities((current) => ({ ...current, [row.key]: event.target.value }))} placeholder="0" aria-label={`จำนวนสต็อกเริ่มต้น ${row.skuCode}`} />{structure === 'variant' && variantInitialStockInvalidKeys.has(row.key) ? <small className="product-field-error">{initialStockQuantityError(initialStockQuantities[row.key] ?? '')}</small> : null}</div></td></tr>)}</tbody></table></div> : <p className="product-form-note">เพิ่มตัวเลือกและสร้าง SKU Combination ในส่วนที่ 3 ก่อนกำหนดสต็อกเริ่มต้น</p>}
                     {structure === 'standard' && standardInitialStockErrors.length ? <div className="product-initial-stock-validation danger" role="alert"><strong>กรุณาตรวจข้อมูลสต็อกเริ่มต้น</strong><ul>{standardInitialStockErrors.map((error) => <li key={error}>{error}</li>)}</ul></div> : null}
@@ -3015,6 +3091,7 @@ export function UnifiedProductCreationForm({
                     <div className="product-inline-note">ค่าที่กรอกจะไม่หายเมื่อปิด–เปิดหรือสลับรูปแบบสินค้า และถูกล้างเมื่อเริ่มสินค้ารายการใหม่</div>
                   </>
                 : <p className="product-form-note">{initialStockHasDraftValues ? 'ปิดการแสดงผลไว้ · ค่าที่กรอกก่อนหน้ายังคงอยู่และจะแสดงเมื่อเปิดอีกครั้ง' : 'ยังไม่กำหนดสต็อกเริ่มต้น — สามารถสร้างสินค้าไว้ก่อน แล้วรับสินค้าเข้าคลังภายหลังได้'}</p>}
+            {!canLoadInitialStockDestinations && structure !== 'bundle' ? <div className="product-inline-note warning">บัญชีนี้ต้องมีสิทธิ์ดูคลังและรับสต็อก จึงจะเปิดส่วนสต็อกเริ่มต้นได้</div> : null}
             <div className="product-initial-stock-write-guard" role="note"><span aria-hidden="true">ⓘ</span><span><strong>ยังไม่บันทึกสต็อกจริง</strong> · UI นี้ไม่ส่งค่าไป Backend, ไม่เปลี่ยนยอดคงเหลือ และไม่สร้าง Stock Movement</span></div>
           </div>
           <div className="product-form-grid three product-inventory-policy-grid">

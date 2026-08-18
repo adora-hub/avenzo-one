@@ -114,7 +114,7 @@ test('S3 distinguishes virtual and pre-assembled Bundle stock UI', async () => {
 })
 test('S4 marks prototype state, preserves toggled values and resets the next product', async () => {
   const form = await read(formPath)
-  assert.match(form, /product-initial-stock-prototype-badge">UI ทดลอง/)
+  assert.match(form, /product-initial-stock-prototype-badge">T2 · อ่านข้อมูลจริง/)
   assert.match(form, /initialStockHasDraftValues/)
   assert.match(form, /ค่าที่กรอกก่อนหน้ายังคงอยู่/)
   assert.match(form, /setInitialStockQuantities\(\{\}\)/)
@@ -128,7 +128,7 @@ test('initial stock prototype stays UI-only and supports standard and variant ro
   assert.match(form, /<strong>สต็อกเริ่มต้น<\/strong>/)
   assert.match(form, /initialStockRows = structure === 'variant'/)
   assert.match(form, /สาขารับสต็อก/)
-  assert.match(form, /product-initial-stock-prototype-badge">UI ทดลอง/)
+  assert.match(form, /product-initial-stock-prototype-badge">T2 · อ่านข้อมูลจริง/)
   assert.match(form, /ไม่ส่งค่าไป Backend, ไม่เปลี่ยนยอดคงเหลือ และไม่สร้าง Stock Movement/)
   assert.doesNotMatch(form, /name="initialStock/)
 })
