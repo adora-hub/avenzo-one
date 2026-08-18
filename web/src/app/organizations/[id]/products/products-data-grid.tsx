@@ -14,6 +14,7 @@ import {
 } from 'react'
 import { executeFoundationCommandAction } from '@/app/actions/foundation'
 import { ProductsBulkEdit } from './products-bulk-edit'
+import { ProductExcelImportDialogLive } from './product-excel-import-dialog-live'
 import { OperationsEmptyState } from '@/app/components/operations-ui'
 import type { ProductWorkspaceRow } from '@/lib/foundation/repositories'
 import {
@@ -54,14 +55,6 @@ type QuickEditState = {
   left: number
   top: number
 }
-
-const EXCEL_IMPORT_PREVIEW_ROWS = [
-  { row: 2, sku: 'SKU-DEMO-001', product: 'กระเป๋าสาธิต Mini', result: 'พร้อมเพิ่ม', tone: 'success' },
-  { row: 3, sku: 'SKU-DEMO-002', product: 'ต่างหูสาธิต สีทอง', result: 'พร้อมเพิ่ม', tone: 'success' },
-  { row: 4, sku: 'SKU-EXIST-001', product: 'กำไลตัวอย่าง', result: 'พบ SKU เดิม', tone: 'warning' },
-  { row: 5, sku: 'SKU-DEMO-004', product: 'เสื้อยืดตัวอย่าง', result: 'พร้อมเพิ่ม', tone: 'success' },
-  { row: 6, sku: '—', product: 'สินค้าที่ยังไม่มี SKU', result: 'ต้องกรอก SKU', tone: 'danger' },
-] as const
 
 const PRODUCT_GRID_SELECTION_WIDTH = 52
 const PRODUCT_GRID_PAGE_SIZES = [10, 25, 50, 100, 300, 400] as const
@@ -218,11 +211,6 @@ export function ProductsDataGrid({
   const [gridSort, setGridSort] = useState<GridSort>({ key: 'updatedAt', direction: sort === 'updated_desc' ? 'desc' : 'asc' })
   const [excelMenuOpen, setExcelMenuOpen] = useState(false)
   const [excelImportOpen, setExcelImportOpen] = useState(false)
-  const [excelImportPolicy, setExcelImportPolicy] = useState<'update' | 'skip'>('update')
-  const [excelImportFile, setExcelImportFile] = useState<{ name: string; size: number } | null>(null)
-  const [excelImportError, setExcelImportError] = useState<string | null>(null)
-  const [excelImportDragging, setExcelImportDragging] = useState(false)
-  const [excelImportStep, setExcelImportStep] = useState<'setup' | 'preview' | 'complete'>('setup')
   const [exportColumnsOpen, setExportColumnsOpen] = useState(false)
   const [exportColumns, setExportColumns] = useState<ProductExportColumnKey[]>(PRODUCT_EXPORT_COLUMNS.map(([key]) => key))
   const [exportColumnsDraft, setExportColumnsDraft] = useState<ProductExportColumnKey[]>(PRODUCT_EXPORT_COLUMNS.map(([key]) => key))
@@ -246,7 +234,6 @@ export function ProductsDataGrid({
   const quickEditRef = useRef<HTMLDivElement>(null)
   const excelMenuRef = useRef<HTMLDivElement>(null)
   const excelTriggerRef = useRef<HTMLButtonElement>(null)
-  const excelImportRef = useRef<HTMLInputElement>(null)
   const excelImportDialogRef = useRef<HTMLElement>(null)
   const exportColumnsDialogRef = useRef<HTMLElement>(null)
   const customizeRef = useRef<HTMLDivElement>(null)
@@ -495,63 +482,14 @@ export function ProductsDataGrid({
     setGridToast('ดาวน์โหลด Template พร้อมคู่มือภาษาไทยแล้ว')
   }
 
-  function selectExcelImportFile(file: File | undefined) {
-    setExcelImportError(null)
-    if (!file) return
-    if (!/\.(xlsx|xls|csv)$/i.test(file.name)) {
-      setExcelImportFile(null)
-      setExcelImportError('รองรับเฉพาะไฟล์ .xlsx, .xls หรือ .csv')
-      return
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      setExcelImportFile(null)
-      setExcelImportError('ไฟล์ต้องมีขนาดไม่เกิน 10 MB')
-      return
-    }
-    setExcelImportFile({ name: file.name, size: file.size })
-  }
-
-  function clearExcelImportFile() {
-    setExcelImportFile(null)
-    setExcelImportError(null)
-    if (excelImportRef.current) excelImportRef.current.value = ''
-  }
-
-  function handleExcelImportDrop(event: ReactDragEvent<HTMLLabelElement>) {
-    event.preventDefault()
-    setExcelImportDragging(false)
-    selectExcelImportFile(event.dataTransfer.files?.[0])
-  }
-
   function openExcelImport() {
     setExcelMenuOpen(false)
-    setExcelImportStep('setup')
     setExcelImportOpen(true)
   }
 
   function closeExcelImport() {
     setExcelImportOpen(false)
     window.requestAnimationFrame(() => excelTriggerRef.current?.focus())
-  }
-
-  function handleExcelImportKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
-    if (event.key === 'Escape') {
-      event.preventDefault()
-      closeExcelImport()
-      return
-    }
-    if (event.key !== 'Tab') return
-    const focusable = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'))
-    if (!focusable.length) return
-    const first = focusable[0]
-    const last = focusable[focusable.length - 1]
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault()
-      last.focus()
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault()
-      first.focus()
-    }
   }
 
   function openExportColumns() {
@@ -1202,7 +1140,6 @@ function toggleVariantRow(rowId: string) {
             <button type="button" role="menuitem" onClick={downloadProductTemplate}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0-4-4m4 4 4-4" /><path d="M4 20h16" /></svg>ดาวน์โหลด Template</button>
             <button type="button" role="menuitem" onClick={openExportColumns}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16M4 12h16M4 19h16" /><path d="M8 3v4M16 10v4M11 17v4" /></svg>กำหนดคอลัมน์ที่ส่งออก</button>
           </div> : null}
-          <input ref={excelImportRef} type="file" accept=".xlsx,.xls,.csv" hidden onChange={(event) => selectExcelImportFile(event.currentTarget.files?.[0])} />
         </div>
       <div className="product-grid-customize" ref={customizeRef}>
         <button ref={customizeTriggerRef} className="product-grid-icon-button" type="button" role="menuitem" data-tooltip="ปรับแต่งคอลัมน์" aria-label="ปรับแต่งคอลัมน์" aria-haspopup="dialog" aria-controls="product-grid-customize-popover" aria-expanded={customizeOpen} onClick={openCustomizeColumns}>
@@ -1401,26 +1338,7 @@ function toggleVariantRow(rowId: string) {
         <footer><button className="button product-grid-button-tertiary" type="button" onClick={() => setExportColumnsDraft(PRODUCT_EXPORT_COLUMNS.filter(([key]) => canReadCost || key !== 'cost').map(([key]) => key))}>เลือกทั้งหมด</button><button className="button product-grid-button-secondary" type="button" onClick={() => setExportColumnsOpen(false)}>ยกเลิก</button><button className="button product-grid-button-primary" type="button" onClick={saveExportColumns}>บันทึก</button></footer>
       </section>
     </div> : null}
-    {excelImportOpen ? <div className="product-modal-backdrop product-excel-import-backdrop" role="presentation" onMouseDown={(event) => {
-      if (event.target === event.currentTarget) closeExcelImport()
-    }}>
-      <section ref={excelImportDialogRef} className="product-excel-import-dialog" role="dialog" aria-modal="true" aria-labelledby="product-excel-import-title" aria-describedby="product-excel-import-description" onKeyDown={handleExcelImportKeyDown}>
-        <header><div><h2 id="product-excel-import-title">นำเข้าสินค้าด้วย Excel</h2><p id="product-excel-import-description">เตรียมและตรวจสอบไฟล์ก่อนนำเข้ารายการสินค้า</p></div><button className="product-master-modal-close" type="button" aria-label="ปิดหน้าต่างนำเข้า Excel" onClick={closeExcelImport}><IconX aria-hidden="true" size={18} /></button></header>
-        <div className="product-excel-import-body">
-          {excelImportStep === 'setup' ? <>
-          <div className="product-excel-import-notice" role="note"><IconAlertCircle aria-hidden="true" size={18} /><div><strong>เตรียมไฟล์ให้ตรงกับ Template ก่อนนำเข้า</strong><ol><li>ดาวน์โหลด Template ของ AVENZO ONE และกรอกข้อมูลในชีต “ข้อมูลสินค้า”</li><li>อ่านคำอธิบายภาษาไทยในชีต “คู่มือภาษาไทย” ก่อนกรอกข้อมูล</li><li>หนึ่งแถวแทนหนึ่ง SKU และควรมีรหัสสินค้า (SKU) ทุกแถว</li><li>ไฟล์ตัวอย่างนี้ใช้ทดสอบหน้าจอเท่านั้น ระบบยังไม่นำข้อมูลเข้าฐานข้อมูล</li></ol></div></div>
-          <div className="product-excel-import-template"><div><strong>ยังไม่มีไฟล์ Template?</strong><span>ดาวน์โหลดไฟล์ล่าสุดที่มีหัวคอลัมน์และคู่มือภาษาไทยพร้อมใช้งาน</span></div><button className="button product-excel-import-template-download" type="button" onClick={downloadProductTemplate}><IconDownload aria-hidden="true" size={14} />ดาวน์โหลด Template</button></div>
-          <fieldset className="product-excel-import-policy"><legend>เมื่อพบ SKU ที่มีอยู่แล้ว</legend><p>เลือกวิธีจำลองการจัดการข้อมูลซ้ำ การตั้งค่านี้ยังไม่ส่งคำสั่งไปยังระบบจริง</p><label><input type="radio" name="excel-import-policy" value="update" checked={excelImportPolicy === 'update'} onChange={() => setExcelImportPolicy('update')} /><span><strong>อัปเดตข้อมูลเดิม</strong><small>ใช้ SKU เป็นตัวอ้างอิงและแสดงค่าที่จะเปลี่ยนในหน้าตรวจสอบ</small></span></label><label><input type="radio" name="excel-import-policy" value="skip" checked={excelImportPolicy === 'skip'} onChange={() => setExcelImportPolicy('skip')} /><span><strong>ข้ามรายการที่ซ้ำ</strong><small>ไม่เปลี่ยนข้อมูลเดิม และตรวจเฉพาะ SKU ใหม่</small></span></label><div className="product-excel-import-policy-warning"><IconAlertCircle aria-hidden="true" size={16} />ไม่มีตัวเลือกใดลบสินค้าเดิมหรือเปลี่ยนสต็อกในขั้นตอนนี้</div></fieldset>
-          <section className="product-excel-import-upload" aria-labelledby="product-excel-import-upload-title"><div><strong id="product-excel-import-upload-title">เลือกไฟล์สินค้า</strong><span>รองรับ .xlsx, .xls และ .csv ขนาดไม่เกิน 10 MB</span></div>{excelImportFile ? <div className="product-excel-import-file"><IconFileSpreadsheet aria-hidden="true" size={22} /><span><strong>{excelImportFile.name}</strong><small>{(excelImportFile.size / 1024).toLocaleString('th-TH', { maximumFractionDigits: 1 })} KB · พร้อมตรวจสอบ</small></span><button className="product-inline-icon" type="button" aria-label="นำไฟล์ที่เลือกออก" data-tooltip="นำไฟล์ออก" onClick={clearExcelImportFile}><IconTrash aria-hidden="true" size={17} /></button></div> : <label className="product-excel-import-dropzone" data-dragging={excelImportDragging || undefined} onDragEnter={(event) => { event.preventDefault(); setExcelImportDragging(true) }} onDragOver={(event) => event.preventDefault()} onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setExcelImportDragging(false) }} onDrop={handleExcelImportDrop}><IconUpload aria-hidden="true" size={30} /><strong>คลิกเพื่อเลือก หรือลากไฟล์มาวางที่นี่</strong><span>Preview จะไม่อัปโหลดข้อมูล · ไฟล์จะถูกเก็บเฉพาะในหน่วยความจำของ Browser</span><input type="file" accept=".xlsx,.xls,.csv" onChange={(event) => selectExcelImportFile(event.currentTarget.files?.[0])} /></label>}{excelImportError ? <div className="product-excel-import-file-error" role="alert"><IconAlertCircle aria-hidden="true" size={16} />{excelImportError}</div> : null}</section>
-          </> : excelImportStep === 'preview' ? <>
-            <div className="product-excel-import-preview-banner"><IconFileSpreadsheet aria-hidden="true" size={22} /><div><strong>{excelImportFile?.name}</strong><span>UI Preview เท่านั้น · ไม่ได้อ่านเนื้อหาไฟล์และยังไม่นำข้อมูลเข้าระบบ</span></div></div>
-            <div className="product-excel-import-summary" aria-label="สรุปผลตรวจสอบจำลอง"><div><span>ทั้งหมด</span><strong>5</strong></div><div data-tone="success"><span>พร้อมดำเนินการ</span><strong>3</strong></div><div data-tone="warning"><span>SKU เดิม</span><strong>1</strong></div><div data-tone="danger"><span>ต้องแก้ไข</span><strong>1</strong></div></div>
-            <section className="product-excel-import-preview-table" aria-labelledby="product-excel-import-preview-title"><div className="product-excel-import-preview-heading"><div><strong id="product-excel-import-preview-title">ตัวอย่างรายการก่อนยืนยัน</strong><span>แสดง 5 แถวจำลองเพื่อทดสอบลำดับการใช้งาน</span></div><span className="product-excel-import-policy-chip">{excelImportPolicy === 'update' ? 'อัปเดตข้อมูลเดิม' : 'ข้ามรายการซ้ำ'}</span></div><div className="product-excel-import-table-scroll"><table><thead><tr><th>แถว</th><th>SKU</th><th>สินค้า</th><th>ผลตรวจสอบ</th></tr></thead><tbody>{EXCEL_IMPORT_PREVIEW_ROWS.map((item) => <tr key={item.row}><td>{item.row}</td><td>{item.sku}</td><td>{item.product}</td><td><span className="product-excel-import-result" data-tone={item.tone}>{item.result === 'พบ SKU เดิม' && excelImportPolicy === 'skip' ? 'ข้ามรายการซ้ำ' : item.result}</span></td></tr>)}</tbody></table></div></section>
-          </> : <div className="product-excel-import-complete"><IconCircleCheck aria-hidden="true" size={46} /><h3>จำลองการนำเข้าเรียบร้อย</h3><p>หน้าจอนี้แสดงขั้นตอนสำเร็จเท่านั้น ไม่มีข้อมูลสินค้า สต็อก หรือฐานข้อมูลถูกเปลี่ยนแปลง</p><dl><div><dt>ไฟล์</dt><dd>{excelImportFile?.name}</dd></div><div><dt>รายการพร้อมดำเนินการ</dt><dd>3 SKU</dd></div><div><dt>นโยบายข้อมูลซ้ำ</dt><dd>{excelImportPolicy === 'update' ? 'อัปเดตข้อมูลเดิม' : 'ข้ามรายการซ้ำ'}</dd></div></dl></div>}
-        </div>
-        <footer>{excelImportStep === 'setup' ? <><button className="button product-grid-button-secondary" type="button" onClick={closeExcelImport}>ยกเลิก</button><button className="button product-grid-button-primary" type="button" disabled={!excelImportFile} onClick={() => setExcelImportStep('preview')}>ตรวจสอบไฟล์</button></> : excelImportStep === 'preview' ? <><button className="button product-grid-button-secondary product-excel-import-back" type="button" onClick={() => setExcelImportStep('setup')}><IconArrowLeft aria-hidden="true" size={16} />ย้อนกลับ</button><button className="button product-grid-button-primary" type="button" onClick={() => setExcelImportStep('complete')}>ยืนยันแบบจำลอง</button></> : <button className="button product-grid-button-primary" type="button" onClick={closeExcelImport}>ปิด</button>}</footer>
-      </section>
-    </div> : null}
+    <ProductExcelImportDialogLive open={excelImportOpen} organizationId={organizationId} onClose={closeExcelImport} />
     {gridToast ? <div className="product-grid-toast" role="status" aria-live="polite">{gridToast}</div> : null}
   </>
 }
