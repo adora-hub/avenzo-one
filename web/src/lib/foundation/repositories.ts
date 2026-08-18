@@ -252,6 +252,7 @@ export interface FoundationReadRepository {
     productId: string
     includeInventory?: boolean
     includeCost?: boolean
+    quickMode?: boolean
   }): Promise<ProductWorkspaceDetail | null>
   listProducts(input: {
     organizationId: string

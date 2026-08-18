@@ -531,6 +531,7 @@ export class SupabaseFoundationReadRepository implements FoundationReadRepositor
     productId: string
     includeInventory?: boolean
     includeCost?: boolean
+    quickMode?: boolean
   }): Promise<ProductWorkspaceDetail | null> {
     const { data: product, error: productError } = await this.client.from('products')
       .select('id, organization_id, name, description, category_id, brand_id, structure_type, internal_note, status, version, created_at, created_by, updated_at')
@@ -551,6 +552,8 @@ export class SupabaseFoundationReadRepository implements FoundationReadRepositor
     const skuListCapped = (skuData?.length ?? 0) > PRODUCT_DETAIL_SKU_LIMIT
     const skuRows = (skuData ?? []).slice(0, PRODUCT_DETAIL_SKU_LIMIT)
     const skuIds = skuRows.map((row) => String(row.id))
+    const quickMode = Boolean(input.quickMode)
+    const loadSkuExtras = !quickMode
 
     const [categoryResult, brandResult, assignmentResult, profileResult, costResult, creatorResult, sellUnitResult, bundleResult, imageResult, balanceResult] = await Promise.all([
       product.category_id
@@ -574,12 +577,12 @@ export class SupabaseFoundationReadRepository implements FoundationReadRepositor
         ? this.client.from('organization_members').select('display_name')
           .eq('organization_id', input.organizationId).eq('user_id', product.created_by).maybeSingle()
         : Promise.resolve({ data: null, error: null }),
-      skuIds.length > 0
+      loadSkuExtras && skuIds.length > 0
         ? this.client.from('sku_sell_units').select('id, sku_id, unit_code, name, base_quantity, barcode, status')
           .eq('organization_id', input.organizationId).in('sku_id', skuIds)
           .order('created_at', { ascending: true }).limit(PRODUCT_DETAIL_SKU_LIMIT * 20)
         : Promise.resolve({ data: [], error: null }),
-      skuIds.length > 0
+      loadSkuExtras && skuIds.length > 0
         ? this.client.from('sku_bundle_components').select('bundle_sku_id, component_sku_id, component_quantity')
           .eq('organization_id', input.organizationId).in('bundle_sku_id', skuIds)
           .limit(PRODUCT_DETAIL_SKU_LIMIT * 100)

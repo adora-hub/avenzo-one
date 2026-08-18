@@ -29,9 +29,9 @@ test('status transitions follow the existing safe lifecycle contract', () => {
 
 test('Quick View remains a separate action in the row menu', () => {
   assert.match(grid, /className="product-grid-row-menu" role="menu"/)
-  assert.match(grid, /<Link role="menuitem"[^>]*>ดูรายละเอียดแบบ Quick View<\/Link>/)
-  assert.match(grid, /<Link role="menuitem"[^>]*>แก้ไขสินค้า<\/Link>/)
-  assert.match(grid, /<Link role="menuitem"[^>]*>จัดการ SKU<\/Link>/)
+  assert.match(grid, /<Link role="menuitem"[^>]*><IconEye[^>]*>\s*<span>Quick View<\/span><\/Link>/)
+  assert.match(grid, /<Link role="menuitem"[^>]*><IconEdit[^>]*>\s*<span>แก้ไขสินค้า<\/span><\/Link>/)
+  assert.match(grid, /<Link role="menuitem"[^>]*><IconPackages[^>]*>\s*<span>จัดการ SKU<\/span><\/Link>/)
 })
 
 test('status dimensions, padding, dot and chevron mirror the approved mockup', () => {

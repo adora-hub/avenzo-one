@@ -134,7 +134,7 @@ export default async function ProductSkuPage({ params, searchParams }: Props) {
     supabase.from('product_categories').select('id, name, status, version').eq('organization_id', organizationId).order('name').limit(200),
     supabase.from('product_tags').select('id, name, status, version').eq('organization_id', organizationId).order('name').limit(200),
     productId ? repository.getProductWorkspaceDetail({
-      organizationId, productId, includeInventory: canReadInventory, includeCost: canReadCost,
+      organizationId, productId, includeInventory: canReadInventory, includeCost: canReadCost, quickMode: productAction === '',
     }) : Promise.resolve(null),
     skuId ? repository.getSkuWorkspaceDetail({
       organizationId, skuId, includeInventory: canReadInventory,

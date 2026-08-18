@@ -2,9 +2,9 @@
 
 > มาตรฐานกลางสำหรับออกแบบ พัฒนา ตรวจสอบ และแก้ไขส่วนติดต่อผู้ใช้ของ AVENZO ONE โดยไม่ให้แต่ละหน้าหรือโมดูลค่อย ๆ เพี้ยนออกจากกัน
 
-**เวอร์ชัน:** 1.4
+**เวอร์ชัน:** 1.6
 
-**วันที่:** 17 สิงหาคม 2026
+**วันที่:** 18 สิงหาคม 2026
 
 **สถานะ:** มาตรฐานบังคับสำหรับ Repository
 
@@ -283,6 +283,21 @@ Expanded child rows (เช่น SKU / ตัวเลือกใต้ Produc
 - Status เดียวกันต้องใช้ Label และสีเดียวกันทั่วระบบ
 - ใช้ทั้งข้อความและสี เช่น “รออนุมัติ” ไม่ใช้จุดสีอย่างเดียว
 - Badge ไม่ควรดูเหมือนปุ่มถ้ากดไม่ได้
+
+#### 5.4.1 Tag Badge
+
+ใช้ Pattern นี้เมื่อแสดงป้ายกำกับสินค้าใน Data Table, Expanded SKU row, Quick View หรือพื้นที่ข้อมูลแบบกระชับ:
+
+- แสดง Tag แต่ละรายการเป็น Badge แยกจากกัน ห้ามรวมเป็นข้อความคั่นด้วย comma
+- ใช้ชุดสี Semantic สำหรับ Tag โดยเฉพาะ เช่น `neutral`, `info`, `indigo`, `purple`, `pink`; ห้ามใช้ `danger`, `success` หรือ `warning` เป็นสีตกแต่ง
+- การเลือกสีต้องเป็น deterministic: Tag เดิมได้สีเดิมเมื่อ Refresh และการแสดงภายในแถวเดียวกันต้องหลีกเลี่ยงสีซ้ำจนกว่าชุดสีจะครบ
+- Badge ต้องเรียงแนวนอนแถวเดียว (`nowrap`) ใน Data Table และไม่ทำให้ความสูงแถวเพิ่มจากการตัดบรรทัด
+- Badge แต่ละรายการต้องคงความกว้างตามข้อความ (`flex: 0 0 auto`) ห้ามย่อหรือบีบข้อความเมื่อ Column แคบ
+- เมื่อพื้นที่ Column ไม่พอ ให้ Container ซ่อนส่วนเกินและผู้ใช้ขยาย Column เพื่อดูรายการเพิ่มเติม; ห้ามลดขนาด Font, Padding หรือ Badge เพื่อยัดข้อมูล
+- ใช้ความสูงขั้นต่ำ 22px, Padding แนวนอน 7px, Gap 5px, Radius 6px และ Font 11px ตาม Density ของ Products Data Grid
+- ข้อความใน Badge ใช้บรรทัดเดียวและต้องมี Accessible label รวมของรายการ Tags ใน Cell
+- Badge เป็นข้อมูลแบบ Read-only ต้องไม่มี Hover, Cursor หรือ Surface ที่ทำให้ดูเหมือนปุ่ม
+- สี Border, Surface และ Text ต้องอ้างอิง Semantic Tokens และมีค่า Light/Dark Theme ครบ
 
 ### 5.5 Dialog, Drawer และ Popover
 
@@ -681,3 +696,9 @@ Design System ควรพัฒนาเท่าที่ Vertical Slice ต�
 - กำหนดโครงสร้าง Header/Scrollable Body/Fixed Footer, รายการแก้ชื่อและเก็บถาวร, Bulk add และ Permission notice
 - กำหนดให้ Manager ที่เปิดจาก Picker อยู่ Layer สูงกว่า และอัปเดตตัวเลือกใน Picker ทันทีหลังบันทึก
 - กำหนด Accessibility, Validation, Trusted command และ Audit Log เป็นส่วนบังคับของ Component contract
+### V1.6 — 18 สิงหาคม 2026
+
+- เพิ่มมาตรฐาน `Tag Badge` สำหรับ Data Table, Expanded SKU row และ Quick View
+- กำหนดสีแบบ deterministic, ไม่ซ้ำภายในแถวจนกว่าชุดสีจะครบ และรองรับ Light/Dark Mode ผ่าน Semantic Tokens
+- กำหนดให้ Badge เรียงแถวเดียว คงความกว้างตามข้อความ และไม่ถูกบีบเมื่อ Column แคบ
+- กำหนด Density, Overflow และ Accessibility contract สำหรับ Tag Badge

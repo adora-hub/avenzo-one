@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { IconAlertCircle, IconArrowLeft, IconCircleCheck, IconDownload, IconFileSpreadsheet, IconTrash, IconUpload, IconX } from '@tabler/icons-react'
+import { IconAlertCircle, IconArrowLeft, IconCircleCheck, IconDownload, IconEdit, IconEye, IconFileSpreadsheet, IconPackages, IconTrash, IconUpload, IconX } from '@tabler/icons-react'
 import {
   Fragment, useEffect, useMemo, useRef, useState, useTransition,
   type DragEvent as ReactDragEvent,
@@ -58,6 +58,20 @@ type QuickEditState = {
 
 const PRODUCT_GRID_SELECTION_WIDTH = 52
 const PRODUCT_GRID_PAGE_SIZES = [10, 25, 50, 100, 300, 400] as const
+const PRODUCT_TAG_BADGE_TONES = ['neutral', 'info', 'indigo', 'purple', 'pink'] as const
+
+function ProductTagBadges({ tags }: { tags: Array<{ id: string; name: string }> }) {
+  const usedTones = new Set<number>()
+  return <span className="product-grid-tag-list" aria-label={`ป้ายกำกับ ${tags.map((tag) => tag.name).join(', ')}`}>
+    {tags.map((tag) => {
+      const seed = Array.from(tag.id || tag.name).reduce((total, character) => total + character.codePointAt(0)!, 0)
+      let toneIndex = seed % PRODUCT_TAG_BADGE_TONES.length
+      while (usedTones.has(toneIndex) && usedTones.size < PRODUCT_TAG_BADGE_TONES.length) toneIndex = (toneIndex + 1) % PRODUCT_TAG_BADGE_TONES.length
+      usedTones.add(toneIndex)
+      return <span className={`product-grid-tag-badge ${PRODUCT_TAG_BADGE_TONES[toneIndex]}`} key={tag.id}>{tag.name}</span>
+    })}
+  </span>
+}
 
 function ProductGridPaginationIcon({ direction }: { direction: 'first' | 'previous' | 'next' | 'last' }) {
   const isPrevious = direction === 'first' || direction === 'previous'
@@ -1001,7 +1015,7 @@ function toggleVariantRow(rowId: string) {
     }
     if (key === 'category') return <td key={key} className={className} style={style}>{stack(row.category?.name ?? <span className="product-grid-muted">—</span>)}</td>
     if (key === 'brand') return <td key={key} className={className} style={style}>{stack(row.brand?.name ?? <span className="product-grid-muted">—</span>)}</td>
-    if (key === 'tags') return <td key={key} className={className} style={style}>{stack(row.tags.length ? <span className="product-grid-tag-list">{row.tags.map((tag) => tag.name).join(', ')}</span> : <span className="product-grid-muted">—</span>)}</td>
+    if (key === 'tags') return <td key={key} className={className} style={style}>{stack(row.tags.length ? <ProductTagBadges tags={row.tags} /> : <span className="product-grid-muted">—</span>)}</td>
     if (key === 'barcode') return <td key={key} className={className} style={style}>{stack(firstSku?.barcode ? <div className="product-grid-code-line"><code>{firstSku.barcode}</code>{copyButton(firstSku.barcode, `${row.id}:barcode`, 'คัดลอก Barcode')}</div> : <span className="product-grid-muted">—</span>)}</td>
     if (key === 'quantityBehavior') return <td key={key} className={className} style={style}>{stack(formatSummary(row.quantityBehavior))}</td>
     if (key === 'tax') return <td key={key} className={className} style={style}>{row.taxCategory.mode === 'mixed' || row.taxRate.mode === 'mixed' ? stack('หลายค่า') : stack(<strong>{formatSummary(row.taxCategory)}</strong>, formatSummary(row.taxRate, '%'))}</td>
@@ -1077,7 +1091,7 @@ function toggleVariantRow(rowId: string) {
         }
         if (key === 'category') return variantStack(row.category?.name ?? <span className="product-grid-muted">—</span>)
         if (key === 'brand') return variantStack(row.brand?.name ?? <span className="product-grid-muted">—</span>)
-        if (key === 'tags') return variantStack(row.tags.length ? <span className="product-grid-tag-list">{row.tags.map((tag) => tag.name).join(', ')}</span> : <span className="product-grid-muted">—</span>)
+        if (key === 'tags') return variantStack(row.tags.length ? <ProductTagBadges tags={row.tags} /> : <span className="product-grid-muted">—</span>)
         if (key === 'quantityBehavior') return variantStack(sku.profile?.quantityBehavior ?? <span className="product-grid-muted">—</span>)
         if (key === 'tax') return sku.profile ? variantStack(<strong>{sku.profile.taxCategory}</strong>, `${sku.profile.taxRate}%`) : variantStack(<span className="product-grid-muted">—</span>)
         if (key === 'safetyStock') {
@@ -1295,9 +1309,9 @@ function toggleVariantRow(rowId: string) {
       event.preventDefault()
       items[(Math.max(currentIndex, 0) + delta + items.length) % items.length]?.focus()
     }}>
-      <Link role="menuitem" href={detailHref({ organizationId, search, status, dateField, dateFrom, dateTo, brandId, categoryId, tagIds, priceMin, priceMax, stockMin, stockMax, sort, productId: rowMenu.rowId, skuId: rowMenu.skuId, page: currentPage, pageSize, bulkSearchActive })}>ดูรายละเอียดแบบ Quick View</Link>
-      <Link role="menuitem" href={detailHref({ organizationId, search, status, dateField, dateFrom, dateTo, brandId, categoryId, tagIds, priceMin, priceMax, stockMin, stockMax, sort, productId: rowMenu.rowId, skuId: rowMenu.skuId, page: currentPage, pageSize, bulkSearchActive, action: 'edit' })}>แก้ไขสินค้า</Link>
-      <Link role="menuitem" href={detailHref({ organizationId, search, status, dateField, dateFrom, dateTo, brandId, categoryId, tagIds, priceMin, priceMax, stockMin, stockMax, sort, productId: rowMenu.rowId, skuId: rowMenu.skuId, page: currentPage, pageSize, bulkSearchActive, action: 'skus' })}>จัดการ SKU</Link>
+      <Link role="menuitem" href={detailHref({ organizationId, search, status, dateField, dateFrom, dateTo, brandId, categoryId, tagIds, priceMin, priceMax, stockMin, stockMax, sort, productId: rowMenu.rowId, skuId: rowMenu.skuId, page: currentPage, pageSize, bulkSearchActive })}><IconEye aria-hidden="true" /> <span>Quick View</span></Link>
+      <Link role="menuitem" href={detailHref({ organizationId, search, status, dateField, dateFrom, dateTo, brandId, categoryId, tagIds, priceMin, priceMax, stockMin, stockMax, sort, productId: rowMenu.rowId, skuId: rowMenu.skuId, page: currentPage, pageSize, bulkSearchActive, action: 'edit' })}><IconEdit aria-hidden="true" /> <span>แก้ไขสินค้า</span></Link>
+      <Link role="menuitem" href={detailHref({ organizationId, search, status, dateField, dateFrom, dateTo, brandId, categoryId, tagIds, priceMin, priceMax, stockMin, stockMax, sort, productId: rowMenu.rowId, skuId: rowMenu.skuId, page: currentPage, pageSize, bulkSearchActive, action: 'skus' })}><IconPackages aria-hidden="true" /> <span>จัดการ SKU</span></Link>
     </div> : null}
     {quickEdit ? <div ref={quickEditRef} className="product-grid-quick-editor" data-kind={quickEdit.kind} role="dialog" aria-modal="false" aria-labelledby="product-grid-quick-editor-title" style={{ left: quickEdit.left, top: quickEdit.top }}>
       <header><div><h2 id="product-grid-quick-editor-title">{quickEdit.kind === 'price' ? 'แก้ไขราคาขาย' : quickEdit.kind === 'cost' ? 'แก้ไขราคาต้นทุน' : quickEdit.kind === 'inventoryPolicy' ? 'แก้ไขนโยบายสต๊อก' : 'ปรับจำนวนสต๊อก'}</h2><p title={`${quickEdit.row.name} · ${quickEdit.sku.skuCode}`}>{quickEdit.row.name} · <span className="product-code">{quickEdit.sku.skuCode}</span></p></div><button type="button" aria-label="ปิด" disabled={quickEditPending} onClick={() => setQuickEdit(null)}>×</button></header>
