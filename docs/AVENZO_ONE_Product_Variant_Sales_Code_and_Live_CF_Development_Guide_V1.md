@@ -310,7 +310,78 @@ Stop gate: **หยุดให้ Owner ทดสอบ UI และข้อ�
 | 9. Reservation, Stock & Billing | Not started | ทุกคำสั่ง resolve เป็น sku_id |
 | 10. Migration, Rollout & E2E | Not started | ต้องหยุดให้ Owner ทดสอบ |
 
-## 10. Decision Log
+## 10. Warehouse, Initial Stock & Live Commerce Integration Plan
+
+วันที่บันทึกแนวคิด: 18 สิงหาคม 2026
+สถานะ: **Concept approved for roadmap only — ยังไม่เริ่มพัฒนา**
+
+### 10.1 สถานะระบบ Warehouse/Stock ปัจจุบัน
+
+- โครงสร้างเป็น Organization → Branch → Warehouse → Location และยอดคงเหลืออยู่ระดับ `sku_id + location_id`
+- `stock_movements` เป็น immutable source of truth; `inventory_balances` เป็น derived read model และห้าม UI แก้ Balance โดยตรง
+- คำสั่งที่รองรับแล้วคือ Receive, Adjustment In/Out และ Transfer พร้อม idempotency, negative-stock denial, permission และ Audit Log
+- ทุก Sales Code, CF Code หรือ Barcode ต้อง resolve เป็น `sku_id` ก่อนสร้าง Inventory Command
+- `allocated` ยังเป็น generated `0` และ `available = on_hand`; จึงยังไม่มี Reservation/Allocation สำหรับ Order หรือ Live Sale ในระบบจริง
+- การขายออก, การจอง, Order, Invoice และ Fulfillment stock issue ยังไม่อยู่ใน Phase 2.0.6
+
+### 10.2 Initial Stock ตอนสร้างสินค้า
+
+อนาคตหน้าสร้างสินค้าสามารถมีส่วน **สต็อกเริ่มต้น (ไม่บังคับ)** เพื่อให้ผู้ใช้สร้างสินค้าและตั้งยอดเริ่มต้นใน Flow เดียว แต่ต้องไม่เขียนยอดลง `inventory_balances` โดยตรง
+
+ข้อมูลขั้นต่ำ:
+
+- Branch, Warehouse และ Location ปลายทาง
+- จำนวนเริ่มต้นแยกต่อ SKU
+- วันที่รับเข้า, ต้นทุนต่อหน่วย และหมายเหตุ/เหตุผล เช่น `opening_balance`
+
+การบันทึกต้องเป็น transaction/application workflow ที่สร้าง Product/SKU ก่อน แล้ว post Inventory Command แบบ idempotent ต่อ SKU/Location หากส่วน Stock ล้มเหลวต้องใช้ all-or-nothing หรือ recovery contract ที่ Owner อนุมัติ ห้ามเหลือ Balance ที่ไม่มี Movement
+
+### 10.3 หลักการเชื่อม Live Sale กับ Warehouse
+
+การเลือกสินค้าเข้ารอบ Live เป็นการสร้าง **Live Catalog/Session Mapping** เท่านั้น ไม่ตัด `on_hand` ล่วงหน้าโดยอัตโนมัติ
+
+ค่าที่ Live Session ต้องกำหนด:
+
+- Branch และ Fulfillment Warehouse หลักของรอบ Live
+- Location ที่ใช้หยิบ/แพ็ก หรือกติกาเลือก Location
+- Product/SKU ที่อนุญาตให้ขาย, Live Code, ราคา Live และเพดานจำนวนขาย
+- เวลาเริ่ม/จบ, ผู้รับผิดชอบ และช่องทาง เช่น Facebook
+
+ถ้าร้านนำสินค้าจากหลายจุดมาวางรวมกันจริง ให้ใช้ Transfer ไปยัง **Live Staging Location** ก่อนเริ่ม Live; นี่เป็นการย้ายสถานที่เก็บ ไม่ใช่การขายออก
+
+### 10.4 จังหวะ Stock ที่อนุญาต
+
+```text
+เลือกสินค้าก่อนไลฟ์
+  → ยังไม่ตัด Stock; สร้าง Live Catalog/Quota
+Facebook Comment / Manual CF
+  → Parse Live Code + ตัวเลือก
+  → Resolve เป็น SKU เดียว
+  → ตรวจ Available ใน Fulfillment Location
+  → สร้าง Reservation แบบ Atomic พร้อม TTL
+  → allocated เพิ่ม, available ลด, on_hand ยังเท่าเดิม
+เปิด Order/Invoice
+  → ผูก Reservation เดิมกับ Order; ห้ามจองซ้ำ
+ยืนยันหยิบ/แพ็กหรือ Fulfillment milestone ที่กำหนด
+  → สร้าง sale_issue Stock Movement ลด on_hand และปิด Reservation
+หมดเวลา/ยกเลิก/ชำระไม่สำเร็จ
+  → Release Reservation; allocated ลด โดยไม่สร้าง Movement ขายออก
+```
+
+หลักสำคัญ: ห้ามตัดสต็อก Organization กลางโดยไม่ระบุ Location และห้ามลด `on_hand` ทั้งก้อนตั้งแต่เลือกสินค้าเข้ารอบ Live เพราะสินค้ายังไม่ได้ขายจริง
+
+### 10.5 แผนพัฒนาแบบ Sequential Gate
+
+1. **W1 — Warehouse UX & Current Flow Audit**: ทดสอบ Warehouse, Location, Receive, Adjust, Transfer, Balance และ Ledger ของระบบจริง พร้อมปรับคำที่ผู้ใช้เข้าใจยากโดยไม่เปลี่ยน Ledger contract
+2. **W2 — Initial Stock at Product Creation**: ออกแบบ UI ให้เลือกคลังและกรอกยอดเริ่มต้นแยก SKU จากนั้นเชื่อม Inventory Command พร้อม rollback/recovery และ Audit
+3. **W3 — Reservation Data Contract**: เพิ่ม Reservation/Allocation/TTL/Release และปรับ `allocated`/`available` ให้เป็น read model จริง พร้อม concurrency และ oversell tests
+4. **W4 — Live Session Inventory Scope**: เลือก Fulfillment Warehouse/Location, Live Catalog, SKU quota และ optional Live Staging Location โดยยังไม่เชื่อม Facebook
+5. **W5 — Facebook Live CF → Order**: Webhook inbox → deterministic parser → SKU resolver → Reservation → Customer/Order/Invoice พร้อม idempotency และ ambiguous-message handling
+6. **W6 — Fulfillment Stock Issue & E2E**: Pick/Pack/Ship หรือ milestone ที่ Owner อนุมัติ → `sale_issue` movement; cancel/timeout คืน Reservation; reconciliation ระหว่าง Order, Reservation, Balance และ Ledger
+
+ทุก Gate ต้องทำทีละข้อ ทดสอบก่อนข้อต่อไป และงาน UI ต้องผ่าน Approved Mockup/Design System ก่อนเชื่อมระบบจริง
+
+## 11. Decision Log
 
 | วันที่ | การตัดสินใจ |
 |---|---|
@@ -319,3 +390,6 @@ Stop gate: **หยุดให้ Owner ทดสอบ UI และข้อ�
 | 16 ส.ค. 2026 | ข้อความ Live CF ต้อง resolve เป็น SKU ID เดียวก่อนจอง เปิดบิล หรือตัด Stock |
 | 16 ส.ค. 2026 | ทำ Mockup ก่อนระบบจริง และพัฒนาทีละ Part พร้อม Stop Gate |
 | 16 ส.ค. 2026 | Variant ใช้ Base Unit ร่วม, Sales Code/CF และราคาขายต่อ Combination; Tax Category/ต้นทุนเป็นค่าร่วมเริ่มต้น |
+| 18 ส.ค. 2026 | Initial Stock ในหน้าสร้างสินค้าเป็น Optional UX แต่ต้องสร้าง Inventory Movement ต่อ SKU/Location ห้ามแก้ Balance โดยตรง |
+| 18 ส.ค. 2026 | เลือกสินค้าเข้ารอบ Live ไม่ลด on_hand; CF ต้องสร้าง Reservation ก่อน และขายออกเมื่อถึง Fulfillment milestone ที่อนุมัติ |
+| 18 ส.ค. 2026 | Live Session ระยะแรกใช้ Fulfillment Warehouse/Location ที่ชัดเจน ไม่ตัด Stock กลางระดับ Organization |
