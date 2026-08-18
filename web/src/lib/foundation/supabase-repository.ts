@@ -70,11 +70,12 @@ function mapSkuProfile(row: Record<string, unknown> | undefined): ProductWorkspa
 }
 
 function mapSkuCost(row: Record<string, unknown> | undefined, includeCost: boolean): ProductWorkspaceSkuCost {
-  if (!includeCost) return { mode: 'not-authorized', costPrice: null, currencyCode: null }
+  if (!includeCost) return { mode: 'not-authorized', costPrice: null, currencyCode: null, version: null }
   return {
     mode: 'authorized',
     costPrice: nullableNumber(row?.cost_price),
     currencyCode: row?.currency_code ? String(row.currency_code) : null,
+    version: row?.version === undefined ? null : Number(row.version),
   }
 }
 
@@ -379,7 +380,7 @@ export class SupabaseFoundationReadRepository implements FoundationReadRepositor
           .eq('organization_id', input.organizationId).in('sku_id', skuIds)
         : Promise.resolve({ data: [], error: null }),
       input.includeCost && skuIds.length > 0
-        ? this.client.from('sku_cost_profiles').select('sku_id, cost_price, currency_code')
+        ? this.client.from('sku_cost_profiles').select('sku_id, version, cost_price, currency_code')
           .eq('organization_id', input.organizationId).in('sku_id', skuIds)
         : Promise.resolve({ data: [], error: null }),
       creatorIds.length > 0
@@ -566,7 +567,7 @@ export class SupabaseFoundationReadRepository implements FoundationReadRepositor
           .eq('organization_id', input.organizationId).in('sku_id', skuIds)
         : Promise.resolve({ data: [], error: null }),
       input.includeCost && skuIds.length > 0
-        ? this.client.from('sku_cost_profiles').select('sku_id, cost_price, currency_code')
+        ? this.client.from('sku_cost_profiles').select('sku_id, version, cost_price, currency_code')
           .eq('organization_id', input.organizationId).in('sku_id', skuIds)
         : Promise.resolve({ data: [], error: null }),
       product.created_by

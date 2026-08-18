@@ -69,6 +69,7 @@ export type ProductWorkspaceSkuCost = {
   mode: 'authorized' | 'not-authorized'
   costPrice: number | null
   currencyCode: string | null
+  version?: number | null
 }
 
 export type ProductWorkspaceSellUnit = {
