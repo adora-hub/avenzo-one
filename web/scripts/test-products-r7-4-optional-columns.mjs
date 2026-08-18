@@ -50,6 +50,8 @@ test('R7.4.4 pinning keeps the selection column fixed and offsets pinned columns
   assert.match(grid, /let left = PRODUCT_GRID_SELECTION_WIDTH/)
   assert.match(grid, /product-grid-selection product-grid-selection-pinned/)
   assert.match(grid, /product-grid-pinned-boundary/)
+  assert.match(styles, /\.product-grid-pinned-boundary \{ box-shadow: 14px 0 22px -15px rgb\(15 23 42 \/ \.62\); \}/)
+  assert.match(styles, /\.product-grid-variant-pinned-boundary \{ box-shadow: 14px 0 22px -15px rgb\(15 23 42 \/ \.62\); \}/)
   assert.match(grid, /function ProductGridPinIcon\(\)/)
   assert.match(grid, /transform="rotate\(45 12 12\)"/)
   assert.match(grid, /<span>ปักหมุด<\/span><ProductGridPinIcon \/>/)
@@ -81,4 +83,33 @@ test('R7.4.4 does not expose internal note or mutate business data from Customiz
   assert.doesNotMatch(customizeFlow, /executeFoundationCommandAction/)
   assert.match(grid, /commitColumns\(customizeDraft\)/)
   assert.match(grid, /executeFoundationCommandAction\(command\)/)
+})
+test('R7.4.4 optional inventory and cost columns use the standard inline editor', () => {
+  assert.match(grid, /kind: 'price' \| 'stock' \| 'cost' \| 'inventoryPolicy'/)
+  assert.match(grid, /data-tooltip="แก้ไขราคาต้นทุน"/)
+  assert.match(grid, /data-tooltip="แก้ไข Safety Stock และจุดเติมสินค้า"/)
+  assert.match(grid, /data-tooltip="แก้ไขจำนวนเติมขั้นต่ำและสูงสุด"/)
+  assert.match(grid, /commandType: 'sku\.cost\.upsert'/)
+  assert.match(grid, /expected_version: targetSku\.cost\?\.mode === 'authorized' \? targetSku\.cost\.version \?\? 0 : 0/)
+  assert.match(grid, /safety_stock: safetyStock/)
+  assert.match(grid, /reorder_min: reorderMin/)
+  assert.match(grid, /reorder_max: reorderMax/)
+  assert.match(grid, /จำนวนเติมขั้นต่ำต้องไม่น้อยกว่า Safety Stock/)
+  assert.match(grid, /จำนวนเติมสูงสุดต้องไม่น้อยกว่าจำนวนเติมขั้นต่ำ/)
+  assert.match(styles, /\.product-grid-quick-policy-note \{[^}]*border: 1px solid var\(--status-info-border\)/)
+})
+
+test('R7.4.4 export column selector covers every Products grid column', () => {
+  const exportBlock = grid.slice(grid.indexOf('const PRODUCT_EXPORT_COLUMNS'), grid.indexOf('type ProductExportColumnKey'))
+  for (const column of PRODUCT_GRID_DEFAULT_COLUMNS) {
+    assert.match(exportBlock, new RegExp(`\\['${column.key}',`), `missing export column ${column.key}`)
+  }
+  assert.match(grid, /PRODUCT_EXPORT_COLUMNS\.filter\(\(\[key\]\) => canReadCost \|\| key !== 'cost'\)/)
+  assert.match(grid, /สต็อกสำรอง \(Safety Stock\)/)
+  assert.match(grid, /จำนวนเติมขั้นต่ำ \/ สูงสุด/)
+  assert.match(grid, /สาขาที่มีสต็อก/)
+})
+test('R7.4.4 branches with stock remain derived from Stock Movement', () => {
+  assert.match(grid, /if \(key === 'branches'\) return/)
+  assert.doesNotMatch(grid, /openQuickEdit\([^\n]*'branches'/)
 })

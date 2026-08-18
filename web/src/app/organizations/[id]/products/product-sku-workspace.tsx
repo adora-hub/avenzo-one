@@ -958,13 +958,15 @@ export function ProductSkuWorkspace({
   return <>
     <header className="product-modern-heading">
       <div className="product-heading-title-row">
-        <h1>{view === 'products' ? 'Products' : 'SKUs'}</h1>
+        <h1>{view === 'products' ? 'สินค้า' : 'รหัสสินค้า (SKU)'}</h1>
         <span className="product-count-badge" aria-label={`${skuCount} SKU`}>
           {skuCount} SKU
         </span>
       </div>
       <div className="product-heading-subrow">
-        <p>จัดการสินค้า รหัส SKU, Sales Code และ Barcode ของ {organizationName}</p>
+        <p>{view === 'products'
+          ? `จัดการสินค้า รหัสสินค้า (SKU) รหัสขาย / รหัส CF และบาร์โค้ดของ ${organizationName}`
+          : `จัดการรหัสสินค้า (SKU) รหัสขาย / รหัส CF และบาร์โค้ดของ ${organizationName}`}</p>
         {canManage ? <details className="product-create-menu" ref={createMenuRef}>
           <summary className="button">＋ สร้างสินค้า <span aria-hidden="true">▾</span></summary>
           <div className="product-create-menu-panel" role="menu">

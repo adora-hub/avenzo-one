@@ -28,7 +28,8 @@ test('R7.4.3 renders price from the read-model summary without fake defaults', (
   assert.match(grid, /Intl\.NumberFormat\('th-TH'/)
   assert.match(grid, /if \(key === 'price'\)/)
   assert.doesNotMatch(grid, /row\.skuPreview\[0\].*salePrice/)
-  assert.doesNotMatch(grid, /costPrice/)
+  const priceRenderer = grid.slice(grid.indexOf("if (key === 'price')"), grid.indexOf("if (key === 'category')"))
+  assert.doesNotMatch(priceRenderer, /costPrice/)
 })
 
 test('R7.4.3 keeps approved stock and status semantics beside price', () => {

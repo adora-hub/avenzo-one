@@ -72,7 +72,7 @@ test('production grid matches approved toolbar without inventing data writes', (
   assert.match(grid, /กำหนดคอลัมน์ที่ส่งออก/)
   assert.match(grid, /accept="\.xlsx,\.xls,\.csv"/)
   assert.match(grid, /Preview จะไม่อัปโหลดข้อมูล/)
-  assert.match(grid, /avenzo-products-template\.csv/)
+  assert.match(grid, /avenzo-products-template\.xlsx/)
   assert.match(grid, /localStorage\.setItem\(exportStorageKey/)
   assert.doesNotMatch(grid, /Import \/ Export Gate ใน R8/)
   assert.doesNotMatch(grid, /role="menuitem" disabled/)

@@ -1346,3 +1346,69 @@ final result: blocked
 - Functional verification: TypeScript passed; Operations UI foundation 4/4; Warehouse & Stock vertical slice 4/4; local route HTTP 200.
 - Primary interactions and console errors: not browser-tested because the browser runtime could not start.
 - Manual check required: F5 the Warehouse page and switch all three tabs in desktop and mobile widths.
+
+## Products Thai page heading — 18 August 2026
+
+- Source visual truth: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-cac754bb-def4-4dd6-b834-bf6e13c5c4e3.png`.
+- Implementation route: `/organizations/69408fd5-4f58-4546-9ab4-5b92009bd241/products`.
+- Scope: copy-only localization; page layout, count badge, create menu, table and all data behavior remain unchanged.
+- Main heading: `Products` is replaced by `สินค้า`; the SKU view uses `รหัสสินค้า (SKU)`.
+- Supporting copy: English domain labels are expressed for Thai users as `รหัสสินค้า (SKU)`, `รหัสขาย / รหัส CF` and `บาร์โค้ด` while preserving the Organization name.
+- Automated verification: Products workspace R1 regression passed 4/4; Products visual parity regression passed 6/6; TypeScript passed; local route HTTP 200.
+- Full-view comparison evidence: blocked because the in-app browser runtime could not start; the Windows sandbox helper returned `apply deny-read ACLs`.
+- Focused region comparison evidence: blocked for the same reason; no implementation screenshot could be captured at the matching authenticated state.
+- Primary interactions and console errors: not browser-tested because browser capture was blocked.
+- Manual check required: refresh the Products page and confirm the Thai heading and supporting sentence at the approved desktop viewport.
+
+final result: blocked
+
+## Products pinned-column vertical shadow — 18 August 2026
+
+- Source visual truth: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-116eae4a-b745-4374-a6b0-902372d2a99d.png`.
+- Scope: visual separation at the right edge of the pinned columns; column sizes, pinning behavior, saved preferences and scrolling remain unchanged.
+- Main grid: the final pinned column now casts a clearer vertical shadow into the horizontally scrollable region.
+- Expanded SKU grid: the same shadow treatment is applied at its pinned boundary for component consistency.
+- Automated verification: optional-column and pinning regression passed 6/6; Products visual parity passed 6/6; TypeScript passed.
+- Local Products route: HTTP 200.
+- Full-view and focused comparison evidence: blocked because the in-app browser runtime could not start; Windows returned `apply deny-read ACLs`.
+- Primary interactions and console errors: not browser-tested because browser capture was blocked.
+- Manual check required: refresh Products, horizontally scroll the grid and confirm the vertical shadow stays attached to the last pinned column.
+
+final result: blocked
+## Products export column selector completeness
+
+- Reference: user screenshot `codex-clipboard-7cfd3fce-5c22-4aa3-9570-88dfd8ccd445.png`.
+- Implemented: Export selector now mirrors all 20 Products grid columns, uses Thai labels, and permission-gates Cost Price.
+- Automated QA: optional-column tests 9/9, default-grid tests 9/9, TypeScript passed, Dev Server compiled the Products route.
+- Visual QA: blocked because the Chrome control runtime was rejected by the Windows sandbox (`apply deny-read ACLs`).
+- Final result: blocked for visual comparison only; functional and compile gates passed.
+
+## Products Excel Import Phase 1 (Parts 1.1-1.5) - 18 August 2026
+
+- Scope: local UI-only Excel import flow; no parser, upload API, trusted command, database write, SKU creation or Stock Movement.
+- Part 1.1: accessible import dialog with focus trap, Escape/backdrop close and focus return.
+- Part 1.2: Thai four-step guidance and reusable XLSX template download.
+- Part 1.3: duplicate-policy UI for update existing or skip duplicate, with explicit no-delete/no-stock warning.
+- Part 1.4: drag-and-drop/file-picker states for XLSX, XLS and CSV up to 10 MB; only local file metadata is retained.
+- Part 1.5: fixed mock preview, summary cards, preview table, confirmation and completion states.
+- Automated QA: TypeScript passed; Excel-import UI 1/1; Products visual parity 6/6; Excel template 1/1.
+- Visual browser QA: blocked because the in-app browser runtime could not start; Windows sandbox returned `apply deny-read ACLs`.
+- Manual check required: open the local Products page, select Excel import, and walk through setup, preview and completion states.
+
+final result: blocked for automated visual comparison only; UI contract and compile gates passed.
+## Products Excel Template compact primary button - 18 August 2026
+
+- Source visual truth: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-3872c92f-da63-4c94-9e32-64c490535348.png` plus the user's explicit Design System direction.
+- Implementation route: `/organizations/69408fd5-4f58-4546-9ab4-5b92009bd241/products`, Excel import dialog setup state.
+- Scope: visual-only button styling; download behavior and all data behavior remain unchanged.
+- Fonts and typography: reduced to 12px with 600 weight and compact line height.
+- Spacing and layout: fixed 34px height, 12px horizontal padding, 8px radius and 14px Tabler download icon.
+- Colors and tokens: black primary surface with white text; hover/focus-visible changes to neutral gray.
+- Image quality: existing vector icon library retained; no new raster or handcrafted SVG.
+- Copy/content: `ดาวน์โหลด Template` remains unchanged.
+- Automated verification: TypeScript passed; Excel import UI 1/1; diff check passed.
+- Browser-rendered implementation screenshot: unavailable because the in-app browser runtime failed with Windows sandbox `apply deny-read ACLs`.
+- Full-view and focused comparison evidence: blocked because the browser capture runtime and Temp image reader could not start.
+- Manual check required: open the Excel import dialog and verify default, hover and keyboard-focus states.
+
+final result: blocked

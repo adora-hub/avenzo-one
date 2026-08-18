@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
+import { IconAlertCircle, IconArrowLeft, IconCircleCheck, IconDownload, IconFileSpreadsheet, IconTrash, IconUpload, IconX } from '@tabler/icons-react'
 import {
   Fragment, useEffect, useMemo, useRef, useState, useTransition,
   type DragEvent as ReactDragEvent,
@@ -34,23 +35,33 @@ const labels: Record<ProductGridColumnKey, string> = {
 }
 
 const PRODUCT_EXPORT_COLUMNS = [
-  ['product', 'Product'], ['salesCode', 'รหัส CF'], ['sku', 'SKU Code'], ['barcode', 'Barcode'],
-  ['stock', 'Stock'], ['baseUnit', 'Base Unit'], ['price', 'ราคาขาย'], ['category', 'หมวดหมู่'],
-  ['brand', 'แบรนด์'], ['quantityBehavior', 'วิธีนับจำนวน'], ['tax', 'อัตราภาษี'], ['tags', 'Tags'],
-  ['branches', 'สาขา'], ['createdAt', 'วันที่สร้าง'], ['updatedAt', 'แก้ไขล่าสุด'],
-  ['createdBy', 'ผู้สร้าง'], ['status', 'Status'],
+  ['product', 'สินค้า'], ['salesCode', 'รหัสขาย / CF'], ['sku', 'รหัสสินค้า (SKU)'],
+  ['stock', 'สต็อก'], ['baseUnit', 'หน่วยนับ'], ['price', 'ราคาขาย'], ['status', 'สถานะ'],
+  ['updatedAt', 'แก้ไขล่าสุด'], ['category', 'หมวดหมู่'], ['brand', 'แบรนด์'],
+  ['tags', 'ป้ายกำกับ'], ['barcode', 'บาร์โค้ด'], ['quantityBehavior', 'วิธีนับจำนวน'],
+  ['tax', 'อัตราภาษี'], ['safetyStock', 'สต็อกสำรอง (Safety Stock)'],
+  ['reorder', 'จำนวนเติมขั้นต่ำ / สูงสุด'], ['branches', 'สาขาที่มีสต็อก'],
+  ['createdAt', 'วันที่สร้าง'], ['createdBy', 'ผู้สร้าง'], ['cost', 'ราคาต้นทุน'],
 ] as const
 
 type ProductExportColumnKey = typeof PRODUCT_EXPORT_COLUMNS[number][0]
 
 type GridSort = { key: ProductGridColumnKey; direction: 'asc' | 'desc' }
 type QuickEditState = {
-  kind: 'price' | 'stock'
+  kind: 'price' | 'stock' | 'cost' | 'inventoryPolicy'
   row: ProductWorkspaceRow
   sku: ProductWorkspaceRow['skuPreview'][number]
   left: number
   top: number
 }
+
+const EXCEL_IMPORT_PREVIEW_ROWS = [
+  { row: 2, sku: 'SKU-DEMO-001', product: 'กระเป๋าสาธิต Mini', result: 'พร้อมเพิ่ม', tone: 'success' },
+  { row: 3, sku: 'SKU-DEMO-002', product: 'ต่างหูสาธิต สีทอง', result: 'พร้อมเพิ่ม', tone: 'success' },
+  { row: 4, sku: 'SKU-EXIST-001', product: 'กำไลตัวอย่าง', result: 'พบ SKU เดิม', tone: 'warning' },
+  { row: 5, sku: 'SKU-DEMO-004', product: 'เสื้อยืดตัวอย่าง', result: 'พร้อมเพิ่ม', tone: 'success' },
+  { row: 6, sku: '—', product: 'สินค้าที่ยังไม่มี SKU', result: 'ต้องกรอก SKU', tone: 'danger' },
+] as const
 
 const PRODUCT_GRID_SELECTION_WIDTH = 52
 const PRODUCT_GRID_PAGE_SIZES = [10, 25, 50, 100, 300, 400] as const
@@ -206,6 +217,12 @@ export function ProductsDataGrid({
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
   const [gridSort, setGridSort] = useState<GridSort>({ key: 'updatedAt', direction: sort === 'updated_desc' ? 'desc' : 'asc' })
   const [excelMenuOpen, setExcelMenuOpen] = useState(false)
+  const [excelImportOpen, setExcelImportOpen] = useState(false)
+  const [excelImportPolicy, setExcelImportPolicy] = useState<'update' | 'skip'>('update')
+  const [excelImportFile, setExcelImportFile] = useState<{ name: string; size: number } | null>(null)
+  const [excelImportError, setExcelImportError] = useState<string | null>(null)
+  const [excelImportDragging, setExcelImportDragging] = useState(false)
+  const [excelImportStep, setExcelImportStep] = useState<'setup' | 'preview' | 'complete'>('setup')
   const [exportColumnsOpen, setExportColumnsOpen] = useState(false)
   const [exportColumns, setExportColumns] = useState<ProductExportColumnKey[]>(PRODUCT_EXPORT_COLUMNS.map(([key]) => key))
   const [exportColumnsDraft, setExportColumnsDraft] = useState<ProductExportColumnKey[]>(PRODUCT_EXPORT_COLUMNS.map(([key]) => key))
@@ -230,6 +247,7 @@ export function ProductsDataGrid({
   const excelMenuRef = useRef<HTMLDivElement>(null)
   const excelTriggerRef = useRef<HTMLButtonElement>(null)
   const excelImportRef = useRef<HTMLInputElement>(null)
+  const excelImportDialogRef = useRef<HTMLElement>(null)
   const exportColumnsDialogRef = useRef<HTMLElement>(null)
   const customizeRef = useRef<HTMLDivElement>(null)
   const customizeTriggerRef = useRef<HTMLButtonElement>(null)
@@ -257,7 +275,7 @@ export function ProductsDataGrid({
     try {
       const stored = JSON.parse(localStorage.getItem(exportStorageKey) ?? 'null')
       const restored = Array.isArray(stored)
-        ? Array.from(new Set(stored.filter((key): key is ProductExportColumnKey => typeof key === 'string' && validKeys.has(key as ProductExportColumnKey))))
+        ? Array.from(new Set(stored.filter((key): key is ProductExportColumnKey => typeof key === 'string' && validKeys.has(key as ProductExportColumnKey) && (canReadCost || key !== 'cost'))))
         : []
       if (restored.length) {
         setExportColumns(restored)
@@ -266,7 +284,7 @@ export function ProductsDataGrid({
     } catch {
       // Invalid device preference falls back to all export columns.
     }
-  }, [exportStorageKey])
+  }, [canReadCost, exportStorageKey])
 
   useEffect(() => {
     if (!excelMenuOpen) return
@@ -285,6 +303,16 @@ export function ProductsDataGrid({
       window.removeEventListener('keydown', closeExcelMenuOnEscape)
     }
   }, [excelMenuOpen])
+
+  useEffect(() => {
+    if (!excelImportOpen) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    window.requestAnimationFrame(() => excelImportDialogRef.current?.querySelector<HTMLElement>('button, input, [tabindex]:not([tabindex="-1"])')?.focus())
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [excelImportOpen])
 
   useEffect(() => {
     if (!gridToast) return
@@ -453,36 +481,95 @@ export function ProductsDataGrid({
     return `/organizations/${organizationId}/products?${params}`
   }
 
-  function downloadProductTemplate() {
-    const csv = [
-      'Product Name,Category,Brand,SKU Code,Sales Code,Barcode,Base Unit,Quantity Behavior,Price,Tax,Tags,Branches,Status',
-      'Example Product,Apparel,Example Brand,SKU-001,CF-001,8850000000001,piece,discrete,100,VAT 7%,new|sample,BKK-01,draft',
-    ].join('\n')
-    const url = URL.createObjectURL(new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8' }))
+  async function downloadProductTemplate() {
+    const { createProductTemplateWorkbook } = await import('./product-excel-template')
+    const workbook = createProductTemplateWorkbook()
+    const workbookBuffer = workbook.buffer.slice(workbook.byteOffset, workbook.byteOffset + workbook.byteLength) as ArrayBuffer
+    const url = URL.createObjectURL(new Blob([workbookBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
     const anchor = document.createElement('a')
     anchor.href = url
-    anchor.download = 'avenzo-products-template.csv'
+    anchor.download = 'avenzo-products-template.xlsx'
     anchor.click()
     window.setTimeout(() => URL.revokeObjectURL(url), 0)
     setExcelMenuOpen(false)
-    setGridToast('ดาวน์โหลด Template แล้ว')
+    setGridToast('ดาวน์โหลด Template พร้อมคู่มือภาษาไทยแล้ว')
+  }
+
+  function selectExcelImportFile(file: File | undefined) {
+    setExcelImportError(null)
+    if (!file) return
+    if (!/\.(xlsx|xls|csv)$/i.test(file.name)) {
+      setExcelImportFile(null)
+      setExcelImportError('รองรับเฉพาะไฟล์ .xlsx, .xls หรือ .csv')
+      return
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setExcelImportFile(null)
+      setExcelImportError('ไฟล์ต้องมีขนาดไม่เกิน 10 MB')
+      return
+    }
+    setExcelImportFile({ name: file.name, size: file.size })
+  }
+
+  function clearExcelImportFile() {
+    setExcelImportFile(null)
+    setExcelImportError(null)
+    if (excelImportRef.current) excelImportRef.current.value = ''
+  }
+
+  function handleExcelImportDrop(event: ReactDragEvent<HTMLLabelElement>) {
+    event.preventDefault()
+    setExcelImportDragging(false)
+    selectExcelImportFile(event.dataTransfer.files?.[0])
+  }
+
+  function openExcelImport() {
+    setExcelMenuOpen(false)
+    setExcelImportStep('setup')
+    setExcelImportOpen(true)
+  }
+
+  function closeExcelImport() {
+    setExcelImportOpen(false)
+    window.requestAnimationFrame(() => excelTriggerRef.current?.focus())
+  }
+
+  function handleExcelImportKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      closeExcelImport()
+      return
+    }
+    if (event.key !== 'Tab') return
+    const focusable = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'))
+    if (!focusable.length) return
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault()
+      last.focus()
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault()
+      first.focus()
+    }
   }
 
   function openExportColumns() {
-    setExportColumnsDraft(exportColumns)
+    setExportColumnsDraft(exportColumns.filter((key) => canReadCost || key !== 'cost'))
     setExcelMenuOpen(false)
     setExportColumnsOpen(true)
   }
 
   function saveExportColumns() {
-    if (!exportColumnsDraft.length) {
+    const allowedDraft = exportColumnsDraft.filter((key) => canReadCost || key !== 'cost')
+    if (!allowedDraft.length) {
       setGridToast('เลือกอย่างน้อย 1 คอลัมน์')
       return
     }
-    setExportColumns(exportColumnsDraft)
-    localStorage.setItem(exportStorageKey, JSON.stringify(exportColumnsDraft))
+    setExportColumns(allowedDraft)
+    localStorage.setItem(exportStorageKey, JSON.stringify(allowedDraft))
     setExportColumnsOpen(false)
-    setGridToast(`บันทึกคอลัมน์ส่งออก ${exportColumnsDraft.length} รายการแล้ว`)
+    setGridToast(`บันทึกคอลัมน์ส่งออก ${allowedDraft.length} รายการแล้ว`)
     excelTriggerRef.current?.focus()
   }
 
@@ -817,8 +904,8 @@ export function ProductsDataGrid({
 
   function openQuickEdit(target: HTMLButtonElement, kind: QuickEditState['kind'], row: ProductWorkspaceRow, sku: ProductWorkspaceRow['skuPreview'][number]) {
     const rect = target.getBoundingClientRect()
-    const width = kind === 'stock' ? 360 : 320
-    const estimatedHeight = kind === 'stock' ? 390 : 245
+    const width = kind === 'stock' || kind === 'inventoryPolicy' ? 360 : 320
+    const estimatedHeight = kind === 'stock' ? 390 : kind === 'inventoryPolicy' ? 360 : 245
     const left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8))
     const preferredTop = rect.bottom + 8
     const top = preferredTop + estimatedHeight <= window.innerHeight - 8
@@ -834,45 +921,73 @@ export function ProductsDataGrid({
     const data = new FormData(event.currentTarget)
     const targetSku = quickEdit.row.skuPreview.find((sku) => sku.id === String(data.get('skuId') ?? quickEdit.sku.id)) ?? quickEdit.sku
     const profile = targetSku.profile
-    const command = quickEdit.kind === 'price'
-      ? {
-          kind: 'entity' as const,
-          commandId: crypto.randomUUID(),
-          organizationId,
-          commandType: 'sku.profile.upsert',
-          payload: {
-            sku_id: targetSku.id,
-            expected_version: profile?.version ?? 0,
-            quantity_behavior: profile?.quantityBehavior ?? 'discrete',
-            sale_price: Number(data.get('salePrice')),
-            currency_code: profile?.currencyCode ?? 'THB',
-            tax_category: profile?.taxCategory ?? 'standard',
-            tax_rate: profile?.taxRate ?? 7,
-            product_weight_kg: profile?.productWeightKg ?? null,
-            product_length_cm: profile?.productLengthCm ?? null,
-            product_width_cm: profile?.productWidthCm ?? null,
-            product_height_cm: profile?.productHeightCm ?? null,
-            package_weight_kg: profile?.packageWeightKg ?? null,
-            package_length_cm: profile?.packageLengthCm ?? null,
-            package_width_cm: profile?.packageWidthCm ?? null,
-            package_height_cm: profile?.packageHeightCm ?? null,
-            safety_stock: profile?.safetyStock ?? null,
-            reorder_min: profile?.reorderMin ?? null,
-            reorder_max: profile?.reorderMax ?? null,
-          },
-        }
-      : {
-          kind: 'inventory' as const,
-          commandId: crypto.randomUUID(),
-          organizationId,
-          commandType: String(data.get('direction')) as 'adjustment_in' | 'adjustment_out',
-          skuId: targetSku.id,
-          sourceLocationId: data.get('direction') === 'adjustment_out' ? String(data.get('locationId')) : null,
-          destinationLocationId: data.get('direction') === 'adjustment_in' ? String(data.get('locationId')) : null,
-          quantity: Number(data.get('quantity')),
-          reasonCode: 'stock_count',
-          reasonNote: String(data.get('reasonNote') ?? '').trim(),
-        }
+    const optionalNonNegativeNumber = (name: string) => {
+      const raw = String(data.get(name) ?? '').trim()
+      if (!raw) return null
+      const value = Number(raw)
+      return Number.isFinite(value) && value >= 0 ? value : Number.NaN
+    }
+    const safetyStock = quickEdit.kind === 'inventoryPolicy' ? optionalNonNegativeNumber('safetyStock') : profile?.safetyStock ?? null
+    const reorderMin = quickEdit.kind === 'inventoryPolicy' ? optionalNonNegativeNumber('reorderMin') : profile?.reorderMin ?? null
+    const reorderMax = quickEdit.kind === 'inventoryPolicy' ? optionalNonNegativeNumber('reorderMax') : profile?.reorderMax ?? null
+    if (quickEdit.kind === 'inventoryPolicy') {
+      if ([safetyStock, reorderMin, reorderMax].some((value) => Number.isNaN(value))) return setQuickEditError('กรุณากรอกจำนวนตั้งแต่ 0 ขึ้นไป')
+      if (reorderMin !== null && reorderMin < (safetyStock ?? 0)) return setQuickEditError('จำนวนเติมขั้นต่ำต้องไม่น้อยกว่า Safety Stock')
+      if (reorderMax !== null && reorderMax < (reorderMin ?? 0)) return setQuickEditError('จำนวนเติมสูงสุดต้องไม่น้อยกว่าจำนวนเติมขั้นต่ำ')
+    }
+    const profileCommand = {
+      kind: 'entity' as const,
+      commandId: crypto.randomUUID(),
+      organizationId,
+      commandType: 'sku.profile.upsert',
+      payload: {
+        sku_id: targetSku.id,
+        expected_version: profile?.version ?? 0,
+        quantity_behavior: profile?.quantityBehavior ?? 'discrete',
+        sale_price: quickEdit.kind === 'price' ? Number(data.get('salePrice')) : profile?.salePrice ?? null,
+        currency_code: profile?.currencyCode ?? 'THB',
+        tax_category: profile?.taxCategory ?? 'standard',
+        tax_rate: profile?.taxRate ?? 7,
+        product_weight_kg: profile?.productWeightKg ?? null,
+        product_length_cm: profile?.productLengthCm ?? null,
+        product_width_cm: profile?.productWidthCm ?? null,
+        product_height_cm: profile?.productHeightCm ?? null,
+        package_weight_kg: profile?.packageWeightKg ?? null,
+        package_length_cm: profile?.packageLengthCm ?? null,
+        package_width_cm: profile?.packageWidthCm ?? null,
+        package_height_cm: profile?.packageHeightCm ?? null,
+        safety_stock: safetyStock,
+        reorder_min: reorderMin,
+        reorder_max: reorderMax,
+      },
+    }
+    const command = quickEdit.kind === 'price' || quickEdit.kind === 'inventoryPolicy'
+      ? profileCommand
+      : quickEdit.kind === 'cost'
+        ? {
+            kind: 'entity' as const,
+            commandId: crypto.randomUUID(),
+            organizationId,
+            commandType: 'sku.cost.upsert',
+            payload: {
+              sku_id: targetSku.id,
+              expected_version: targetSku.cost?.mode === 'authorized' ? targetSku.cost.version ?? 0 : 0,
+              cost_price: Number(data.get('costPrice')),
+              currency_code: targetSku.cost?.mode === 'authorized' ? targetSku.cost.currencyCode ?? 'THB' : 'THB',
+            },
+          }
+        : {
+            kind: 'inventory' as const,
+            commandId: crypto.randomUUID(),
+            organizationId,
+            commandType: String(data.get('direction')) as 'adjustment_in' | 'adjustment_out',
+            skuId: targetSku.id,
+            sourceLocationId: data.get('direction') === 'adjustment_out' ? String(data.get('locationId')) : null,
+            destinationLocationId: data.get('direction') === 'adjustment_in' ? String(data.get('locationId')) : null,
+            quantity: Number(data.get('quantity')),
+            reasonCode: 'stock_count',
+            reasonNote: String(data.get('reasonNote') ?? '').trim(),
+          }
     setQuickEditError(null)
     startQuickEditTransition(async () => {
       const result = await executeFoundationCommandAction(command)
@@ -887,13 +1002,18 @@ export function ProductsDataGrid({
         setQuickEditError(message)
         return
       }
-      setGridToast(quickEdit.kind === 'price' ? 'อัปเดตราคาขายเรียบร้อยแล้ว' : 'บันทึก Stock Movement เรียบร้อยแล้ว')
+      setGridToast(quickEdit.kind === 'price'
+        ? 'อัปเดตราคาขายเรียบร้อยแล้ว'
+        : quickEdit.kind === 'cost'
+          ? 'อัปเดตราคาต้นทุนเรียบร้อยแล้ว'
+          : quickEdit.kind === 'inventoryPolicy'
+            ? 'อัปเดตนโยบายสต๊อกเรียบร้อยแล้ว'
+            : 'บันทึก Stock Movement เรียบร้อยแล้ว')
       setQuickEdit(null)
       router.refresh()
     })
   }
-
-  function toggleVariantRow(rowId: string) {
+function toggleVariantRow(rowId: string) {
     setExpandedRows((current) => {
       const next = new Set(current)
       if (next.has(rowId)) next.delete(rowId)
@@ -947,12 +1067,21 @@ export function ProductsDataGrid({
     if (key === 'barcode') return <td key={key} className={className} style={style}>{stack(firstSku?.barcode ? <div className="product-grid-code-line"><code>{firstSku.barcode}</code>{copyButton(firstSku.barcode, `${row.id}:barcode`, 'คัดลอก Barcode')}</div> : <span className="product-grid-muted">—</span>)}</td>
     if (key === 'quantityBehavior') return <td key={key} className={className} style={style}>{stack(formatSummary(row.quantityBehavior))}</td>
     if (key === 'tax') return <td key={key} className={className} style={style}>{row.taxCategory.mode === 'mixed' || row.taxRate.mode === 'mixed' ? stack('หลายค่า') : stack(<strong>{formatSummary(row.taxCategory)}</strong>, formatSummary(row.taxRate, '%'))}</td>
-    if (key === 'safetyStock') return <td key={key} className={className} style={style}>{stack(formatSummary(row.safetyStock))}</td>
-    if (key === 'reorder') return <td key={key} className={className} style={style}>{stack(<strong>{formatSummary(row.reorderMin)}</strong>, `Max ${formatSummary(row.reorderMax)}`)}</td>
+    if (key === 'safetyStock') {
+      const tooltipKey = `${row.id}:inventory-policy-edit`
+      return <td key={key} className={className} style={style}><div className="product-grid-inline-edit-cell">{stack(formatSummary(row.safetyStock))}{canManage && firstSku ? <button className="product-grid-cell-edit-button" type="button" aria-label={`แก้ไขนโยบายสต๊อก ${firstSku.skuCode}`} data-tooltip="แก้ไข Safety Stock และจุดเติมสินค้า" onMouseEnter={(event) => showCopyTooltip(event.currentTarget, tooltipKey, 'แก้ไข Safety Stock และจุดเติมสินค้า')} onMouseLeave={() => setCopyTooltip(null)} onFocus={(event) => showCopyTooltip(event.currentTarget, tooltipKey, 'แก้ไข Safety Stock และจุดเติมสินค้า')} onBlur={() => setCopyTooltip(null)} onClick={(event) => { setCopyTooltip(null); openQuickEdit(event.currentTarget, 'inventoryPolicy', row, firstSku) }}><ProductGridEditIcon /></button> : null}</div></td>
+    }
+    if (key === 'reorder') {
+      const tooltipKey = `${row.id}:reorder-edit`
+      return <td key={key} className={className} style={style}><div className="product-grid-inline-edit-cell">{stack(<strong>{formatSummary(row.reorderMin)}</strong>, `Max ${formatSummary(row.reorderMax)}`)}{canManage && firstSku ? <button className="product-grid-cell-edit-button" type="button" aria-label={`แก้ไขจุดเติมสินค้า ${firstSku.skuCode}`} data-tooltip="แก้ไขจำนวนเติมขั้นต่ำและสูงสุด" onMouseEnter={(event) => showCopyTooltip(event.currentTarget, tooltipKey, 'แก้ไขจำนวนเติมขั้นต่ำและสูงสุด')} onMouseLeave={() => setCopyTooltip(null)} onFocus={(event) => showCopyTooltip(event.currentTarget, tooltipKey, 'แก้ไขจำนวนเติมขั้นต่ำและสูงสุด')} onBlur={() => setCopyTooltip(null)} onClick={(event) => { setCopyTooltip(null); openQuickEdit(event.currentTarget, 'inventoryPolicy', row, firstSku) }}><ProductGridEditIcon /></button> : null}</div></td>
+    }
     if (key === 'branches') return <td key={key} className={className} style={style}>{stack(row.stock.mode === 'not-authorized' ? <span className="product-grid-muted">ไม่มีสิทธิ์ดู Stock</span> : row.stock.branchCodes.length ? row.stock.branchCodes.join(', ') : <span className="product-grid-muted">—</span>)}</td>
     if (key === 'createdAt') return <td key={key} className={className} style={style}>{stack(formatUpdatedAt(row.createdAt))}</td>
     if (key === 'createdBy') return <td key={key} className={className} style={style}>{stack(row.createdByDisplayName ?? <span className="product-grid-muted">—</span>)}</td>
-    if (key === 'cost') return <td key={key} className={className} style={style}>{stack(<strong>{formatPriceSummary(row.cost)}</strong>)}</td>
+    if (key === 'cost') {
+      const tooltipKey = `${row.id}:cost-edit`
+      return <td key={key} className={className} style={style}><div className="product-grid-inline-edit-cell">{stack(<strong>{formatPriceSummary(row.cost)}</strong>)}{canManage && canReadCost && firstSku ? <button className="product-grid-cell-edit-button" type="button" aria-label={`แก้ไขราคาต้นทุน ${firstSku.skuCode}`} data-tooltip="แก้ไขราคาต้นทุน" onMouseEnter={(event) => showCopyTooltip(event.currentTarget, tooltipKey, 'แก้ไขราคาต้นทุน')} onMouseLeave={() => setCopyTooltip(null)} onFocus={(event) => showCopyTooltip(event.currentTarget, tooltipKey, 'แก้ไขราคาต้นทุน')} onBlur={() => setCopyTooltip(null)} onClick={(event) => { setCopyTooltip(null); openQuickEdit(event.currentTarget, 'cost', row, firstSku) }}><ProductGridEditIcon /></button> : null}</div></td>
+    }
     if (key === 'status') return <td key={key} className={className} style={style}>{stack(productStatusControl(row))}</td>
     return <td key={key} className={className} style={style}>{stack(formatUpdatedAt(row.updatedAt))}</td>
   }
@@ -1013,14 +1142,21 @@ export function ProductsDataGrid({
         if (key === 'tags') return variantStack(row.tags.length ? <span className="product-grid-tag-list">{row.tags.map((tag) => tag.name).join(', ')}</span> : <span className="product-grid-muted">—</span>)
         if (key === 'quantityBehavior') return variantStack(sku.profile?.quantityBehavior ?? <span className="product-grid-muted">—</span>)
         if (key === 'tax') return sku.profile ? variantStack(<strong>{sku.profile.taxCategory}</strong>, `${sku.profile.taxRate}%`) : variantStack(<span className="product-grid-muted">—</span>)
-        if (key === 'safetyStock') return variantStack(sku.profile?.safetyStock ?? <span className="product-grid-muted">—</span>)
-        if (key === 'reorder') return variantStack(<strong>{sku.profile?.reorderMin ?? '—'}</strong>, `Max ${sku.profile?.reorderMax ?? '—'}`)
+        if (key === 'safetyStock') {
+          const tooltipKey = `${row.id}:${sku.id}:inventory-policy-edit`
+          return <div className="product-grid-inline-edit-cell">{variantStack(sku.profile?.safetyStock ?? <span className="product-grid-muted">—</span>)}{canManage ? <button className="product-grid-cell-edit-button" type="button" aria-label={`แก้ไขนโยบายสต๊อก ${sku.skuCode}`} data-tooltip="แก้ไข Safety Stock และจุดเติมสินค้า" onMouseEnter={(event) => showCopyTooltip(event.currentTarget, tooltipKey, 'แก้ไข Safety Stock และจุดเติมสินค้า')} onMouseLeave={() => setCopyTooltip(null)} onFocus={(event) => showCopyTooltip(event.currentTarget, tooltipKey, 'แก้ไข Safety Stock และจุดเติมสินค้า')} onBlur={() => setCopyTooltip(null)} onClick={(event) => { setCopyTooltip(null); openQuickEdit(event.currentTarget, 'inventoryPolicy', row, sku) }}><ProductGridEditIcon /></button> : null}</div>
+        }
+        if (key === 'reorder') {
+          const tooltipKey = `${row.id}:${sku.id}:reorder-edit`
+          return <div className="product-grid-inline-edit-cell">{variantStack(<strong>{sku.profile?.reorderMin ?? '—'}</strong>, `Max ${sku.profile?.reorderMax ?? '—'}`)}{canManage ? <button className="product-grid-cell-edit-button" type="button" aria-label={`แก้ไขจุดเติมสินค้า ${sku.skuCode}`} data-tooltip="แก้ไขจำนวนเติมขั้นต่ำและสูงสุด" onMouseEnter={(event) => showCopyTooltip(event.currentTarget, tooltipKey, 'แก้ไขจำนวนเติมขั้นต่ำและสูงสุด')} onMouseLeave={() => setCopyTooltip(null)} onFocus={(event) => showCopyTooltip(event.currentTarget, tooltipKey, 'แก้ไขจำนวนเติมขั้นต่ำและสูงสุด')} onBlur={() => setCopyTooltip(null)} onClick={(event) => { setCopyTooltip(null); openQuickEdit(event.currentTarget, 'inventoryPolicy', row, sku) }}><ProductGridEditIcon /></button> : null}</div>
+        }
         if (key === 'branches') return variantStack(sku.stock?.mode === 'not-authorized' ? <span className="product-grid-muted">ไม่มีสิทธิ์ดู Stock</span> : sku.stock?.branchCodes.length ? sku.stock.branchCodes.join(', ') : <span className="product-grid-muted">—</span>)
         if (key === 'createdAt') return variantStack(formatUpdatedAt(row.createdAt))
         if (key === 'createdBy') return variantStack(row.createdByDisplayName ?? <span className="product-grid-muted">—</span>)
         if (key === 'cost') {
           const formattedCost = formatSkuCost(sku)
-          return formattedCost ? variantStack(<strong>{formattedCost}</strong>) : variantStack(<span className="product-grid-muted">—</span>)
+          const tooltipKey = `${row.id}:${sku.id}:cost-edit`
+          return <div className="product-grid-inline-edit-cell">{formattedCost ? variantStack(<strong>{formattedCost}</strong>) : variantStack(<span className="product-grid-muted">—</span>)}{canManage && canReadCost ? <button className="product-grid-cell-edit-button" type="button" aria-label={`แก้ไขราคาต้นทุน ${sku.skuCode}`} data-tooltip="แก้ไขราคาต้นทุน" onMouseEnter={(event) => showCopyTooltip(event.currentTarget, tooltipKey, 'แก้ไขราคาต้นทุน')} onMouseLeave={() => setCopyTooltip(null)} onFocus={(event) => showCopyTooltip(event.currentTarget, tooltipKey, 'แก้ไขราคาต้นทุน')} onBlur={() => setCopyTooltip(null)} onClick={(event) => { setCopyTooltip(null); openQuickEdit(event.currentTarget, 'cost', row, sku) }}><ProductGridEditIcon /></button> : null}</div>
         }
         if (key === 'status') return variantStack(<span className={`product-grid-variant-status ${sku.status}`}><i aria-hidden="true" />{statusLabel(sku.status)}</span>)
         return variantStack(formatUpdatedAt(row.updatedAt))
@@ -1062,16 +1198,11 @@ export function ProductsDataGrid({
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 4h16v16H4z" /><path d="M9 4v16M9 9h11M9 15h11M3 8l4 8M7 8l-4 8" /></svg>
           </button>
           {excelMenuOpen ? <div className="product-grid-excel-panel" role="menu" aria-label="เครื่องมือ Excel" onKeyDown={handleExcelMenuKeyDown}>
-            <button type="button" role="menuitem" onClick={() => excelImportRef.current?.click()}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0-4-4m4 4 4-4" /><path d="M4 17v3h16v-3" /></svg>นำเข้าด้วยไฟล์ Excel</button>
+            <button type="button" role="menuitem" onClick={openExcelImport}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0-4-4m4 4 4-4" /><path d="M4 17v3h16v-3" /></svg>นำเข้าด้วยไฟล์ Excel</button>
             <button type="button" role="menuitem" onClick={downloadProductTemplate}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0-4-4m4 4 4-4" /><path d="M4 20h16" /></svg>ดาวน์โหลด Template</button>
             <button type="button" role="menuitem" onClick={openExportColumns}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16M4 12h16M4 19h16" /><path d="M8 3v4M16 10v4M11 17v4" /></svg>กำหนดคอลัมน์ที่ส่งออก</button>
           </div> : null}
-          <input ref={excelImportRef} type="file" accept=".xlsx,.xls,.csv" hidden onChange={(event) => {
-            const file = event.currentTarget.files?.[0]
-            if (file) setGridToast(`เลือกไฟล์ ${file.name} แล้ว — Preview จะไม่อัปโหลดข้อมูล`)
-            event.currentTarget.value = ''
-            setExcelMenuOpen(false)
-          }} />
+          <input ref={excelImportRef} type="file" accept=".xlsx,.xls,.csv" hidden onChange={(event) => selectExcelImportFile(event.currentTarget.files?.[0])} />
         </div>
       <div className="product-grid-customize" ref={customizeRef}>
         <button ref={customizeTriggerRef} className="product-grid-icon-button" type="button" role="menuitem" data-tooltip="ปรับแต่งคอลัมน์" aria-label="ปรับแต่งคอลัมน์" aria-haspopup="dialog" aria-controls="product-grid-customize-popover" aria-expanded={customizeOpen} onClick={openCustomizeColumns}>
@@ -1232,14 +1363,18 @@ export function ProductsDataGrid({
       <Link role="menuitem" href={detailHref({ organizationId, search, status, dateField, dateFrom, dateTo, brandId, categoryId, tagIds, priceMin, priceMax, stockMin, stockMax, sort, productId: rowMenu.rowId, skuId: rowMenu.skuId, page: currentPage, pageSize, bulkSearchActive, action: 'skus' })}>จัดการ SKU</Link>
     </div> : null}
     {quickEdit ? <div ref={quickEditRef} className="product-grid-quick-editor" data-kind={quickEdit.kind} role="dialog" aria-modal="false" aria-labelledby="product-grid-quick-editor-title" style={{ left: quickEdit.left, top: quickEdit.top }}>
-      <header><div><h2 id="product-grid-quick-editor-title">{quickEdit.kind === 'price' ? 'แก้ไขราคาขาย' : 'ปรับจำนวนสต๊อก'}</h2><p title={`${quickEdit.row.name} · ${quickEdit.sku.skuCode}`}>{quickEdit.row.name} · <span className="product-code">{quickEdit.sku.skuCode}</span></p></div><button type="button" aria-label="ปิด" disabled={quickEditPending} onClick={() => setQuickEdit(null)}>×</button></header>
+      <header><div><h2 id="product-grid-quick-editor-title">{quickEdit.kind === 'price' ? 'แก้ไขราคาขาย' : quickEdit.kind === 'cost' ? 'แก้ไขราคาต้นทุน' : quickEdit.kind === 'inventoryPolicy' ? 'แก้ไขนโยบายสต๊อก' : 'ปรับจำนวนสต๊อก'}</h2><p title={`${quickEdit.row.name} · ${quickEdit.sku.skuCode}`}>{quickEdit.row.name} · <span className="product-code">{quickEdit.sku.skuCode}</span></p></div><button type="button" aria-label="ปิด" disabled={quickEditPending} onClick={() => setQuickEdit(null)}>×</button></header>
       <form onSubmit={submitQuickEdit}>
-        {quickEdit.row.skuPreview.filter((sku) => quickEdit.kind === 'price' || sku.status === 'active').length > 1 ? <label className="field-stack">SKU / ตัวเลือก<select name="skuId" value={quickEdit.sku.id} onChange={(event) => setQuickEdit((current) => {
+        {quickEdit.row.skuPreview.filter((sku) => quickEdit.kind !== 'stock' || sku.status === 'active').length > 1 ? <label className="field-stack">SKU / ตัวเลือก<select name="skuId" value={quickEdit.sku.id} onChange={(event) => setQuickEdit((current) => {
           if (!current) return current
           const sku = current.row.skuPreview.find((item) => item.id === event.target.value)
           return sku ? { ...current, sku } : current
-        })}>{quickEdit.row.skuPreview.filter((sku) => quickEdit.kind === 'price' || sku.status === 'active').map((sku) => <option key={sku.id} value={sku.id}>{sku.skuCode}</option>)}</select></label> : <input name="skuId" type="hidden" value={quickEdit.sku.id} />}
-        {quickEdit.kind === 'price' ? <label className="field-stack">ราคาขาย (บาท)<input key={quickEdit.sku.id} name="salePrice" type="number" inputMode="decimal" min="0" step="0.01" required autoFocus defaultValue={quickEdit.sku.profile?.salePrice ?? ''} placeholder="0.00" /></label> : <>
+        })}>{quickEdit.row.skuPreview.filter((sku) => quickEdit.kind !== 'stock' || sku.status === 'active').map((sku) => <option key={sku.id} value={sku.id}>{sku.skuCode}</option>)}</select></label> : <input name="skuId" type="hidden" value={quickEdit.sku.id} />}
+        {quickEdit.kind === 'price' ? <label className="field-stack">ราคาขาย (บาท)<input key={quickEdit.sku.id} name="salePrice" type="number" inputMode="decimal" min="0" step="0.01" required autoFocus defaultValue={quickEdit.sku.profile?.salePrice ?? ''} placeholder="0.00" /></label> : quickEdit.kind === 'cost' ? <label className="field-stack">ราคาต้นทุน (บาท)<input key={quickEdit.sku.id} name="costPrice" type="number" inputMode="decimal" min="0" step="0.01" required autoFocus defaultValue={quickEdit.sku.cost?.mode === 'authorized' ? quickEdit.sku.cost.costPrice ?? '' : ''} placeholder="0.00" /><small>ข้อมูลจำกัดสิทธิ์และบันทึก Audit Log เมื่อแก้ไข</small></label> : quickEdit.kind === 'inventoryPolicy' ? <>
+          <label className="field-stack">Safety Stock<input key={`${quickEdit.sku.id}:safety`} name="safetyStock" type="number" inputMode="decimal" min="0" step="0.000001" required autoFocus defaultValue={quickEdit.sku.profile?.safetyStock ?? 0} /><small>จำนวนสำรองที่ไม่ต้องการนำไปเสนอขาย</small></label>
+          <div className="form-grid-two"><label className="field-stack">เติมขั้นต่ำ<input key={`${quickEdit.sku.id}:min`} name="reorderMin" type="number" inputMode="decimal" min="0" step="0.000001" defaultValue={quickEdit.sku.profile?.reorderMin ?? ''} placeholder="0" /></label><label className="field-stack">เติมสูงสุด<input key={`${quickEdit.sku.id}:max`} name="reorderMax" type="number" inputMode="decimal" min="0" step="0.000001" defaultValue={quickEdit.sku.profile?.reorderMax ?? ''} placeholder="0" /></label></div>
+          <div className="product-grid-quick-policy-note">เติมขั้นต่ำต้องไม่น้อยกว่า Safety Stock และเติมสูงสุดต้องไม่น้อยกว่าค่าขั้นต่ำ</div>
+        </> : <>
           <div className="product-grid-quick-stock-summary"><span>ยอดรวมปัจจุบัน</span><strong>{quickEdit.row.stock.mode === 'single-unit' ? `${quickEdit.row.stock.onHand ?? 0} ${formatProductUnit(quickEdit.sku.baseUnitCode)}` : 'ยังไม่มียอด Stock'}</strong></div>
           <div className="form-grid-two"><label className="field-stack">วิธีปรับ<select name="direction" defaultValue="adjustment_in" autoFocus><option value="adjustment_in">ปรับเพิ่ม</option><option value="adjustment_out">ปรับลด</option></select></label><label className="field-stack">จำนวน<input name="quantity" type="number" inputMode="decimal" min="0.000001" step="0.000001" required /></label></div>
           <label className="field-stack">ตำแหน่งจัดเก็บ<select name="locationId" required defaultValue=""><option value="" disabled>เลือกตำแหน่ง</option>{inventoryLocationOptions.map((location) => <option key={location.id} value={location.id}>{location.warehouseName} · {location.code} · {location.name}</option>)}</select></label>
@@ -1260,10 +1395,30 @@ export function ProductsDataGrid({
         <div className="product-export-columns-body">
           <p id="product-export-columns-description">เลือกข้อมูลที่จะใช้เมื่อต้องส่งออกรายการสินค้า การตั้งค่านี้แยกจากคอลัมน์ที่แสดงในตาราง</p>
           <div className="product-export-column-list">
-            {PRODUCT_EXPORT_COLUMNS.map(([key, label]) => <label className="product-export-column-option" key={key}><input type="checkbox" checked={exportColumnsDraft.includes(key)} onChange={(event) => setExportColumnsDraft((current) => event.target.checked ? Array.from(new Set([...current, key])) : current.filter((item) => item !== key))} /><span>{label}</span></label>)}
+            {PRODUCT_EXPORT_COLUMNS.filter(([key]) => canReadCost || key !== 'cost').map(([key, label]) => <label className="product-export-column-option" key={key}><input type="checkbox" checked={exportColumnsDraft.includes(key)} onChange={(event) => setExportColumnsDraft((current) => event.target.checked ? Array.from(new Set([...current, key])) : current.filter((item) => item !== key))} /><span>{label}</span></label>)}
           </div>
         </div>
-        <footer><button className="button product-grid-button-tertiary" type="button" onClick={() => setExportColumnsDraft(PRODUCT_EXPORT_COLUMNS.map(([key]) => key))}>เลือกทั้งหมด</button><button className="button product-grid-button-secondary" type="button" onClick={() => setExportColumnsOpen(false)}>ยกเลิก</button><button className="button product-grid-button-primary" type="button" onClick={saveExportColumns}>บันทึก</button></footer>
+        <footer><button className="button product-grid-button-tertiary" type="button" onClick={() => setExportColumnsDraft(PRODUCT_EXPORT_COLUMNS.filter(([key]) => canReadCost || key !== 'cost').map(([key]) => key))}>เลือกทั้งหมด</button><button className="button product-grid-button-secondary" type="button" onClick={() => setExportColumnsOpen(false)}>ยกเลิก</button><button className="button product-grid-button-primary" type="button" onClick={saveExportColumns}>บันทึก</button></footer>
+      </section>
+    </div> : null}
+    {excelImportOpen ? <div className="product-modal-backdrop product-excel-import-backdrop" role="presentation" onMouseDown={(event) => {
+      if (event.target === event.currentTarget) closeExcelImport()
+    }}>
+      <section ref={excelImportDialogRef} className="product-excel-import-dialog" role="dialog" aria-modal="true" aria-labelledby="product-excel-import-title" aria-describedby="product-excel-import-description" onKeyDown={handleExcelImportKeyDown}>
+        <header><div><h2 id="product-excel-import-title">นำเข้าสินค้าด้วย Excel</h2><p id="product-excel-import-description">เตรียมและตรวจสอบไฟล์ก่อนนำเข้ารายการสินค้า</p></div><button className="product-master-modal-close" type="button" aria-label="ปิดหน้าต่างนำเข้า Excel" onClick={closeExcelImport}><IconX aria-hidden="true" size={18} /></button></header>
+        <div className="product-excel-import-body">
+          {excelImportStep === 'setup' ? <>
+          <div className="product-excel-import-notice" role="note"><IconAlertCircle aria-hidden="true" size={18} /><div><strong>เตรียมไฟล์ให้ตรงกับ Template ก่อนนำเข้า</strong><ol><li>ดาวน์โหลด Template ของ AVENZO ONE และกรอกข้อมูลในชีต “ข้อมูลสินค้า”</li><li>อ่านคำอธิบายภาษาไทยในชีต “คู่มือภาษาไทย” ก่อนกรอกข้อมูล</li><li>หนึ่งแถวแทนหนึ่ง SKU และควรมีรหัสสินค้า (SKU) ทุกแถว</li><li>ไฟล์ตัวอย่างนี้ใช้ทดสอบหน้าจอเท่านั้น ระบบยังไม่นำข้อมูลเข้าฐานข้อมูล</li></ol></div></div>
+          <div className="product-excel-import-template"><div><strong>ยังไม่มีไฟล์ Template?</strong><span>ดาวน์โหลดไฟล์ล่าสุดที่มีหัวคอลัมน์และคู่มือภาษาไทยพร้อมใช้งาน</span></div><button className="button product-excel-import-template-download" type="button" onClick={downloadProductTemplate}><IconDownload aria-hidden="true" size={14} />ดาวน์โหลด Template</button></div>
+          <fieldset className="product-excel-import-policy"><legend>เมื่อพบ SKU ที่มีอยู่แล้ว</legend><p>เลือกวิธีจำลองการจัดการข้อมูลซ้ำ การตั้งค่านี้ยังไม่ส่งคำสั่งไปยังระบบจริง</p><label><input type="radio" name="excel-import-policy" value="update" checked={excelImportPolicy === 'update'} onChange={() => setExcelImportPolicy('update')} /><span><strong>อัปเดตข้อมูลเดิม</strong><small>ใช้ SKU เป็นตัวอ้างอิงและแสดงค่าที่จะเปลี่ยนในหน้าตรวจสอบ</small></span></label><label><input type="radio" name="excel-import-policy" value="skip" checked={excelImportPolicy === 'skip'} onChange={() => setExcelImportPolicy('skip')} /><span><strong>ข้ามรายการที่ซ้ำ</strong><small>ไม่เปลี่ยนข้อมูลเดิม และตรวจเฉพาะ SKU ใหม่</small></span></label><div className="product-excel-import-policy-warning"><IconAlertCircle aria-hidden="true" size={16} />ไม่มีตัวเลือกใดลบสินค้าเดิมหรือเปลี่ยนสต็อกในขั้นตอนนี้</div></fieldset>
+          <section className="product-excel-import-upload" aria-labelledby="product-excel-import-upload-title"><div><strong id="product-excel-import-upload-title">เลือกไฟล์สินค้า</strong><span>รองรับ .xlsx, .xls และ .csv ขนาดไม่เกิน 10 MB</span></div>{excelImportFile ? <div className="product-excel-import-file"><IconFileSpreadsheet aria-hidden="true" size={22} /><span><strong>{excelImportFile.name}</strong><small>{(excelImportFile.size / 1024).toLocaleString('th-TH', { maximumFractionDigits: 1 })} KB · พร้อมตรวจสอบ</small></span><button className="product-inline-icon" type="button" aria-label="นำไฟล์ที่เลือกออก" data-tooltip="นำไฟล์ออก" onClick={clearExcelImportFile}><IconTrash aria-hidden="true" size={17} /></button></div> : <label className="product-excel-import-dropzone" data-dragging={excelImportDragging || undefined} onDragEnter={(event) => { event.preventDefault(); setExcelImportDragging(true) }} onDragOver={(event) => event.preventDefault()} onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setExcelImportDragging(false) }} onDrop={handleExcelImportDrop}><IconUpload aria-hidden="true" size={30} /><strong>คลิกเพื่อเลือก หรือลากไฟล์มาวางที่นี่</strong><span>Preview จะไม่อัปโหลดข้อมูล · ไฟล์จะถูกเก็บเฉพาะในหน่วยความจำของ Browser</span><input type="file" accept=".xlsx,.xls,.csv" onChange={(event) => selectExcelImportFile(event.currentTarget.files?.[0])} /></label>}{excelImportError ? <div className="product-excel-import-file-error" role="alert"><IconAlertCircle aria-hidden="true" size={16} />{excelImportError}</div> : null}</section>
+          </> : excelImportStep === 'preview' ? <>
+            <div className="product-excel-import-preview-banner"><IconFileSpreadsheet aria-hidden="true" size={22} /><div><strong>{excelImportFile?.name}</strong><span>UI Preview เท่านั้น · ไม่ได้อ่านเนื้อหาไฟล์และยังไม่นำข้อมูลเข้าระบบ</span></div></div>
+            <div className="product-excel-import-summary" aria-label="สรุปผลตรวจสอบจำลอง"><div><span>ทั้งหมด</span><strong>5</strong></div><div data-tone="success"><span>พร้อมดำเนินการ</span><strong>3</strong></div><div data-tone="warning"><span>SKU เดิม</span><strong>1</strong></div><div data-tone="danger"><span>ต้องแก้ไข</span><strong>1</strong></div></div>
+            <section className="product-excel-import-preview-table" aria-labelledby="product-excel-import-preview-title"><div className="product-excel-import-preview-heading"><div><strong id="product-excel-import-preview-title">ตัวอย่างรายการก่อนยืนยัน</strong><span>แสดง 5 แถวจำลองเพื่อทดสอบลำดับการใช้งาน</span></div><span className="product-excel-import-policy-chip">{excelImportPolicy === 'update' ? 'อัปเดตข้อมูลเดิม' : 'ข้ามรายการซ้ำ'}</span></div><div className="product-excel-import-table-scroll"><table><thead><tr><th>แถว</th><th>SKU</th><th>สินค้า</th><th>ผลตรวจสอบ</th></tr></thead><tbody>{EXCEL_IMPORT_PREVIEW_ROWS.map((item) => <tr key={item.row}><td>{item.row}</td><td>{item.sku}</td><td>{item.product}</td><td><span className="product-excel-import-result" data-tone={item.tone}>{item.result === 'พบ SKU เดิม' && excelImportPolicy === 'skip' ? 'ข้ามรายการซ้ำ' : item.result}</span></td></tr>)}</tbody></table></div></section>
+          </> : <div className="product-excel-import-complete"><IconCircleCheck aria-hidden="true" size={46} /><h3>จำลองการนำเข้าเรียบร้อย</h3><p>หน้าจอนี้แสดงขั้นตอนสำเร็จเท่านั้น ไม่มีข้อมูลสินค้า สต็อก หรือฐานข้อมูลถูกเปลี่ยนแปลง</p><dl><div><dt>ไฟล์</dt><dd>{excelImportFile?.name}</dd></div><div><dt>รายการพร้อมดำเนินการ</dt><dd>3 SKU</dd></div><div><dt>นโยบายข้อมูลซ้ำ</dt><dd>{excelImportPolicy === 'update' ? 'อัปเดตข้อมูลเดิม' : 'ข้ามรายการซ้ำ'}</dd></div></dl></div>}
+        </div>
+        <footer>{excelImportStep === 'setup' ? <><button className="button product-grid-button-secondary" type="button" onClick={closeExcelImport}>ยกเลิก</button><button className="button product-grid-button-primary" type="button" disabled={!excelImportFile} onClick={() => setExcelImportStep('preview')}>ตรวจสอบไฟล์</button></> : excelImportStep === 'preview' ? <><button className="button product-grid-button-secondary product-excel-import-back" type="button" onClick={() => setExcelImportStep('setup')}><IconArrowLeft aria-hidden="true" size={16} />ย้อนกลับ</button><button className="button product-grid-button-primary" type="button" onClick={() => setExcelImportStep('complete')}>ยืนยันแบบจำลอง</button></> : <button className="button product-grid-button-primary" type="button" onClick={closeExcelImport}>ปิด</button>}</footer>
       </section>
     </div> : null}
     {gridToast ? <div className="product-grid-toast" role="status" aria-live="polite">{gridToast}</div> : null}
