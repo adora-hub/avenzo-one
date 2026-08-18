@@ -73,6 +73,9 @@ test('products with multiple SKUs expand into an accessible real-system variant 
   assert.match(grid, /expandedRows\.has\(row\.id\) && row\.skuCount > 1/)
   assert.match(css, /\.product-grid-variant-card \{[^}]*border: 1px solid var\(--border-default\)/)
   assert.match(css, /\.product-grid-variant-table-head, \.product-grid-variant-table-row \{[^}]*grid-template-columns:/)
+  assert.match(css, /\.product-grid-table \.product-grid-pinned-boundary \{[^}]*overflow: visible[^}]*box-shadow: none/)
+  assert.match(css, /\.product-grid-table \.product-grid-pinned-boundary::after \{[^}]*left: 100%[^}]*width: 18px[^}]*linear-gradient/)
+  assert.doesNotMatch(css, /\.product-grid-table \.product-grid-pinned-boundary \{[^}]*border-right:/)
 })
 
 test('every Products code uses the shared Copy icon with a top tooltip', () => {

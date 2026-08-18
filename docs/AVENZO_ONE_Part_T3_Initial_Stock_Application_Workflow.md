@@ -59,3 +59,4 @@ T3 ยังไม่เชื่อม UI submit และยังไม่ส
 
 1. **T4 — Database & Security Tests:** tenant, permission, retry, concurrency และ ledger invariants
 2. **T5 — UI Integration & E2E Gate:** เก็บ command IDs/version ใน recovery state, เรียก T3 หลังรูปสำเร็จ และแสดงสถานะราย SKU
+3. **หลังปิด Phase T เท่านั้น — Phase U Product Lifecycle, Archive, Trash & Retention:** เริ่มจาก U1 Contract Freeze ตามคู่มือหลัก; ยังไม่เปลี่ยนพฤติกรรมลบสินค้าใน T3–T5

@@ -381,6 +381,41 @@ Facebook Comment / Manual CF
 
 ทุก Gate ต้องทำทีละข้อ ทดสอบก่อนข้อต่อไป และงาน UI ต้องผ่าน Approved Mockup/Design System ก่อนเชื่อมระบบจริง
 
+### 10.6 Phase U — Product Lifecycle, Archive, Trash & Retention
+
+สถานะ: **Planned — เริ่มหลัง Phase T (T1–T5 Initial Stock Integration) ผ่านและ Owner ปิด Gate แล้วเท่านั้น**
+
+เป้าหมายคือให้ผู้ใช้นำสินค้าที่ไม่ใช้แล้วออกจากตารางปกติได้ โดยรักษาประวัติ Order, Invoice, Live Sale, Stock Movement และ Audit Log ให้ถูกต้อง พร้อมควบคุมปริมาณข้อมูลระยะยาว
+
+Lifecycle ที่เสนอ:
+
+```text
+Draft / Active
+  → Archive: ซ่อนจากงานขายใหม่ แต่ดูประวัติและนำกลับมาใช้ได้ตาม Contract
+  → Trash: soft delete ด้วย deleted_at/deleted_by และกู้คืนได้ภายใน Retention Window
+  → Permanent Delete: ทำได้หลังตรวจ Blocker และ Retention Policy เท่านั้น
+```
+
+กติกาหลัก:
+
+- Product/SKU ที่มี Order, Invoice, Live Sale, Stock Movement, Balance, Reservation, Bundle reference หรือ Audit history ห้าม hard delete
+- Archive/Trash ต้องไม่ลบหรือเปลี่ยนความหมายของ Ledger และเอกสารย้อนหลัง
+- SKU Code, Sales Code/CF และ Barcode ที่เคยใช้ยังถูกสงวนไว้; Archive/Trash ไม่คืนรหัสให้ Sequence
+- ลบถาวรได้เฉพาะรายการที่ไม่เคยถูกใช้งานและไม่มี Foreign-key/Business blocker หลังผ่าน permission และ confirmation gate
+- รูปภาพของรายการ Trash จัดการตาม Retention Policy แยกจากข้อมูลอ้างอิง; ห้ามลบไฟล์ที่เอกสารหรือประวัติยังต้องใช้
+- ตารางรายการปกติต้องกรองเฉพาะข้อมูลที่ใช้งาน, ใช้ server-side pagination และ index ตาม `organization_id + lifecycle/status + deleted_at`; ห้ามโหลดข้อมูลทั้งหมดเพื่อกรองใน Browser
+- ต้องมีการวัด Query plan/latency และทดสอบข้อมูลปริมาณมากก่อนเปิดใช้การ purge อัตโนมัติ
+
+แผนพัฒนาแบบ Sequential Gate:
+
+1. **U1 — Lifecycle & Retention Contract Freeze:** ล็อกสถานะ, transition, restore, retention window, blocker, code reservation และ permission/audit contract
+2. **U2 — Approved UI/UX Mockup:** ออกแบบ Archive, Trash, Restore, Permanent Delete, blocker explanation และ bulk action ตาม Design System ก่อนแตะระบบข้อมูล
+3. **U3 — Database & Application Workflow:** เพิ่ม `deleted_at/deleted_by`, index, tenant-safe commands, optimistic concurrency และ audit โดยไม่แก้หรือลบ Ledger history
+4. **U4 — Retention & Storage Cleanup:** ทำ eligible-item scanner, dry run, image cleanup policy และ privileged purge workflow; ค่าเริ่มต้นเสนอ Trash 90 วัน แต่ต้องให้ Owner อนุมัติก่อนใช้จริง
+5. **U5 — Security, Performance & E2E Gate:** ทดสอบ RLS/permission, restore, blockers, code uniqueness, pagination/query plan, large dataset และ recovery ก่อน Deploy
+
+Stop Gate: Phase U เป็นแผนอนาคตเท่านั้น ห้ามเริ่ม Migration, purge job หรือเปลี่ยนพฤติกรรมลบสินค้า จนกว่า Phase T จะเสร็จและ Owner อนุมัติ U1
+
 ## 11. Decision Log
 
 | วันที่ | การตัดสินใจ |
@@ -395,3 +430,4 @@ Facebook Comment / Manual CF
 | 18 ส.ค. 2026 | Live Session ระยะแรกใช้ Fulfillment Warehouse/Location ที่ชัดเจน ไม่ตัด Stock กลางระดับ Organization |
 | 18 ส.ค. 2026 | T1 ล็อก Initial Stock เป็น recoverable two-stage workflow: สร้าง/activate Product+SKU ก่อน แล้วใช้ idempotent `receive` ต่อ SKU/Location; draft ไม่ post stock, Virtual Bundle ไม่รับยอด และ Preassembled Bundle รอ Assembly contract |
 | 18 ส.ค. 2026 | T2 เชื่อม Warehouse/Location แบบ read-only lazy loading หลังเปิด switch พร้อม session, membership, warehouse.read, inventory.receive, RLS และ cascading selection; ยังไม่มี Stock write |
+| 18 ส.ค. 2026 | หลังจบ Phase T ให้ทำ Phase U Product Lifecycle: Archive → Trash → Permanent Delete แบบมี Retention/Blocker; ประวัติ Ledger/Order/Invoice/Live และรหัสที่เคยใช้ต้องไม่หายหรือถูกนำกลับมาใช้ซ้ำ |
