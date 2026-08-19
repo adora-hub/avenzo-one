@@ -1051,6 +1051,10 @@ Phase 1.3.6.4 อ้างอิงการวิเคราะห์ Surge Co
 - เพิ่ม Fair Discovery, Anti-fraud, Acceptance Criteria, Roadmap C8–C11 และ Decision Gates 13–20
 - ปรับรายได้จาก Promoted Ads เป็น Customer Activation: ส่งให้ลูกค้าที่เกี่ยวข้องด้วยปุ่มเดียวหลัง Preview/Consent/ความถี่ และไม่ลดการมองเห็นร้านที่ไม่ซื้อโฆษณา
 - เพิ่ม Notification Delivery Contract: เก็บข้อความใน Notification Center/Inbox เป็นหลัก มี Unread Badge, Deep Link, Delivery Log, Retry และช่องทางสำรองตาม Consent เมื่อ Push ใช้งานไม่ได้หรือผู้ใช้พลาดการแจ้งเตือน
+- เพิ่ม C13 Customer Journey & Smart Tags: ใช้ Server Event Ledger, Smart Tag ที่มี source/rule/time decay, แยก Customer/Organization view และ Consent; ยังเป็น Future Plan
+- เพิ่ม C14 Connected Commerce Intelligence: เชื่อม Intent Score, Timing, Real-time Stock/Price Guard, Omnichannel Inbox, Recommendation, Attribution, Experiment และ Frequency Guardrails; ยังเป็น Future Plan
+- เพิ่ม C15 Customer Transaction Standing & Fair Recovery: แสดงสถานะการทำรายการแบบอธิบายได้, Progressive Friction, Time Decay, Recovery, Human Review และ Appeal; ไม่ใช้การตีตราหรือการระงับจากคะแนนอัตโนมัติเพียงอย่างเดียว
+- เพิ่ม C16 Customer Benefits & Loyalty Layer: แยก Merchant Benefits กับ Platform Benefits พร้อม eligibility, expiry, re-evaluation, privacy, fairness และ appeal; ยังเป็น Future Plan
 - ทั้งหมดเป็น Future Plan; ยังไม่อนุญาต UI Implementation, Migration, Storage/Payment mutation หรือ Production change
 ### V7.0 — 5 สิงหาคม 2026
 

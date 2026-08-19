@@ -129,6 +129,53 @@ Guardrails:
 - SMS/LINE/Email ภายนอกคิดตามต้นทุนหรือโควตา ไม่แอบรวมเป็นค่าโฆษณา
 
 รายได้มาจาก Subscription, Activation Add-on, Quota, ค่า Messaging ตามต้นทุน และ Success Fee เมื่อเกิด Order ไม่ใช่การขาย Impression หรือการประมูลพื้นที่
+
+### Reservation Reliability & Payment Recovery
+
+แนวคิดนี้เป็นจุดต่างของ AVENZO ONE: ให้ระบบจัดการการจอง สต็อก คิว และการชำระเงินที่ค้างแทนการให้แอดมินจำเอง
+
+- Available = On hand - Reserved - Committed และ Reservation ห้ามทำให้ Available ติดลบ
+- Reservation ยังไม่ใช่ยอดขายสำเร็จจนกว่าจะชำระเงิน
+- สถานะหลัก: รอชำระ, ชำระแล้ว, เตรียมจัดส่ง, จัดส่งแล้ว
+- เมื่อสินค้าหมดให้เลือก Waitlist แบบ FIFO, Pre-order หรือแจ้งเตือนเมื่อเติมสต็อก
+- ทุก Reservation มี Deadline; หมดเวลาแล้ว Auto-release, แจ้งคิวถัดไป และเก็บ Audit
+- มี Reservation Control Center แสดงรายการใกล้หมดเวลา, Payment Error, คิวเติมสินค้า และผู้รับผิดชอบ
+- Live CF รวมบิลได้ แต่ต้องเก็บ Reservation แยกตาม SKU
+- ลูกค้าที่ไม่ชำระซ้ำใช้ Risk Policy แบบค่อยเป็นค่อยไป เช่น ลดเวลาถือ Reservation หรือขอ Deposit ไม่แบนจากเหตุการณ์เดียว
+- ต้องมี Reminder, Customer Timeline, Retry และ Payment Recovery
+
+ระบบทั่วไปมักแยก Order, Stock และ Payment เป็นคนละส่วน เพราะ Workflow นี้ต้องจัดการ Concurrency, Refund, Queue, Notification และ Risk พร้อมกัน นี่จึงเป็นโอกาสลดงานแอดมินและการขายเกินสต็อกของ AVENZO ONE
+## 7.1 Customer Journey & Smart Tags (Future Plan)
+
+เป้าหมายคือทำให้ร้านเห็นพฤติกรรมลูกค้าแบบช่วยตัดสินใจ โดยใช้ Server Event Ledger ที่ตรวจสอบได้ ไม่ใช้ Pixel แอบติดตามหรือการอนุมานข้อมูลอ่อนไหว และยังไม่เริ่มทำระบบจริงจนกว่าจะผ่าน UI Mockup, Domain Contract, Security/Privacy Review และ Owner Approval
+
+### Event ที่บันทึกได้
+
+reservation_created, reservation_expired, order_created, payment_succeeded, payment_failed, fulfillment_delivered, return_created, refund_completed, product_viewed, product_saved, follow_store, live_joined, review_created, referral_converted, coupon_redeemed, stock_alert_requested
+
+ทุก Event ต้องมี event_id, user_id, organization_id (ถ้าเกี่ยวข้อง), occurred_at, source, consent_context, metadata_minimized และ Audit/Retention ตาม Policy
+
+### Smart Tag ที่อธิบายได้
+
+- ข้อเท็จจริงการซื้อ: เคยซื้อ, ชำระสำเร็จ, คืนสินค้า, ขอคืนเงิน
+- ความสนใจ: สนใจหมวดหมู่/แบรนด์/SKU จากการดู บันทึก หรือแจ้งเตือน
+- การมีส่วนร่วม: ติดตามร้าน, เข้าร่วม Live, รีวิวแล้ว
+- วงจรลูกค้า: ลูกค้าใหม่, ซื้อซ้ำ, inactive ตามช่วงเวลา
+- การดำเนินงาน: รอชำระ, หมดเวลา, รอเติมสต็อก
+- ที่มา Conversion: referral, campaign, coupon หรือ review link
+
+ห้ามใช้ป้ายตีตรา เช่น “ลูกค้าไม่ดี” ให้แสดงข้อเท็จจริง จำนวนครั้ง ช่วงเวลา และแหล่งที่มาแทน
+
+### Tag Lifecycle และสิทธิ์การมองเห็น
+
+Tag ต้องเก็บ source_event, rule_version, confidence, first_seen, last_seen, expires_at และใช้ Time Decay/หมดอายุ เพื่อไม่ให้ข้อมูลเก่าติดถาวร ลูกค้าเห็นข้อมูลของตนเองได้ ส่วนร้านเห็นเฉพาะความสัมพันธ์กับ Organization ของตนและตาม Consent; ห้ามนำข้อมูลพฤติกรรมจากร้านหนึ่งไปเปิดให้อีกร้านเห็น
+
+### Data Contract ที่ต้องเตรียม
+
+customer_events, customer_behavior_tags, customer_segments, customer_consents, customer_tag_audits
+
+ต้องรองรับ Purpose, ถอน Consent, ลบ/ส่งออกข้อมูล, Audit, สิทธิ์อุทธรณ์ และห้ามอนุมานสุขภาพ การเมือง ศาสนา หรือข้อมูลอ่อนไหวอื่น ๆ
+
 ## 7. Data Governance
 
 - ใช้ `user_id` กลาง และ `organization_customer_id` แยกความสัมพันธ์ร้าน
@@ -138,6 +185,79 @@ Guardrails:
 - กำหนด Retention, Delete, Export, Account Linking และ Data Subject Request
 - เก็บ Consent Version, Purpose, Channel, Timestamp และ Revocation
 - ใช้ข้อมูลรวมสำหรับ Analytics/Benchmark โดยไม่เปิดเผย PII
+
+## 7.2 Connected Commerce Intelligence (Future Plan)
+
+ต่อยอดจาก Customer Journey & Smart Tags เพื่อให้การแจ้งเตือนและการแนะนำสินค้าเชื่อมกับมิติอื่นของ Commerce ไม่ใช่เพียงส่งข้อความแล้วรอให้ลูกค้าซื้อ
+
+### ความสามารถที่ต้องเชื่อม
+
+1. Purchase Intent Score: ประเมินจากการดู บันทึก ใส่ตะกร้า จอง ซื้อ และซื้อซ้ำ
+2. Customer Availability & Timing: เรียนรู้ช่วงเวลาที่ลูกค้ามักเปิดอ่าน/ซื้อ พร้อม Quiet Hours
+3. Real-time Stock & Price Guard: ตรวจสต็อก ราคา โปร และสถานะสินค้าก่อนส่งทุกครั้ง
+4. Omnichannel Inbox: รวม Push, Email, LINE, SMS และ Inbox พร้อม Deduplicate
+5. Contextual Recommendation: แนะนำสินค้าเสริม สินค้าทดแทน Bundle สี/ไซซ์ และสินค้าที่เกี่ยวข้อง
+6. Trust & Care Signals: เชื่อม Verified Review, การจัดส่ง การคืนสินค้า และสถานะบริการ
+7. Attribution & Commission: ระบุที่มาจาก Review, Referral, Live, Coupon หรือ Notification และคำนวณยอดขาย/ค่าคอม
+8. Experiment & Feedback Loop: ทดสอบข้อความ เวลา และข้อเสนอ แล้ววัด Open, Click, View, Reserve, Paid และ Repeat
+9. Frequency & Relevance Guardrails: จำกัดความถี่ อธิบายเหตุผลที่ได้รับข้อความ และให้ปิดรับเป็นรายประเภทได้
+
+ลำดับข้อมูลหลักคือ พฤติกรรม → เจตนาซื้อ → สต็อก/ราคา → ข้อเสนอ → แจ้งเตือน → Order/Payment → รีวิว/ซื้อซ้ำ
+
+ห้ามเริ่ม Recommendation หรือ Campaign อัตโนมัติจนกว่า Event Ledger, Consent, Stock/Price Authority, Attribution และ KPI จะผ่าน Decision Gate
+
+## 7.3 Customer Transaction Standing & Fair Recovery (Future Plan)
+
+เป้าหมายคือให้ลูกค้าเห็นสถานะการทำรายการของตนเอง เข้าใจสิ่งที่ต้องแก้ และรักษาสิทธิ์การซื้อได้ดีขึ้น โดยไม่ใช้คำตีตรา เช่น “ลูกค้าไม่น่าเชื่อถือ” และไม่ใช้คะแนนอัตโนมัติเป็นเหตุผลเดียวในการระงับบัญชี
+
+### สถานะที่ผู้ใช้เห็น
+
+- ปกติ: ทำรายการและชำระเงินตามปกติ
+- ควรตรวจสอบ: มีรายการค้างชำระหรือยกเลิกหลายครั้งในช่วงเวลาที่กำหนด
+- จำกัดชั่วคราว: ต้องชำระรายการค้าง ยืนยันตัวตน หรือรอการตรวจสอบ
+- กลับมาใช้งานได้: แก้ไขปัญหาแล้วและระบบคืนสิทธิ์
+
+แสดงข้อเท็จจริงที่ตรวจสอบได้ เช่น จำนวนการจอง จำนวนชำระสำเร็จ ยกเลิกก่อนชำระ หมดเวลาชำระ เหตุผล สถานะล่าสุด และวิธีแก้ไข
+
+### Fair Risk Policy
+
+1. แยกสาเหตุของการยกเลิก: ลูกค้ายกเลิก, ชำระไม่สำเร็จ, ร้านยกเลิก หรือระบบขัดข้อง
+2. ไม่จำกัดสิทธิ์จากเหตุการณ์เดียว ใช้จำนวน ความถี่ และช่วงเวลา
+3. ใช้ Progressive Friction ก่อนระงับ เช่น ลดเวลาถือ Reservation, จำกัดจำนวนการจองต่อวัน หรือขอการยืนยันเพิ่ม
+4. มี Recovery Path ให้ชำระรายการค้าง ติดต่อร้าน ยืนยันตัวตน และยื่นคำร้อง
+5. ใช้ Time Decay สถานะดีขึ้นเมื่อไม่มีเหตุการณ์เสี่ยงตามระยะเวลาที่กำหนด
+6. แยกข้อมูลตาม Organization ร้านเห็นเฉพาะความสัมพันธ์ของตนเอง
+7. กรณีระงับสิทธิ์ที่มีผลสำคัญต้องมี Human Review, เหตุผล และสิทธิ์อุทธรณ์
+
+### Data Contract
+
+เตรียม customer_transaction_standing, customer_risk_events, customer_recovery_actions, customer_restrictions, customer_appeals และ customer_risk_audits โดยต้องมี rule_version, evidence, effective_at, expires_at, reviewer และ consent/purpose ตามความเหมาะสม
+
+## 7.4 Customer Benefits & Loyalty Layer (Future Plan)
+
+ออกแบบสิทธิประโยชน์จากพฤติกรรมที่สร้างความไว้วางใจ โดยไม่ตีตราหรือจัดอันดับคุณค่าของบุคคล แบ่งเป็นสิทธิ์ที่ร้านค้ากำหนดเองและสิทธิ์กลางของ AVENZO ONE
+
+### สิทธิ์ที่อาจให้ได้
+
+- จองสินค้าได้นานขึ้นหรือได้คิวก่อน
+- Early Access สินค้าใหม่และ Live
+- ลดหรือยกเว้น Deposit ตามนโยบาย
+- ค่าส่งหรือค่าบริการพิเศษ
+- Loyalty Point/Credit และสิทธิ์จากการซื้อซ้ำ
+- แจ้งเตือนเติมสต็อกก่อน
+- Customer Support Priority
+- ทดลอง Promotion/Bundle ก่อน
+- โบนัสจาก Verified Review
+- สิทธิ์สะสมข้ามร้านเฉพาะร้านที่เข้าร่วม
+
+### ขอบเขตสิทธิ์
+
+- Merchant Benefits: ร้านกำหนดเอง เช่น ซื้อซ้ำครบจำนวนแล้วได้ส่วนลดหรือจองก่อน
+- Platform Benefits: AVENZO กำหนดจากข้อเท็จจริงที่ยืนยันได้ เช่น ชำระตรงเวลา ยืนยันบัญชี รีวิวจากการซื้อจริง และไม่มี Reservation ค้างซ้ำ
+
+### Fairness Guardrails
+
+สิทธิ์ต้องมีเหตุผลที่ผู้ใช้เข้าใจได้ มีวันหมดอายุและประเมินใหม่ ไม่ใช้ยอดใช้จ่ายอย่างเดียว ไม่เปิดเผยสถานะให้ร้านอื่นโดยอัตโนมัติ ไม่ริบสิทธิ์ทั้งหมดจากเหตุการณ์เดียว และมีช่องทางอุทธรณ์/กู้คืนสิทธิ์
 
 ## 8. KPI และเกณฑ์ความสำเร็จ
 
@@ -207,6 +327,12 @@ Guardrails:
 6. อนุมัติ Content Ownership และ License Preset
 7. อนุมัติ Audience Activation, Consent และ PDPA Review
 8. อนุมัติ KPI, Fraud Threshold และ Scale Gate
+9. อนุมัติ Reservation Deadline, FIFO/priority rule, Deposit, Waitlist, Auto-release และ Risk Policy
+10. อนุมัติ Live CF Billing/Reservation, Admin Control Center และ Payment Recovery
+11. อนุมัติ Event Taxonomy, Smart Tag Categories, Time Decay, Customer/Organization Views และ Privacy/Consent Contract
+12. อนุมัติ Intent Score, Timing, Stock/Price Guard, Omnichannel, Recommendation, Attribution, Experiment และ Frequency Guardrails
+13. อนุมัติ Customer Transaction Standing, Progressive Friction, Time Decay, Human Review, Recovery และ Appeal Contract
+14. อนุมัติ Merchant Benefits, Platform Benefits, Eligibility, Expiry, Re-evaluation, Privacy และ Appeal Contract
 
 ## 12. ความสัมพันธ์กับเอกสารอื่น
 
