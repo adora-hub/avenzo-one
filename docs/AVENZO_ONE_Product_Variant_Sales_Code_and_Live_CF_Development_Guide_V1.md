@@ -416,6 +416,74 @@ Draft / Active
 
 Stop Gate: Phase U เป็นแผนอนาคตเท่านั้น ห้ามเริ่ม Migration, purge job หรือเปลี่ยนพฤติกรรมลบสินค้า จนกว่า Phase T จะเสร็จและ Owner อนุมัติ U1
 
+### 10.7 Phase V — Bulk SKU Image Management
+
+สถานะ: **Future Planned — เริ่มหลัง Phase U ปิด Gate หรือเมื่อ Owner อนุมัติปรับลำดับหลัง Phase T**
+
+#### V0 — Media Storage Quota & Governance (Mandatory Prerequisite)
+
+V0 ต้องผ่านก่อนเริ่ม V1–V6 เพื่อไม่ให้ Bulk Upload เปิดต้นทุน Storage/Egress แบบควบคุมไม่ได้ และเพื่อให้โควตาของลูกค้าเป็นส่วนหนึ่งของ Package Contract ตั้งแต่ต้น
+
+Planning Assumption ที่ตรวจจาก Supabase วันที่ 19 สิงหาคม 2026 (ต้องตรวจราคาใหม่ก่อนอนุมัติ V0):
+
+- Supabase Free รวม File Storage 1 GB; เหมาะกับ Preview/ทดลอง ไม่ใช่ Production SaaS ระยะยาว
+- Supabase Pro เริ่ม $25/เดือนและรวม File Storage 100 GB; ส่วนเกิน $0.0213/GB/เดือน
+- Pro รวม Uncached Egress 250 GB และ Cached Egress 250 GB; ส่วนเกิน $0.09/GB และ $0.03/GB ตามลำดับ
+- Image Transformation รวม 100 origin images แล้วคิด $5 ต่อ 1,000 origin images เพิ่มเติม
+- อัตราวางแผน `1 USD ≈ 33.6 บาท`; Pro ประมาณ 840 บาท/เดือนก่อน VAT/ค่าธรรมเนียมบัตร และ Storage ส่วนเกินประมาณ 0.72 บาท/GB/เดือน
+- Source of truth: [Supabase Pricing](https://supabase.com/pricing), [Storage Pricing](https://supabase.com/docs/guides/storage/pricing), [Egress Pricing](https://supabase.com/docs/guides/platform/manage-your-usage/egress)
+
+โควตา AVENZO ONE ต้องควบคุมระดับ Organization เอง เพราะโควตา Supabase เป็น Pool รวมและไม่ได้แบ่งให้ Tenant อัตโนมัติ ตัวอย่างเริ่มต้นเพื่อทำ Cost Model (ยังไม่ใช่ราคาขายที่อนุมัติ):
+
+| Package | Media quota ต่อ Organization | หมายเหตุ |
+|---|---:|---|
+| Trial | 1 GB | ต้องมีอายุทดลอง, anti-abuse และ cleanup หลังหมด Retention |
+| Starter | 5 GB | ร้านขนาดเล็ก |
+| Growth | 25 GB | ร้านหลายพัน SKU |
+| Professional | 100 GB | ร้านใหญ่/หลายสาขา |
+| Enterprise | Custom | ประเมิน Storage, Egress และ SLA รายองค์กร |
+
+V0 แบ่งเป็น Sequential Gate:
+
+1. **V0.1 — Cost & Package Model:** คำนวณ Storage, Cached/Uncached Egress, transformation, compute, backup, support, VAT และ margin; ห้ามตั้งราคาจากค่า Storage อย่างเดียว
+2. **V0.2 — Organization Quota Contract:** ล็อก included quota, add-on, counting rule, original/derived files, reserved capacity และสิทธิ์ตาม Package
+3. **V0.3 — Image Processing Policy:** ล็อกชนิดไฟล์, MIME verification, max upload, 1:1 crop/resize, WebP/AVIF, thumbnail/medium/large และนโยบายเก็บหรือลบต้นฉบับ
+4. **V0.4 — Metering, Alerts & Enforcement:** วัด bytes ต่อ Organization, แสดง Usage, แจ้ง 70/85/95/100%, preflight ก่อน upload และเมื่อเต็มให้ปิดเฉพาะ upload โดยยังดู/ดาวน์โหลด/ลบได้
+5. **V0.5 — Trial, Downgrade, Retention & Cleanup:** กำหนด grace period, Trash ยังนับพื้นที่, orphan cleanup, expired trial cleanup, downgrade over-quota behavior และห้ามลบไฟล์ที่ยังถูกอ้างอิง
+6. **V0.6 — Security, Abuse & Scale Gate:** tenant-isolated object path/RLS, signed access, rate/batch limit, duplicate hash ภายใน Organization, audit, spend cap/alerts และ load test ก่อนอนุมัติ V1
+
+V0 Acceptance Gate: Owner ต้องอนุมัติ Package/Cost Model, quota contract, image variants, retention และ over-quota UX ก่อนเริ่ม V1 Mockup หรือสร้าง Storage mutation ใด ๆ
+
+Pain Point: การเพิ่มภาพย้อนหลังแบบเปิดแก้ไขและบันทึกทีละ SKU ใช้ประมาณ 5 คลิกต่อ SKU; 100 SKU อาจต้องใช้ถึง 500 คลิก จึงต้องมี Bulk Image workflow ที่ลดงานเหลือการเปิดเครื่องมือ, วางไฟล์, ตรวจ Preview และยืนยันเพียงไม่กี่ครั้ง
+
+รูปแบบการใช้งานใน Modal เดียว:
+
+1. **Auto-match จากชื่อไฟล์ (Default):** ใช้ SKU Code ซึ่ง Unique ภายใน Organization เป็น Authority เช่น `SKU-MK-001.jpg`; หลายภาพใช้ `SKU-MK-001__01.jpg`, `__02.jpg`
+2. **Drop per SKU:** ติ๊ก SKU จากตารางแล้วลากภาพลงแต่ละแถว พร้อมคำสั่งใช้ภาพเดียวกันทั้งหมด, คัดลอกจากแถวก่อนหน้า และตั้งภาพหลัก
+3. **Sequential Mapping:** จับคู่ภาพตามลำดับกับ SKU ที่เลือก โดยต้อง Preview ก่อนบันทึกเพื่อป้องกันรายการเหลื่อม
+
+ข้อกำหนดสำคัญ:
+
+- ไม่บังคับให้ติ๊ก SKU ก่อน Auto-match; หากติ๊กไว้ให้ใช้เป็น Scope จำกัดการจับคู่
+- แสดงสถานะ Matched, ต้องตรวจสอบ, ไม่พบ SKU, ชื่อซ้ำ และไฟล์ไม่ผ่าน พร้อมแก้เฉพาะ Exception
+- Sales Code/CF ใช้ช่วยค้นหาได้ แต่ถ้าชี้ได้หลาย SKU ห้ามเดาและต้องให้ผู้ใช้เลือก
+- ผู้ใช้ต้องเลือก Append, Replace cover หรือ Replace all อย่างชัดเจน; ค่าเริ่มต้นห้ามเขียนทับภาพเดิม
+- รองรับไฟล์ภาพหลายรายการ, Folder หรือ ZIP พร้อม Progress, Cancel, Retry เฉพาะรายการที่ล้มเหลว และ Resume/Recovery
+- ตรวจ MIME จริง, ขนาด, จำนวนภาพต่อ SKU, Storage quota, permission และ tenant scope ก่อน upload/commit metadata
+- ใช้ bounded concurrency และ direct/object-storage upload ที่เหมาะสม เพื่อไม่ให้ Browser, Server หรือ Storage หน่วงจาก batch ใหญ่
+- AI ใช้แนะนำการจับคู่ได้ในอนาคต แต่ห้ามเป็น Authority; การบันทึกต้องอิง SKU Code หรือการยืนยันจากผู้ใช้
+
+แผนพัฒนาแบบ Sequential Gate:
+
+1. **V1 — Workflow Contract & Approved UI Mockup:** ล็อก naming convention, mapping priority, append/replace behavior, limits, error states และออกแบบ Modal ตาม Design System
+2. **V2 — Selection & Modal Prototype:** เพิ่ม Bulk action จาก Products Grid, selected scope, tabs สามโหมด, preview table และ keyboard/accessibility โดยยังไม่เชื่อม Storage
+3. **V3 — Deterministic Mapping Engine:** ทำ filename parser, exact SKU resolver, duplicate/unmatched detection และ sequential mapping พร้อม unit tests
+4. **V4 — Secure Upload & Recovery Pipeline:** เชื่อม Storage/metadata แบบ permission-aware, idempotent, bounded concurrency, progress, cancel และ retry
+5. **V5 — Exception Resolution & Audit:** ทำ manual remap, append/replace confirmation, audit log และรายงานผลสำเร็จ/ล้มเหลวต่อ SKU
+6. **V6 — Performance, Security & E2E Gate:** ทดสอบ 100–1,000 SKU, ไฟล์ผิดชนิด/ขนาด, duplicate, retry, tenant isolation, refresh/recovery และ visual parity ก่อน Deploy
+
+Stop Gate: Phase V เป็น Future Plan เท่านั้น ห้ามเริ่ม V1 UI Mockup, Storage mutation หรือ Database change จนกว่า V0 ผ่านครบทุก Gate, Owner อนุมัติ Cost/Quota Contract และอนุมัติลำดับการทำงานหลัง Phase T/U
+
 ## 11. Decision Log
 
 | วันที่ | การตัดสินใจ |
@@ -431,3 +499,5 @@ Stop Gate: Phase U เป็นแผนอนาคตเท่านั้น 
 | 18 ส.ค. 2026 | T1 ล็อก Initial Stock เป็น recoverable two-stage workflow: สร้าง/activate Product+SKU ก่อน แล้วใช้ idempotent `receive` ต่อ SKU/Location; draft ไม่ post stock, Virtual Bundle ไม่รับยอด และ Preassembled Bundle รอ Assembly contract |
 | 18 ส.ค. 2026 | T2 เชื่อม Warehouse/Location แบบ read-only lazy loading หลังเปิด switch พร้อม session, membership, warehouse.read, inventory.receive, RLS และ cascading selection; ยังไม่มี Stock write |
 | 18 ส.ค. 2026 | หลังจบ Phase T ให้ทำ Phase U Product Lifecycle: Archive → Trash → Permanent Delete แบบมี Retention/Blocker; ประวัติ Ledger/Order/Invoice/Live และรหัสที่เคยใช้ต้องไม่หายหรือถูกนำกลับมาใช้ซ้ำ |
+| 19 ส.ค. 2026 | บันทึก Phase V Bulk SKU Image Management เป็น Future Plan เพื่อลดการเพิ่มภาพย้อนหลังจากประมาณ 5 คลิกต่อ SKU เหลือ Bulk workflow; Default ใช้ชื่อไฟล์ตรง SKU Code, มี Preview/Exception handling และห้ามเขียนทับภาพเดิมโดยไม่ยืนยัน |
+| 19 ส.ค. 2026 | เพิ่ม V0 Media Storage Quota & Governance เป็น Mandatory Prerequisite ก่อนเริ่ม Phase V: ต้องอนุมัติ Supabase cost model, quota ต่อ Organization/Package, image processing, usage alerts, trial/downgrade/retention, security และ scale gate ก่อนเริ่ม V1 |
