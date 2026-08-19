@@ -451,8 +451,17 @@ V0 แบ่งเป็น Sequential Gate:
 4. **V0.4 — Metering, Alerts & Enforcement:** วัด bytes ต่อ Organization, แสดง Usage, แจ้ง 70/85/95/100%, preflight ก่อน upload และเมื่อเต็มให้ปิดเฉพาะ upload โดยยังดู/ดาวน์โหลด/ลบได้
 5. **V0.5 — Trial, Downgrade, Retention & Cleanup:** กำหนด grace period, Trash ยังนับพื้นที่, orphan cleanup, expired trial cleanup, downgrade over-quota behavior และห้ามลบไฟล์ที่ยังถูกอ้างอิง
 6. **V0.6 — Security, Abuse & Scale Gate:** tenant-isolated object path/RLS, signed access, rate/batch limit, duplicate hash ภายใน Organization, audit, spend cap/alerts และ load test ก่อนอนุมัติ V1
+7. **V0.7 — Consumer Media Quota Contract:** แยก Storage/Metering ของผู้ใช้งานทั่วไปออกจาก Organization โดยใช้ user_id กลาง; บัญชีต้องยืนยันอย่างน้อยหนึ่งช่องทาง Email/Phone/Facebook/Instagram ก่อนโพสต์สื่อ กำหนด per-user quota, per-post/file limit, rate limit, moderation, orphan/trash cleanup และ anti-abuse โดยรูปรีวิว/โพสต์ของผู้ใช้ทั่วไปห้ามหักโควตาร้าน เว้นแต่ร้านนำเข้า Media Library ของตนตามกติกาที่อนุมัติ
 
-V0 Acceptance Gate: Owner ต้องอนุมัติ Package/Cost Model, quota contract, image variants, retention และ over-quota UX ก่อนเริ่ม V1 Mockup หรือสร้าง Storage mutation ใด ๆ
+V0 Acceptance Gate: Owner ต้องอนุมัติ Package/Cost Model, Organization และ Consumer quota contract, image variants, retention และ over-quota UX ก่อนเริ่ม V1 Mockup หรือสร้าง Storage mutation ใด ๆ
+
+Consumer Identity/Quota Planning Contract:
+
+- บุคคลหนึ่งคนมี user_id กลางหนึ่งบัญชี และยืนยันสำเร็จอย่างน้อยหนึ่งช่องทาง Email, Phone, Facebook หรือ Instagram; ไม่ต้องยืนยันครบทุกช่องทาง
+- เมื่อบุคคลนั้นเป็นลูกค้าของผู้ประกอบการ ให้เพิ่ม organization_customer_id เชื่อม user_id เดิมกับ Organization; ห้ามสร้าง Login หรือบัญชีบุคคลซ้ำ
+- ผู้ใช้หนึ่งคนเป็นลูกค้าได้หลาย Organization และโควตาสื่อส่วนตัวต้องไม่ปะปนกับโควตาของ Organization ใด
+- รูปโปรไฟล์, โพสต์, รีวิวและคอมเมนต์ของผู้ใช้ทั่วไปนับใน consumer_media_quota; รูปสินค้า/เอกสาร/Media Library ของร้านนับใน organization_media_quota
+- ตัวเลขพื้นที่ต่อผู้ใช้, จำนวนรูปต่อโพสต์, ขนาดต่อไฟล์และสิทธิ์ Creator ยังเป็น Planning Assumption ต้องผ่าน V0.1/V0.7 และ Owner อนุมัติก่อนบังคับใช้
 
 Pain Point: การเพิ่มภาพย้อนหลังแบบเปิดแก้ไขและบันทึกทีละ SKU ใช้ประมาณ 5 คลิกต่อ SKU; 100 SKU อาจต้องใช้ถึง 500 คลิก จึงต้องมี Bulk Image workflow ที่ลดงานเหลือการเปิดเครื่องมือ, วางไฟล์, ตรวจ Preview และยืนยันเพียงไม่กี่ครั้ง
 
@@ -501,3 +510,4 @@ Stop Gate: Phase V เป็น Future Plan เท่านั้น ห้า�
 | 18 ส.ค. 2026 | หลังจบ Phase T ให้ทำ Phase U Product Lifecycle: Archive → Trash → Permanent Delete แบบมี Retention/Blocker; ประวัติ Ledger/Order/Invoice/Live และรหัสที่เคยใช้ต้องไม่หายหรือถูกนำกลับมาใช้ซ้ำ |
 | 19 ส.ค. 2026 | บันทึก Phase V Bulk SKU Image Management เป็น Future Plan เพื่อลดการเพิ่มภาพย้อนหลังจากประมาณ 5 คลิกต่อ SKU เหลือ Bulk workflow; Default ใช้ชื่อไฟล์ตรง SKU Code, มี Preview/Exception handling และห้ามเขียนทับภาพเดิมโดยไม่ยืนยัน |
 | 19 ส.ค. 2026 | เพิ่ม V0 Media Storage Quota & Governance เป็น Mandatory Prerequisite ก่อนเริ่ม Phase V: ต้องอนุมัติ Supabase cost model, quota ต่อ Organization/Package, image processing, usage alerts, trial/downgrade/retention, security และ scale gate ก่อนเริ่ม V1 |
+| 19 ส.ค. 2026 | เพิ่ม V0.7 Consumer Media Quota: บัญชีบุคคลใช้ user_id กลางและต้องยืนยันอย่างน้อยหนึ่งช่องทาง Email/Phone/Facebook/Instagram; การเป็นลูกค้าร้านคือ organization_customer_id ที่เชื่อมบัญชีเดิม ผู้ใช้หนึ่งคนเป็นลูกค้าหลายร้านได้ และพื้นที่โพสต์/รีวิวของผู้ใช้ต้องแยกจากโควตา Media ของ Organization |

@@ -1,10 +1,10 @@
-# AVENZO ONE Codex Implementation Starter Plan V7.1
+# AVENZO ONE Codex Implementation Starter Plan V7.2
 
 > แผนแม่บทฉบับอัปเดตสำหรับพัฒนา AVENZO ONE แบบ Vertical Slice โดยใช้ V6 เป็นฐาน และเพิ่ม Customer Platform, Loyalty, Community และ Referral Commerce
 
-**เวอร์ชัน:** 7.1
+**เวอร์ชัน:** 7.2
 
-**วันที่:** 13 สิงหาคม 2026
+**วันที่:** 19 สิงหาคม 2026
 
 **สถานะ:** พร้อมใช้วางสถาปัตยกรรมและแตกงานพัฒนา
 
@@ -43,13 +43,20 @@ V7 รับรองข้อกำหนดทั้งหมดของ `AVE
 
 ลูกค้าคนเดิมอาจมีชื่อ Facebook, ชื่อผู้รับ, เบอร์โทร, LINE และ Google ต่างกัน ระบบต้องรวมด้วยกฎที่ตรวจสอบได้ ไม่รวมอัตโนมัติเพียงเพราะชื่อคล้ายกัน
 
-### 2.2 Customer ID กลาง
+### 2.2 บัญชีผู้ใช้กลางและลูกค้าของผู้ประกอบการ
 
-- ลูกค้าหนึ่งคนมี `customer_id` กลางหนึ่งรายการต่อร้าน/องค์กร
-- ลูกค้าหนึ่งคนเชื่อมหลาย Identity Provider ได้
-- การเชื่อมบัญชีใหม่ต้องไม่สร้างแต้ม เครดิต หรือประวัติซื้อซ้ำ
+- บุคคลหนึ่งคนมี `user_id` กลางของ AVENZO ONE เพียงหนึ่งรายการ และสามารถเป็นผู้ใช้งานทั่วไปก่อนมีความสัมพันธ์กับร้านใดก็ได้
+- บัญชีต้องยืนยันสำเร็จอย่างน้อยหนึ่งช่องทาง ได้แก่ Email, Phone, Facebook หรือ Instagram; ไม่บังคับให้ยืนยันครบทุกช่องทาง
+- `user_id` เดียวเชื่อมหลาย Identity Provider ได้ โดยใช้ Provider Subject ID/เบอร์/อีเมลที่ยืนยันแล้ว ไม่ใช้ชื่อแสดงเป็นกุญแจจับคู่
+- เมื่อผู้ใช้ซื้อสินค้า, CF สำเร็จ, สมัครสมาชิกร้าน, ยอมรับคำเชิญ หรือยืนยันการ Claim ประวัติเดิม จึงสร้าง `organization_customer_id` เพื่อแทนความสัมพันธ์กับ Organization นั้น
+- ผู้ใช้หนึ่งคนเป็นลูกค้าของหลาย Organization ได้ แต่ละ Organization เห็นเฉพาะข้อมูลและความสัมพันธ์ที่ตนมีสิทธิ์
+- การเชื่อม Identity ใหม่ต้องไม่สร้างบัญชี แต้ม เครดิต หรือประวัติซื้อซ้ำ
 - การรวม Customer Record ต้องมี Preview, เหตุผล, ผู้อนุมัติ และ Audit Log
 - การแยกบัญชีที่รวมผิดต้องย้อนกลับได้โดยไม่ทำลาย Ledger
+
+โมเดลหลักที่ล็อกไว้:
+
+> Verified Identity → Platform User (`user_id`) → Organization Customer (`organization_customer_id`) → Order/Loyalty/Content
 
 ### 2.3 ข้อมูลส่วนตัวแยกจากข้อมูลสาธารณะ
 
@@ -105,8 +112,11 @@ V7 ออกแบบและพัฒนาระยะแรกเป็น S
 
 | ตาราง | หน้าที่ |
 |---|---|
-| `customers` | Customer ID กลางของร้าน |
-| `customer_identities` | LINE/Google/Facebook/Auth Identity |
+| `users` | บัญชีบุคคลกลางของ AVENZO ONE (`user_id`) |
+| `user_identities` | Email/Phone/Facebook/Instagram และ Provider Subject ID ที่ยืนยันแล้ว |
+| `organization_customers` | ความสัมพันธ์ระหว่าง `user_id` กับแต่ละ Organization พร้อม Customer Code/สถานะสมาชิก |
+| `customers` | Legacy/ชื่อเชิงโดเมนเดิม; ต้องวาง Migration/Compatibility ให้ชัดก่อนเปลี่ยนระบบจริง |
+| `customer_identities` | Legacy Identity mapping; ห้ามสร้างซ้ำกับ `user_identities` หลัง Contract ใหม่ได้รับอนุมัติ |
 | `customer_private_profiles` | PII และข้อมูลติดต่อ |
 | `customer_public_profiles` | ชื่อแสดง รูป Bio และ Visibility |
 | `customer_addresses` | ที่อยู่พร้อมประวัติและค่า Default |
@@ -120,13 +130,22 @@ V7 ออกแบบและพัฒนาระยะแรกเป็น S
 
 ## 4. Authentication และ Account Linking
 
-### 4.1 ช่องทางสมัคร
+### 4.1 ช่องทางสมัครและระดับบัญชี
 
-- LINE Login
-- Google Sign-In
+- Email Verification
+- Phone OTP Verification
 - Facebook Login
+- Instagram Identity/Login เมื่อ Provider และสิทธิ์ที่ต้องใช้รองรับ
+- LINE Login/Google Sign-In เป็นช่องทางเพิ่มเติมตาม Scope รุ่นที่จะอนุมัติ
 
-ลูกค้าต้องใช้ขั้นต่ำหนึ่งช่องทาง และเพิ่มช่องทางอื่นภายหลังได้ การตั้งรหัสผ่านไม่จำเป็นในรุ่นแรกหากใช้ OAuth ทั้งหมด
+ผู้ใช้ต้องยืนยันสำเร็จขั้นต่ำหนึ่งช่องทางและเพิ่มช่องทางอื่นภายหลังได้ การตั้งรหัสผ่านไม่จำเป็นเมื่อใช้ OTP/OAuth ทั้งหมด
+
+ระบบมีบัญชีบุคคลกลางเพียงชนิดเดียว ไม่สร้าง Login ใหม่เมื่อเปลี่ยนสถานะ:
+
+1. **สมาชิก AVENZO:** มี `user_id` และ Identity ที่ยืนยันแล้ว แต่ยังไม่จำเป็นต้องเป็นลูกค้าร้านใด
+2. **ลูกค้าของร้าน:** ใช้ `user_id` เดิมและมี `organization_customers` อย่างน้อยหนึ่งรายการ; คนเดียวเป็นลูกค้าหลายร้านได้
+
+การเปลี่ยนจากสมาชิกทั่วไปเป็นลูกค้าของร้านคือการเพิ่ม Relationship ไม่ใช่การสร้างบัญชีผู้ใช้อีกชุด
 
 ### 4.2 กฎความปลอดภัย
 
@@ -268,6 +287,30 @@ V7 ออกแบบและพัฒนาระยะแรกเป็น S
 - `moderation_actions`
 - `store_announcements`
 
+### 7.5 Customer Commerce Community UI
+
+สถานะ: **Future Planned — ต้องผ่าน UI Mockup Gate ก่อน Implementation**
+
+หน้า Home ของผู้ใช้งานทั่วไปเสนอให้แยกเป็น 4 พื้นที่โดยไม่คัดลอก Trade Dress หรือ Source Code ของแพลตฟอร์มอื่น:
+
+1. **สำหรับคุณ:** Discovery ตามความสนใจ คุณภาพ ความสดใหม่ ความหลากหลาย และสัญญาณเชิงพาณิชย์ที่ตรวจสอบได้
+2. **กำลังติดตาม:** โพสต์จากบุคคลและร้านที่ผู้ใช้เลือกติดตาม โดยรุ่นแรกเรียงตามเวลาและไม่ซ่อนด้วย Paid Ranking
+3. **ร้านค้า:** ร้านที่ติดตาม สินค้าใหม่ โปรโมชัน ตาราง Live และ Product Card ที่ดึงราคา/Stock ปัจจุบัน
+4. **รีวิว:** รีวิวผู้ซื้อจริง คู่มือ เปรียบเทียบ และตัวกรอง ซื้อจริง/มีรูป/หมวดหมู่/ล่าสุด/มีประโยชน์
+
+เมนูหลักเสนอ หน้าแรก, สำรวจ, สร้างโพสต์, คำสั่งซื้อ และโปรไฟล์ ส่วน Product Card ในโพสต์ต้องเชื่อม Product/SKU จริงและเป็น Authority ของราคา/Availability; ข้อความรีวิวเดิมห้ามถูกแก้ย้อนหลังเมื่อร้านเปลี่ยนราคา แต่ต้องแสดงราคาขณะรีวิวและราคาปัจจุบันแยกกันเมื่อข้อมูลพร้อม
+
+ป้าย Disclosure ที่ต้องรองรับ:
+
+- ซื้อจริง
+- มีค่าคอมมิชชัน
+- ได้รับสินค้าทดลอง
+- ได้รับค่าจ้างสร้างเนื้อหา
+- AVENZO สนับสนุนส่วนลด
+- ร้านได้รับสิทธิ์ใช้ภาพ/คอนเทนต์แล้ว
+
+หลัก Fair Discovery: ทุกเนื้อหาที่ผ่าน Eligibility ได้เข้ากลุ่มทดสอบตามกฎ, มีพื้นที่ผู้สร้างใหม่/โพสต์ล่าสุด, มีเหตุผลที่แนะนำ, ผู้ใช้เลือกไม่สนใจได้ และห้ามใช้จำนวนผู้ติดตามหรือเงินโฆษณาเป็นปัจจัยเดียว
+
 ---
 
 ## 8. Referral Attribution
@@ -319,6 +362,23 @@ flowchart TD
 - มี Velocity Limit และ Risk Flag
 - การ Override ต้องมีผู้อนุมัติ เหตุผล และ Audit
 
+### 8.5 External Affiliate Attribution
+
+โพสต์/รีวิวต้องสร้าง Signed External Link ที่แชร์ไป Facebook, Instagram, LINE, TikTok, Web หรือ QR ได้ โดย Token ฝั่ง Server ระบุ Creator, Source Post/Review, Product/SKU, Organization, Campaign, Rule Version และ Expiry; ห้ามเชื่อถือ Creator Code หรือ UTM จาก Client เป็น Authority
+
+Tracking Flow:
+
+1. Redirect Endpoint ตรวจ Signed Token และบันทึก Click Event
+2. สร้าง First-party Attribution Session และผูก user_id เมื่อ Login
+3. เมื่อเพิ่มตะกร้า ให้คัดลอก Attribution ลง Cart Item
+4. เมื่อ Checkout ให้บันทึก Price/Discount/Commission/Attribution Snapshot ระดับ Order Item
+5. เมื่อส่งมอบและพ้น Return Window จึงเปลี่ยน Commission เป็น Available
+6. Cancel/Partial Return/Full Return ต้อง Reverse ตาม Order Item โดยไม่แก้ Ledger เดิม
+
+ค่าเริ่มต้นสำหรับ Prototype: Direct SKU Attribution, Last eligible click ภายใน 7 วัน และ Creator/Promotion Code เป็น Fallback สำหรับ Cross-device หรือ Social In-app Browser ส่วน Indirect Same-store Attribution และ Assisted/Multi-touch Attribution ต้องผ่าน Decision Gate ภายหลัง
+
+ระบบติดตาม Order ได้ครบเมื่อ Checkout อยู่ใน AVENZO หรือระบบภายนอกส่ง Signed Attribution Token ผ่าน API/Webhook; การซื้อหน้าร้าน/แชต/ระบบอื่นที่ไม่เชื่อมต้องใช้ Creator Code, QR, POS Integration หรือ Order Import ที่มี Attribution Reference
+
 ---
 
 ## 9. Commission Ledger และ Payout
@@ -354,6 +414,55 @@ flowchart TD
 - `payout_requests`
 - `payout_batches`
 - `payout_items`
+
+### 9.3 AVENZO Review Deal
+
+Review Deal เป็น Campaign ที่ร้านเปิด Affiliate ให้ Product/SKU และ AVENZO หรือร้านสนับสนุนส่วนลดเพิ่มเติมแก่ผู้ซื้อจากโพสต์รีวิว โดยต้องแยก Funding Source อย่างโปร่งใส
+
+ตัวอย่าง Planning Scenario:
+
+| รายการ | จำนวน |
+|---|---:|
+| ราคาปัจจุบันของร้าน | 90.00 บาท |
+| AVENZO สนับสนุน 3% | 2.70 บาท |
+| ผู้ซื้อชำระ | 87.30 บาท |
+| ฐานยอดขายร้านก่อนค่าธรรมเนียม | 90.00 บาท |
+| Creator Commission 10% | 9.00 บาท |
+| ร้านเหลือก่อน Payment/Platform/Shipping Fee | 81.00 บาท |
+
+ถ้า AVENZO เป็นผู้สนับสนุน 2.70 บาท ฐาน Commission ยังคง 90 บาท; ถ้าร้านเป็นผู้สนับสนุน ต้องล็อกฐานคำนวณและ Settlement Preview ก่อนเปิด Campaign ทุก Order ต้องเก็บ merchant price, merchant discount, platform subsidy, buyer paid, commission base, rate และ rule snapshot แยกกัน
+
+Review Deal ต้องมี Budget, วันเริ่ม/จบ, max discount ต่อ Order/User/Day, stacking rule, eligible SKU/audience, anti-abuse และคืน Budget เมื่อ Order ไม่สำเร็จ ตัวเลข 3%, 10%, 7 วัน และเพดานอื่นเป็น Planning Example ห้ามใช้จริงก่อน Owner อนุมัติ Cost/Legal/Fraud Gate
+
+### 9.4 Content Rights Marketplace
+
+ผู้สร้างคงสิทธิ์ในภาพ/คอนเทนต์โดย Default ร้านไม่ได้สิทธิ์เชิงพาณิชย์เพียงเพราะสินค้าของร้านปรากฏในภาพ ระบบเสนอ License Preset แทนสัญญา Free Text:
+
+- AVENZO Product Page
+- Organic Social ของร้าน
+- Paid Advertising
+- Non-exclusive หรือ Exclusive
+- ระยะเวลา 3/6/12 เดือน
+- ช่องทาง ประเทศ ขอบเขตการแก้ไข และสิทธิ์ใช้บุคคลในภาพ
+
+รูปแบบธุรกิจ:
+
+1. Creator ตั้งราคา Buy Now หรือรับคำขอราคา
+2. ร้านส่ง License Request ระบุช่องทาง/ระยะเวลา/งบ
+3. Merchant Mission ให้ผู้ใช้ส่งผลงานตาม Brief
+4. Hybrid: Fixed Content Fee + Affiliate Commission + Performance Bonus
+
+AVENZO ทำหน้าที่เก็บ Asset/License Version, Consent/Model Release, Payment/Escrow Reference, Download Permission, Expiry/Revocation, Dispute และ Usage Audit พร้อมคิด Marketplace Service Fee ที่เปิดเผยชัดเจน ตัวเลขราคา/เปอร์เซ็นต์ยังเป็น Decision Gate ห้ามกำหนดอัตโนมัติ
+
+ตารางที่ต้องพิจารณาใน Domain Contract:
+
+- `content_license_offers`
+- `content_license_requests`
+- `content_licenses`
+- `creator_missions`
+- `mission_submissions`
+- `content_usage_events`
+- `content_rights_ledger_entries`
 
 ---
 
@@ -541,9 +650,13 @@ Event ต้องมี `organization_id`, Actor, Customer, Source Entity, Corr
 | C2 Purchase & Loyalty | ประวัติซื้อ, แต้ม Ledger, Tier/คูปองพื้นฐาน | Rule ซับซ้อนหลายร้าน |
 | C3 Store Engagement | ข่าวร้าน สินค้า/โปรใหม่ Live Alert, Inbox และ Preferences | Customer-to-customer DM |
 | C4 Verified Review | รีวิวผู้ซื้อจริง รูป Product Link, Public Profile และ Moderation | Video Feed เต็มรูปแบบ |
-| C5 Referral Commerce | Share Link, Click, Attribution, Conversion และ Commission Pending | Multi-level Downline |
+| C5 Referral Commerce | Signed External Link, Click, Direct SKU Attribution, Order-item Snapshot และ Commission Pending | Indirect/Multi-touch Attribution |
 | C6 Payout | Available Balance, Request, Approval, Batch และ Reconciliation | จ่ายอัตโนมัติทุก Provider |
 | C7 Community Feed | Follow, Reaction และ Feed ตามเวลา | Recommendation Algorithm |
+| C8 Commerce Community UI | สำหรับคุณ, กำลังติดตาม, ร้านค้า, รีวิว, Dynamic Product Card และ Disclosure Badge | Ranking ซับซ้อน/Short-video Feed |
+| C9 Review Deal | Platform/Merchant-funded Discount, Budget, Settlement Preview และ Order Snapshot | เปิด Subsidy แบบไม่จำกัด |
+| C10 Content Rights Marketplace | License Preset, Request, Mission, Buy/Accept, Usage Audit และ Rights Ledger | สัญญา Custom/Exclusive ซับซ้อน |
+| C11 Fair Discovery & Scale Gate | Eligibility, New Creator Pool, Explainability, Moderation, Fraud และ Load Test | รับประกันยอด View |
 
 แต่ละระยะต้องเป็น Vertical Slice ที่เชื่อม UI → Server → Database → Event → Notification → Permission/RLS → Test
 
@@ -585,6 +698,14 @@ Event ต้องมี `organization_id`, Actor, Customer, Source Entity, Corr
 - Cancel/Return ย้อน Commission ตาม Order Item
 - Commission ยังถอนไม่ได้จนเป็น Available
 - Ledger รวมย้อนหลังตรงกับยอด Estimated/Pending/Available/Paid
+- Signed External Link แก้ Creator/SKU/Campaign ฝั่ง Client แล้วไม่ผ่านการตรวจ
+- Social In-app Browser และ Cross-device มี Creator Code/QR/Login Fallback
+- Order หลาย SKU บันทึก Attribution แยกตาม Order Item
+- ราคาใน Product Card อัปเดตจาก SKU ปัจจุบันโดยไม่แก้ข้อความรีวิวย้อนหลัง
+- Review Deal แยก Merchant Discount, Platform Subsidy, Buyer Paid และ Commission Base ได้
+- Budget/Cap/Eligibility/Stacking ถูกบังคับฝั่ง Server และ Cancel/Return คืนหรือ Reverse ถูกต้อง
+- Content License ระบุเจ้าของ ช่องทาง ระยะเวลา สิทธิ์แก้ไข และสถานะหมดอายุได้
+- ร้านดาวน์โหลด/ใช้ Asset ไม่ได้หากไม่มี License ที่ยังมีผล
 
 ### 14.5 Notification
 
@@ -626,6 +747,14 @@ Event ต้องมี `organization_id`, Actor, Customer, Source Entity, Corr
 10. Self-referral/Fraud Policy และขั้นตอนอุทธรณ์
 11. Consent Text, ช่องทางการตลาด และ Quiet Hours
 12. ข้อกำหนดภาษี เอกสารผู้รับค่านายหน้า และ PDPA
+13. Direct/Indirect/Multi-touch Attribution และกฎ Cross-device
+14. ราคาปัจจุบัน/ราคาขณะรีวิวและ Price Snapshot ที่แสดงต่อผู้ใช้
+15. ผู้สนับสนุน Review Deal, Commission Base, Budget, Cap และ Coupon Stacking
+16. Platform Success Fee/Marketplace Fee และ Settlement Preview ของร้าน
+17. License Preset, Ownership, Model Release, Channel, Duration, Edit และ Exclusive Rights
+18. Merchant Mission, Content Acceptance, Dispute, Expiry และ Usage Audit
+19. Fair Discovery Eligibility, New Creator Exposure, Sponsored Label และ Appeal
+20. Community/Review/Advertising/Creator Policy พร้อมการตรวจ Legal, Tax, Copyright และ PDPA
 
 ห้าม Codex เดาค่าทางธุรกิจที่มีผลต่อเงิน สิทธิ์ ความเป็นส่วนตัว หรือกฎหมายโดยไม่มี Decision Record
 
@@ -908,6 +1037,17 @@ Phase 1.3.6.4 อ้างอิงการวิเคราะห์ Surge Co
 - เอกสาร Token: `AVENZO_ONE_Phase_1.3.6.1_Design_Tokens.md`
 - ขั้นถัดไป: Phase 1.3.6.2 ย้าย Application Shell และ Shared Surface ไปใช้ Token พร้อมตรวจ Desktop, Tablet และ Mobile
 
+### V7.2 — 19 สิงหาคม 2026
+
+- ล็อกบัญชีบุคคลกลาง user_id และ organization_customer_id สำหรับความสัมพันธ์ลูกค้าหลายร้าน
+- เพิ่ม Consumer Media Quota แยกจาก Organization Media Quota
+- เพิ่ม Customer Commerce Community UI: สำหรับคุณ, กำลังติดตาม, ร้านค้า และรีวิว
+- เพิ่ม Dynamic Product Card, Current/Review-time Price และ Disclosure Badge
+- เพิ่ม External Affiliate Attribution ผ่าน Signed Link, First-party Session, Creator Code/QR Fallback และ Order-item Snapshot
+- เพิ่ม AVENZO Review Deal พร้อม Funding Source, Platform Subsidy, Budget, Cap, Settlement และ Return/Reversal
+- เพิ่ม Content Rights Marketplace, License Preset, Merchant Mission, Hybrid Fee/Affiliate และ Usage Audit
+- เพิ่ม Fair Discovery, Anti-fraud, Acceptance Criteria, Roadmap C8–C11 และ Decision Gates 13–20
+- ทั้งหมดเป็น Future Plan; ยังไม่อนุญาต UI Implementation, Migration, Storage/Payment mutation หรือ Production change
 ### V7.0 — 5 สิงหาคม 2026
 
 - เพิ่ม Customer 360 และ Customer ID กลาง แยกจากรายงานยอดขาย
