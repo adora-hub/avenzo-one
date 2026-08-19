@@ -38,7 +38,7 @@ Community เป็น Commerce Community ไม่ใช่ Social Media ที
 | Core Platform | Product, SKU, Warehouse, Order, Customer | Subscription |
 | Usage | Storage, API, SMS, Email, AI, Video | ตามการใช้งาน/โควตา |
 | Outcome | Affiliate, Review Deal, Attributed Order | Success Fee หรือ Campaign Fee |
-| Promotion | Promoted Store/Product/Review/Live | งบโฆษณาของร้าน |
+| Customer Activation | ส่งสินค้าใหม่/เติมสต็อก/โปร/Live ให้ลูกค้าที่เกี่ยวข้อง | Subscription, Quota หรือ Success Fee |
 | Marketplace | Content License, Creator Mission | Marketplace Service Fee |
 | Enterprise | SSO, SLA, Custom Integration, Support | Contract/Annual Fee |
 
@@ -52,11 +52,11 @@ Community เป็น Commerce Community ไม่ใช่ Social Media ที
 
 ### 4.2 Business
 
-Subscription ระดับร้านเล็ก–กลาง พร้อมเลือก Add-on เช่น Live, CRM, Affiliate, Storage และ Analytics; ค่าธรรมเนียม Order ต่ำหรือคิดเฉพาะบริการที่สร้างยอดขาย
+Subscription ระดับร้านเล็ก–กลาง พร้อมเลือก Add-on เช่น Live, CRM, Affiliate, Storage, Analytics และ Customer Activation; ค่าธรรมเนียม Order ต่ำหรือคิดเฉพาะบริการที่สร้างยอดขาย
 
 ### 4.3 Enterprise
 
-รวม Platform Feature หลัก, Priority Access, API, SSO, SLA และ Support ตาม Fair-use Policy; ฟีเจอร์อนาคตที่อยู่ในขอบเขต Enterprise รวมได้ แต่ Third-party, Video/AI ปริมาณสูง และ Custom Work ไม่รวมโดยอัตโนมัติ
+รวม Platform Feature หลัก, Customer Activation, Priority Access, API, SSO, SLA และ Support ตาม Fair-use Policy; ฟีเจอร์อนาคตที่อยู่ในขอบเขต Enterprise รวมได้ แต่ Third-party, Video/AI ปริมาณสูง และ Custom Work ไม่รวมโดยอัตโนมัติ
 
 ### 4.4 Performance Plan
 
@@ -87,6 +87,48 @@ Subscription ระดับร้านเล็ก–กลาง พร้อ
 - ทุก Override, Refund, Payout และ Moderation ต้องมี Reason และ Audit
 - มี Report, Appeal, Strike, Risk Hold และ Recovery ที่ตรวจสอบย้อนหลังได้
 
+## 7. Customer Activation แทน Ad Platform
+
+AVENZO ONE ไม่ควรสร้างระบบประมูลโฆษณาเพื่อแย่งการมองเห็นแบบ Social Ad Network แกนหลักควรเป็น Permission-based Customer Activation: ร้านส่งข้อมูลที่เกี่ยวข้องให้ลูกค้าที่ติดตาม สนใจ หรืออนุญาตรับการสื่อสารอยู่แล้ว
+
+ปุ่มหลักสำหรับผู้ประกอบการ:
+
+> ส่งให้ลูกค้าที่เกี่ยวข้อง
+
+หลังปุ่มนี้ ระบบสร้างกลุ่มและข้อความเริ่มต้นให้อัตโนมัติ แล้วแสดง Preview ก่อนส่ง:
+
+- ลูกค้าที่ติดตามร้าน
+- ลูกค้าที่เคยดู/บันทึก/ซื้อ SKU หรือหมวดหมู่นั้น
+- ลูกค้าที่รอสินค้าเติมสต็อก
+- ลูกค้าที่เคยเข้าร่วม Live
+- ลูกค้าที่เปิดรับการแจ้งเตือน
+
+Preset รุ่นแรก: สินค้าใหม่, เติมสต็อก, โปรโมชัน และแจ้งก่อน Live โดยต้องแสดงจำนวนผู้รับโดยประมาณ ช่องทาง Purpose และเวลา ส่งได้ด้วยการยืนยันครั้งเดียวหลัง Preview
+
+### Notification Delivery Contract
+
+Push ไม่ใช่แหล่งข้อมูลหลักและไม่รับประกันว่าระบบปฏิบัติการจะแสดงทันที ข้อความทุกประเภทต้องถูกบันทึกใน Notification Center/Inbox ของ AVENZO ก่อน แล้วจึงพยายามส่ง Push, Email, LINE หรือ SMS ตาม Consent และความเหมาะสม
+
+- ลูกค้ากลับมาเปิดระบบภายหลังแล้วยังเห็นรายการที่พลาดหรือลืม
+- มี Unread Badge, อ่านแล้ว/ยังไม่อ่าน, Archive, Search และ Deep Link ไปยังสินค้า/Order/Live
+- เก็บ Delivery Log, Retry, Expired, Failed และเหตุผลที่ส่งไม่ได้
+- Deduplicate เหตุการณ์เดียวกันไม่ให้ขึ้นซ้ำหลายช่องทาง
+- Transactional Notification ต้องมี Retention ตาม Policy; Marketing Notification ต้องมี Consent และยกเลิกได้
+- หาก Push ใช้ไม่ได้ ให้ Inbox เป็น Fallback หลัก และใช้ Email/LINE/SMS เฉพาะช่องทางที่ยินยอม
+- iOS ต้องรองรับ PWA/Home Screen Web App; In-app Browser ต้องมีคำแนะนำให้เปิด Safari/Chrome เมื่อจำเป็น
+- แจ้งเตือนสำคัญต้องมีหน้า Activity/Timeline ให้ตรวจย้อนหลัง ไม่พึ่ง Lock Screen อย่างเดียว
+
+Guardrails:
+
+- แยก Transactional กับ Marketing และตรวจ Consent ทุกช่องทาง
+- จำกัดความถี่ต่อร้านและมี Quiet Hours
+- ลูกค้าปิดรับเฉพาะประเภทข้อความได้
+- มี Cancel/Stop Campaign, Delivery Log และ Audit
+- ไม่ใช้ข้อมูลอ่อนไหวเพื่อเลือกกลุ่ม
+- ไม่ลดการมองเห็นร้านเพราะไม่ซื้อโฆษณา
+- SMS/LINE/Email ภายนอกคิดตามต้นทุนหรือโควตา ไม่แอบรวมเป็นค่าโฆษณา
+
+รายได้มาจาก Subscription, Activation Add-on, Quota, ค่า Messaging ตามต้นทุน และ Success Fee เมื่อเกิด Order ไม่ใช่การขาย Impression หรือการประมูลพื้นที่
 ## 7. Data Governance
 
 - ใช้ `user_id` กลาง และ `organization_customer_id` แยกความสัมพันธ์ร้าน

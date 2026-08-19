@@ -10,6 +10,8 @@
 
 **ระบบเป้าหมาย:** Web Application แบบ Multi-tenant รองรับการขยายเป็น SaaS
 
+**Strategy Authority:** AVENZO_ONE_Customer_Commerce_Ecosystem_and_Monetization_Strategy_V1.md
+
 ---
 
 ## 1. ขอบเขตของ V7
@@ -1047,6 +1049,8 @@ Phase 1.3.6.4 อ้างอิงการวิเคราะห์ Surge Co
 - เพิ่ม AVENZO Review Deal พร้อม Funding Source, Platform Subsidy, Budget, Cap, Settlement และ Return/Reversal
 - เพิ่ม Content Rights Marketplace, License Preset, Merchant Mission, Hybrid Fee/Affiliate และ Usage Audit
 - เพิ่ม Fair Discovery, Anti-fraud, Acceptance Criteria, Roadmap C8–C11 และ Decision Gates 13–20
+- ปรับรายได้จาก Promoted Ads เป็น Customer Activation: ส่งให้ลูกค้าที่เกี่ยวข้องด้วยปุ่มเดียวหลัง Preview/Consent/ความถี่ และไม่ลดการมองเห็นร้านที่ไม่ซื้อโฆษณา
+- เพิ่ม Notification Delivery Contract: เก็บข้อความใน Notification Center/Inbox เป็นหลัก มี Unread Badge, Deep Link, Delivery Log, Retry และช่องทางสำรองตาม Consent เมื่อ Push ใช้งานไม่ได้หรือผู้ใช้พลาดการแจ้งเตือน
 - ทั้งหมดเป็น Future Plan; ยังไม่อนุญาต UI Implementation, Migration, Storage/Payment mutation หรือ Production change
 ### V7.0 — 5 สิงหาคม 2026
 
