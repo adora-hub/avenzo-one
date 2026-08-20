@@ -1,6 +1,6 @@
 # AVENZO ONE — Phase T4.2C Migration Draft and Test Plan
 
-**Status:** Conditionally Approved — Baseline Merged; Waiting for PM Review before Local Migration/Test Run  
+**Status:** Approved and Closed — Isolated Local QA PASS; No Remote Apply
 **Date:** 20 August 2026  
 **Working branch:** `codex/workstream-domain-qa`  
 **Approved comparison baseline:** `codex/phase-2.1-products-workspace` at `df53136f242916c5cf72236833c2034f849eecd6`  
@@ -8,7 +8,7 @@
 
 ## 1. Outcome
 
-T4.2C is drafted as one transactional local migration and one rollback-based SQL regression test. It reuses the actual Phase 2 inventory model:
+T4.2C was delivered as one transactional migration and one rollback-based SQL regression test. The isolated local QA gate is closed PASS, and the implementation reuses the actual Phase 2 inventory model:
 
 - Inventory Location = `public.locations`
 - Inventory Movement/Ledger = `public.stock_movements`
@@ -17,12 +17,12 @@ T4.2C is drafted as one transactional local migration and one rollback-based SQL
 
 No Product, SKU, Warehouse, Location, Movement, Balance, Batch, Batch Item, idempotency or atomic Batch RPC schema is created.
 
-## 2. Files for PM Review
+## 2. Delivered Files
 
 | File | Purpose | State |
 |---|---|---|
-| `supabase/migrations/20260820074733_phase_t4_2c_permission_rls_contract.sql` | Permission catalog, compatibility backfill, RLS correction, role-seed compatibility and browser grant boundary | Drafted; not applied |
-| `supabase/tests/phase_t4_2c_permission_rls_contract.sql` | Tenant/Branch isolation, RLS, anon denial, browser write denial and permission compatibility | Drafted; not run |
+| `supabase/migrations/20260820074733_phase_t4_2c_permission_rls_contract.sql` | Permission catalog, compatibility backfill, RLS correction, role-seed compatibility and browser grant boundary | Tracked; isolated local apply PASS; never applied Remote |
+| `supabase/tests/phase_t4_2c_permission_rls_contract.sql` | Tenant/Branch isolation, RLS, anon denial, browser write denial and permission compatibility | Tracked; isolated local QA PASS |
 | `docs/AVENZO_ONE_Phase_T4_2C_Migration_and_Test_Plan.md` | PM review record and test matrix | This document |
 
 No previously applied migration was edited.
@@ -31,7 +31,7 @@ No previously applied migration was edited.
 
 The approved Phase 2.1 baseline commit `df53136f242916c5cf72236833c2034f849eecd6` was merged into `codex/workstream-domain-qa` with merge commit `8019084cd49653028f1b27c13aa383fb748adc46`. The merge has two parents and no rebase was used.
 
-Local drafts, including untracked files, were protected with `git stash --include-untracked` before the merge and restored afterward without conflict. The baseline object-ordering gate is now satisfied at source level. No migration or test has been run; runtime verification remains behind the next PM gate.
+Local drafts, including untracked files, were protected with `git stash --include-untracked` before the merge and restored afterward without conflict. The baseline object-ordering gate and subsequent isolated runtime verification both passed. T4.2C was closed in commit `1bc4665`; no rebase was used.
 
 ## 4. Transaction Boundary
 
@@ -71,7 +71,7 @@ New assignments after migration are independent. Granting `product.read`, `wareh
 
 ## 6. RLS Corrections
 
-| Surface | Previous | Draft authority |
+| Surface | Previous | Approved authority |
 |---|---|---|
 | `skus` | `product.read` | `sku.read` |
 | SKU profile/sell-unit/bundle/options/images/identifier read policies | `product.read` | `sku.read` |
@@ -86,7 +86,7 @@ Unchanged and out of scope:
 
 - Product-owned categories, brands, tags and option definitions remain on `product.read`.
 - SKU cost remains on `product.cost.read`.
-- Mixed `product_domain_events` and sales-code allocator surfaces await a separate authority decision.
+- Mixed `product_domain_events` and sales-code allocator surfaces remain outside T4.2C and are governed by the later Product permission cutover contract.
 - Existing trusted write commands and immutability triggers remain unchanged.
 
 ## 7. Browser and Ledger Boundary
@@ -126,34 +126,32 @@ Fixtures run inside one transaction and finish with `ROLLBACK`.
 
 ## 9. Validation State
 
-- Static scope check passed: one migration `BEGIN`/`COMMIT`, no `CREATE TABLE`, no Batch RPC.
-- Test draft contains tenant isolation, RLS metadata, anon denial, browser write denial, existing/future Owner/Admin split and no-Batch-surface checks, ending in one `ROLLBACK`.
-- Approved Phase 2.1 baseline is present through merge commit `8019084cd49653028f1b27c13aa383fb748adc46`; no rebase was used and stash restore had no conflict.
-- SQL migration/test runtime has not been executed, as required pending PM review of this updated Test Plan.
-- No PREVIEW/Production connection or apply occurred. T4.2C drafts remain uncommitted and nothing was pushed.
+- Auth/Storage preflight: PASS (`auth.users`, `auth.jwt()`, `auth.uid()`, `storage.buckets`, `storage.objects`).
+- Canonical Production Baseline verifier: PASS, `90/90` canonical SQL plus `7` bridges.
+- Canonical baseline replay: PASS, `90/90`.
+- Phase 2 forward migrations: PASS, `14/14` in approved order.
+- T4.2C migration isolated local apply: PASS.
+- Approved test list: PASS, `12/12`; no new failure.
+- No-Batch gate: PASS (`t|t|t|t|0|0`), confirming required catalog/role conditions and zero Batch table/policy/function surface.
+- Isolated containers, volumes and transient harness were cleaned up; the main local database remained `running|healthy`.
+- No PREVIEW/Production connection or apply occurred. Closure is recorded in commit `1bc4665`; this closeout documentation is included only under the later PM-approved branch commit.
 
-## 10. Risks and PM Review Points
+## 10. Residual Risks and Controls
 
-1. **Baseline merge size:** the approved baseline is now integrated as a large merge commit; PM should review the two-parent commit and restored draft status before local execution.
+1. **Baseline merge size:** the approved baseline is integrated as a large two-parent merge commit; future reviews must preserve that merge lineage and must not rebase it.
 2. **One-time compatibility:** later broad grants do not implicitly add granular grants; this is intentional separation.
 3. **Legacy broad permissions:** old codes remain because other existing surfaces/commands still use them.
-4. **Audit semantics:** existing `inventory_commands` is treated as audit evidence; Batch read remains T4.3.
+4. **Audit semantics:** existing `inventory_commands` is treated as audit evidence; Batch implementation remains a separately approved future phase.
 5. **SKU scope:** direct SKU identity surfaces move to `sku.read`; mixed event/allocator surfaces do not.
-6. **Owner-all inheritance:** PM accepted Owner access to catalog-only `inventory_batch.read`; migration reconciliation covers existing Owners, foundation seeding covers future Owners, and Admin remains denied until T4.3.
+6. **Owner-all inheritance:** PM accepted Owner access to catalog-only `inventory_batch.read`; migration reconciliation covers existing Owners, foundation seeding covers future Owners, and Admin remains denied until a separate Batch approval.
 7. **Role review debt:** compatibility backfill preserves access but does not complete later least-privilege reassignment.
 
-## 11. T4.3 Exclusions
+## 11. Post-T4.2C Exclusions
 
-Absent from this draft: Multi-SKU Batch header/items, Batch idempotency key/hash/result, Batch-to-Movement correlation, atomic receive RPC/function, Batch RLS policies, Batch API and integration code.
+Absent from T4.2C: Multi-SKU Batch header/items, Batch idempotency key/hash/result, Batch-to-Movement correlation, atomic receive RPC/function, Batch RLS policies, Batch API and integration code.
 
-## 12. Next PM Gate
+## 12. Closure and Handoff
 
-PM review is requested for:
+PM closed T4.2C after all isolated local QA gates passed. The approved contract now hands off to T4.3A documentation and permission-vocabulary reconciliation. Any future schema or runtime change requires a new, explicit implementation approval.
 
-1. Merge commit `8019084cd49653028f1b27c13aa383fb748adc46` as the approved `df53136` baseline integration.
-2. Added assertions: Owner granted `inventory_batch.read`, Admin denied, and no active Batch surface.
-3. Permission to run the migration and SQL tests locally only. Remote apply and Push remain prohibited.
-
-**Final status:** T4.2C Conditional Requirements Updated — Waiting for PM Review before Local Migration/Test Run; No Remote Apply or Push.
-
-
+**Final status:** T4.2C Approved and Closed — Isolated Local QA PASS; No Remote Apply.
