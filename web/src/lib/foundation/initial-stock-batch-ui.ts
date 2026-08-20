@@ -1,4 +1,4 @@
-export type InitialStockBatchStatus = 'idle' | 'loading' | 'success' | 'error' | 'duplicate' | 'conflict'
+export type InitialStockBatchStatus = 'idle' | 'loading' | 'success' | 'error' | 'duplicate' | 'conflict' | 'permission'
 export type InitialStockBatchOutcome = Extract<InitialStockBatchStatus, 'success' | 'error' | 'duplicate'>
 
 export function resolveInitialStockBatchOutcome(input: {

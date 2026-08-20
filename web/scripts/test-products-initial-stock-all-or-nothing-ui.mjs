@@ -48,9 +48,9 @@ test('UI-01.2 handles duplicate UI results without writing stock', async () => {
 
 test('UI-01.2 disables confirmation and batch inputs while loading', async () => {
   const form = await read(formPath)
-  assert.match(form, /disabled=\{initialStockBatchStatus === 'loading'\} aria-busy=\{initialStockBatchStatus === 'loading'\}/)
+  assert.match(form, /disabled=\{initialStockBatchActionDisabled\} aria-busy=\{initialStockBatchStatus === 'loading'\}/)
   assert.match(form, /กำลังประมวลผล…/)
-  assert.match(form, /disabled=\{initialStockBatchStatus === 'loading'\} aria-invalid=/)
+  assert.match(form, /disabled=\{initialStockBatchStatus === 'loading' \|\| Boolean\(initialStockEmptyState\) \|\| initialStockPermissionRestricted\} aria-invalid=/)
   assert.match(form, /initialStockDestinationStatus !== 'ready' \|\| initialStockBatchStatus === 'loading'/)
 })
 
@@ -63,7 +63,7 @@ test('UI-01.2 applies semantic batch states and preserves Owner section order', 
   assert.match(styles, /\.product-initial-stock-batch-state\.danger[^}]*var\(--status-danger-/)
   assert.match(styles, /\.product-initial-stock-batch-state\.success[^}]*var\(--status-success-/)
   assert.match(styles, /tr\[data-batch-invalid="true"\][^}]*var\(--status-danger-surface\)/)
-  assert.match(styles, /@media \(max-width: 760px\)[\s\S]*\.product-initial-stock-batch-panel > footer \.button \{ width: 100%/)
+  assert.match(styles, /@media \(max-width: 760px\)[\s\S]*\.product-initial-stock-batch-panel > footer > \.button \{ width: 100%/)
 })
 
 test('UI-01.3 explains rollback impact and gives actionable correction controls', async () => {
@@ -105,7 +105,7 @@ test('UI-01.4A locks the batch synchronously and exposes an accessible stable lo
   assert.match(form, /product-loading-spinner/)
   assert.match(form, /ปุ่มยืนยันและข้อมูลใน Batch ถูกปิดชั่วคราวเพื่อป้องกันการกดซ้ำ/)
   assert.match(styles, /\.product-initial-stock-batch-state\.loading[^}]*min-height: 62px/)
-  assert.match(styles, /\.product-initial-stock-batch-panel > footer \.button[^}]*min-width: 190px[^}]*gap: 7px/)
+  assert.match(styles, /\.product-initial-stock-batch-panel > footer > \.product-primary-action[^}]*min-width: 190px/)
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\) \{[\s\S]*?\.product-loading-spinner \{ animation: none; \}/)
 })
 test('UI-01.4B validates every required batch field and clears resolved warnings live', async () => {
@@ -162,8 +162,8 @@ test('UI-01.4D creates a new Batch ID for retry and preserves the entered batch 
 test('UI-01.4D guards retry while loading and never presents partial success', async () => {
   const form = await read(formPath)
   const retryHandler = form.slice(form.indexOf('function retryInitialStockBatch()'), form.indexOf('function validateInitialStockBatch('))
-  assert.match(retryHandler, /if \(initialStockBatchInFlightRef\.current \|\| initialStockBatchStatus === 'loading'\) return/)
-  assert.match(form, /onClick=\{retryInitialStockBatch\} disabled=\{initialStockBatchBusy\} aria-busy=\{initialStockBatchBusy\}/)
+  assert.match(retryHandler, /if \(initialStockBatchInFlightRef\.current \|\| initialStockBatchStatus === 'loading' \|\| initialStockEmptyState\) return/)
+  assert.match(form, /onClick=\{retryInitialStockBatch\} disabled=\{initialStockBatchActionDisabled\} aria-busy=\{initialStockBatchBusy\}/)
   assert.match(form, /กำลังลองอีกครั้งด้วย Batch ใหม่…/)
   assert.match(form, /ไม่มี SKU ใดถูกเพิ่มสต็อก ข้อมูลที่กรอกยังอยู่ครบเพื่อให้แก้ไขได้/)
   assert.doesNotMatch(form, /Partial Success|partial success|สำเร็จบางส่วน/)
@@ -201,8 +201,8 @@ test('UI-01.4E requires review before retry and preserves the new-Batch retry co
   assert.match(simulationHandler, /collectInitialStockBatchErrors\(rowIssues\)/)
   assert.match(simulationHandler, /setInitialStockConflictReviewed\(true\)/)
   assert.match(simulationHandler, /initialStockBatchStatus === 'conflict' && !initialStockConflictReviewed/)
-  assert.match(form, /disabled=\{initialStockBatchBusy \|\| !initialStockConflictReviewed\}/)
-  assert.match(form, /aria-describedby="initialStockConflictReviewStatus"/)
+  assert.match(form, /disabled=\{initialStockBatchActionDisabled \|\| !initialStockConflictReviewed\}/)
+  assert.ok(form.includes('aria-describedby={initialStockEmptyState ? "initialStockEmptyState" : "initialStockConflictReviewStatus"}'))
   assert.match(form, /ตรวจสอบข้อมูลอีกครั้ง/)
   assert.match(form, /ลองใหม่ด้วย Batch ID ใหม่/)
 })
@@ -222,4 +222,109 @@ test('UI-01.4E uses semantic conflict tokens and existing responsive actions', a
   assert.match(styles, /\.product-initial-stock-conflict-review\.reviewed[^}]*var\(--status-info-border\)[^}]*var\(--status-info-text\)/)
   assert.match(styles, /\.product-initial-stock-batch-panel > footer \{[^}]*flex-wrap: wrap/)
   assert.match(styles, /@media \(max-width: 760px\)[\s\S]*\.product-initial-stock-rollback-actions \.button \{ width: 100%/)
+})
+test('UI-01.4F covers missing SKU, warehouse, branch warehouse, and location empty states', async () => {
+  const form = await read(formPath)
+  assert.ok(form.includes("const initialStockMissingSku = structure === 'variant'"))
+  assert.ok(form.includes("initialStockRows.length === 0 || initialStockRows.some((row) => row.skuCode === 'ยังไม่กำหนด SKU')"))
+  assert.ok(form.includes('ยังไม่มี SKU สำหรับกำหนด Initial Stock'))
+  assert.ok(form.includes('initialStockWarehouses.length === 0'))
+  assert.ok(form.includes('ยังไม่มีคลังสำหรับ Initial Stock'))
+  assert.ok(form.includes('initialStockBranchId && filteredInitialStockWarehouses.length === 0'))
+  assert.ok(form.includes('สาขานี้ยังไม่มีคลังที่พร้อมใช้งาน'))
+  assert.ok(form.includes('initialStockWarehouse && filteredInitialStockLocations.length === 0'))
+  assert.ok(form.includes('คลังนี้ยังไม่มีตำแหน่งจัดเก็บ'))
+  assert.ok(form.includes('ขั้นตอนถัดไป:'))
+  assert.ok(form.includes('UI Simulation เท่านั้น · ไม่มี Stock write จริง'))
+})
+
+test('UI-01.4F disables Batch actions and provides accessible keyboard focus guidance', async () => {
+  const [form, styles] = await Promise.all([read(formPath), read(stylesPath)])
+  assert.ok(form.includes('const initialStockBatchActionDisabled = initialStockBatchBusy || Boolean(initialStockEmptyState)'))
+  assert.ok(form.includes('id="initialStockEmptyState" className="product-inline-note warning product-initial-stock-empty-state" role="status" aria-live="polite" aria-atomic="true"'))
+  assert.ok(form.includes('aria-describedby={initialStockEmptyState ? "initialStockEmptyState"'))
+  assert.ok(form.includes('onClick={focusInitialStockEmptyStateTarget} aria-describedby="initialStockEmptyState"'))
+  assert.ok(form.includes('document.querySelector<HTMLElement>(initialStockEmptyState.focusSelector)'))
+  assert.match(form, /focusSelector: structure === 'variant'.+product-variant-matrix input.+SKU Code/)
+  assert.ok(form.includes("target?.scrollIntoView({ behavior: 'smooth', block: 'center' })"))
+  assert.ok(form.includes('target?.focus({ preventScroll: true })'))
+  assert.ok(styles.includes('.product-initial-stock-empty-state { align-items: center; border: 1px solid var(--status-warning-border); }'))
+  assert.ok(styles.includes('.product-initial-stock-empty-state > .button { width: 100%; }'))
+  assert.ok(!styles.includes('.product-initial-stock-empty-state { color: var(--status-danger'))
+})
+
+test('UI-01.4F gives Empty State priority over quantity and Batch validation', async () => {
+  const form = await read(formPath)
+  assert.ok(form.includes("structure === 'standard' && initialStockEnabled && !initialStockMissingSku"))
+  assert.ok(form.includes("structure === 'variant' && initialStockEnabled && !initialStockMissingSku"))
+  assert.ok(form.includes('const initialStockShowValidation = !initialStockEmptyState'))
+  assert.ok(form.includes("value={initialStockBulkQuantity} disabled={initialStockBatchStatus === 'loading' || Boolean(initialStockEmptyState) || initialStockPermissionRestricted}"))
+  assert.ok(form.includes("disabled={initialStockBatchStatus === 'loading' || Boolean(initialStockEmptyState) || initialStockPermissionRestricted || !initialStockBulkQuantity.trim()"))
+  assert.ok(form.includes("value={initialStockQuantities[row.key] ?? ''} disabled={initialStockBatchStatus === 'loading' || Boolean(initialStockEmptyState) || initialStockPermissionRestricted}"))
+})
+
+test('UI-01.4F remains client-only, preserves values and Owner section order, and has no partial success', async () => {
+  const form = await read(formPath)
+  const emptyModel = form.slice(form.indexOf('const initialStockMissingSku'), form.indexOf('const selectInitialStockWarehouse'))
+  const emptyHandlers = form.slice(form.indexOf('function reviewInitialStockConflict()'), form.indexOf('function runInitialStockBatchValidation('))
+  for (const forbidden of ['executeFoundationCommandAction', 'loadInitialStockDestinationsAction', 'supabase', 'fetch(']) {
+    assert.ok(!(emptyModel + emptyHandlers).includes(forbidden))
+  }
+  for (const setter of ['setInitialStockQuantities', 'setInitialStockBranchId', 'setInitialStockWarehouse', 'setInitialStockLocation']) {
+    assert.ok(!emptyHandlers.includes(setter))
+  }
+  assert.ok(emptyHandlers.includes('if (initialStockEmptyState) return'))
+  for (const partialCopy of ['Partial Success', 'partial success', 'สำเร็จบางส่วน']) {
+    assert.ok(!form.includes(partialCopy))
+  }
+  const sectionIds = ['general', 'images', 'sku', 'pricing', 'inventory', 'packaging', 'physical', 'metadata']
+  const positions = sectionIds.map((id) => form.indexOf('<section id="' + id + '"'))
+  assert.ok(positions.every((position) => position >= 0))
+  assert.deepEqual([...positions].sort((left, right) => left - right), positions)
+})
+test('UI-01.4G presents permission denial separately from validation and reports zero writes', async () => {
+  const [form, helper] = await Promise.all([read(formPath), read('../src/lib/foundation/initial-stock-batch-ui.ts')])
+  assert.match(helper, /InitialStockBatchStatus[^\n]*'permission'/)
+  assert.match(form, /initialStockPermissionReason.+receive.+destination.+changed/)
+  assert.match(form, /simulateInitialStockPermission\('receive'\).+simulateInitialStockPermission\('destination'\).+simulateInitialStockPermission\('changed'\)/)
+  assert.ok(form.includes("initialStockBatchStatus === 'permission'"))
+  assert.ok(form.includes('id="initialStockPermissionState"'))
+  assert.ok(form.includes('role="alert" aria-live="assertive" tabIndex={-1}'))
+  assert.ok(form.includes('<strong>0</strong> SKU'))
+  assert.ok(form.includes('UI Simulation'))
+  assert.doesNotMatch(form, /Partial Success|partial success/)
+})
+
+test('UI-01.4G locks protected destination and quantity controls while retaining destination escape', async () => {
+  const form = await read(formPath)
+  assert.ok(form.includes("const initialStockPermissionRestricted = initialStockPermissionDenied"))
+  assert.ok(form.includes("const initialStockDestinationPermissionLocked = initialStockPermissionRestricted && initialStockPermissionReason !== 'destination'"))
+  assert.ok(form.includes("initialStockBatchActionDisabled = initialStockBatchBusy || Boolean(initialStockEmptyState) || initialStockPermissionRestricted"))
+  assert.ok(form.includes("disabled={initialStockDestinationStatus !== 'ready' || initialStockBatchStatus === 'loading' || initialStockDestinationPermissionLocked}"))
+  assert.ok(form.includes("disabled={initialStockBatchStatus === 'loading' || Boolean(initialStockEmptyState) || initialStockPermissionRestricted}"))
+  assert.ok(form.includes('focusInitialStockDestinationChoice'))
+})
+
+test('UI-01.4G rechecks permission with loading and double-click guards without clearing entered values', async () => {
+  const form = await read(formPath)
+  const handler = form.slice(form.indexOf('function simulateInitialStockPermission('), form.indexOf('function reviewInitialStockConflict()'))
+  assert.match(handler, /if \(initialStockBatchInFlightRef\.current \|\| initialStockBatchStatus === 'loading'\) return/)
+  assert.match(handler, /setInitialStockBatchStatus\('loading'\)/)
+  assert.match(handler, /setInitialStockBatchStatus\('permission'\)/)
+  assert.match(handler, /focusInitialStockPermissionState/)
+  for (const setter of ['setInitialStockQuantities', 'setInitialStockBranchId', 'setInitialStockWarehouse', 'setInitialStockLocation']) {
+    assert.ok(!handler.includes(setter))
+  }
+  assert.match(form, /initialStockPermissionDenied \?/)
+})
+
+test('UI-01.4G uses semantic warning tokens and remains local UI-only', async () => {
+  const [form, styles] = await Promise.all([read(formPath), read(stylesPath)])
+  const handler = form.slice(form.indexOf('function simulateInitialStockPermission('), form.indexOf('function reviewInitialStockConflict()'))
+  assert.match(styles, /\.product-initial-stock-batch-state\.permission[^}]*var\(--status-warning-border\)[^}]*var\(--status-warning-text\)[^}]*var\(--status-warning-surface\)/)
+  assert.match(styles, /\.product-initial-stock-batch-state\.permission:focus-visible/)
+  assert.match(styles, /\.product-initial-stock-permission-guidance/)
+  assert.match(styles, /\.product-initial-stock-permission-simulations[^}]*inline-flex[^}]*flex-wrap: nowrap/)
+  assert.match(styles, /\.product-initial-stock-permission-simulations \.button[^}]*min-width: 0[^}]*border-radius: 0/)
+  assert.doesNotMatch(handler, /executeFoundationCommandAction|loadInitialStockDestinationsAction|supabase|fetch\(/)
 })

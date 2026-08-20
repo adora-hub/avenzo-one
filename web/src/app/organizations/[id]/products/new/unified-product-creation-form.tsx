@@ -423,6 +423,16 @@ function sanitizePendingDraft(value: unknown): PendingDraft | null {
 const PRODUCT_INFO_GUIDE_OPEN_EVENT = 'avenzo:product-info-guide-open'
 let activeProductInfoGuide: { id: string; pinned: boolean } | null = null
 
+function createProductInfoGuideId(label: string, description: string, example: string) {
+  const source = `${label}|${description}|${example}`
+  let hash = 2166136261
+  for (let index = 0; index < source.length; index += 1) {
+    hash ^= source.charCodeAt(index)
+    hash = Math.imul(hash, 16777619)
+  }
+  return `product-info-guide-${(hash >>> 0).toString(36)}`
+}
+
 function ProductInfoGuide({
   label,
   description,
@@ -432,7 +442,8 @@ function ProductInfoGuide({
   description: string
   example: string
 }) {
-  const popoverId = useId()
+  // Stable across server HTML and the first browser render, including restored drafts.
+  const popoverId = createProductInfoGuideId(label, description, example)
   const rootRef = useRef<HTMLSpanElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
   const popoverRef = useRef<HTMLElement>(null)
@@ -1050,6 +1061,8 @@ export function UnifiedProductCreationForm({
   const [initialStockBatchAttempted, setInitialStockBatchAttempted] = useState(false)
   const [initialStockLastAttemptFailed, setInitialStockLastAttemptFailed] = useState(false)
   const [initialStockConflictReviewed, setInitialStockConflictReviewed] = useState(false)
+  const [initialStockPermissionReason, setInitialStockPermissionReason] = useState<'receive' | 'destination' | 'changed'>('receive')
+  const [initialStockPermissionDenied, setInitialStockPermissionDenied] = useState(false)
   const [initialStockBatchIssues, setInitialStockBatchIssues] = useState<InitialStockBatchIssue[]>([])
   const [initialStockBatchErrors, setInitialStockBatchErrors] = useState<string[]>([])
   const [initialStockLastSuccessfulFingerprint, setInitialStockLastSuccessfulFingerprint] = useState('')
@@ -1708,6 +1721,7 @@ export function UnifiedProductCreationForm({
     setInitialStockBatchAttempted(false)
     setInitialStockLastAttemptFailed(false)
     setInitialStockConflictReviewed(false)
+    setInitialStockPermissionDenied(false)
     setInitialStockBatchIssues([])
     setInitialStockBatchErrors([])
     setInitialStockLastSuccessfulFingerprint('')
@@ -2796,6 +2810,44 @@ export function UnifiedProductCreationForm({
   }
   const filteredInitialStockWarehouses = initialStockWarehouses.filter((warehouse) => warehouse.branchId === initialStockBranchId)
   const filteredInitialStockLocations = initialStockLocations.filter((location) => location.warehouseId === initialStockWarehouse)
+  const initialStockMissingSku = structure === 'variant'
+    ? initialStockRows.length === 0 || initialStockRows.some((row) => row.skuCode === 'ยังไม่กำหนด SKU')
+    : !summaryFields.skuCode.trim()
+  const initialStockEmptyState = initialStockMissingSku
+    ? {
+        title: 'ยังไม่มี SKU สำหรับกำหนด Initial Stock',
+        reason: structure === 'variant' ? 'ยังไม่มี SKU Variant ที่เปิดใช้งาน จึงยังตรวจสอบ Batch ไม่ได้' : 'ยังไม่ได้กรอกรหัส SKU จึงยังตรวจสอบ Batch ไม่ได้',
+        nextAction: structure === 'variant' ? 'เพิ่มตัวเลือกและเปิดใช้งาน SKU Variant อย่างน้อย 1 รายการ' : 'กรอกรหัส SKU ในส่วน SKU ให้เรียบร้อย',
+        actionLabel: 'ไปที่ส่วน SKU',
+        focusSelector: structure === 'variant' ? '#sku .product-variant-matrix input[aria-label^="SKU Code "]:not(:disabled)' : '#skuCode',
+      }
+    : initialStockDestinationStatus !== 'ready'
+      ? null
+      : initialStockWarehouses.length === 0
+        ? {
+            title: 'ยังไม่มีคลังสำหรับ Initial Stock',
+            reason: 'ยังไม่มีคลังและตำแหน่งจัดเก็บที่พร้อมรับสต็อกเริ่มต้น',
+            nextAction: 'เพิ่มหรือเปิดใช้งานคลังและตำแหน่งจัดเก็บก่อน หรือปิด Initial Stock เพื่อสร้างสินค้าไว้ก่อน',
+            actionLabel: 'กลับไปปิด Initial Stock',
+            focusSelector: '#initialStockEnabledControl',
+          }
+        : initialStockBranchId && filteredInitialStockWarehouses.length === 0
+          ? {
+              title: 'สาขานี้ยังไม่มีคลังที่พร้อมใช้งาน',
+              reason: 'สาขาที่เลือกไม่มีคลังสำหรับรับ Initial Stock',
+              nextAction: 'เลือกสาขาอื่นที่มีคลัง หรือเพิ่มคลังให้สาขานี้ก่อนตรวจสอบ Batch',
+              actionLabel: 'เลือกสาขาอื่น',
+              focusSelector: '#initialStockBranchControl',
+            }
+          : initialStockWarehouse && filteredInitialStockLocations.length === 0
+            ? {
+                title: 'คลังนี้ยังไม่มีตำแหน่งจัดเก็บ',
+                reason: 'คลังที่เลือกไม่มีตำแหน่งจัดเก็บสำหรับรับ Initial Stock',
+                nextAction: 'เลือกคลังอื่นที่มีตำแหน่งจัดเก็บ หรือเพิ่มตำแหน่งให้คลังนี้ก่อนตรวจสอบ Batch',
+                actionLabel: 'เลือกคลังอื่น',
+                focusSelector: '#initialStockWarehouseControl',
+              }
+            : null
   const selectInitialStockWarehouse = (warehouseId: string) => {
     markInitialStockBatchDirty()
     setInitialStockWarehouse(warehouseId)
@@ -2819,7 +2871,7 @@ export function UnifiedProductCreationForm({
     setInitialStockDestinationStatus('idle')
   }
   const standardInitialStockValue = initialStockQuantities.standard ?? ''
-  const standardInitialStockErrors = structure === 'standard' && initialStockEnabled
+  const standardInitialStockErrors = structure === 'standard' && initialStockEnabled && !initialStockMissingSku
     ? [
         initialStockDestinationStatus !== 'ready' ? 'กรุณารอโหลดคลังและตำแหน่งจัดเก็บ' : '',
         !initialStockBranchId ? 'กรุณาเลือกสาขารับสต็อก' : '',
@@ -2838,13 +2890,13 @@ export function UnifiedProductCreationForm({
     if (value.includes('.') && (value.split('.')[1]?.length ?? 0) > 6) return 'ทศนิยมไม่เกิน 6 ตำแหน่ง'
     return ''
   }
-  const variantInitialStockInvalidKeys = new Set(structure === 'variant' && initialStockEnabled
+  const variantInitialStockInvalidKeys = new Set(structure === 'variant' && initialStockEnabled && !initialStockMissingSku
     ? initialStockRows.filter((row) => initialStockQuantityError(initialStockQuantities[row.key] ?? '')).map((row) => row.key)
     : [])
   const variantInitialStockFilledCount = structure === 'variant'
     ? initialStockRows.filter((row) => !initialStockQuantityError(initialStockQuantities[row.key] ?? '')).length
     : 0
-  const variantInitialStockErrors = structure === 'variant' && initialStockEnabled
+  const variantInitialStockErrors = structure === 'variant' && initialStockEnabled && !initialStockMissingSku
     ? [
         initialStockDestinationStatus !== 'ready' ? 'กรุณารอโหลดคลังและตำแหน่งจัดเก็บ' : '',
         !initialStockBranchId ? 'กรุณาเลือกสาขารับสต็อก' : '',
@@ -2913,11 +2965,22 @@ export function UnifiedProductCreationForm({
     issuesByKey.set(issue.rowKey, [...rowIssues, issue])
     return issuesByKey
   }, new Map<string, InitialStockBatchIssue[]>())
-  const initialStockShowValidation = initialStockBatchAttempted
+  const initialStockShowValidation = !initialStockEmptyState
+    && initialStockBatchAttempted
     && initialStockBatchStatus !== 'loading'
+    && initialStockBatchStatus !== 'permission'
     && initialStockBatchStatus !== 'conflict'
     && (initialStockLiveBatchErrors.length > 0 || initialStockLiveBatchIssues.length > 0)
   const initialStockBatchBusy = initialStockBatchStatus === 'loading' || initialStockBatchInFlightRef.current
+  const initialStockPermissionRestricted = initialStockPermissionDenied && (initialStockBatchStatus === 'permission' || initialStockBatchStatus === 'loading')
+  const initialStockDestinationPermissionLocked = initialStockPermissionRestricted && initialStockPermissionReason !== 'destination'
+  const initialStockBatchActionDisabled = initialStockBatchBusy || Boolean(initialStockEmptyState) || initialStockPermissionRestricted
+  const initialStockPermissionMessage = initialStockPermissionReason === 'destination' ? '\u0e04\u0e38\u0e13\u0e44\u0e21\u0e48\u0e21\u0e35\u0e2a\u0e34\u0e17\u0e18\u0e34\u0e4c\u0e43\u0e0a\u0e49\u0e2a\u0e32\u0e02\u0e32\u0e2b\u0e23\u0e37\u0e2d\u0e04\u0e25\u0e31\u0e07\u0e17\u0e35\u0e48\u0e40\u0e25\u0e37\u0e2d\u0e01' : initialStockPermissionReason === 'changed' ? '\u0e2a\u0e34\u0e17\u0e18\u0e34\u0e4c\u0e02\u0e2d\u0e07\u0e04\u0e38\u0e13\u0e16\u0e39\u0e01\u0e40\u0e1b\u0e25\u0e35\u0e48\u0e22\u0e19\u0e23\u0e30\u0e2b\u0e27\u0e48\u0e32\u0e07\u0e15\u0e23\u0e27\u0e08\u0e2a\u0e2d\u0e1a Batch' : '\u0e04\u0e38\u0e13\u0e44\u0e21\u0e48\u0e21\u0e35\u0e2a\u0e34\u0e17\u0e18\u0e34\u0e4c\u0e23\u0e31\u0e1a\u0e2a\u0e34\u0e19\u0e04\u0e49\u0e32\u0e40\u0e02\u0e49\u0e32\u0e2a\u0e15\u0e47\u0e2d\u0e01'
+  const initialStockPermissionCopy = {
+    title: initialStockPermissionMessage,
+    detail: initialStockPermissionReason === 'changed' ? '\u0e44\u0e21\u0e48\u0e21\u0e35 SKU \u0e43\u0e14\u0e16\u0e39\u0e01\u0e1a\u0e31\u0e19\u0e17\u0e36\u0e01 \u0e40\u0e1e\u0e23\u0e32\u0e30\u0e2a\u0e34\u0e17\u0e18\u0e34\u0e4c\u0e40\u0e1b\u0e25\u0e35\u0e48\u0e22\u0e19\u0e44\u0e1b\u0e01\u0e48\u0e2d\u0e19\u0e08\u0e1a Batch' : initialStockPermissionReason === 'destination' ? '\u0e2a\u0e32\u0e02\u0e32\u0e2b\u0e23\u0e37\u0e2d\u0e04\u0e25\u0e31\u0e07\u0e19\u0e35\u0e49\u0e2d\u0e22\u0e39\u0e48\u0e19\u0e2d\u0e01\u0e02\u0e2d\u0e1a\u0e40\u0e02\u0e15\u0e17\u0e35\u0e48\u0e1a\u0e31\u0e0d\u0e0a\u0e35\u0e02\u0e2d\u0e07\u0e04\u0e38\u0e13\u0e23\u0e31\u0e1a\u0e2a\u0e15\u0e47\u0e2d\u0e01\u0e44\u0e14\u0e49' : '\u0e1a\u0e31\u0e0d\u0e0a\u0e35\u0e19\u0e35\u0e49\u0e14\u0e39\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e44\u0e14\u0e49 \u0e41\u0e15\u0e48\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e44\u0e14\u0e49\u0e23\u0e31\u0e1a\u0e2a\u0e34\u0e17\u0e18\u0e34\u0e4c\u0e40\u0e1e\u0e34\u0e48\u0e21\u0e2a\u0e15\u0e47\u0e2d\u0e01',
+    nextAction: initialStockPermissionReason === 'destination' ? '\u0e40\u0e25\u0e37\u0e2d\u0e01\u0e2a\u0e32\u0e02\u0e32\u0e2b\u0e23\u0e37\u0e2d\u0e04\u0e25\u0e31\u0e07\u0e43\u0e2b\u0e21\u0e48\u0e17\u0e35\u0e48\u0e04\u0e38\u0e13\u0e21\u0e35\u0e2a\u0e34\u0e17\u0e18\u0e34\u0e4c' : '\u0e15\u0e23\u0e27\u0e08\u0e2a\u0e2d\u0e1a\u0e2a\u0e34\u0e17\u0e18\u0e34\u0e4c\u0e2d\u0e35\u0e01\u0e04\u0e23\u0e31\u0e49\u0e07 \u0e2b\u0e23\u0e37\u0e2d\u0e15\u0e34\u0e14\u0e15\u0e48\u0e2d Owner/Admin',
+  }
   const initialStockBranchInvalid = initialStockShowValidation && !initialStockBranchId
   const initialStockWarehouseInvalid = initialStockShowValidation && !initialStockWarehouse
   const initialStockLocationInvalid = initialStockShowValidation && !initialStockLocation
@@ -2950,7 +3013,41 @@ export function UnifiedProductCreationForm({
     setInitialStockBatchErrors([])
     setInitialStockBatchStatus('conflict')
   }
+  function focusInitialStockPermissionState() {
+    window.requestAnimationFrame(() => {
+      document.getElementById('initialStockPermissionState')?.focus({ preventScroll: true })
+    })
+  }
+  function simulateInitialStockPermission(reason: 'receive' | 'destination' | 'changed' = 'receive') {
+    if (initialStockBatchInFlightRef.current || initialStockBatchStatus === 'loading') return
+    setInitialStockPermissionReason(reason)
+    setInitialStockBatchAttempted(true)
+    setInitialStockPermissionDenied(true)
+    setInitialStockLastAttemptFailed(true)
+    setInitialStockBatchIssues([])
+    setInitialStockBatchErrors([])
+    setInitialStockBatchStatus('permission')
+    focusInitialStockPermissionState()
+  }
+  function recheckInitialStockPermission() {
+    if (initialStockBatchInFlightRef.current || initialStockBatchStatus === 'loading') return
+    initialStockBatchInFlightRef.current = true
+    setInitialStockBatchStatus('loading')
+    if (initialStockBatchTimerRef.current !== null) window.clearTimeout(initialStockBatchTimerRef.current)
+    initialStockBatchTimerRef.current = window.setTimeout(() => {
+      initialStockBatchInFlightRef.current = false
+      initialStockBatchTimerRef.current = null
+      setInitialStockBatchStatus('permission')
+      focusInitialStockPermissionState()
+    }, 650)
+  }
+  function focusInitialStockDestinationChoice() {
+    const target = document.querySelector<HTMLElement>('[aria-label="สาขารับสต็อกเริ่มต้น"]')
+    target?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    target?.focus({ preventScroll: true })
+  }
   function reviewInitialStockConflict() {
+    if (initialStockEmptyState) return
     const rowIssues = collectInitialStockBatchIssues()
     const batchErrors = collectInitialStockBatchErrors(rowIssues)
     setInitialStockBatchAttempted(true)
@@ -2966,7 +3063,7 @@ export function UnifiedProductCreationForm({
     setInitialStockConflictReviewed(true)
   }
   function retryInitialStockBatch() {
-    if (initialStockBatchInFlightRef.current || initialStockBatchStatus === 'loading') return
+    if (initialStockBatchInFlightRef.current || initialStockBatchStatus === 'loading' || initialStockEmptyState) return
     if (initialStockBatchStatus === 'conflict' && !initialStockConflictReviewed) return
     const nextBatchRevision = initialStockBatchRevision + 1
     setInitialStockBatchRevision(nextBatchRevision)
@@ -2974,7 +3071,14 @@ export function UnifiedProductCreationForm({
     runInitialStockBatchValidation(nextBatchRevision)
   }
   function validateInitialStockBatch() {
+    if (initialStockEmptyState) return
     runInitialStockBatchValidation(initialStockBatchRevision)
+  }
+  function focusInitialStockEmptyStateTarget() {
+    if (!initialStockEmptyState) return
+    const target = document.querySelector<HTMLElement>(initialStockEmptyState.focusSelector)
+    target?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    target?.focus({ preventScroll: true })
   }
   function runInitialStockBatchValidation(batchRevision: number) {
     if (initialStockBatchInFlightRef.current || initialStockBatchStatus === 'loading') return
@@ -3291,7 +3395,7 @@ export function UnifiedProductCreationForm({
           <div className="product-initial-stock-section" data-ui-only="true">
             <div className="product-initial-stock-heading">
               <div><span className="product-initial-stock-title"><strong>สต็อกเริ่มต้น</strong><span className="product-initial-stock-prototype-badge">T2 · อ่านข้อมูลจริง</span></span><small>เตรียมยอดตั้งต้นสำหรับรับสินค้าเข้าคลังหลังสร้าง SKU</small></div>
-              {structure !== 'bundle' ? <label className="product-switch"><input type="checkbox" checked={initialStockEnabled} disabled={!canLoadInitialStockDestinations || initialStockBatchStatus === 'loading'} onChange={(event) => { markInitialStockBatchDirty(); setInitialStockEnabled(event.target.checked) }} aria-label="กำหนดสต็อกเริ่มต้น" /><span aria-hidden="true" /></label> : null}
+              {structure !== 'bundle' ? <label className="product-switch"><input id="initialStockEnabledControl" type="checkbox" checked={initialStockEnabled} disabled={!canLoadInitialStockDestinations || initialStockBatchStatus === 'loading'} onChange={(event) => { markInitialStockBatchDirty(); setInitialStockEnabled(event.target.checked) }} aria-label="กำหนดสต็อกเริ่มต้น" /><span aria-hidden="true" /></label> : null}
             </div>
             {structure === 'bundle'
               ? bundleStockMode === 'virtual'
@@ -3312,24 +3416,25 @@ export function UnifiedProductCreationForm({
                     {initialStockDestinationStatus === 'loading' ? <div className="product-inline-note" role="status">กำลังโหลดคลังและตำแหน่งจัดเก็บ…</div> : null}
                     {initialStockDestinationStatus === 'error' ? <div className="product-initial-stock-validation danger" role="alert"><span>{initialStockDestinationError}</span><button className="button compact secondary" type="button" onClick={reloadInitialStockDestinations}>ลองใหม่</button></div> : null}
                     <div className="product-form-grid three product-initial-stock-destination">
-                      <label><span>สาขารับสต็อก</span><span className="product-select-control"><select value={initialStockBranchId} disabled={initialStockDestinationStatus !== 'ready' || initialStockBatchStatus === 'loading'} onChange={(event) => selectInitialStockBranch(event.target.value)} aria-label="สาขารับสต็อกเริ่มต้น" aria-invalid={initialStockBranchInvalid} aria-describedby={initialStockBranchInvalid ? "initialStockBranchError" : undefined}><option value="">เลือกสาขา</option>{branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.code} · {branch.name}</option>)}</select></span>{initialStockBranchInvalid ? <small id="initialStockBranchError" className="product-field-error">กรุณาเลือกสาขารับสต็อก</small> : null}<small>แสดงเฉพาะสาขาที่บัญชีนี้เข้าถึงได้</small></label>
-                      <label><span>คลังรับสต็อก</span><span className="product-select-control"><select value={initialStockWarehouse} disabled={initialStockDestinationStatus !== 'ready' || !initialStockBranchId || initialStockBatchStatus === 'loading'} onChange={(event) => selectInitialStockWarehouse(event.target.value)} aria-label="คลังรับสต็อกเริ่มต้น" aria-invalid={initialStockWarehouseInvalid} aria-describedby={initialStockWarehouseInvalid ? "initialStockWarehouseError" : undefined}><option value="">เลือกคลัง</option>{filteredInitialStockWarehouses.map((warehouse) => <option key={warehouse.id} value={warehouse.id}>{warehouse.code} · {warehouse.name}</option>)}</select></span>{initialStockWarehouseInvalid ? <small id="initialStockWarehouseError" className="product-field-error">กรุณาเลือกคลังรับสต็อก</small> : null}<small>{initialStockBranchId && !filteredInitialStockWarehouses.length ? 'สาขานี้ยังไม่มีคลังที่พร้อมใช้งาน' : 'เลือกคลังปลายทางจริง'}</small></label>
-                      <label><span>ตำแหน่งจัดเก็บ</span><span className="product-select-control"><select value={initialStockLocation} disabled={initialStockDestinationStatus !== 'ready' || !initialStockWarehouse || initialStockBatchStatus === 'loading'} onChange={(event) => { markInitialStockBatchDirty(); setInitialStockLocation(event.target.value) }} aria-label="ตำแหน่งรับสต็อกเริ่มต้น" aria-invalid={initialStockLocationInvalid} aria-describedby={initialStockLocationInvalid ? "initialStockLocationError" : undefined}><option value="">เลือกตำแหน่ง</option>{filteredInitialStockLocations.map((location) => <option key={location.id} value={location.id}>{location.code} · {location.name}{location.isDefault ? ' · ค่าเริ่มต้น' : ''}</option>)}</select></span>{initialStockLocationInvalid ? <small id="initialStockLocationError" className="product-field-error">กรุณาเลือกตำแหน่งจัดเก็บ</small> : null}<small>{initialStockWarehouse && !filteredInitialStockLocations.length ? 'คลังนี้ยังไม่มีตำแหน่งที่พร้อมใช้งาน' : 'ระบบเลือกตำแหน่งค่าเริ่มต้นให้อัตโนมัติ'}</small></label>
+                      <label><span>สาขารับสต็อก</span><span className="product-select-control"><select id="initialStockBranchControl" value={initialStockBranchId} disabled={initialStockDestinationStatus !== 'ready' || initialStockBatchStatus === 'loading' || initialStockDestinationPermissionLocked} onChange={(event) => selectInitialStockBranch(event.target.value)} aria-label="สาขารับสต็อกเริ่มต้น" aria-invalid={initialStockBranchInvalid} aria-describedby={initialStockBranchInvalid ? "initialStockBranchError" : undefined}><option value="">เลือกสาขา</option>{branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.code} · {branch.name}</option>)}</select></span>{initialStockBranchInvalid ? <small id="initialStockBranchError" className="product-field-error">กรุณาเลือกสาขารับสต็อก</small> : null}<small>แสดงเฉพาะสาขาที่บัญชีนี้เข้าถึงได้</small></label>
+                      <label><span>คลังรับสต็อก</span><span className="product-select-control"><select id="initialStockWarehouseControl" value={initialStockWarehouse} disabled={initialStockDestinationStatus !== 'ready' || !initialStockBranchId || initialStockBatchStatus === 'loading' || initialStockDestinationPermissionLocked} onChange={(event) => selectInitialStockWarehouse(event.target.value)} aria-label="คลังรับสต็อกเริ่มต้น" aria-invalid={initialStockWarehouseInvalid} aria-describedby={initialStockWarehouseInvalid ? "initialStockWarehouseError" : undefined}><option value="">เลือกคลัง</option>{filteredInitialStockWarehouses.map((warehouse) => <option key={warehouse.id} value={warehouse.id}>{warehouse.code} · {warehouse.name}</option>)}</select></span>{initialStockWarehouseInvalid ? <small id="initialStockWarehouseError" className="product-field-error">กรุณาเลือกคลังรับสต็อก</small> : null}<small>{initialStockBranchId && !filteredInitialStockWarehouses.length ? 'สาขานี้ยังไม่มีคลังที่พร้อมใช้งาน' : 'เลือกคลังปลายทางจริง'}</small></label>
+                      <label><span>ตำแหน่งจัดเก็บ</span><span className="product-select-control"><select value={initialStockLocation} disabled={initialStockDestinationStatus !== 'ready' || !initialStockWarehouse || initialStockBatchStatus === 'loading' || initialStockDestinationPermissionLocked} onChange={(event) => { markInitialStockBatchDirty(); setInitialStockLocation(event.target.value) }} aria-label="ตำแหน่งรับสต็อกเริ่มต้น" aria-invalid={initialStockLocationInvalid} aria-describedby={initialStockLocationInvalid ? "initialStockLocationError" : undefined}><option value="">เลือกตำแหน่ง</option>{filteredInitialStockLocations.map((location) => <option key={location.id} value={location.id}>{location.code} · {location.name}{location.isDefault ? ' · ค่าเริ่มต้น' : ''}</option>)}</select></span>{initialStockLocationInvalid ? <small id="initialStockLocationError" className="product-field-error">กรุณาเลือกตำแหน่งจัดเก็บ</small> : null}<small>{initialStockWarehouse && !filteredInitialStockLocations.length ? 'คลังนี้ยังไม่มีตำแหน่งที่พร้อมใช้งาน' : 'ระบบเลือกตำแหน่งค่าเริ่มต้นให้อัตโนมัติ'}</small></label>
                     </div>
-                    {initialStockDestinationStatus === 'ready' && !initialStockWarehouses.length ? <div className="product-inline-note warning" role="status">ยังไม่มีคลังและตำแหน่งจัดเก็บที่พร้อมใช้งาน</div> : null}
-                    {structure === 'variant' && initialStockRows.length ? <div className="product-initial-stock-bulk"><label><span>ใส่จำนวนเดียวกันทุก SKU</span><input type="number" min="0" max="999999999" step="0.000001" inputMode="decimal" value={initialStockBulkQuantity} disabled={initialStockBatchStatus === 'loading'} onChange={(event) => { markInitialStockBatchDirty(); setInitialStockBulkQuantity(event.target.value) }} placeholder="0" aria-label="จำนวนสต็อกเริ่มต้นสำหรับทุก SKU" aria-invalid={Boolean(initialStockBulkError)} />{initialStockBulkError ? <small className="product-field-error">{initialStockBulkError}</small> : null}</label><button className="button compact product-primary-action" type="button" disabled={initialStockBatchStatus === 'loading' || !initialStockBulkQuantity.trim() || Boolean(initialStockBulkError)} onClick={() => { markInitialStockBatchDirty(); setInitialStockQuantities((current) => ({ ...current, ...Object.fromEntries(initialStockRows.map((row) => [row.key, initialStockBulkQuantity])) })) }}>ใส่ให้ทุก SKU</button><span className="product-initial-stock-progress">กรอกแล้ว <strong>{variantInitialStockFilledCount}/{initialStockRows.length}</strong> SKU</span></div> : null}                    {initialStockRows.length ? <div className="product-editor-scroll product-initial-stock-scroll"><table className="product-editor-table product-initial-stock-table"><thead><tr><th>SKU</th><th>สินค้า / ตัวเลือก</th><th>หน่วยนับ</th><th>จำนวนตั้งต้น</th></tr></thead><tbody>{initialStockRows.map((row) => { const batchIssues = initialStockBatchIssuesByKey.get(row.key) ?? []; const skuIssue = batchIssues.find((issue) => issue.field === 'skuCode'); const unitIssue = batchIssues.find((issue) => issue.field === 'baseUnitCode'); const quantityIssue = batchIssues.find((issue) => issue.field === 'quantity'); return <tr key={row.key} data-batch-invalid={batchIssues.length ? 'true' : 'false'}><td data-field-invalid={skuIssue ? 'true' : 'false'}><code className="product-code">{row.skuCode}</code>{skuIssue ? <small className="product-field-error product-initial-stock-row-batch-error">{skuIssue.message}</small> : null}</td><td>{row.name}</td><td data-field-invalid={unitIssue ? 'true' : 'false'}><span className="product-initial-stock-unit"><strong>{BASE_UNIT_LABELS[row.baseUnitCode] ?? row.baseUnitCode}</strong><small>{row.baseUnitCode}</small>{unitIssue ? <small className="product-field-error product-initial-stock-row-batch-error">{unitIssue.message}</small> : null}</span></td><td><div className="product-initial-stock-quantity"><input type="number" min="0" max="999999999" step="0.000001" inputMode="decimal" value={initialStockQuantities[row.key] ?? ''} disabled={initialStockBatchStatus === 'loading'} aria-invalid={Boolean(quantityIssue) || (structure === 'standard' && row.key === 'standard' && standardInitialStockErrors.length > 0) || (structure === 'variant' && variantInitialStockInvalidKeys.has(row.key))} onChange={(event) => { markInitialStockBatchDirty(); setInitialStockQuantities((current) => ({ ...current, [row.key]: event.target.value })) }} placeholder="0" aria-label={`จำนวนสต็อกเริ่มต้น ${row.skuCode}`} />{structure === 'variant' && variantInitialStockInvalidKeys.has(row.key) && !quantityIssue ? <small className="product-field-error">{initialStockQuantityError(initialStockQuantities[row.key] ?? '')}</small> : null}{quantityIssue ? <small className="product-field-error product-initial-stock-row-batch-error">{quantityIssue.message}</small> : null}</div></td></tr> })}</tbody></table></div> : <p className="product-form-note">เพิ่มตัวเลือกและสร้าง SKU Combination ในส่วนที่ 3 ก่อนกำหนดสต็อกเริ่มต้น</p>}
+                    {initialStockEmptyState ? <div id="initialStockEmptyState" className="product-inline-note warning product-initial-stock-empty-state" role="status" aria-live="polite" aria-atomic="true"><span aria-hidden="true">ⓘ</span><div className="product-initial-stock-empty-content"><strong>{initialStockEmptyState.title}</strong><span>{initialStockEmptyState.reason}</span><small><strong>ขั้นตอนถัดไป:</strong> {initialStockEmptyState.nextAction}</small><small>UI Simulation เท่านั้น · ไม่มี Stock write จริง</small></div><button className="button compact secondary" type="button" onClick={focusInitialStockEmptyStateTarget} aria-describedby="initialStockEmptyState">{initialStockEmptyState.actionLabel}</button></div> : null}
+                    {structure === 'variant' && initialStockRows.length ? <div className="product-initial-stock-bulk"><label><span>ใส่จำนวนเดียวกันทุก SKU</span><input type="number" min="0" max="999999999" step="0.000001" inputMode="decimal" value={initialStockBulkQuantity} disabled={initialStockBatchStatus === 'loading' || Boolean(initialStockEmptyState) || initialStockPermissionRestricted} onChange={(event) => { markInitialStockBatchDirty(); setInitialStockBulkQuantity(event.target.value) }} placeholder="0" aria-label="จำนวนสต็อกเริ่มต้นสำหรับทุก SKU" aria-invalid={Boolean(initialStockBulkError)} />{initialStockBulkError ? <small className="product-field-error">{initialStockBulkError}</small> : null}</label><button className="button compact product-primary-action" type="button" disabled={initialStockBatchStatus === 'loading' || Boolean(initialStockEmptyState) || initialStockPermissionRestricted || !initialStockBulkQuantity.trim() || Boolean(initialStockBulkError)} onClick={() => { markInitialStockBatchDirty(); setInitialStockQuantities((current) => ({ ...current, ...Object.fromEntries(initialStockRows.map((row) => [row.key, initialStockBulkQuantity])) })) }}>ใส่ให้ทุก SKU</button><span className="product-initial-stock-progress">กรอกแล้ว <strong>{variantInitialStockFilledCount}/{initialStockRows.length}</strong> SKU</span></div> : null}                    {initialStockRows.length ? <div className="product-editor-scroll product-initial-stock-scroll"><table className="product-editor-table product-initial-stock-table"><thead><tr><th>SKU</th><th>สินค้า / ตัวเลือก</th><th>หน่วยนับ</th><th>จำนวนตั้งต้น</th></tr></thead><tbody>{initialStockRows.map((row) => { const batchIssues = initialStockBatchIssuesByKey.get(row.key) ?? []; const skuIssue = batchIssues.find((issue) => issue.field === 'skuCode'); const unitIssue = batchIssues.find((issue) => issue.field === 'baseUnitCode'); const quantityIssue = batchIssues.find((issue) => issue.field === 'quantity'); return <tr key={row.key} data-batch-invalid={batchIssues.length ? 'true' : 'false'}><td data-field-invalid={skuIssue ? 'true' : 'false'}><code className="product-code">{row.skuCode}</code>{skuIssue ? <small className="product-field-error product-initial-stock-row-batch-error">{skuIssue.message}</small> : null}</td><td>{row.name}</td><td data-field-invalid={unitIssue ? 'true' : 'false'}><span className="product-initial-stock-unit"><strong>{BASE_UNIT_LABELS[row.baseUnitCode] ?? row.baseUnitCode}</strong><small>{row.baseUnitCode}</small>{unitIssue ? <small className="product-field-error product-initial-stock-row-batch-error">{unitIssue.message}</small> : null}</span></td><td><div className="product-initial-stock-quantity"><input type="number" min="0" max="999999999" step="0.000001" inputMode="decimal" value={initialStockQuantities[row.key] ?? ''} disabled={initialStockBatchStatus === 'loading' || Boolean(initialStockEmptyState) || initialStockPermissionRestricted} aria-invalid={Boolean(quantityIssue) || (structure === 'standard' && row.key === 'standard' && standardInitialStockErrors.length > 0) || (structure === 'variant' && variantInitialStockInvalidKeys.has(row.key))} onChange={(event) => { markInitialStockBatchDirty(); setInitialStockQuantities((current) => ({ ...current, [row.key]: event.target.value })) }} placeholder="0" aria-label={`จำนวนสต็อกเริ่มต้น ${row.skuCode}`} />{structure === 'variant' && variantInitialStockInvalidKeys.has(row.key) && !quantityIssue ? <small className="product-field-error">{initialStockQuantityError(initialStockQuantities[row.key] ?? '')}</small> : null}{quantityIssue ? <small className="product-field-error product-initial-stock-row-batch-error">{quantityIssue.message}</small> : null}</div></td></tr> })}</tbody></table></div> : null}
                     {structure === 'standard' && standardInitialStockErrors.length ? <div className="product-initial-stock-validation danger" role="alert"><strong>กรุณาตรวจข้อมูลสต็อกเริ่มต้น</strong><ul>{standardInitialStockErrors.map((error) => <li key={error}>{error}</li>)}</ul></div> : null}
                     {structure === 'variant' && variantInitialStockErrors.length ? <div className="product-initial-stock-validation danger" role="alert"><strong>กรุณาตรวจสต็อกของ SKU Combination</strong><ul>{variantInitialStockErrors.map((error) => <li key={error}>{error}</li>)}</ul></div> : null}
                     <div className="product-initial-stock-summary"><span>รวมยอดตั้งต้น</span><strong>{new Intl.NumberFormat('th-TH', { maximumFractionDigits: 6 }).format(initialStockTotal)} {BASE_UNIT_LABELS[summaryFields.baseUnitCode] ?? (summaryFields.baseUnitCode || 'หน่วย')}</strong></div>
                     <section className="product-initial-stock-batch-panel" data-state={initialStockBatchStatus} aria-labelledby="initialStockBatchTitle" aria-busy={initialStockBatchStatus === 'loading'}>
                       <header><div><strong id="initialStockBatchTitle">ตรวจสอบ Initial Stock แบบ Batch เดียว</strong><small>{initialStockBatchId} · UI Simulation</small></div><span className="product-status-pill draft"><i aria-hidden="true" />ไม่ส่ง Backend</span></header>
-                      {initialStockBatchStatus === 'loading' ? <div className="product-initial-stock-batch-state info loading" role="status" aria-live="polite" aria-atomic="true"><span className="product-loading-spinner" aria-hidden="true" /><div><strong>{initialStockLastAttemptFailed ? 'กำลังลองอีกครั้งด้วย Batch ใหม่…' : 'กำลังตรวจสอบทั้ง Batch…'}</strong><span>ปุ่มยืนยันและข้อมูลใน Batch ถูกปิดชั่วคราวเพื่อป้องกันการกดซ้ำ</span></div></div> : null}
-                      {initialStockBatchStatus === 'conflict' ? <div className="product-initial-stock-batch-state danger conflict" role="alert" aria-live="assertive"><strong>พบข้อมูล Initial Stock เปลี่ยนแปลงพร้อมกัน — Rollback ทั้ง Batch</strong><span>ไม่มี SKU ใดถูกเพิ่มสต็อก กรุณาตรวจสอบข้อมูลล่าสุดก่อนลองอีกครั้ง</span><div className="product-initial-stock-rollback-impact" aria-label="ผลกระทบจาก concurrent conflict"><span><strong>{initialStockAffectedSkuCount}</strong> SKU ใน Batch</span><span><strong>0</strong> SKU ที่บันทึก</span></div><div className="product-initial-stock-rollback-reasons"><strong>สาเหตุ</strong><ul><li>ข้อมูลปลายทางหรือยอดอ้างอิงถูกแก้ไขระหว่างการตรวจสอบ Batch</li></ul></div><div id="initialStockConflictReviewStatus" className={`product-initial-stock-conflict-review ${initialStockConflictReviewed ? 'reviewed' : ''}`} role="status"><strong>{initialStockConflictReviewed ? 'ตรวจสอบข้อมูลล่าสุดแล้ว' : 'ต้องตรวจสอบก่อน Retry'}</strong><span>{initialStockConflictReviewed ? 'ข้อมูลปัจจุบันผ่าน Validation พร้อมลองใหม่ด้วย Batch ID ใหม่' : 'Retry จะยังปิดอยู่จนกว่าจะตรวจข้อมูลปลายทางและทุก SKU อีกครั้ง'}</span></div><div className="product-initial-stock-rollback-actions"><button className="button compact secondary" type="button" onClick={reviewInitialStockConflict} disabled={initialStockConflictReviewed} aria-describedby="initialStockConflictReviewStatus">{initialStockConflictReviewed ? 'ตรวจสอบแล้ว' : 'ตรวจสอบข้อมูลอีกครั้ง'}</button><button className="button compact product-primary-action" type="button" onClick={retryInitialStockBatch} disabled={initialStockBatchBusy || !initialStockConflictReviewed} aria-busy={initialStockBatchBusy} aria-describedby="initialStockConflictReviewStatus">ลองอีกครั้ง</button></div></div> : null}
-                      {initialStockShowValidation ? <div className="product-initial-stock-batch-state danger" role="alert" aria-live="assertive"><strong>{initialStockBatchStatus === 'error' ? 'บันทึก Initial Stock ไม่สำเร็จ — Rollback ทั้ง Batch' : 'ข้อมูล Batch ยังไม่ครบ — แก้ไขต่อได้ทันที'}</strong><span>{initialStockBatchStatus === 'error' ? 'ไม่มี SKU ใดถูกเพิ่มสต็อก ข้อมูลที่กรอกยังอยู่ครบเพื่อให้แก้ไขได้' : 'ระบบตรวจใหม่จากข้อมูลปัจจุบัน จุดที่แก้ถูกแล้วจะหายจากรายการโดยอัตโนมัติ'}</span><div className="product-initial-stock-rollback-impact" aria-label="ผลกระทบจากการย้อนกลับทั้ง Batch"><span><strong>{initialStockAffectedSkuCount}</strong> SKU ใน Batch</span><span><strong>0</strong> SKU ที่บันทึก</span></div>{initialStockLiveBatchErrors.length ? <div className="product-initial-stock-rollback-reasons"><strong>สาเหตุที่ต้องแก้</strong><ul>{initialStockLiveBatchErrors.map((error) => <li key={error}>{error}</li>)}</ul></div> : null}{initialStockLiveBatchIssues.length ? <div className="product-initial-stock-rollback-reasons"><strong>รายการ SKU ที่พบปัญหา</strong><ul>{initialStockLiveBatchIssues.map((issue) => <li key={`${issue.rowKey}-${issue.message}`}><code>{issue.skuCode}</code> — {issue.message}</li>)}</ul></div> : null}<div className="product-initial-stock-rollback-actions"><button className="button compact secondary" type="button" onClick={focusInitialStockCorrectionTarget}>แก้ไขข้อมูล</button><button className="button compact product-primary-action" type="button" onClick={retryInitialStockBatch} disabled={initialStockBatchBusy} aria-busy={initialStockBatchBusy}>ลองอีกครั้ง</button></div></div> : null}
+                      {initialStockBatchStatus === 'loading' ? <div className="product-initial-stock-batch-state info loading" role="status" aria-live="polite" aria-atomic="true"><span className="product-loading-spinner" aria-hidden="true" /><div><strong>{initialStockPermissionDenied ? 'กำลังตรวจสอบสิทธิ์อีกครั้ง…' : initialStockLastAttemptFailed ? 'กำลังลองอีกครั้งด้วย Batch ใหม่…' : 'กำลังตรวจสอบทั้ง Batch…'}</strong><span>ปุ่มยืนยันและข้อมูลใน Batch ถูกปิดชั่วคราวเพื่อป้องกันการกดซ้ำ</span></div></div> : null}
+                      {initialStockBatchStatus === 'conflict' ? <div className="product-initial-stock-batch-state danger conflict" role="alert" aria-live="assertive"><strong>พบข้อมูล Initial Stock เปลี่ยนแปลงพร้อมกัน — Rollback ทั้ง Batch</strong><span>ไม่มี SKU ใดถูกเพิ่มสต็อก กรุณาตรวจสอบข้อมูลล่าสุดก่อนลองอีกครั้ง</span><div className="product-initial-stock-rollback-impact" aria-label="ผลกระทบจาก concurrent conflict"><span><strong>{initialStockAffectedSkuCount}</strong> SKU ใน Batch</span><span><strong>0</strong> SKU ที่บันทึก</span></div><div className="product-initial-stock-rollback-reasons"><strong>สาเหตุ</strong><ul><li>ข้อมูลปลายทางหรือยอดอ้างอิงถูกแก้ไขระหว่างการตรวจสอบ Batch</li></ul></div><div id="initialStockConflictReviewStatus" className={`product-initial-stock-conflict-review ${initialStockConflictReviewed ? 'reviewed' : ''}`} role="status"><strong>{initialStockConflictReviewed ? 'ตรวจสอบข้อมูลล่าสุดแล้ว' : 'ต้องตรวจสอบก่อน Retry'}</strong><span>{initialStockConflictReviewed ? 'ข้อมูลปัจจุบันผ่าน Validation พร้อมลองใหม่ด้วย Batch ID ใหม่' : 'Retry จะยังปิดอยู่จนกว่าจะตรวจข้อมูลปลายทางและทุก SKU อีกครั้ง'}</span></div><div className="product-initial-stock-rollback-actions"><button className="button compact secondary" type="button" onClick={reviewInitialStockConflict} disabled={initialStockConflictReviewed || Boolean(initialStockEmptyState)} aria-describedby={initialStockEmptyState ? "initialStockEmptyState" : "initialStockConflictReviewStatus"}>{initialStockConflictReviewed ? 'ตรวจสอบแล้ว' : 'ตรวจสอบข้อมูลอีกครั้ง'}</button><button className="button compact product-primary-action" type="button" onClick={retryInitialStockBatch} disabled={initialStockBatchActionDisabled || !initialStockConflictReviewed} aria-busy={initialStockBatchBusy} aria-describedby={initialStockEmptyState ? "initialStockEmptyState" : "initialStockConflictReviewStatus"}>ลองอีกครั้ง</button></div></div> : null}
+                      {initialStockShowValidation ? <div className="product-initial-stock-batch-state danger" role="alert" aria-live="assertive"><strong>{initialStockBatchStatus === 'error' ? 'บันทึก Initial Stock ไม่สำเร็จ — Rollback ทั้ง Batch' : 'ข้อมูล Batch ยังไม่ครบ — แก้ไขต่อได้ทันที'}</strong><span>{initialStockBatchStatus === 'error' ? 'ไม่มี SKU ใดถูกเพิ่มสต็อก ข้อมูลที่กรอกยังอยู่ครบเพื่อให้แก้ไขได้' : 'ระบบตรวจใหม่จากข้อมูลปัจจุบัน จุดที่แก้ถูกแล้วจะหายจากรายการโดยอัตโนมัติ'}</span><div className="product-initial-stock-rollback-impact" aria-label="ผลกระทบจากการย้อนกลับทั้ง Batch"><span><strong>{initialStockAffectedSkuCount}</strong> SKU ใน Batch</span><span><strong>0</strong> SKU ที่บันทึก</span></div>{initialStockLiveBatchErrors.length ? <div className="product-initial-stock-rollback-reasons"><strong>สาเหตุที่ต้องแก้</strong><ul>{initialStockLiveBatchErrors.map((error) => <li key={error}>{error}</li>)}</ul></div> : null}{initialStockLiveBatchIssues.length ? <div className="product-initial-stock-rollback-reasons"><strong>รายการ SKU ที่พบปัญหา</strong><ul>{initialStockLiveBatchIssues.map((issue) => <li key={`${issue.rowKey}-${issue.message}`}><code>{issue.skuCode}</code> — {issue.message}</li>)}</ul></div> : null}<div className="product-initial-stock-rollback-actions"><button className="button compact secondary" type="button" onClick={focusInitialStockCorrectionTarget}>แก้ไขข้อมูล</button><button className="button compact product-primary-action" type="button" onClick={retryInitialStockBatch} disabled={initialStockBatchActionDisabled} aria-busy={initialStockBatchBusy} aria-describedby={initialStockEmptyState ? "initialStockEmptyState" : undefined}>ลองอีกครั้ง</button></div></div> : null}
+                      {initialStockBatchStatus === 'permission' ? <div id="initialStockPermissionState" className="product-initial-stock-batch-state permission" role="alert" aria-live="assertive" tabIndex={-1}><strong>{initialStockPermissionCopy.title}</strong><span>{initialStockPermissionCopy.detail}</span><div className="product-initial-stock-rollback-impact" aria-label={'\u0e1c\u0e25\u0e01\u0e23\u0e30\u0e17\u0e1a\u0e08\u0e32\u0e01\u0e2a\u0e34\u0e17\u0e18\u0e34\u0e4c\u0e44\u0e21\u0e48\u0e40\u0e1e\u0e35\u0e22\u0e07\u0e1e\u0e2d'}><span><strong>{initialStockAffectedSkuCount}</strong> SKU {'\u0e43\u0e19 Batch'}</span><span><strong>0</strong> SKU {'\u0e17\u0e35\u0e48\u0e1a\u0e31\u0e19\u0e17\u0e36\u0e01'}</span></div><div className="product-initial-stock-permission-guidance"><strong>{'\u0e02\u0e31\u0e49\u0e19\u0e15\u0e2d\u0e19\u0e16\u0e31\u0e14\u0e44\u0e1b'}</strong><span>{initialStockPermissionCopy.nextAction}</span><small>{'UI Simulation \u0e40\u0e17\u0e48\u0e32\u0e19\u0e31\u0e49\u0e19 \u00b7 \u0e44\u0e21\u0e48\u0e21\u0e35 Stock write \u0e2b\u0e23\u0e37\u0e2d Stock Movement \u0e08\u0e23\u0e34\u0e07'}</small></div><div className="product-initial-stock-rollback-actions">{initialStockPermissionReason === 'destination' ? <button className="button compact secondary" type="button" onClick={focusInitialStockDestinationChoice}>{'\u0e40\u0e25\u0e37\u0e2d\u0e01\u0e2a\u0e32\u0e02\u0e32\u0e2b\u0e23\u0e37\u0e2d\u0e04\u0e25\u0e31\u0e07\u0e43\u0e2b\u0e21\u0e48'}</button> : null}<button className="button compact product-primary-action" type="button" onClick={recheckInitialStockPermission} disabled={initialStockBatchBusy} aria-busy={initialStockBatchBusy}>{'\u0e15\u0e23\u0e27\u0e08\u0e2a\u0e2d\u0e1a\u0e2a\u0e34\u0e17\u0e18\u0e34\u0e4c\u0e2d\u0e35\u0e01\u0e04\u0e23\u0e31\u0e49\u0e07'}</button></div></div> : null}
                       {initialStockBatchStatus === 'success' ? <div className="product-initial-stock-batch-state success" role="status"><strong>ทุก SKU ผ่านการตรวจสอบทั้ง Batch</strong><span>เป็นผลจาก UI Simulation เท่านั้น ยังไม่มีการเพิ่ม Stock หรือสร้าง Stock Movement จริง</span></div> : null}
                       {initialStockBatchStatus === 'duplicate' ? <div className="product-initial-stock-batch-state info duplicate" role="status" aria-live="polite" aria-atomic="true"><div className="product-initial-stock-duplicate-heading"><span className="product-status-pill"><i aria-hidden="true" />ผลตรวจเดิม</span><strong>พบคำสั่งซ้ำ — แสดงผลลัพธ์เดิม</strong></div><span>ข้อมูลชุดนี้ตรงกับ Batch ที่เคยตรวจผ่านใน Browser session นี้ ระบบจึงไม่เริ่มรายการใหม่</span><dl className="product-initial-stock-duplicate-summary"><div><dt>Reference</dt><dd>{initialStockDuplicateResult.batchId}</dd></div><div><dt>SKU</dt><dd>{initialStockDuplicateResult.skuCount} รายการ</dd></div><div><dt>จำนวนรวม</dt><dd>{new Intl.NumberFormat('th-TH', { maximumFractionDigits: 6 }).format(initialStockDuplicateResult.totalQuantity)} {initialStockDuplicateResult.unitLabel}</dd></div><div><dt>ปลายทาง</dt><dd>{initialStockDuplicateResult.destinationLabel}</dd></div></dl><div className="product-initial-stock-duplicate-safety"><strong>ไม่มีการเพิ่มสต็อกซ้ำ</strong><span>เป็น Duplicate UI Simulation เท่านั้น ยังไม่มี Stock write หรือ Stock Movement จริง</span></div></div> : null}
                       {initialStockBatchStatus === 'idle' ? <p>ระบบจะตรวจปลายทางและทุก SKU พร้อมกัน หากแถวใดผิดจะถือว่า Batch ทั้งชุดไม่ผ่าน</p> : null}
-                      <footer><span>การลองอีกครั้งจะสร้าง Batch ID ใหม่ โดยเก็บค่าจำนวน สาขา คลัง และตำแหน่งเดิมไว้</span>{initialStockBatchStatus === 'success' || initialStockBatchStatus === 'duplicate' ? <button className="button compact secondary" type="button" onClick={simulateInitialStockConflict}>จำลอง Conflict</button> : null}{!initialStockShowValidation && initialStockBatchStatus !== 'conflict' ? <button className="button compact product-primary-action" type="button" onClick={initialStockLastAttemptFailed ? retryInitialStockBatch : validateInitialStockBatch} disabled={initialStockBatchStatus === 'loading'} aria-busy={initialStockBatchStatus === 'loading'}>{initialStockBatchStatus === 'loading' ? <><span className="product-loading-spinner compact" aria-hidden="true" />กำลังประมวลผล…</> : initialStockLastAttemptFailed ? 'ลองอีกครั้ง' : initialStockBatchStatus === 'success' || initialStockBatchStatus === 'duplicate' ? 'ตรวจ Batch เดิมอีกครั้ง' : 'ตรวจสอบ Batch ทั้งชุด'}</button> : null}</footer>
+                      <footer><span className="product-initial-stock-footer-note">การลองอีกครั้งจะสร้าง Batch ID ใหม่ โดยเก็บค่าจำนวน สาขา คลัง และตำแหน่งเดิมไว้</span>{initialStockBatchStatus === 'success' || initialStockBatchStatus === 'duplicate' ? <button className="button compact secondary" type="button" onClick={simulateInitialStockConflict}>จำลอง Conflict</button> : null}{initialStockBatchStatus === 'success' || initialStockBatchStatus === 'duplicate' || initialStockBatchStatus === 'permission' ? <span className="product-initial-stock-permission-simulations" aria-label={'จำลองสถานะสิทธิ์'}><button className="button compact secondary" type="button" onClick={() => simulateInitialStockPermission('receive')}>{'ไม่มีสิทธิ์รับสต็อก'}</button><button className="button compact secondary" type="button" onClick={() => simulateInitialStockPermission('destination')}>{'ไม่มีสิทธิ์ปลายทาง'}</button><button className="button compact secondary" type="button" onClick={() => simulateInitialStockPermission('changed')}>{'สิทธิ์เปลี่ยนระหว่างตรวจ'}</button></span> : null}{!initialStockShowValidation && initialStockBatchStatus !== 'conflict' && initialStockBatchStatus !== 'permission' ? <button className="button compact product-primary-action" type="button" onClick={initialStockLastAttemptFailed ? retryInitialStockBatch : validateInitialStockBatch} disabled={initialStockBatchActionDisabled} aria-busy={initialStockBatchStatus === 'loading'} aria-describedby={initialStockEmptyState ? "initialStockEmptyState" : undefined}>{initialStockBatchStatus === 'loading' ? <><span className="product-loading-spinner compact" aria-hidden="true" />กำลังประมวลผล…</> : initialStockLastAttemptFailed ? 'ลองอีกครั้ง' : initialStockBatchStatus === 'success' || initialStockBatchStatus === 'duplicate' ? 'ตรวจ Batch เดิมอีกครั้ง' : 'ตรวจสอบ Batch ทั้งชุด'}</button> : null}</footer>
                     </section>
                     <div className="product-inline-note">ค่าที่กรอกจะไม่หายเมื่อปิด–เปิดหรือสลับรูปแบบสินค้า และถูกล้างเมื่อเริ่มสินค้ารายการใหม่</div>
                   </>

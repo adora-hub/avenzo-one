@@ -44,6 +44,13 @@ test('product information guides open only from the icon and preserve approved c
   assert.match(styles, /\.product-identifier-assistant-head > \.button, \.product-sku-staging-actions > \.product-primary-action \{[^}]*min-height: 32px[^}]*font-size: 12px[^}]*font-weight: 400/)
 })
 
+test('product information guide IDs remain stable across server and browser hydration', async () => {
+  const form = await read(formPath)
+  assert.match(form, /function createProductInfoGuideId\(label: string, description: string, example: string\)/)
+  assert.match(form, /const popoverId = createProductInfoGuideId\(label, description, example\)/)
+  assert.doesNotMatch(form, /function ProductInfoGuide[\s\S]*?const popoverId = useId\(\)/)
+})
+
 test('R7.2.3A uses edit-icon master controls and the approved select treatment', async () => {
   const [form, styles] = await Promise.all([read(formPath), read('../src/app/globals.css')])
   assert.match(form, /MasterDataManager organizationId=\{organizationId\} kind="category"/)
