@@ -1775,6 +1775,15 @@ html[data-theme="dark"] .product-grid-table th:hover .product-grid-column-resize
 .product-initial-stock-duplicate-summary dd { margin: 2px 0 0; overflow-wrap: anywhere; color: var(--text-primary); font-size: 11px; font-weight: 700; }
 .product-initial-stock-duplicate-safety { display: grid; gap: 2px; padding: 8px 10px; border-left: 3px solid var(--status-info-border); color: var(--status-info-text); background: var(--surface-default); }
 .product-initial-stock-duplicate-safety strong { font-size: 11px; }
+.product-initial-stock-success-heading { display: flex; align-items: center; gap: 9px; }
+.product-initial-stock-success-heading strong { color: var(--text-primary); font-size: 13px; }
+.product-initial-stock-success-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 2px 0 0; }
+.product-initial-stock-success-summary > div { min-width: 0; padding: 8px 10px; border: 1px solid var(--status-success-border); border-radius: 8px; background: var(--surface-default); }
+.product-initial-stock-success-summary dt { color: var(--text-secondary); font-size: 10px; }
+.product-initial-stock-success-summary dd { margin: 2px 0 0; overflow-wrap: anywhere; color: var(--text-primary); font-size: 11px; font-weight: 700; }
+.product-initial-stock-success-safety { display: grid; gap: 2px; padding: 8px 10px; border-left: 3px solid var(--status-success-border); color: var(--status-success-text); background: var(--surface-default); }
+.product-initial-stock-success-safety strong { font-size: 11px; }
+.product-initial-stock-batch-state.success:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .product-initial-stock-conflict-review { display: grid; gap: 2px; padding: 8px 10px; border-left: 3px solid var(--status-warning-border); color: var(--status-warning-text); background: var(--surface-default); }
 .product-initial-stock-conflict-review.reviewed { border-left-color: var(--status-info-border); color: var(--status-info-text); }
 .product-initial-stock-conflict-review strong { font-size: 11px; }
@@ -1829,6 +1838,8 @@ html[data-theme='dark'] .product-initial-stock-prototype-badge { color: #111; ba
   .product-initial-stock-rollback-impact { grid-template-columns: 1fr; }
   .product-initial-stock-duplicate-heading { align-items: flex-start; flex-direction: column; }
   .product-initial-stock-duplicate-summary { grid-template-columns: 1fr; }
+  .product-initial-stock-success-heading { align-items: flex-start; flex-direction: column; }
+  .product-initial-stock-success-summary { grid-template-columns: 1fr; }
   .product-initial-stock-rollback-actions { align-items: stretch; flex-direction: column-reverse; }
   .product-initial-stock-rollback-actions .button { width: 100%; }
   .product-initial-stock-batch-panel > footer > .button { width: 100%; min-width: 0; }

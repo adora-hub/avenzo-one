@@ -328,3 +328,26 @@ test('UI-01.4G uses semantic warning tokens and remains local UI-only', async ()
   assert.match(styles, /\.product-initial-stock-permission-simulations \.button[^}]*min-width: 0[^}]*border-radius: 0/)
   assert.doesNotMatch(handler, /executeFoundationCommandAction|loadInitialStockDestinationsAction|supabase|fetch\(/)
 })
+test('UI-01.4H presents a complete all-or-nothing success summary', async () => {
+  const form = await read(formPath)
+  assert.ok(form.includes('id="initialStockBatchSuccess"'))
+  assert.ok(form.includes('ทุก SKU ผ่านการตรวจสอบทั้ง Batch'))
+  assert.ok(form.includes('initialStockCurrentResult.skuCount}/{initialStockCurrentResult.skuCount'))
+  assert.ok(form.includes('initialStockCurrentResult.totalQuantity'))
+  assert.ok(form.includes('initialStockCurrentResult.destinationLabel'))
+  assert.doesNotMatch(form, /สำเร็จบางส่วน|Partial Success|partial success/)
+})
+
+test('UI-01.4H clearly separates UI validation from real stock writes', async () => {
+  const form = await read(formPath)
+  assert.ok(form.includes('ตรวจผ่านเท่านั้น — ยังไม่ได้เพิ่มสต็อกจริง'))
+  assert.ok(form.includes('เป็นผลจาก UI Simulation เท่านั้น ยังไม่มีการเพิ่ม Stock หรือสร้าง Stock Movement จริง'))
+  assert.match(form, /id="initialStockBatchSuccess"[^>]*role="status"[^>]*aria-live="polite"[^>]*aria-atomic="true"[^>]*tabIndex=\{-1\}/)
+})
+
+test('UI-01.4H uses semantic success tokens and responsive summaries', async () => {
+  const styles = await read(stylesPath)
+  assert.match(styles, /\.product-initial-stock-success-summary > div \{[^}]*var\(--status-success-border\)[^}]*var\(--surface-default\)/)
+  assert.match(styles, /\.product-initial-stock-success-safety \{[^}]*var\(--status-success-border\)[^}]*var\(--status-success-text\)/)
+  assert.match(styles, /\.product-initial-stock-success-summary \{ grid-template-columns: 1fr; \}/)
+})
