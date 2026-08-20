@@ -32,6 +32,7 @@ test('R7.2.3G renders Safety, Min, Max and derived Available fields', async () =
   assert.match(form, /name="safetyStock"[^>]*defaultValue="0"/)
   assert.match(form, /name="reorderMin"/)
   assert.match(form, /name="reorderMax"/)
+  assert.match(form, /แจ้งเตือนเมื่อจำนวนพร้อมขายเหลือเท่ากับหรือต่ำกว่าค่านี้ เช่น ใส่ 3 ระบบจะเริ่มเตือนเมื่อเหลือ 3/)
   assert.match(form, /value="คำนวณหลังสร้าง SKU และรับ Stock" readOnly/)
   assert.match(form, /Derived value ห้ามกรอกหรือแก้โดยตรง/)
 })
@@ -76,10 +77,12 @@ test('read-only metadata section is collapsed by default', async () => {
   assert.match(form, /metadataSectionOpen \? <>/)
   assert.match(form, /ข้อมูลส่วนนี้ระบบกำหนดให้อัตโนมัติ/)
 })
-test('creation flow orders inventory before packaging and physical details', async () => {
+test('creation flow follows the Owner-approved section order', async () => {
   const form = await read(formPath)
-  assert.ok(form.indexOf('<section id="inventory"') < form.indexOf('<section id="packaging"'))
-  assert.ok(form.indexOf('<section id="packaging"') < form.indexOf('<section id="physical"'))
+  const sectionIds = ['general', 'images', 'sku', 'pricing', 'inventory', 'packaging', 'physical', 'metadata']
+  const sectionPositions = sectionIds.map((id) => form.indexOf(`<section id="${id}"`))
+  assert.ok(sectionPositions.every((position) => position >= 0))
+  assert.deepEqual([...sectionPositions].sort((left, right) => left - right), sectionPositions)
   const inventory = form.slice(form.indexOf('<section id="inventory"'), form.indexOf('<section id="packaging"'))
   assert.match(inventory, /<header><span>5<\/span>/)
   assert.ok(inventory.indexOf('product-initial-stock-section') < inventory.indexOf('product-inventory-policy-grid'))

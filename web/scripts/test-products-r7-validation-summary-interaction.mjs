@@ -60,6 +60,9 @@ test('resolved standard price warning clears as soon as a valid sale price is en
   assert.match(form, /if \(salePrice === undefined \|\| salePrice < 0\) return/)
   assert.match(form, /current\.filter\(\(issue\) => issue\.fieldName !== 'salePrice'\)/)
   assert.match(form, /if \(target\.name === 'salePrice'\) clearResolvedSalePriceIssue\(target\.value\)/)
+  assert.match(form, /if \(!validationAttempted\) return[\s\S]*requestAnimationFrame\(\(\) => \{[\s\S]*collectValidationIssues\(new FormData\(form\)\)/)
+  assert.match(form, /setValidationIssues\(issues\)[\s\S]*for \(const issue of issues\)/)
+  assert.match(form, /variantIdentifiersReady,[\s\S]*identifierFeedback,[\s\S]*selectedBranchIds/)
 })
 
 test('R7.2.4E validates staged SKU state and requires a fresh identifier advisory check', async () => {

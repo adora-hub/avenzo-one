@@ -20,6 +20,10 @@ test('next identifier skips every code already reserved in the Browser Draft que
   assert.equal(nextIdentifierOutsideSet('SKU-MK-001', new Set(['SKU-MK-002', 'SKU-MK-003'])), 'SKU-MK-004')
   assert.equal(nextIdentifierOutsideSet('A004', new Set(['A005'])), 'A006')
 })
+test('next identifier skips a fully occupied numeric range', () => {
+  const unavailable = new Set(Array.from({ length: 8 }, (_, index) => `A${String(index + 2).padStart(3, '0')}`))
+  assert.equal(nextIdentifierOutsideSet('A001', unavailable), 'A010')
+})
 
 test('server checks the Organization registry in bounded batches before suggesting', async () => {
   const source = await import('node:fs/promises').then(({ readFile }) => readFile(new URL('../src/lib/foundation/product-identifier-check.server.ts', import.meta.url), 'utf8'))
