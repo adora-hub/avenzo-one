@@ -81,8 +81,12 @@ begin
   insert into public.role_permissions (role_id, permission_code)
   values
     (v_staff_role, 'product.read'),
+    (v_staff_role, 'sku.read'),
     (v_staff_role, 'warehouse.read'),
+    (v_staff_role, 'location.read'),
     (v_staff_role, 'inventory.read'),
+    (v_staff_role, 'inventory_movement.read'),
+    (v_staff_role, 'inventory_audit.read'),
     (v_staff_role, 'inventory.transfer')
   on conflict do nothing;
 

@@ -43,7 +43,9 @@ begin
   );
 
   insert into public.role_permissions (role_id, permission_code)
-  values (v_reader_role, 'product.read');
+  values
+    (v_reader_role, 'product.read'),
+    (v_reader_role, 'sku.read');
 
   insert into public.member_roles (membership_id, role_id)
   values ('00000000-0000-4000-8000-00000000a321', v_reader_role);
@@ -346,7 +348,7 @@ begin
     raise exception 'A3 product.read actor did not see exactly its tenant option values';
   end if;
   if (select count(*) from public.sku_option_assignments) <> 4 then
-    raise exception 'A3 product.read actor did not see exactly its tenant assignments';
+    raise exception 'A3 sku.read actor did not see exactly its tenant assignments';
   end if;
 end;
 $$;

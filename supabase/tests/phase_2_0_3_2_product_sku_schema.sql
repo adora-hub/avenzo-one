@@ -179,11 +179,11 @@ begin
     raise exception 'product_sku_rls_not_enabled';
   end if;
 
+  -- Phase 2.0.3.5 intentionally grants authenticated SELECT so that its
+  -- reviewed tenant/permission RLS policies can authorize visible rows.
   if has_table_privilege('anon', 'public.products', 'select')
-     or has_table_privilege('authenticated', 'public.products', 'select')
-     or has_table_privilege('anon', 'public.skus', 'select')
-     or has_table_privilege('authenticated', 'public.skus', 'select') then
-    raise exception 'product_sku_data_api_grant_open';
+     or has_table_privilege('anon', 'public.skus', 'select') then
+    raise exception 'product_sku_anon_data_api_grant_open';
   end if;
 
   raise notice 'PHASE_2_0_3_2_PRODUCT_SKU_TESTS_PASSED';
