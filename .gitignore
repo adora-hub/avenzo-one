@@ -6,6 +6,8 @@
 # Dependencies and build output
 node_modules/
 .next/
+next-dev-cache/
+*.tsbuildinfo
 dist/
 build/
 coverage/
@@ -15,6 +17,7 @@ coverage/
 .idea/
 *.log
 .git.empty-backup/
+.vercel/
 
 # OS files
 Thumbs.db

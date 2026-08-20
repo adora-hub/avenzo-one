@@ -1,11 +1,16 @@
-# AVENZO ONE Codex Implementation Starter Plan V7
+# AVENZO ONE Codex Implementation Starter Plan V7.2
 
 > แผนแม่บทฉบับอัปเดตสำหรับพัฒนา AVENZO ONE แบบ Vertical Slice โดยใช้ V6 เป็นฐาน และเพิ่ม Customer Platform, Loyalty, Community และ Referral Commerce
 
-**เวอร์ชัน:** 7.0  
-**วันที่:** 5 สิงหาคม 2026  
-**สถานะ:** พร้อมใช้วางสถาปัตยกรรมและแตกงานพัฒนา  
+**เวอร์ชัน:** 7.2
+
+**วันที่:** 19 สิงหาคม 2026
+
+**สถานะ:** พร้อมใช้วางสถาปัตยกรรมและแตกงานพัฒนา
+
 **ระบบเป้าหมาย:** Web Application แบบ Multi-tenant รองรับการขยายเป็น SaaS
+
+**Strategy Authority:** AVENZO_ONE_Customer_Commerce_Ecosystem_and_Monetization_Strategy_V1.md
 
 ---
 
@@ -40,13 +45,20 @@ V7 รับรองข้อกำหนดทั้งหมดของ `AVE
 
 ลูกค้าคนเดิมอาจมีชื่อ Facebook, ชื่อผู้รับ, เบอร์โทร, LINE และ Google ต่างกัน ระบบต้องรวมด้วยกฎที่ตรวจสอบได้ ไม่รวมอัตโนมัติเพียงเพราะชื่อคล้ายกัน
 
-### 2.2 Customer ID กลาง
+### 2.2 บัญชีผู้ใช้กลางและลูกค้าของผู้ประกอบการ
 
-- ลูกค้าหนึ่งคนมี `customer_id` กลางหนึ่งรายการต่อร้าน/องค์กร
-- ลูกค้าหนึ่งคนเชื่อมหลาย Identity Provider ได้
-- การเชื่อมบัญชีใหม่ต้องไม่สร้างแต้ม เครดิต หรือประวัติซื้อซ้ำ
+- บุคคลหนึ่งคนมี `user_id` กลางของ AVENZO ONE เพียงหนึ่งรายการ และสามารถเป็นผู้ใช้งานทั่วไปก่อนมีความสัมพันธ์กับร้านใดก็ได้
+- บัญชีต้องยืนยันสำเร็จอย่างน้อยหนึ่งช่องทาง ได้แก่ Email, Phone, Facebook หรือ Instagram; ไม่บังคับให้ยืนยันครบทุกช่องทาง
+- `user_id` เดียวเชื่อมหลาย Identity Provider ได้ โดยใช้ Provider Subject ID/เบอร์/อีเมลที่ยืนยันแล้ว ไม่ใช้ชื่อแสดงเป็นกุญแจจับคู่
+- เมื่อผู้ใช้ซื้อสินค้า, CF สำเร็จ, สมัครสมาชิกร้าน, ยอมรับคำเชิญ หรือยืนยันการ Claim ประวัติเดิม จึงสร้าง `organization_customer_id` เพื่อแทนความสัมพันธ์กับ Organization นั้น
+- ผู้ใช้หนึ่งคนเป็นลูกค้าของหลาย Organization ได้ แต่ละ Organization เห็นเฉพาะข้อมูลและความสัมพันธ์ที่ตนมีสิทธิ์
+- การเชื่อม Identity ใหม่ต้องไม่สร้างบัญชี แต้ม เครดิต หรือประวัติซื้อซ้ำ
 - การรวม Customer Record ต้องมี Preview, เหตุผล, ผู้อนุมัติ และ Audit Log
 - การแยกบัญชีที่รวมผิดต้องย้อนกลับได้โดยไม่ทำลาย Ledger
+
+โมเดลหลักที่ล็อกไว้:
+
+> Verified Identity → Platform User (`user_id`) → Organization Customer (`organization_customer_id`) → Order/Loyalty/Content
 
 ### 2.3 ข้อมูลส่วนตัวแยกจากข้อมูลสาธารณะ
 
@@ -102,8 +114,11 @@ V7 ออกแบบและพัฒนาระยะแรกเป็น S
 
 | ตาราง | หน้าที่ |
 |---|---|
-| `customers` | Customer ID กลางของร้าน |
-| `customer_identities` | LINE/Google/Facebook/Auth Identity |
+| `users` | บัญชีบุคคลกลางของ AVENZO ONE (`user_id`) |
+| `user_identities` | Email/Phone/Facebook/Instagram และ Provider Subject ID ที่ยืนยันแล้ว |
+| `organization_customers` | ความสัมพันธ์ระหว่าง `user_id` กับแต่ละ Organization พร้อม Customer Code/สถานะสมาชิก |
+| `customers` | Legacy/ชื่อเชิงโดเมนเดิม; ต้องวาง Migration/Compatibility ให้ชัดก่อนเปลี่ยนระบบจริง |
+| `customer_identities` | Legacy Identity mapping; ห้ามสร้างซ้ำกับ `user_identities` หลัง Contract ใหม่ได้รับอนุมัติ |
 | `customer_private_profiles` | PII และข้อมูลติดต่อ |
 | `customer_public_profiles` | ชื่อแสดง รูป Bio และ Visibility |
 | `customer_addresses` | ที่อยู่พร้อมประวัติและค่า Default |
@@ -117,13 +132,22 @@ V7 ออกแบบและพัฒนาระยะแรกเป็น S
 
 ## 4. Authentication และ Account Linking
 
-### 4.1 ช่องทางสมัคร
+### 4.1 ช่องทางสมัครและระดับบัญชี
 
-- LINE Login
-- Google Sign-In
+- Email Verification
+- Phone OTP Verification
 - Facebook Login
+- Instagram Identity/Login เมื่อ Provider และสิทธิ์ที่ต้องใช้รองรับ
+- LINE Login/Google Sign-In เป็นช่องทางเพิ่มเติมตาม Scope รุ่นที่จะอนุมัติ
 
-ลูกค้าต้องใช้ขั้นต่ำหนึ่งช่องทาง และเพิ่มช่องทางอื่นภายหลังได้ การตั้งรหัสผ่านไม่จำเป็นในรุ่นแรกหากใช้ OAuth ทั้งหมด
+ผู้ใช้ต้องยืนยันสำเร็จขั้นต่ำหนึ่งช่องทางและเพิ่มช่องทางอื่นภายหลังได้ การตั้งรหัสผ่านไม่จำเป็นเมื่อใช้ OTP/OAuth ทั้งหมด
+
+ระบบมีบัญชีบุคคลกลางเพียงชนิดเดียว ไม่สร้าง Login ใหม่เมื่อเปลี่ยนสถานะ:
+
+1. **สมาชิก AVENZO:** มี `user_id` และ Identity ที่ยืนยันแล้ว แต่ยังไม่จำเป็นต้องเป็นลูกค้าร้านใด
+2. **ลูกค้าของร้าน:** ใช้ `user_id` เดิมและมี `organization_customers` อย่างน้อยหนึ่งรายการ; คนเดียวเป็นลูกค้าหลายร้านได้
+
+การเปลี่ยนจากสมาชิกทั่วไปเป็นลูกค้าของร้านคือการเพิ่ม Relationship ไม่ใช่การสร้างบัญชีผู้ใช้อีกชุด
 
 ### 4.2 กฎความปลอดภัย
 
@@ -265,6 +289,30 @@ V7 ออกแบบและพัฒนาระยะแรกเป็น S
 - `moderation_actions`
 - `store_announcements`
 
+### 7.5 Customer Commerce Community UI
+
+สถานะ: **Future Planned — ต้องผ่าน UI Mockup Gate ก่อน Implementation**
+
+หน้า Home ของผู้ใช้งานทั่วไปเสนอให้แยกเป็น 4 พื้นที่โดยไม่คัดลอก Trade Dress หรือ Source Code ของแพลตฟอร์มอื่น:
+
+1. **สำหรับคุณ:** Discovery ตามความสนใจ คุณภาพ ความสดใหม่ ความหลากหลาย และสัญญาณเชิงพาณิชย์ที่ตรวจสอบได้
+2. **กำลังติดตาม:** โพสต์จากบุคคลและร้านที่ผู้ใช้เลือกติดตาม โดยรุ่นแรกเรียงตามเวลาและไม่ซ่อนด้วย Paid Ranking
+3. **ร้านค้า:** ร้านที่ติดตาม สินค้าใหม่ โปรโมชัน ตาราง Live และ Product Card ที่ดึงราคา/Stock ปัจจุบัน
+4. **รีวิว:** รีวิวผู้ซื้อจริง คู่มือ เปรียบเทียบ และตัวกรอง ซื้อจริง/มีรูป/หมวดหมู่/ล่าสุด/มีประโยชน์
+
+เมนูหลักเสนอ หน้าแรก, สำรวจ, สร้างโพสต์, คำสั่งซื้อ และโปรไฟล์ ส่วน Product Card ในโพสต์ต้องเชื่อม Product/SKU จริงและเป็น Authority ของราคา/Availability; ข้อความรีวิวเดิมห้ามถูกแก้ย้อนหลังเมื่อร้านเปลี่ยนราคา แต่ต้องแสดงราคาขณะรีวิวและราคาปัจจุบันแยกกันเมื่อข้อมูลพร้อม
+
+ป้าย Disclosure ที่ต้องรองรับ:
+
+- ซื้อจริง
+- มีค่าคอมมิชชัน
+- ได้รับสินค้าทดลอง
+- ได้รับค่าจ้างสร้างเนื้อหา
+- AVENZO สนับสนุนส่วนลด
+- ร้านได้รับสิทธิ์ใช้ภาพ/คอนเทนต์แล้ว
+
+หลัก Fair Discovery: ทุกเนื้อหาที่ผ่าน Eligibility ได้เข้ากลุ่มทดสอบตามกฎ, มีพื้นที่ผู้สร้างใหม่/โพสต์ล่าสุด, มีเหตุผลที่แนะนำ, ผู้ใช้เลือกไม่สนใจได้ และห้ามใช้จำนวนผู้ติดตามหรือเงินโฆษณาเป็นปัจจัยเดียว
+
 ---
 
 ## 8. Referral Attribution
@@ -316,6 +364,23 @@ flowchart TD
 - มี Velocity Limit และ Risk Flag
 - การ Override ต้องมีผู้อนุมัติ เหตุผล และ Audit
 
+### 8.5 External Affiliate Attribution
+
+โพสต์/รีวิวต้องสร้าง Signed External Link ที่แชร์ไป Facebook, Instagram, LINE, TikTok, Web หรือ QR ได้ โดย Token ฝั่ง Server ระบุ Creator, Source Post/Review, Product/SKU, Organization, Campaign, Rule Version และ Expiry; ห้ามเชื่อถือ Creator Code หรือ UTM จาก Client เป็น Authority
+
+Tracking Flow:
+
+1. Redirect Endpoint ตรวจ Signed Token และบันทึก Click Event
+2. สร้าง First-party Attribution Session และผูก user_id เมื่อ Login
+3. เมื่อเพิ่มตะกร้า ให้คัดลอก Attribution ลง Cart Item
+4. เมื่อ Checkout ให้บันทึก Price/Discount/Commission/Attribution Snapshot ระดับ Order Item
+5. เมื่อส่งมอบและพ้น Return Window จึงเปลี่ยน Commission เป็น Available
+6. Cancel/Partial Return/Full Return ต้อง Reverse ตาม Order Item โดยไม่แก้ Ledger เดิม
+
+ค่าเริ่มต้นสำหรับ Prototype: Direct SKU Attribution, Last eligible click ภายใน 7 วัน และ Creator/Promotion Code เป็น Fallback สำหรับ Cross-device หรือ Social In-app Browser ส่วน Indirect Same-store Attribution และ Assisted/Multi-touch Attribution ต้องผ่าน Decision Gate ภายหลัง
+
+ระบบติดตาม Order ได้ครบเมื่อ Checkout อยู่ใน AVENZO หรือระบบภายนอกส่ง Signed Attribution Token ผ่าน API/Webhook; การซื้อหน้าร้าน/แชต/ระบบอื่นที่ไม่เชื่อมต้องใช้ Creator Code, QR, POS Integration หรือ Order Import ที่มี Attribution Reference
+
 ---
 
 ## 9. Commission Ledger และ Payout
@@ -351,6 +416,55 @@ flowchart TD
 - `payout_requests`
 - `payout_batches`
 - `payout_items`
+
+### 9.3 AVENZO Review Deal
+
+Review Deal เป็น Campaign ที่ร้านเปิด Affiliate ให้ Product/SKU และ AVENZO หรือร้านสนับสนุนส่วนลดเพิ่มเติมแก่ผู้ซื้อจากโพสต์รีวิว โดยต้องแยก Funding Source อย่างโปร่งใส
+
+ตัวอย่าง Planning Scenario:
+
+| รายการ | จำนวน |
+|---|---:|
+| ราคาปัจจุบันของร้าน | 90.00 บาท |
+| AVENZO สนับสนุน 3% | 2.70 บาท |
+| ผู้ซื้อชำระ | 87.30 บาท |
+| ฐานยอดขายร้านก่อนค่าธรรมเนียม | 90.00 บาท |
+| Creator Commission 10% | 9.00 บาท |
+| ร้านเหลือก่อน Payment/Platform/Shipping Fee | 81.00 บาท |
+
+ถ้า AVENZO เป็นผู้สนับสนุน 2.70 บาท ฐาน Commission ยังคง 90 บาท; ถ้าร้านเป็นผู้สนับสนุน ต้องล็อกฐานคำนวณและ Settlement Preview ก่อนเปิด Campaign ทุก Order ต้องเก็บ merchant price, merchant discount, platform subsidy, buyer paid, commission base, rate และ rule snapshot แยกกัน
+
+Review Deal ต้องมี Budget, วันเริ่ม/จบ, max discount ต่อ Order/User/Day, stacking rule, eligible SKU/audience, anti-abuse และคืน Budget เมื่อ Order ไม่สำเร็จ ตัวเลข 3%, 10%, 7 วัน และเพดานอื่นเป็น Planning Example ห้ามใช้จริงก่อน Owner อนุมัติ Cost/Legal/Fraud Gate
+
+### 9.4 Content Rights Marketplace
+
+ผู้สร้างคงสิทธิ์ในภาพ/คอนเทนต์โดย Default ร้านไม่ได้สิทธิ์เชิงพาณิชย์เพียงเพราะสินค้าของร้านปรากฏในภาพ ระบบเสนอ License Preset แทนสัญญา Free Text:
+
+- AVENZO Product Page
+- Organic Social ของร้าน
+- Paid Advertising
+- Non-exclusive หรือ Exclusive
+- ระยะเวลา 3/6/12 เดือน
+- ช่องทาง ประเทศ ขอบเขตการแก้ไข และสิทธิ์ใช้บุคคลในภาพ
+
+รูปแบบธุรกิจ:
+
+1. Creator ตั้งราคา Buy Now หรือรับคำขอราคา
+2. ร้านส่ง License Request ระบุช่องทาง/ระยะเวลา/งบ
+3. Merchant Mission ให้ผู้ใช้ส่งผลงานตาม Brief
+4. Hybrid: Fixed Content Fee + Affiliate Commission + Performance Bonus
+
+AVENZO ทำหน้าที่เก็บ Asset/License Version, Consent/Model Release, Payment/Escrow Reference, Download Permission, Expiry/Revocation, Dispute และ Usage Audit พร้อมคิด Marketplace Service Fee ที่เปิดเผยชัดเจน ตัวเลขราคา/เปอร์เซ็นต์ยังเป็น Decision Gate ห้ามกำหนดอัตโนมัติ
+
+ตารางที่ต้องพิจารณาใน Domain Contract:
+
+- `content_license_offers`
+- `content_license_requests`
+- `content_licenses`
+- `creator_missions`
+- `mission_submissions`
+- `content_usage_events`
+- `content_rights_ledger_entries`
 
 ---
 
@@ -433,7 +547,7 @@ Event ต้องมี `organization_id`, Actor, Customer, Source Entity, Corr
 
 ### 12.3 Platform Foundation Roadmap Status
 
-อัปเดตล่าสุด: 8 สิงหาคม 2026
+อัปเดตล่าสุด: 13 สิงหาคม 2026
 
 | ระยะ | สถานะ | หมายเหตุ |
 |---|---|---|
@@ -466,6 +580,65 @@ Event ต้องมี `organization_id`, Actor, Customer, Source Entity, Corr
 | Phase 1.1.3.2 Payment Provider Comparison | เสร็จแล้ว | เปรียบเทียบ Stripe, Omise, 2C2P และ GB Prime Pay จากข้อมูลทางการ; เลือก Stripe เป็น Sandbox Provider หลักและ Omise เป็นสำรองแบบ provisional โดยยังไม่สมัคร ไม่สร้าง Secret และไม่เสียค่าใช้จ่าย |
 | Phase 1.1.3.3 Stripe Test Checkout & Fee Snapshot | เสร็จและทดสอบ Local E2E ผ่าน | เพิ่ม Hosted Checkout สำหรับ PromptPay/บัตร, Webhook ตรวจลายเซ็นและ Idempotency, Success/Cancel Page และ UI แสดงค่าธรรมเนียมประมาณการ/ผู้รับภาระ/ยอดลูกค้าชำระ พร้อมเก็บ Fee Snapshot โดยใช้ Test Mode เท่านั้น |
 | Phase 1.1.3.4 Stripe Sandbox Acceptance & Reconciliation | เสร็จและ Deploy Production ผ่าน | Card Success, PromptPay QR/Expired, Duplicate Webhook และ Invoice State Guard ผ่าน; เพิ่มปุ่มตรวจค่าธรรมเนียมจริง ยอดสุทธิและส่วนต่างจากประมาณการ โดยจำกัดสิทธิ์ Platform Admin + AAL2; Deploy เฉพาะ `adora3/avenzo-one` |
+| Phase 1.1.3.5.1 Payment Exception Queue | เสร็จและ Deploy Production ผ่าน | เพิ่มคิว Read-only สำหรับ Webhook ล้มเหลว, Invoice ไม่ตรงกับ Payment, รอกระทบยอด, ชำระล้มเหลว/หมดเวลา/ยกเลิก และ Pending เกิน 30 นาที; ตรวจ 100 Attempt ล่าสุด แสดง 10 รายการ และซ่อน Attempt เก่าที่ Invoice ชำระสำเร็จแล้ว |
+| Phase 1.1.3.5.2 Retry & Reconciliation Actions | เสร็จและ Deploy Production ผ่าน | เพิ่มคำสั่งตรวจค่าธรรมเนียม, ตรวจ/ซ่อมสถานะ Provider และสร้าง Checkout ใหม่ พร้อม Preview, เหตุผล, AAL2, Command Idempotency, Server-only Stripe Test Mode และ Audit Trail |
+| Phase 1.1.3.5.3 Exception Operations Hardening | เสร็จและ Deploy Production ผ่าน | เพิ่มกำหนดเวลาตรวจสอบตามชนิดปัญหา, การเตือนรายการเกินกำหนด, ตัวกรองคิว, ค้นหา/กรอง/แบ่งหน้าประวัติคำสั่ง และ Production Runbook โดยยังคง Stripe Test Mode เท่านั้น; Deploy เฉพาะ `adora3/avenzo-one` |
+| Phase 1.1.3.6 Billing Production Readiness Gate | เสร็จและทดสอบ Local ผ่าน | เพิ่มหน้าตรวจความพร้อมอัตโนมัติและ Checklist 9 ข้อพร้อมหลักฐาน, บันทึกผลแบบ Immutable Audit ด้วย Platform Admin + AAL2 และแสดง Go/No-Go โดยยังล็อก Stripe Test Mode และไม่เปิดรับเงินจริง |
+| Phase 1.1.3.7.1 ศูนย์ควบคุมการรับเงินจริง / Live Safety Architecture & Kill Switch | Local test passed / ผ่านการทดสอบ | เพิ่ม Environment Lock, Database Emergency Stop, สถานะ locked/review_ready, AAL2 Command Preview และ Immutable Audit โดยฐานข้อมูลบังคับ Emergency Stop และยังไม่มีทางเปิดรับเงินจริง |
+| Phase 1.1.3.7.2 Test/Live Credentials & Live Webhook Isolation | Implemented / รอทดสอบ Local | แยก Test/Live Secret และ Webhook Signing Secret เป็น Server-only คนละชุด เพิ่ม Live Webhook ที่ตรวจลายเซ็นและกักเฉพาะ Metadata/Hash โดย Emergency Stop ปิดการประมวลผลและยังไม่มี Live Checkout |
+| Phase 1.1.3.7.3 Limited Live Pilot Guardrails | Local test passed / ทดสอบผ่าน | เพิ่ม Tester Allowlist, วงเงินสูงสุดต่อครั้ง, ยอดสะสม, จำนวนครั้ง, Dry Run และ Emergency Rollback ที่บังคับฝั่งฐานข้อมูลพร้อม Immutable Audit โดย Phase นี้ยังล็อก Pilot และยังไม่รับเงินจริง |
+| Phase 1.1.3.7.4 Two-person Approval | Implemented / รอทดสอบ Local | เพิ่มคำขออนุมัติอายุ 24 ชั่วโมง ผู้ขอและผู้อนุมัติต้องเป็น Platform Admin คนละบัญชีพร้อม AAL2, ล็อก Snapshot กติกา และบันทึก Immutable Audit โดยยังคง Pilot ปิดและ Emergency Stop เปิด |
+| Phase 1.1.3.7.4.1 Platform Admin Access Management | Local test passed / ทดสอบผ่าน | เพิ่มหน้า Super Admin สำหรับมอบสิทธิ์ เปลี่ยนระดับ พักชั่วคราว และเปิดสิทธิ์ Platform Admin กลับ โดยบังคับ AAL2, ยืนยันก่อนบันทึก, ป้องกันการแก้สิทธิ์ตัวเองและ Super Admin คนสุดท้าย พร้อม Immutable Audit Log |
+| Phase 1.1.3.7.4.2 Approval Prerequisite Guard | Local test passed / ทดสอบผ่าน | แสดงเงื่อนไข Production Readiness, review_ready, ผู้ทดสอบ และ Platform Admin ล่วงหน้า ปิดปุ่มส่งคำขอจนกว่าจะครบ พร้อมลิงก์ไปแก้แต่ละข้อ และอ่านข้อความผิดพลาดจาก Supabase เป็นภาษาไทยโดยยังไม่เปลี่ยน Safety State หรือเปิดรับเงินจริง |
+| Phase 1.1.3.7.4.3 End-to-end Two-person Verification | Local test passed / ทดสอบผ่าน | แสดงบทบาทผู้ขอและผู้พิจารณา พร้อมตรวจหลักฐานจริง 4 ข้อจาก Request, Audit Event และ Safety Lock โดยผู้ขอไม่เห็นปุ่มอนุมัติคำขอตนเองและยังไม่เปิดรับเงินจริง |
+| Phase 1.1.3.7.5.1 Controlled Live Checkout UI | Production test passed / ทดสอบ Production ผ่าน | เพิ่ม UI จำลองสำหรับเลือกผู้ทดสอบ กรอกยอดและรหัสอ้างอิง ตรวจ Production Readiness, Two-person Approval, Policy, Credentials และ Safety Lock พร้อมหน้าสรุป โดยไม่สร้าง Checkout Session, Payment Intent หรือรับเงินจริง |
+| Phase 1.1.3.7.5.2 Server Eligibility & Dry-run Audit | Local test passed / ทดสอบผ่าน | เพิ่ม API ตรวจ Eligibility ฝั่ง Server สำหรับ Platform Admin + AAL2 ตรวจ Approval Snapshot, Tester, วงเงิน, Credentials และ Safety Lock พร้อม Immutable Dry-run Audit โดยบังคับ real_charge=false และไม่เรียก Stripe Live API |
+| Phase 1.1.3.7.5.3 Contract & Abuse-case Tests | Local test passed / ผู้ใช้ทดสอบผ่าน | เพิ่ม Contract กลางและปุ่มทดสอบ Server 4 กรณี: ไม่มี AAL2, Tester นอก Allowlist, ยอดเกินวงเงิน และ Command ซ้ำ พร้อมตรวจ HTTP 401 และยืนยัน Idempotency เหลือเพียง 1 Audit โดยทุกกรณี real_charge=false และไม่เรียก Stripe Live API |
+| Phase 1.1.3.7.5.4 Release Gate & Evidence Pack | Production deployed / เผยแพร่แล้ว | เพิ่ม Server Release Gate 10 ข้อและ Evidence Pack แบบดาวน์โหลด JSON จาก Readiness, Safety Lock, Two-person Approval, Contract Audit และ Dry-run โดยผลผ่านยังคง realMoneyAllowed=false |
+| Phase 1.1.3.7.5.5 Executor Design & Feature Flag | Local ผ่าน | กำหนด Feature Flag ฝั่ง Serverให้รับเฉพาะ disabled/shadow, เพิ่ม Server Design Review และลำดับ Executor 6 ขั้น โดยบังคับ realMoneyAllowed=false, ไม่มี Checkout Endpoint จริง และไม่เรียก Stripe Live API |
+| Phase 1.1.3.7.5.6 Shadow Executor Command Audit | Local test passed / ผู้ใช้ทดสอบผ่าน | จอง Command ID และ Idempotency Key จาก Dry-run ที่ผ่าน ตรวจ Safety Gate ซ้ำฝั่ง Server และบันทึก Audit แบบแก้ไขย้อนหลังไม่ได้ โดยไม่เรียก Stripe Live API และไม่มีเงินจริงเคลื่อนย้าย |
+| Phase 1.1.3.7.5.7 Live Webhook Connectivity Evidence | Completed / Production 6/6 ผ่านและปิด Phase | ยืนยัน URL สาธารณะ, Secret ฝั่ง Server, Emergency Stop และ Stripe Live Event ที่ผ่านลายเซ็นและถูกกักไว้ครบ 6/6 โดยไม่สร้าง Checkout ไม่เปลี่ยน Invoice/Subscription และไม่รับเงินจริง; นำ `customer.created` ออกจาก Live Event destination หลังจบการทดสอบแล้ว |
+| Phase 1.1.3.8 Bank Transfer & Slip Verification | In progress | รองรับ QR ธนาคารหรือบัญชีรับโอนของ AVENZO ONE, หน้าลูกค้าแนบสลิป, คิวตรวจหลักฐาน, ป้องกันสลิปซ้ำ, อนุมัติ/ปฏิเสธพร้อมเหตุผล, Audit และกระทบยอด โดยยังไม่ถือว่าโอนสำเร็จจนผู้มีสิทธิ์ยืนยัน |
+| Phase 1.1.3.8.1 Bank Transfer Channel Setup | Local ผ่าน | Platform Admin ตั้งค่าบัญชีธนาคารหรือพร้อมเพย์ผ่าน UI, มี AAL2 + RLS + RPC + Audit + ตรวจสอบก่อนบันทึก และไม่เปลี่ยน Invoice/Payment/Subscription |
+| Phase 1.1.3.8.2 Private Slip Upload | Local ผ่าน | ลูกค้าเลือก Invoice และช่องทางรับโอน ตรวจสอบข้อมูลก่อนส่ง แล้วแนบ JPG/PNG/WebP/PDF ไม่เกิน 5 MB ลง Private Storage; path ผูก Organization/Invoice/User, มี RLS + Audit และยังคง Invoice เป็นรอชำระจนเจ้าหน้าที่ตรวจ |
+| Phase 1.1.3.8.3 Transfer Proof Review | Local ผ่าน | Platform Admin ที่ผ่าน MFA เปิดไฟล์ด้วย Signed URL อายุ 2 นาที ตรวจยอด/เวลา/บัญชี และรับรองหรือปฏิเสธพร้อมเหตุผล; ล็อกการอนุมัติซ้ำและยังไม่สร้าง Payment หรือเปลี่ยน Invoice/Subscription |
+| Phase 1.1.3.8.4 Transfer Fulfillment | Implemented / รอผู้ใช้ทดสอบ Local | Platform Admin คนที่ 2 ซึ่งผ่าน MFA ยืนยันรับชำระจากหลักฐานที่รับรองแล้ว; ตรวจยอดตรง Invoice, ป้องกันคำสั่งซ้ำ และสร้าง Payment + เปลี่ยน Invoice เป็นชำระแล้ว + ต่ออายุ Subscription + บันทึก Event ภายใน Transaction เดียว |
+| Phase 1.1.3.8.5.1 Transfer Approval Policy | Local ผ่าน | Super Admin กำหนดวงเงินอนุมัติคนเดียว (ค่าเริ่มต้น 5,000 บาท) และกฎรายการเสี่ยงผ่าน UI; มี AAL2, Version conflict protection, Idempotency, RLS/RPC และ Immutable Audit โดยยังไม่เปลี่ยนกฎรับชำระจริงจนถึง Phase 1.1.3.8.5.2 |
+| Phase 1.1.3.8.5.2 Approval Policy Enforcement | Local ผ่าน | บังคับใช้นโยบายฝั่ง Server จริง: รายการปกติยอดไม่เกินวงเงินใช้ผู้ดูแล 1 คน; รายการเกินวงเงินหรือถูกระบุว่ามีความเสี่ยงใช้ Platform Admin ต่างบัญชี 2 คน พร้อม Snapshot Version/จำนวนผู้อนุมัติใน Proof, Payment และ Subscription Event |
+| Phase 1.1.3.8.5.3.1 Approval Workflow Status UI | Local ผ่าน | แสดงสถานะงานและเหตุผลเป็นภาษาไทย: พร้อมยืนยันรับชำระ, รอผู้อนุมัติคนที่ 2 หรือพร้อมให้คุณอนุมัติคนที่ 2 พร้อมยอดเทียบวงเงิน สัญญาณเสี่ยง Policy Version และผู้ตรวจหลักฐานคนแรก โดยไม่เปลี่ยนกติกาฝั่ง Server |
+| Phase 1.1.3.8.5.3.2 Approval Workflow Actions UI | Local ผ่าน | แสดงปุ่มและคำอธิบายสิทธิ์ตามบัญชีและสถานะจริง: ปิดปุ่มเมื่อยอดไม่ตรงหรือรอผู้อนุมัติคนที่ 2 และเปิดปุ่มสำหรับผู้มีสิทธิ์ยืนยันแบบผู้ดูแล 1 คนหรือผู้อนุมัติคนที่ 2 โดย Server ยังคงเป็นผู้บังคับใช้นโยบายสุดท้าย |
+| Phase 1.1.3.8.5.3.3 Approval Timeline | Local ผ่าน | แสดงลำดับส่งหลักฐาน ตรวจผ่าน ขั้นอนุมัติปัจจุบัน และผล Payment/Invoice/Subscription ที่จะเกิดขึ้น พร้อมชื่อผู้ดำเนินการ เวลา เหตุผล และ Policy Version โดยใช้ข้อมูลเดิมและไม่เพิ่มตารางใหม่ |
+| Phase 1.2.1 Session Policy Foundation | Migration ใช้กับ Supabase Production แล้ว / Contract Test + TypeScript + Production Build ผ่าน / รอทดสอบบัญชีจริง | เพิ่มนโยบาย Session ฝั่ง Server สำหรับบัญชีสิทธิ์สูง 30 นาที/8 ชั่วโมง และบัญชีองค์กร 8 ชั่วโมง/7 วัน พร้อมเตือนล่วงหน้า 5 นาที; บันทึก Session ID, Activity, Policy Snapshot และ Audit ใน private schema ผ่าน RPC ที่ผูกผู้ใช้ปัจจุบัน โดยยังไม่บังคับ Logout จนถึง Phase 1.2.2 |
+| Phase 1.2.2.1 Session Registration | Implemented / รอทดสอบ Local | เชื่อม Login, TOTP MFA, Auth Callback และ Hash Session ให้ลงทะเบียน Session ปัจจุบันผ่าน RPC ฝั่ง Server โดย Registration failure ไม่ล้ม Login และยังไม่บังคับ Timeout หรือ Logout |
+| Phase 1.2.2.2 Session Status & Activity Heartbeat | Implemented / รอทดสอบ Local | เพิ่ม RPC ตรวจสถานะและอัปเดต Activity ของ Session ปัจจุบันแบบจำกัดความถี่ 60 วินาทีทั้ง Browser และ Database; ไม่เลื่อน Absolute Timeout ไม่ชุบ Session ที่หมดอายุหรือถูกเพิกถอน และยังไม่บังคับ Logout |
+| Phase 1.2.2.3 Session Expiry Warning UI | Implemented / Contract Test + TypeScript ผ่าน / รอทดสอบ Local | เพิ่ม Alert Dialog เตือนก่อนหมดเวลาและนับถอยหลังจากเวลาฝั่ง Server; Idle Timeout กดใช้งานต่อได้ ส่วน Absolute Timeout ต่อเวลาไม่ได้ พร้อมรองรับสถานะหมดอายุ/เพิกถอน โดยยังไม่บังคับ Logout จนถึง Phase ถัดไป |
+| Phase 1.2.2.4 Session Enforcement & Safe Logout | Implemented / รอทดสอบ Local | บังคับ Logout เฉพาะอุปกรณ์เมื่อ Idle/Absolute Timeout หรือถูกยกเลิก ตรวจซ้ำด้วย Middleware ฝั่ง Server ปิด cache ของหน้าป้องกัน ใช้ browser history replacement และแสดงเหตุผลภาษาไทยหน้า Login |
+| Phase 1.2.2.5.1 Session & Device Management UI | Implemented / Migration ใช้กับ Supabase แล้ว / Contract Test + TypeScript ผ่าน / รอทดสอบ Local | เพิ่มหน้าดู Session และอุปกรณ์ของ Account ตนเอง แสดงอุปกรณ์ปัจจุบัน เบราว์เซอร์ ระบบปฏิบัติการ เวลาใช้งานและสถานะภาษาไทย ผ่าน RPC ที่ตรวจ auth.uid โดยไม่คืน Token, Session ID ดิบหรือ IP และยังไม่มีปุ่มยกเลิก Session |
+| Phase 1.2.2.5.2 Revoke Single Device Session | Migration ใช้กับ Supabase แล้ว / Contract และ TypeScript ผ่าน / รอทดสอบ Local | ออกจากระบบเป็นรายอุปกรณ์ พร้อม Confirmation, Ownership Check, ป้องกันการตัดอุปกรณ์ปัจจุบัน และ Private Audit Log |
+| Phase 1.2.2.5.3 Revoke All Other Device Sessions | Migration ใช้กับ Supabase แล้ว / Contract และ TypeScript ผ่าน / รอทดสอบ Local | ออกจากระบบอุปกรณ์อื่นทั้งหมดในคำสั่งเดียว โดยคงอุปกรณ์ปัจจุบันไว้ ตรวจสิทธิ์จาก auth.uid และ Session ปัจจุบันฝั่งฐานข้อมูล พร้อม Confirmation และ Private Audit Log แยกทุกอุปกรณ์ |
+| Phase 1.2.2.5.4 Session Security Activity | Migration ใช้กับ Supabase แล้ว / Contract และ TypeScript ผ่าน / รอทดสอบ Local | แสดงประวัติกิจกรรม Session ล่าสุดแก่เจ้าของบัญชีผ่าน RPC ที่ตรวจ auth.uid และคืนเฉพาะข้อมูลอุปกรณ์ เวลาและ Policy ที่ปลอดภัย โดยไม่คืน Session ID ดิบ, User ID, Event Metadata, Token หรือ IP |
+| Phase 1.2.2.5.5 Session Security Email Alerts | **Completed / ทดสอบผ่าน / พร้อม Production** | ส่งอีเมลผ่าน Resend เมื่อพบอุปกรณ์ใหม่และเมื่อออกจากระบบอุปกรณ์อื่นทั้งหมด โดยใช้ Security Event เป็น Idempotency Key, เก็บผลส่งใน private schema และไม่ให้ความผิดพลาดของอีเมลล้ม Login หรือคำสั่งเพิกถอน Session; ทดสอบ Password Recovery สำหรับบัญชีที่เปิด MFA โดยยืนยันรหัส 6 หลักและตั้งรหัสผ่านใหม่สำเร็จแล้ว |
+| Phase 1.2.3 Security Regression Test | Automated Regression ผ่าน 57/57 และ TypeScript ผ่าน / รอการทดสอบบัญชีจริง | รวม Contract Test ของ Session, MFA, Timeout, Device Revoke, Security Activity, Password Recovery และ Security Email เป็นคำสั่งเดียว พร้อม Runbook ภาษาไทยและเกณฑ์ผ่านที่ไม่ลดมาตรการความปลอดภัย |
+| Phase 1.2.4.1 Supabase Security Audit | **Completed / Read-only Audit / ไม่เปลี่ยน Production** | ตรวจ RLS, Policy, Grants, SECURITY DEFINER, View, Storage, Auth, Redirect URL, Secret Boundary และ Security/Performance Advisor แล้ว; ผ่านแบบมีเงื่อนไขสำหรับ Development/Controlled Testing แต่ยังต้องทำ Function Allowlist, ถอน Grant ของ anon, แก้ RLS InitPlan และเปิด Leaked Password Protection ก่อนผ่าน Production Security Gate |
+| Phase 1.2.4.2.1 Function Permission Allowlist | **Completed / Production Migration Applied / Verified** | จำแนก SECURITY DEFINER ครบ 56 ฟังก์ชันและบังคับ deny-by-default แล้ว: `authenticated` 42, Server-only 14, `service_role` 56, `anon`/`public` 0; Default Privilege จำกัดไว้ที่ `postgres` และ `service_role`; Security Advisor หลัง Migration ตรวจแล้ว โดย WARN 42 รายการเป็น Application Allowlist ที่ตั้งใจเปิดและอีก 1 รายการคือ Leaked Password Protection ที่รอ Supabase Pro |
+| Phase 1.2.4.2.2 Anonymous Grant Hardening | **Completed / Production Migration Applied / Verified** | ถอนสิทธิ์ `anon` จาก `branches`, `member_branches`, `organization_members`, `organizations` สำเร็จทั้ง 4 ตาราง (`anon` = 0) และปิด Default Privilege ของตาราง/sequence ใหม่; ยืนยันว่า RLS และ Policy เดิมยังอยู่ สิทธิ์ `authenticated`/`service_role` ไม่เปลี่ยน Migration History บันทึกแล้ว และ Security Advisor ไม่พบรายการใหม่ที่เกี่ยวกับตารางในขอบเขต |
+| Phase 1.2.4.2.3 RLS InitPlan Optimization | **Completed / Production Migration Applied / Verified** | ใช้ Migration กับ Supabase Production แล้ว; Policy ยังคงเป็น PERMISSIVE, Role `authenticated`, SELECT, Platform Admin และ AAL2 เดิม; Migration History บันทึกสำเร็จ และ Performance Advisor ไม่พบ `auth_rls_initplan` เหลืออยู่ (`0` รายการ) |
+| Phase 1.2.4.2.4 Production Password Gate | **Completed / Deferred by Owner / ยอมรับความเสี่ยงชั่วคราว** | Production `ACTIVE_HEALTHY`; Security Advisor ยังแจ้ง `auth_leaked_password_protection` เพราะ Leaked Password Protection ปิดอยู่; เจ้าของระบบยังไม่อัปเกรดจาก Free เป็น Pro จนกว่าฟีเจอร์หลักจะพร้อมมากขึ้น จึงคงมาตรการชดเชยเดิมและต้องนำ Gate นี้กลับมาพิจารณาก่อนเปิด Production เต็มรูปแบบ |
+| Phase 1.3.6.3 Page-specific Theme Migration & Visual QA | **Approved / Completed** | เก็บสีเฉพาะหน้าและสถานะธุรกิจที่ยังเป็นค่าตรง พร้อม Button Contrast Gate, Theme Persistence และ Visual QA; Contract Test 5/5, TypeScript และ Production Build 37 หน้าผ่าน โดยไม่เปลี่ยน Business Logic |
+| Phase 1.3.6.4 Operations UI Foundation | **Approved / Completed** | Component Foundation ครบ, Billing Exceptions Pilot ผ่าน Decision Gate, Contract 9/9, TypeScript, Production Build 37 หน้า และ Authenticated Visual QA ผ่าน โดย Business Logic, Permission, AAL2 และ Audit Contract เดิมไม่เปลี่ยน |
+| Phase 2.0 Foundation Vertical Slice | **In progress — Local Release Candidate Passed / Preview Pending** | Phase 2.0.1–2.0.6 ผ่านแล้ว และ Phase 2.0.7 ผ่าน clean replay, rollback, 91/91 contracts, build และ authenticated E2E ใน Local; ขั้นถัดไป Vercel Preview ต้องอนุมัติ deploy แยก และยังห้าม Apply Production |
+| Phase 2.0.1 Current-State Discovery & Decisions | **Approved / Completed** | ตรวจ Repository และ Supabase Production แบบ read-only แล้ว; ยืนยันว่า Product/Inventory domain ยังไม่มี, พบ Migration Baseline drift ระหว่าง Git 93 ไฟล์กับ Production history 90 รายการ, กำหนด blocker ก่อน Phase 2.0.3 และจัดทำ Decision Register D-201–D-216 โดยยังไม่มี Migration หรือ Business Logic change |
+| Phase 2.0.2 Product, Warehouse & Inventory Domain Contract | **Approved / Completed** | อนุมัติ D-201–D-217: Organization-owned Product/SKU, Branch → Warehouse → Location, base unit เดียว `numeric(20,6)`, immutable movement ledger, negative-stock deny-all, Server Command + Idempotency, 8 permission codes, Platform Admin read-only boundary และ identifier → `sku_id`; ไม่มี Migration หรือ code change |
+| Phase 2.0.3.1 Migration Baseline Recovery | **Owner Approved / Completed** | clean replay ผ่าน 90/90 canonical + 7 recovered bridges; normalized schema fingerprint ตรง Production 7/7 หมวด; ไม่มี Production mutation |
+| Phase 2.0.3.2 Product/SKU Schema | **Owner Approved / Completed Locally** | เพิ่ม `products`/`skus`, composite tenant FK, organization-scoped permanent identifiers, forward-only lifecycle, hard-delete guard และ RLS deny-by-default; invariant tests และ local Supabase Advisors ผ่าน; ไม่มี Production mutation |
+| Phase 2.0.3.3 Warehouse/Location Schema | **Owner Approved / Completed Locally** | เพิ่ม `warehouses`/`locations`, composite Organization/Branch/Warehouse FKs, Default Location อัตโนมัติและ deferred exactly-one-active-default invariant, lifecycle/hard-delete guards และ RLS deny-by-default; tests, FK indexes 9/9 และ Advisors ผ่าน; ไม่มี Production mutation |
+| Phase 2.0.3.4 Inventory Ledger & Balance | **Owner Approved / Completed Locally** | เพิ่ม `inventory_commands`, immutable `stock_movements`, derived `inventory_balances`, `inventory_domain_events` และ private atomic posting primitive; negative-stock deny-all, transfer pair, idempotency/replay, reconciliation, FK indexes 18/18 และ Advisors ผ่าน; ไม่มี Production mutation |
+| Phase 2.0.3.5 Permission, RLS & Security Tests | **Owner Approved / Completed Locally** | เพิ่ม permission 8 รายการ, Organization/Branch-scoped SELECT policies, direct-write denial, server-only inventory authorization boundary และ AAL2 Platform Admin evidence; security abuse tests ผ่าน; ไม่มี Production mutation |
+| Phase 2.0.3.6 Migration Verification | **Owner Approved / Completed Locally** | clean rebuild สองรอบผ่าน baseline 90/90 + bridges 7/7 + Phase migrations/tests 4/4; rollback rehearsal ผ่าน, fingerprint ตรงกันและ Advisors ไม่พบปัญหา; ไม่มี Production mutation |
+| Phase 2.0.4 Server/Application Foundation | **Owner Approved / Completed Locally** | เพิ่ม RLS read repositories, typed command/service boundary, durable idempotency, optimistic concurrency, service-role-only RPC, immutable event/audit และ safe error mapping; contract 3/3, TypeScript, SQL security test, DB lint และ Production Build 37 หน้า ผ่าน; ไม่มี Production mutation |
+| Phase 2.0.5 Product/SKU Vertical Slice | **Owner Approved / Completed Locally** | เพิ่ม Organization-scoped Product/SKU workspace, Search/Filter/Keyset Pagination, Create/Edit/Lifecycle, Detail Sheet, responsive/read-only/error states และ navigation; contract 3/3, Foundation regression 3/3, TypeScript, Build และ authenticated browser flow ผ่าน; ไม่มี Production mutation |
+| Phase 2.0.6 Warehouse & Stock Movement Slice | **Owner Approved / Completed Locally** | เพิ่ม Warehouse/Location workspace, Balance, immutable Ledger, Receive/Adjust/Transfer, lifecycle, low/out stock, negative-stock feedback และ inventory audit; contract 4/4, regression 10/10, SQL security test, TypeScript, Build, Local Advisors และ authenticated browser flow ผ่าน; ไม่มี Production mutation |
+| Phase 2.0.7 Hardening & Release Gate | **Owner Approved / Local Release Candidate Passed / Preview Pending** | clean baseline 90/90 + bridges 7/7, forward/rollback tests, Advisors, 91/91 application/security/theme contracts, TypeScript, Production Build และ authenticated Browser→Server→Database→UI reconciliation ผ่าน; ยังไม่มี commit/push/deploy/Production apply |
 
 ห้ามเปิด Production หาก Phase 0.9 Production Security Gate ยังไม่ผ่าน แม้ระบบ Development จะใช้งานได้ครบตาม Acceptance Criteria แล้ว และต้องตรวจร่างประกาศความเป็นส่วนตัว/ข้อกำหนดการใช้งานโดยผู้เชี่ยวชาญด้านกฎหมายและ PDPA ก่อนเผยแพร่
 
@@ -479,9 +652,13 @@ Event ต้องมี `organization_id`, Actor, Customer, Source Entity, Corr
 | C2 Purchase & Loyalty | ประวัติซื้อ, แต้ม Ledger, Tier/คูปองพื้นฐาน | Rule ซับซ้อนหลายร้าน |
 | C3 Store Engagement | ข่าวร้าน สินค้า/โปรใหม่ Live Alert, Inbox และ Preferences | Customer-to-customer DM |
 | C4 Verified Review | รีวิวผู้ซื้อจริง รูป Product Link, Public Profile และ Moderation | Video Feed เต็มรูปแบบ |
-| C5 Referral Commerce | Share Link, Click, Attribution, Conversion และ Commission Pending | Multi-level Downline |
+| C5 Referral Commerce | Signed External Link, Click, Direct SKU Attribution, Order-item Snapshot และ Commission Pending | Indirect/Multi-touch Attribution |
 | C6 Payout | Available Balance, Request, Approval, Batch และ Reconciliation | จ่ายอัตโนมัติทุก Provider |
 | C7 Community Feed | Follow, Reaction และ Feed ตามเวลา | Recommendation Algorithm |
+| C8 Commerce Community UI | สำหรับคุณ, กำลังติดตาม, ร้านค้า, รีวิว, Dynamic Product Card และ Disclosure Badge | Ranking ซับซ้อน/Short-video Feed |
+| C9 Review Deal | Platform/Merchant-funded Discount, Budget, Settlement Preview และ Order Snapshot | เปิด Subsidy แบบไม่จำกัด |
+| C10 Content Rights Marketplace | License Preset, Request, Mission, Buy/Accept, Usage Audit และ Rights Ledger | สัญญา Custom/Exclusive ซับซ้อน |
+| C11 Fair Discovery & Scale Gate | Eligibility, New Creator Pool, Explainability, Moderation, Fraud และ Load Test | รับประกันยอด View |
 
 แต่ละระยะต้องเป็น Vertical Slice ที่เชื่อม UI → Server → Database → Event → Notification → Permission/RLS → Test
 
@@ -523,6 +700,14 @@ Event ต้องมี `organization_id`, Actor, Customer, Source Entity, Corr
 - Cancel/Return ย้อน Commission ตาม Order Item
 - Commission ยังถอนไม่ได้จนเป็น Available
 - Ledger รวมย้อนหลังตรงกับยอด Estimated/Pending/Available/Paid
+- Signed External Link แก้ Creator/SKU/Campaign ฝั่ง Client แล้วไม่ผ่านการตรวจ
+- Social In-app Browser และ Cross-device มี Creator Code/QR/Login Fallback
+- Order หลาย SKU บันทึก Attribution แยกตาม Order Item
+- ราคาใน Product Card อัปเดตจาก SKU ปัจจุบันโดยไม่แก้ข้อความรีวิวย้อนหลัง
+- Review Deal แยก Merchant Discount, Platform Subsidy, Buyer Paid และ Commission Base ได้
+- Budget/Cap/Eligibility/Stacking ถูกบังคับฝั่ง Server และ Cancel/Return คืนหรือ Reverse ถูกต้อง
+- Content License ระบุเจ้าของ ช่องทาง ระยะเวลา สิทธิ์แก้ไข และสถานะหมดอายุได้
+- ร้านดาวน์โหลด/ใช้ Asset ไม่ได้หากไม่มี License ที่ยังมีผล
 
 ### 14.5 Notification
 
@@ -551,6 +736,7 @@ Event ต้องมี `organization_id`, Actor, Customer, Source Entity, Corr
 
 ต้องตัดสินใจและบันทึกก่อน Implement:
 
+0. **UI Mockup Gate:** ทุกหน้าหรือ Visible interaction ต้องผ่าน Owner-approved Mockup ตาม `AVENZO_ONE_UI_Mockup_First_Implementation_Guide_V1.md` ก่อนเริ่ม Production UI และ Implementation ต้องผ่าน Visual Parity ก่อนปิด Part
 1. ร้านแรกจะเปิดสมัครด้วย Provider ใดก่อน
 2. วิธี Claim ออเดอร์เก่าและกฎ Merge Customer
 3. อัตราแต้ม วันหมดอายุ Tier และกฎคืนสินค้า
@@ -563,29 +749,51 @@ Event ต้องมี `organization_id`, Actor, Customer, Source Entity, Corr
 10. Self-referral/Fraud Policy และขั้นตอนอุทธรณ์
 11. Consent Text, ช่องทางการตลาด และ Quiet Hours
 12. ข้อกำหนดภาษี เอกสารผู้รับค่านายหน้า และ PDPA
+13. Direct/Indirect/Multi-touch Attribution และกฎ Cross-device
+14. ราคาปัจจุบัน/ราคาขณะรีวิวและ Price Snapshot ที่แสดงต่อผู้ใช้
+15. ผู้สนับสนุน Review Deal, Commission Base, Budget, Cap และ Coupon Stacking
+16. Platform Success Fee/Marketplace Fee และ Settlement Preview ของร้าน
+17. License Preset, Ownership, Model Release, Channel, Duration, Edit และ Exclusive Rights
+18. Merchant Mission, Content Acceptance, Dispute, Expiry และ Usage Audit
+19. Fair Discovery Eligibility, New Creator Exposure, Sponsored Label และ Appeal
+20. Community/Review/Advertising/Creator Policy พร้อมการตรวจ Legal, Tax, Copyright และ PDPA
 
 ห้าม Codex เดาค่าทางธุรกิจที่มีผลต่อเงิน สิทธิ์ ความเป็นส่วนตัว หรือกฎหมายโดยไม่มี Decision Record
+
+ห้าม Codex เดาหรือเปลี่ยนดีไซน์ที่ผู้ใช้มองเห็นจาก Approved Mockup หากมีข้อจำกัดทางเทคนิคต้องหยุด ทำ Deviation Request และรอ Owner approval ก่อนแก้ Production UI การผ่าน Backend, TypeScript หรือ Test ไม่ถือว่า UI Gate ผ่านหากยังไม่มี Visual Parity และ Owner production approval
 
 ---
 
 ## 17. ลำดับรวมหลัง Sprint 1
 
-1. Foundation Vertical Slice ตาม V6
-2. Product/SKU, Warehouse, Stock Movement Ledger
-3. Live CF, Reservation, Waitlist และ Customer Chat Workspace
-4. Order Revision, Payment, Refund และ Customer Credit
-5. Promotion Engine, FF Benefit และ Group Repricing
-6. Picking, Packing, Shipping และ Return QC
-7. Customer Identity + Customer 360
-8. Purchase History + Loyalty Ledger
-9. Store Engagement + Notification Preference
-10. Verified Review + Public Profile + Moderation
-11. Referral Attribution + Commission Ledger
-12. Payout + Reconciliation
-13. Community Feed
-14. พิจารณา Multi-level Referral เฉพาะเมื่อผ่าน Decision Gate ใหม่
+1. Phase 1.3.6.3 Theme Migration และ Visual QA — Completed
+2. Phase 1.3.6.4 Operations UI Foundation — Completed
+3. Phase 2.0.1 Current-State Discovery & Decisions
+4. Phase 2.0.2 Domain Contract
+5. Phase 2.0.3 Database, RLS & Migration
+6. Phase 2.0.4 Server/Application Foundation
+7. Phase 2.0.5 Product/SKU Vertical Slice
+8. Phase 2.0.6 Warehouse & Stock Movement Slice
+9. Phase 2.0.7 Hardening & Release Gate
+10. Purchasing: Reorder Queue, Supplier และ Purchase Order lifecycle
+11. Live CF, Reservation, Waitlist และ Customer Chat Workspace
+12. Order Revision, Payment, Refund และ Customer Credit
+13. Promotion Engine, FF Benefit และ Group Repricing
+14. Picking, Packing, Shipping และ Return QC
+15. Customer Identity + Customer 360
+16. Purchase History + Loyalty Ledger
+17. Store Engagement + Notification Preference
+18. Verified Review + Public Profile + Moderation
+19. Referral Attribution + Commission Ledger
+20. Payout + Reconciliation
+21. Community Feed
+22. พิจารณา Multi-level Referral เฉพาะเมื่อผ่าน Decision Gate ใหม่
 
-สามารถขยับข้อ 7–9 ให้เร็วขึ้นหลัง Order/Customer Model เสถียร แต่ไม่ควรสร้าง Referral ก่อน Order Revision, Return และ Ledger พร้อม เพราะจะคำนวณและย้อนค่านายหน้าไม่ถูกต้อง
+สามารถขยับข้อ 15–17 ให้เร็วขึ้นหลัง Order/Customer Model เสถียร แต่ไม่ควรสร้าง Referral ก่อน Order Revision, Return และ Ledger พร้อม เพราะจะคำนวณและย้อนค่านายหน้าไม่ถูกต้อง
+
+Phase 2.0 แต่ละ Part ต้องมี Evidence และ Approval แยก ห้ามเริ่ม Migration ใน Phase 2.0.1, ห้ามเริ่ม Phase 2.0.3 ก่อน Domain Decision ผ่าน และห้ามเริ่ม Purchasing ก่อน Phase 2.0.7 Release Gate ได้รับอนุมัติ รายละเอียดอยู่ใน `AVENZO_ONE_Phase_2.0_Foundation_Vertical_Slice_Roadmap.md`
+
+Phase 1.3.6.4 อ้างอิงการวิเคราะห์ Surge Commerce ครบทุก Route ใน Sidebar แต่ให้นำมาเฉพาะ Design Pattern ที่เหมาะกับ AVENZO ONE ได้แก่ Page Header, Filter Bar, Data Grid, Status Badge, KPI Card, Form Section, Card List และ Detail Sheet ห้ามคัดลอก Navigation, Business Logic หรือ Source Code โดยไม่ตรวจ License และห้าม Rollout ทุกหน้าก่อน Pilot ผ่าน Decision Gate
 
 ---
 
@@ -631,6 +839,223 @@ Event ต้องมี `organization_id`, Actor, Customer, Source Entity, Corr
 
 ## Changelog
 
+### Phase 2.0.2 — Product, Warehouse & Inventory Domain Contract (13 สิงหาคม 2026)
+
+- เจ้าของระบบอนุมัติให้เริ่ม Phase 2.0.2
+- จัดทำ entity/ownership contract สำหรับ Organization → Branch → Warehouse → Location และ Product → SKU
+- เสนอ SKU code/barcode unique ต่อ Organization, base unit เดียว, `numeric(20,6)` และยังไม่มี unit conversion ใน MVP
+- เสนอ immutable Stock Movement เป็น source of truth, Balance เป็น derived read model, allocated = 0 และ available = on_hand
+- เสนอ negative-stock deny-all, Receive/Adjust/Transfer ผ่าน Server Command พร้อม idempotency และ consistent lock order
+- เสนอ permission 8 codes และ Platform Admin evidence read-only โดยไม่มี tenant stock override
+- เจ้าของระบบเห็นชอบ D-217: `cf_code`, `sales_code`, `barcode` และ fulfillment code เป็น lookup เท่านั้น และต้อง resolve เป็น `sku_id` ก่อน Stock Command/Movement
+- คง Migration Baseline Gate เป็น blocker ก่อน Phase 2.0.3
+- เจ้าของระบบอนุมัติ Resolution D-201–D-217 และปิด Phase 2.0.2 เมื่อวันที่ 13 สิงหาคม 2026
+- Phase 2.0.1–2.0.6 ปิดครบและ Phase 2.0.7 ผ่าน Local Release Candidate Gate แล้ว; ขั้นถัดไปคือ commit/push และ Vercel Preview verification ซึ่งต้องอนุมัติแยก และยังไม่อนุญาต Production apply
+- เอกสาร: `AVENZO_ONE_Phase_2.0.2_Domain_Contract.md`
+
+### Phase 2.0.3.4 — Inventory Ledger & Balance (13 สิงหาคม 2026)
+
+- เจ้าของระบบอนุมัติให้เริ่ม Phase 2.0.3.4
+- สร้าง migration `20260813131250_phase_2_0_3_4_inventory_ledger_balance.sql` ด้วย Supabase CLI
+- เพิ่ม idempotent command envelope, immutable stock ledger, derived balance และ immutable domain event
+- เพิ่ม private atomic posting primitive สำหรับ Receive/Adjust/Transfer พร้อม deterministic balance locks
+- บังคับ negative-stock deny-all, transfer pair, request-hash conflict และ replay outcome เดิม
+- local flow/reconciliation tests, foreign-key indexes 18/18, RLS 4/4 และ Supabase Advisors ผ่าน
+- ไม่มี Production mutation; Phase 2.0.3.5 ต้องอนุมัติแยก
+- เอกสาร: `AVENZO_ONE_Phase_2.0.3.4_Inventory_Ledger_Balance.md`
+
+### Phase 2.0.3.5 — Permission, RLS & Security Tests (13 สิงหาคม 2026)
+
+- เจ้าของระบบอนุมัติให้เริ่ม Phase 2.0.3.5
+- เพิ่ม permission 8 รายการและ explicit Owner/Admin seed โดย Manager/Staff/Viewer ยัง deny-by-default
+- เพิ่ม reviewed SELECT policies ครบ 8 ตารางตาม Organization/Branch scope และปิด Data API mutation โดยตรง
+- เพิ่ม server-only inventory boundary ที่ตรวจ actor, tenant, membership, permission และ Transfer scope ทั้งต้นทาง/ปลายทาง
+- เพิ่ม AAL2 Platform Admin evidence RPC แบบ read-only โดยไม่ให้ tenant stock override
+- local security/abuse tests, database lint, baseline validator และ `git diff --check` ผ่าน
+- ไม่มี Production mutation; Phase 2.0.3.6 ต้องอนุมัติแยก
+- เอกสาร: `AVENZO_ONE_Phase_2.0.3.5_Permission_RLS_Security_Tests.md`
+
+### Phase 2.0.3.6 — Migration Verification (13 สิงหาคม 2026)
+
+- เจ้าของระบบอนุมัติให้เริ่ม Phase 2.0.3.6
+- เพิ่ม isolated local verification harness สำหรับ baseline + Phase migration set
+- clean rebuild สองรอบผ่าน canonical baseline 90/90, bridges 7/7 และ Phase migrations/tests 4/4
+- transactional rollback rehearsal ผ่านโดยไม่เหลือ Foundation objects
+- schema fingerprint ทั้งสองรอบตรงกันที่ `ac4edb9c3db0824b295ecdf98ff2d74cde5203aa3c8fdec6313814bbdee6f756`
+- Security/Performance Advisors ไม่พบปัญหา และ lint ไม่มี warning ใหม่จาก Phase นี้
+- กำหนด compensation เป็น application rollback + forward migration; ห้าม destructive down เมื่อมี ledger/data
+- ไม่มี Production mutation; Phase 2.0.4 ต้องอนุมัติแยก
+- เอกสาร: `AVENZO_ONE_Phase_2.0.3.6_Migration_Verification.md`
+
+### Phase 2.0.5 — Product/SKU Vertical Slice (13 สิงหาคม 2026)
+
+- เจ้าของระบบอนุมัติให้เริ่ม Phase 2.0.5 และปิด local gate แล้ว
+- เพิ่ม Organization-scoped Product/SKU Workspace พร้อม Product/SKU tabs, search, status filter และ keyset pagination
+- เพิ่ม detail sheet และ create/edit/activate/archive โดยส่งทุก mutationผ่าน Foundation Command Boundary ของ Phase 2.0.4
+- ใช้ RLS read repository และ application permission gate สำหรับ `product.read` / `product.manage` โดยไม่ใช้ admin client ใน read path
+- รองรับ Desktop table, Mobile card, Loading, Empty, Permission denied, Validation/Conflict feedback และ Light/Dark mode
+- contract test, Foundation regression, TypeScript และ Production Build 37 หน้า ผ่าน
+- Authenticated browser verification ผ่าน Empty/Create/Search/Filter/Detail/Dark persistence/Mobile และยืนยัน command/event/audit อย่างละ 2 records
+- ไม่มี Production mutation, commit, push หรือ deploy; Phase 2.0.6 ต้องอนุมัติแยก
+- เอกสาร: `AVENZO_ONE_Phase_2.0.5_Product_SKU_Vertical_Slice.md`
+
+### Phase 2.0.6 — Warehouse & Stock Movement Slice (13 สิงหาคม 2026)
+
+- เจ้าของระบบอนุมัติให้เริ่ม Phase 2.0.6 และปิด local gate แล้ว
+- เพิ่ม Organization-scoped Warehouse/Location, Balance และ immutable Movement Ledger views พร้อม URL filters และ keyset pagination
+- เพิ่ม Create/Edit/Inactive/Archive Warehouse, Create Location และ Receive/Adjust/Transfer ผ่าน Foundation Command Boundary
+- รักษา invariant: ทุกคำสั่ง resolve เป็น `sku_id`, idempotent command, branch/tenant authorization, negative-stock deny-all และ immutable evidence
+- harden deferred default-location trigger และเพิ่ม service-role-only fail-closed branch resolver โดยไม่เปิด direct table grants
+- เพิ่ม human-readable Organization Audit Log จาก inventory domain event แบบหนึ่งต่อหนึ่ง
+- Contract 4/4, Foundation/Product/Operations regression 10/10, SQL integration/security test, TypeScript, Production Build 37 static pages และ Local Advisors ผ่าน
+- Authenticated browser verification ผ่าน Empty/Create/Location/Receive/Adjust/Negative Stock/Transfer/Balance/Ledger/Filter/Dark persistence/Mobile โดยไม่พบ console error
+- ไม่มี Production mutation, commit, push หรือ deploy; Phase 2.0.7 ต้องอนุมัติแยก
+- เอกสาร: `AVENZO_ONE_Phase_2.0.6_Warehouse_Stock_Movement_Slice.md`
+
+### Phase 2.0.7 — Hardening & Release Gate (14 สิงหาคม 2026)
+
+- เจ้าของระบบอนุมัติให้เริ่ม Phase 2.0.7 แล้ว
+- เพิ่ม repeatable local release harness ที่ล็อกเฉพาะ `supabase_db_avenzo-one-local`
+- clean replay ผ่าน baseline 90/90, bridges 7/7, Phase migrations/tests และ transactional rollback rehearsal
+- final schema/security gate ผ่านด้วย fingerprint `576080ff1018957e7cbae31fa5aff8d3e2cdb9d3e63815eb7dbb8c7a57cc4404`
+- application/security/theme contracts 91/91, TypeScript, Supabase Advisors และ Production Build ผ่าน
+- authenticated E2E ผ่าน Product/SKU, Warehouse/Location, Receive, negative-stock rejection, Adjust, Transfer, Balance, Ledger และ Audit reconciliation
+- Local Release Candidate ผ่าน; Vercel Preview verification ยัง pending เพราะ commit/push/deploy ต้องอนุมัติแยก
+- ไม่มี Production mutation, commit, push หรือ deploy
+- เอกสาร: `AVENZO_ONE_Phase_2.0.7_Hardening_Release_Gate.md`
+
+### Phase 2.0.4 — Server/Application Foundation (13 สิงหาคม 2026)
+
+- เจ้าของระบบอนุมัติให้เริ่ม Phase 2.0.4 และปิด local gate แล้ว
+- เพิ่ม RLS read repository พร้อม keyset cursor สำหรับ SKU, Warehouse และ Stock Movement
+- เพิ่ม typed validation, Server Action, verified actor context, application permission/branch-scope gate และ safe error mapping
+- เพิ่ม durable entity command envelope, request hash, optimistic version, service-role-only RPC และ immutable event/audit transaction
+- contract test 3/3, TypeScript, SQL integration/security test, DB lint และ Production Build 37 หน้า ผ่าน
+- ไม่มี Production mutation, commit, push หรือ deploy; Phase 2.0.5 ต้องอนุมัติแยก
+- เอกสาร: `AVENZO_ONE_Phase_2.0.4_Server_Application_Foundation.md`
+
+### Phase 2.0.3.3 — Warehouse/Location Schema (13 สิงหาคม 2026)
+
+- เจ้าของระบบอนุมัติให้เริ่ม Phase 2.0.3.3
+- สร้าง migration `20260813130312_phase_2_0_3_3_warehouse_location_schema.sql` ด้วย Supabase CLI
+- เพิ่ม Branch-owned Warehouse/Location พร้อม composite tenant constraints ตาม D-201 และ D-205
+- สร้าง Default Location ใน transaction เดียวกับ Warehouse และบังคับ exactly one active default เมื่อจบ transaction
+- เพิ่ม lifecycle, immutable topology, hard-delete guards และ RLS deny-by-default
+- local topology tests, foreign-key indexes 9/9 และ Supabase Advisors ผ่าน
+- ไม่มี Production mutation; Phase 2.0.3.4 ได้รับอนุมัติและปิด local schema gate แล้ว
+- เอกสาร: `AVENZO_ONE_Phase_2.0.3.3_Warehouse_Location_Schema.md`
+
+### Phase 2.0.3.2 — Product/SKU Schema (13 สิงหาคม 2026)
+
+- เจ้าของระบบอนุมัติให้เริ่ม Phase 2.0.3.2
+- สร้าง migration `20260813124837_phase_2_0_3_2_product_sku_schema.sql` ด้วย Supabase CLI
+- เพิ่ม Product/SKU tenant keys, composite FK, identifier uniqueness, lifecycle และ immutable guards ตาม D-201–D-204, D-206, D-211 และ D-217
+- เพิ่ม foreign-key indexes ครบ 7/7 และใช้ partial unique indexes สำหรับ nullable barcode/sales code
+- เปิด RLS แบบ deny-by-default และยังไม่เพิ่ม Data API grants/policies ก่อน Phase 2.0.3.5
+- local invariant tests และ Supabase Advisors ผ่านโดยไม่พบ issue
+- ไม่มี Production mutation; Phase 2.0.3.3 ได้รับอนุมัติและปิด local schema gate แล้ว
+- เอกสาร: `AVENZO_ONE_Phase_2.0.3.2_Product_SKU_Schema.md`
+
+### Phase 2.0.3.1 — Migration Baseline Recovery (13 สิงหาคม 2026)
+
+- เจ้าของระบบอนุมัติให้เริ่ม Phase 2.0.3.1
+- Production history 90 รายการกับ Git migration เดิม 93 ไฟล์ไม่เป็น baseline เดียวกัน: ตรงชื่อ+timestamp 2, ชื่อเหมือนแต่ timestamp ต่าง 82, Production-only names 6 และ Git-only names 9
+- กู้ exact Production SQL แบบ read-only ไว้ใน `supabase/production-baseline/` ครบ 90/90
+- manifest canonical MD5 และ local validator ผ่าน 90/90
+- ไม่เปลี่ยน migration เดิม, ไม่แก้ Production history, ไม่ apply SQL และไม่เพิ่ม Product/Inventory schema
+- ติดตั้ง Docker Desktop/WSL 2, Supabase CLI `2.114.0` และ local Postgres 17 แล้ว
+- clean replay ผ่าน 90/90 canonical migrations + recovered bridges 7 รายการ
+- normalized schema fingerprint ตรง Production 7/7 หมวด และปิด Migration Baseline Gate
+- Phase 2.0.3.2 ได้รับอนุมัติและปิด local schema gate แล้ว; Production apply ยังไม่อนุญาต
+- เอกสาร: `AVENZO_ONE_Phase_2.0.3.1_Migration_Baseline_Recovery.md`
+
+### Phase 2.0.1 — Current-State Discovery & Decisions (13 สิงหาคม 2026)
+
+- เจ้าของระบบอนุมัติให้เริ่ม Phase 2.0.1
+- ตรวจ Repository, Production schema, Auth, Permission, AAL2, RLS, Audit, Idempotency, Operations UI และ Migration history แบบ read-only
+- ยืนยันว่า Product, SKU, Warehouse, Location, Inventory, Stock Movement, Supplier, Purchase Order และ Commerce Order domain ยังไม่มีในระบบจริง
+- พบ Migration Baseline drift: Git 93 ไฟล์กับ Production history 90 รายการไม่เป็น replayable baseline เดียวกัน จึงกำหนดเป็น blocker ก่อน Phase 2.0.3
+- กำหนด MVP boundary โดยยังไม่รวม Supplier/PO/Reorder, Order/Reservation, Costing, Lot/Serial และ Integration ภายนอก
+- เพิ่ม Decision Register D-201–D-216 และ Draft Acceptance/Test Matrix
+- เจ้าของระบบอนุมัติ Findings และปิด Phase 2.0.1 เมื่อวันที่ 13 สิงหาคม 2026
+- Phase 2.0.2 เป็นขั้นถัดไปที่เข้า Gate ได้แต่ต้องรับอนุมัติเริ่มงานแยก; ยังไม่อนุญาต Phase 2.0.3 หรือ Migration
+- เอกสาร: `AVENZO_ONE_Phase_2.0.1_Current_State_Discovery_and_Decisions.md`
+
+### V7.1 — Foundation Vertical Slice Part Plan (13 สิงหาคม 2026)
+
+- เจ้าของระบบอนุมัติให้อัปเดต Plan และ Roadmap โดยแบ่ง Foundation Vertical Slice เป็น 7 Parts
+- เพิ่ม Phase 2.0.1 Current-State Discovery & Decisions โดยเป็น Part เดียวที่อนุญาตให้เริ่มก่อน
+- เพิ่ม Phase 2.0.2 Domain Contract และ Decision Gate สำหรับ Product/SKU, Warehouse, Unit, Balance และ Negative Stock
+- เพิ่ม Phase 2.0.3 Database/RLS/Migration และห้าม Apply Production โดยไม่มีอนุมัติแยก
+- เพิ่ม Phase 2.0.4 Server/Application Foundation พร้อม Idempotency, Authorization และ Concurrency Gate
+- เพิ่ม Phase 2.0.5 Product/SKU Vertical Slice และ Phase 2.0.6 Warehouse/Stock Movement Slice
+- เพิ่ม Phase 2.0.7 Hardening & Release Gate ก่อนเริ่ม Purchasing/Reorder Queue
+- กำหนด Commit, Test Evidence และ Approval แยกทุก Part เพื่อไม่ข้าม Decision Gate
+- เอกสาร: `AVENZO_ONE_Phase_2.0_Foundation_Vertical_Slice_Roadmap.md`
+
+### Phase 1.3.6.4 — Operations UI Foundation (13 สิงหาคม 2026)
+
+- สถานะ: Approved / Completed หลัง Pilot Decision Gate ผ่าน
+- วิเคราะห์ Surge Commerce ครบ Dashboard, Orders, Products, Inventory, Customers, Categories, Promotions, Reviews, Analytics และ Settings ทุกเมนูย่อยใน Sidebar
+- กำหนด Component Foundation สำหรับ Page Header, Filter Bar, Data Grid, Status Badge, KPI, Form Section, Card List และ Detail Sheet
+- กำหนดให้เริ่มจาก Pilot เพียงหนึ่งหน้า โดยแนะนำ Billing Exceptions และห้ามเปลี่ยน Business Logic, RLS, Permission หรือ Audit Contract
+- วางลำดับ Rollout ไป Product/SKU, Warehouse/Stock, Purchasing, Customer, Order/Payment, Promotion และ Analytics ตามความพร้อมของ Domain
+- เพิ่มกฎภาษาไทย, Dark Mode, Responsive, Accessibility, License และ Decision Gate ก่อนขยายผล
+- เริ่ม Billing Exceptions Pilot ด้วย Page/Panel Header, Filter Bar, Status Badge, Data Grid และ Empty State กลาง โดยคง Payment Actions และ Server Contract เดิม
+- เพิ่ม Contract Test สำหรับ Component Foundation, Semantic Token, Accessible Name และ Pilot Integration
+- Contract 9/9, TypeScript และ Production Build 37 หน้าผ่าน; Authenticated Visual QA ผ่านบน Desktop Light/Dark, Tablet 1024px และ Mobile 390px โดยไม่พบ Overflow, Console Error หรือ Error Overlay
+- เจ้าของระบบอนุมัติ Billing Exceptions Pilot Decision Gate แล้ว โดยยืนยันให้ใช้ Operations UI Foundation ต่อหลังปิด Phase
+- ปิด Phase หลัง Component Foundation ครบ, Contract 9/9, TypeScript, Production Build 37 หน้า และ Authenticated Visual QA ผ่าน Desktop Light/Dark, Tablet และ Mobile
+- เอกสาร: `AVENZO_ONE_Phase_1.3.6.4_Operations_UI_Foundation.md`
+
+### Phase 1.3.6.3 — Page-specific Theme Migration & Visual QA (13 สิงหาคม 2026)
+
+- สถานะ: Approved / Completed
+- เพิ่มเกณฑ์ตรวจปุ่ม Primary, Secondary, Danger และ Disabled ว่าต้องแยกจากพื้น Card และพื้นหน้าใน Dark Mode
+- แก้ปุ่ม Primary ส่วนกลางที่ใช้พื้นสีเดียวกับ Card โดยใช้พื้นสีน้ำเงินใน Dark Mode และเพิ่ม Semantic Border Token สำหรับ Default, Hover และ Active State
+- เพิ่ม Automated Contract Test เพื่อป้องกัน `.button` กลับไปใช้ `border: 0` หรือไม่มี Dark-mode Border Token
+- แก้ Theme Persistence ให้ F5 และการเปิดหน้าใหม่ใช้ค่าที่บันทึกไว้ก่อน Hydration โดยไม่ต้องเปิดเมนูโปรไฟล์
+- เริ่ม Visual QA รายหน้าจาก Platform Admin Access แล้วขยายไป Billing, Live Control, Plans, Features, Transfer Proofs และ Production Readiness
+- ปิด Phase หลัง Dark Button Contrast 3/3, Theme Persistence 2/2, TypeScript และ Production Build 37 หน้าผ่าน
+- เอกสาร: `AVENZO_ONE_Phase_1.3.6.3_Page_Specific_Theme_Visual_QA.md`
+
+### Phase 1.3.6.2 — Shared UI Theme Migration (12 สิงหาคม 2026)
+
+- สถานะ: Implemented และรอตรวจ Local UI
+- ย้าย Application Shell, Header, Sidebar, Mobile Navigation และ Account Dropdown ไปใช้ Semantic Token
+- ย้าย Card, Form, Button, Focus, Overlay และ Shadow ส่วนกลางให้รองรับ Light/Dark สม่ำเสมอ
+- เพิ่ม Semantic Status Palette สำหรับ Success, Warning, Danger, Info และ Neutral โดยควบคุมพื้นหลัง เส้นขอบ และข้อความพร้อมกัน
+- แก้ Dark Mode Contrast ใน Plans, Feature/Rule Actions, Billing Exceptions, Approval Timeline, Transfer Policy, Production Readiness และ Live Control
+- คงโครงสร้าง Responsive เดิมสำหรับ Desktop, Tablet และ Mobile โดยไม่เปลี่ยน Business Logic
+- เอกสาร: `AVENZO_ONE_Phase_1.3.6.2_Shared_UI_Theme_Migration.md`
+- ขั้นถัดไป: Phase 1.3.6.3 ย้ายสีเฉพาะหน้าและสถานะธุรกิจที่ยังเป็นค่าสีตรง พร้อม Visual QA รายหน้า
+
+### Phase 1.3.6.1 — Design Token Foundation (12 สิงหาคม 2026)
+
+- สถานะ: Implemented และรอตรวจ Local UI
+- เพิ่มชุดสีมาตรฐาน Light/Dark แบบส่วนกลาง
+- เชื่อม Application Rail, Sidebar หลัก/รอง และปุ่ม Primary/Secondary เข้ากับ Semantic Token
+- เก็บ Compatibility Alias ไว้ชั่วคราว เพื่อทยอยย้ายหน้าระบบเดิมโดยไม่ทำให้ UI ทั้งระบบเสียพร้อมกัน
+- เอกสาร Token: `AVENZO_ONE_Phase_1.3.6.1_Design_Tokens.md`
+- ขั้นถัดไป: Phase 1.3.6.2 ย้าย Application Shell และ Shared Surface ไปใช้ Token พร้อมตรวจ Desktop, Tablet และ Mobile
+
+### V7.2 — 19 สิงหาคม 2026
+
+- ล็อกบัญชีบุคคลกลาง user_id และ organization_customer_id สำหรับความสัมพันธ์ลูกค้าหลายร้าน
+- เพิ่ม Consumer Media Quota แยกจาก Organization Media Quota
+- เพิ่ม Customer Commerce Community UI: สำหรับคุณ, กำลังติดตาม, ร้านค้า และรีวิว
+- เพิ่ม Dynamic Product Card, Current/Review-time Price และ Disclosure Badge
+- เพิ่ม External Affiliate Attribution ผ่าน Signed Link, First-party Session, Creator Code/QR Fallback และ Order-item Snapshot
+- เพิ่ม AVENZO Review Deal พร้อม Funding Source, Platform Subsidy, Budget, Cap, Settlement และ Return/Reversal
+- เพิ่ม Content Rights Marketplace, License Preset, Merchant Mission, Hybrid Fee/Affiliate และ Usage Audit
+- เพิ่ม Fair Discovery, Anti-fraud, Acceptance Criteria, Roadmap C8–C11 และ Decision Gates 13–20
+- ปรับรายได้จาก Promoted Ads เป็น Customer Activation: ส่งให้ลูกค้าที่เกี่ยวข้องด้วยปุ่มเดียวหลัง Preview/Consent/ความถี่ และไม่ลดการมองเห็นร้านที่ไม่ซื้อโฆษณา
+- เพิ่ม Notification Delivery Contract: เก็บข้อความใน Notification Center/Inbox เป็นหลัก มี Unread Badge, Deep Link, Delivery Log, Retry และช่องทางสำรองตาม Consent เมื่อ Push ใช้งานไม่ได้หรือผู้ใช้พลาดการแจ้งเตือน
+- เพิ่ม C13 Customer Journey & Smart Tags: ใช้ Server Event Ledger, Smart Tag ที่มี source/rule/time decay, แยก Customer/Organization view และ Consent; ยังเป็น Future Plan
+- เพิ่ม C14 Connected Commerce Intelligence: เชื่อม Intent Score, Timing, Real-time Stock/Price Guard, Omnichannel Inbox, Recommendation, Attribution, Experiment และ Frequency Guardrails; ยังเป็น Future Plan
+- เพิ่ม C15 Customer Transaction Standing & Fair Recovery: แสดงสถานะการทำรายการแบบอธิบายได้, Progressive Friction, Time Decay, Recovery, Human Review และ Appeal; ไม่ใช้การตีตราหรือการระงับจากคะแนนอัตโนมัติเพียงอย่างเดียว
+- เพิ่ม C16 Customer Benefits & Loyalty Layer: แยก Merchant Benefits กับ Platform Benefits พร้อม eligibility, expiry, re-evaluation, privacy, fairness และ appeal; ยังเป็น Future Plan
+- ทั้งหมดเป็น Future Plan; ยังไม่อนุญาต UI Implementation, Migration, Storage/Payment mutation หรือ Production change
 ### V7.0 — 5 สิงหาคม 2026
 
 - เพิ่ม Customer 360 และ Customer ID กลาง แยกจากรายงานยอดขาย

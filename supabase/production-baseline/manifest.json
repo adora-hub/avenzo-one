@@ -1,0 +1,554 @@
+{
+  "schema_version": 1,
+  "source": {
+    "provider": "Supabase",
+    "project_ref": "eigrllibviqjddenjuch",
+    "environment": "production",
+    "captured_date": "2026-08-13",
+    "query_scope": "supabase_migrations.schema_migrations; read-only"
+  },
+  "normalization": "CRLF converted to LF; trailing LF removed before MD5",
+  "migration_count": 90,
+  "migrations": [
+    {
+      "version": "20260805153954",
+      "name": "phase_0_1_organization_branch_core",
+      "file": "20260805153954_phase_0_1_organization_branch_core.sql",
+      "canonical_md5": "58cc44c56e3ab00d34a7d96a58977265"
+    },
+    {
+      "version": "20260805154012",
+      "name": "phase_0_1_harden_soft_delete",
+      "file": "20260805154012_phase_0_1_harden_soft_delete.sql",
+      "canonical_md5": "1054586cef8aaefa4012198dea3b7b52"
+    },
+    {
+      "version": "20260805154033",
+      "name": "phase_0_1_tune_indexes_and_policies",
+      "file": "20260805154033_phase_0_1_tune_indexes_and_policies.sql",
+      "canonical_md5": "57b632c2ddd9c9ee7d4c202b84a7bf77"
+    },
+    {
+      "version": "20260805160532",
+      "name": "phase_0_2_role_permission_core",
+      "file": "20260805160532_phase_0_2_role_permission_core.sql",
+      "canonical_md5": "949fe5850d32d13c99ea19a30a5b0aa5"
+    },
+    {
+      "version": "20260805160656",
+      "name": "phase_0_2_harden_security",
+      "file": "20260805160656_phase_0_2_harden_security.sql",
+      "canonical_md5": "1e19f1ad1ad7146166f3247c4e931f4c"
+    },
+    {
+      "version": "20260805161356",
+      "name": "phase_0_3_platform_admin_control",
+      "file": "20260805161356_phase_0_3_platform_admin_control.sql",
+      "canonical_md5": "5a2e6343ac9cf2f06d047ea5b61b317f"
+    },
+    {
+      "version": "20260805161445",
+      "name": "phase_0_3_merge_platform_policies",
+      "file": "20260805161445_phase_0_3_merge_platform_policies.sql",
+      "canonical_md5": "07869fd7ed4d4c93fa8ca101bc0c2995"
+    },
+    {
+      "version": "20260805161956",
+      "name": "phase_0_3_subscription_expiry",
+      "file": "20260805161956_phase_0_3_subscription_expiry.sql",
+      "canonical_md5": "70c8c345729e9f04d9d2f17c2b62c413"
+    },
+    {
+      "version": "20260805162028",
+      "name": "phase_0_3_subscription_indexes",
+      "file": "20260805162028_phase_0_3_subscription_indexes.sql",
+      "canonical_md5": "b034f002301cca78255a944b313eb12b"
+    },
+    {
+      "version": "20260805171105",
+      "name": "phase_0_5_member_invitation_core",
+      "file": "20260805171105_phase_0_5_member_invitation_core.sql",
+      "canonical_md5": "6b507e9f81090813b7fc0376f25ee6a8"
+    },
+    {
+      "version": "20260805171200",
+      "name": "phase_0_5_member_visibility",
+      "file": "20260805171200_phase_0_5_member_visibility.sql",
+      "canonical_md5": "41d306826aee40a49c1646b860942292"
+    },
+    {
+      "version": "20260805171530",
+      "name": "phase_0_5_merge_member_visibility_policy",
+      "file": "20260805171530_phase_0_5_merge_member_visibility_policy.sql",
+      "canonical_md5": "a94685a9cdf67ce6155fdf4570e18c7a"
+    },
+    {
+      "version": "20260805172324",
+      "name": "phase_0_6_invitation_acceptance",
+      "file": "20260805172324_phase_0_6_invitation_acceptance.sql",
+      "canonical_md5": "a1d65cda4677c7fb5c287dea84d8ff8c"
+    },
+    {
+      "version": "20260805173011",
+      "name": "phase_0_6_harden_invitation_rpc",
+      "file": "20260805173011_phase_0_6_harden_invitation_rpc.sql",
+      "canonical_md5": "8de01c9738d25c1c9ffdd50a54912de6"
+    },
+    {
+      "version": "20260805174438",
+      "name": "phase_0_6_fix_invitation_rpc_return_v2",
+      "file": "20260805174438_phase_0_6_fix_invitation_rpc_return_v2.sql",
+      "canonical_md5": "e11b55be8df4775a357275289df26a11"
+    },
+    {
+      "version": "20260805191638",
+      "name": "phase_0_7_revoke_invitation",
+      "file": "20260805191638_phase_0_7_revoke_invitation.sql",
+      "canonical_md5": "1cf8f32c754774d54725befeb8fce9af"
+    },
+    {
+      "version": "20260807084013",
+      "name": "phase_0_8_1_member_directory_data",
+      "file": "20260807084013_phase_0_8_1_member_directory_data.sql",
+      "canonical_md5": "ed7a5313bba906137c4597d806b3f8b2"
+    },
+    {
+      "version": "20260807084447",
+      "name": "phase_0_8_1_harden_member_writes",
+      "file": "20260807084447_phase_0_8_1_harden_member_writes.sql",
+      "canonical_md5": "27250a656a7689f7bb3e2cab3626d4a3"
+    },
+    {
+      "version": "20260807085719",
+      "name": "phase_0_8_2_member_management",
+      "file": "20260807085719_phase_0_8_2_member_management.sql",
+      "canonical_md5": "d89864b01b10a243f4535de7fd613585"
+    },
+    {
+      "version": "20260807092409",
+      "name": "phase_0_8_3_invitation_history",
+      "file": "20260807092409_phase_0_8_3_invitation_history.sql",
+      "canonical_md5": "28a3af5ddd211072aee15c39c142119c"
+    },
+    {
+      "version": "20260807092604",
+      "name": "phase_0_8_3_fix_invitation_create_wrapper",
+      "file": "20260807092604_phase_0_8_3_fix_invitation_create_wrapper.sql",
+      "canonical_md5": "56e259b21e9033f30c91ae8d7c0895e9"
+    },
+    {
+      "version": "20260807094105",
+      "name": "phase_0_9_security_audit",
+      "file": "20260807094105_phase_0_9_security_audit.sql",
+      "canonical_md5": "3feb67f71c86677c0b6da6966a719a88"
+    },
+    {
+      "version": "20260807094433",
+      "name": "phase_0_9_future_role_audit_permission",
+      "file": "20260807094433_phase_0_9_future_role_audit_permission.sql",
+      "canonical_md5": "6821b548341a92d3c567d9f9d7ca2eb9"
+    },
+    {
+      "version": "20260807094742",
+      "name": "phase_0_9_invitation_rls_initplan",
+      "file": "20260807094742_phase_0_9_invitation_rls_initplan.sql",
+      "canonical_md5": "a369f3ca9c0a9f053e06ae9a63db441f"
+    },
+    {
+      "version": "20260807094817",
+      "name": "phase_0_9_audit_deny_policy",
+      "file": "20260807094817_phase_0_9_audit_deny_policy.sql",
+      "canonical_md5": "cab6d4bb6192c8a25476555f6626a5cf"
+    },
+    {
+      "version": "20260807103523",
+      "name": "phase_0_10_1_platform_mfa_audit",
+      "file": "20260807103523_phase_0_10_1_platform_mfa_audit.sql",
+      "canonical_md5": "fceb9ec908c8fb2cb945482942410b45"
+    },
+    {
+      "version": "20260807110116",
+      "name": "phase_0_10_2_mfa_challenge_audit",
+      "file": "20260807110116_phase_0_10_2_mfa_challenge_audit.sql",
+      "canonical_md5": "9f7e52923a0e392758981ffd806d0c36"
+    },
+    {
+      "version": "20260807112109",
+      "name": "phase_0_10_3_platform_admin_aal2_rls",
+      "file": "20260807112109_phase_0_10_3_platform_admin_aal2_rls.sql",
+      "canonical_md5": "2b79d3cc4f301214640729fbe0783da6"
+    },
+    {
+      "version": "20260807112313",
+      "name": "phase_0_10_3_platform_security_audit_deny",
+      "file": "20260807112313_phase_0_10_3_platform_security_audit_deny.sql",
+      "canonical_md5": "386c87854642e31264776805725ac541"
+    },
+    {
+      "version": "20260807115419",
+      "name": "phase_0_10_4_mfa_recovery_audit",
+      "file": "20260807115419_phase_0_10_4_mfa_recovery_audit.sql",
+      "canonical_md5": "83c36c1496739785be8670e6aaf1aad0"
+    },
+    {
+      "version": "20260807121519",
+      "name": "phase_1_0_1_feature_catalog",
+      "file": "20260807121519_phase_1_0_1_feature_catalog.sql",
+      "canonical_md5": "fb3e0d6128ecf786e37ee9c2181f482d"
+    },
+    {
+      "version": "20260807121741",
+      "name": "phase_1_0_1_harden_catalog",
+      "file": "20260807121741_phase_1_0_1_harden_catalog.sql",
+      "canonical_md5": "e62ac4993bb3e7c193ff7befd4e8e133"
+    },
+    {
+      "version": "20260807135259",
+      "name": "phase_1_0_3_entitlement_enforcement_safe",
+      "file": "20260807135259_phase_1_0_3_entitlement_enforcement_safe.sql",
+      "canonical_md5": "54d238cceb0f3118daebaaa1c8d222c2"
+    },
+    {
+      "version": "20260807142925",
+      "name": "phase_1_0_3_1_draft_version_editing",
+      "file": "20260807142925_phase_1_0_3_1_draft_version_editing.sql",
+      "canonical_md5": "a6a696b6488977d9da4b672c0284f82d"
+    },
+    {
+      "version": "20260807155539",
+      "name": "phase_1_0_4_2_subscription_lifecycle",
+      "file": "20260807155539_phase_1_0_4_2_subscription_lifecycle.sql",
+      "canonical_md5": "cd26889e64cd817f1115ebf3db6eed6a"
+    },
+    {
+      "version": "20260807160231",
+      "name": "phase_1_0_4_2_revoke_legacy_subscription_rpc",
+      "file": "20260807160231_phase_1_0_4_2_revoke_legacy_subscription_rpc.sql",
+      "canonical_md5": "2470aa4f2633c14aa9ac7b1580c3c8ce"
+    },
+    {
+      "version": "20260807160901",
+      "name": "phase_1_0_4_2_subscription_status_view",
+      "file": "20260807160901_phase_1_0_4_2_subscription_status_view.sql",
+      "canonical_md5": "52b04faba7df53896ac264957fd7fa33"
+    },
+    {
+      "version": "20260807165021",
+      "name": "phase_1_0_5_1_notification_rules_queue",
+      "file": "20260807165021_phase_1_0_5_1_notification_rules_queue.sql",
+      "canonical_md5": "eabe8ef7557b0a417686a3dc72923a0c"
+    },
+    {
+      "version": "20260807165238",
+      "name": "phase_1_0_5_1_fix_trial_timestamp_match",
+      "file": "20260807165238_phase_1_0_5_1_fix_trial_timestamp_match.sql",
+      "canonical_md5": "c08f086fe8625dd3e9429778b1f16cd6"
+    },
+    {
+      "version": "20260807165427",
+      "name": "phase_1_0_5_1_notification_fk_indexes",
+      "file": "20260807165427_phase_1_0_5_1_notification_fk_indexes.sql",
+      "canonical_md5": "50ca41327ed62093282eb6dcb4291139"
+    },
+    {
+      "version": "20260807171421",
+      "name": "phase_1_0_5_2_notification_delivery_worker",
+      "file": "20260807171421_phase_1_0_5_2_notification_delivery_worker.sql",
+      "canonical_md5": "460cff7882c1d8ab7adc7da38128348e"
+    },
+    {
+      "version": "20260808032328",
+      "name": "phase_1_0_5_3_resend_webhook_suppression",
+      "file": "20260808032328_phase_1_0_5_3_resend_webhook_suppression.sql",
+      "canonical_md5": "45566f3d6577a0f553297f43e343e593"
+    },
+    {
+      "version": "20260808035012",
+      "name": "phase_1_0_5_4_supabase_cron_scheduler",
+      "file": "20260808035012_phase_1_0_5_4_supabase_cron_scheduler.sql",
+      "canonical_md5": "8eb7a80a139da73ec36abe5272114601"
+    },
+    {
+      "version": "20260808045900",
+      "name": "phase_1_0_6_production_monitoring",
+      "file": "20260808045900_phase_1_0_6_production_monitoring.sql",
+      "canonical_md5": "cb47f270ca6049ef53743c481e786236"
+    },
+    {
+      "version": "20260808060214",
+      "name": "phase_1_1_0_billing_foundation",
+      "file": "20260808060214_phase_1_1_0_billing_foundation.sql",
+      "canonical_md5": "a78046d5d6a021b3b71afc04d089439e"
+    },
+    {
+      "version": "20260808064456",
+      "name": "phase_1_1_1_invoice_documents",
+      "file": "20260808064456_phase_1_1_1_invoice_documents.sql",
+      "canonical_md5": "d5a22ef3a74cb528e6ac35512dc907ce"
+    },
+    {
+      "version": "20260808064536",
+      "name": "phase_1_1_1_fix_issuer_audit",
+      "file": "20260808064536_phase_1_1_1_fix_issuer_audit.sql",
+      "canonical_md5": "1de016cb611302aaa1437118dd917d10"
+    },
+    {
+      "version": "20260808064726",
+      "name": "phase_1_1_1_fix_customer_profile_audit",
+      "file": "20260808064726_phase_1_1_1_fix_customer_profile_audit.sql",
+      "canonical_md5": "2777966452b8589d18f3e6ec2b0c2eb7"
+    },
+    {
+      "version": "20260808064842",
+      "name": "phase_1_1_1_fix_polymorphic_audit_trigger",
+      "file": "20260808064842_phase_1_1_1_fix_polymorphic_audit_trigger.sql",
+      "canonical_md5": "f28cd4af25e3ce9219d056556d4fe6dc"
+    },
+    {
+      "version": "20260808091054",
+      "name": "phase_1_1_2_payment_gateway_sandbox",
+      "file": "20260808091054_phase_1_1_2_payment_gateway_sandbox.sql",
+      "canonical_md5": "0162c3b86bb7b5bb4dfc0030fe6e725f"
+    },
+    {
+      "version": "20260808093753",
+      "name": "phase_0_10_4_1_preferred_authenticator",
+      "file": "20260808093753_phase_0_10_4_1_preferred_authenticator.sql",
+      "canonical_md5": "13c26f04ce906db38d0101ba8321f140"
+    },
+    {
+      "version": "20260808093934",
+      "name": "phase_0_10_4_1_private_preference_rpc",
+      "file": "20260808093934_phase_0_10_4_1_private_preference_rpc.sql",
+      "canonical_md5": "242bb9d9b55ada531244531342e57e86"
+    },
+    {
+      "version": "20260809080324",
+      "name": "phase_1_1_3_5_2_exception_actions",
+      "file": "20260809080324_phase_1_1_3_5_2_exception_actions.sql",
+      "canonical_md5": "023631b99ac9e6b37cbe4ef04bbe6632"
+    },
+    {
+      "version": "20260809080404",
+      "name": "phase_1_1_3_5_2_exception_action_indexes",
+      "file": "20260809080404_phase_1_1_3_5_2_exception_action_indexes.sql",
+      "canonical_md5": "7ceec1fd759e93c1721b69610e61fbd8"
+    },
+    {
+      "version": "20260809094547",
+      "name": "phase_1_1_3_6_billing_production_readiness",
+      "file": "20260809094547_phase_1_1_3_6_billing_production_readiness.sql",
+      "canonical_md5": "64169355d677da998e122fd04408dad2"
+    },
+    {
+      "version": "20260809094833",
+      "name": "phase_1_1_3_6_readiness_actor_index",
+      "file": "20260809094833_phase_1_1_3_6_readiness_actor_index.sql",
+      "canonical_md5": "1eddfa932ebc18c2fd70e0f53333cd16"
+    },
+    {
+      "version": "20260809103918",
+      "name": "phase_1_1_3_7_1_billing_live_safety_control",
+      "file": "20260809103918_phase_1_1_3_7_1_billing_live_safety_control.sql",
+      "canonical_md5": "5eb36c01d63ecd98fd12bfb900aebd9d"
+    },
+    {
+      "version": "20260809104215",
+      "name": "phase_1_1_3_7_1_require_latest_readiness_review",
+      "file": "20260809104215_phase_1_1_3_7_1_require_latest_readiness_review.sql",
+      "canonical_md5": "561a2586aca15ca6df5cf2cfdd9b3200"
+    },
+    {
+      "version": "20260809104305",
+      "name": "phase_1_1_3_7_1_index_safety_control_actor",
+      "file": "20260809104305_phase_1_1_3_7_1_index_safety_control_actor.sql",
+      "canonical_md5": "a6441834b640ab524c19cad87dbe18ff"
+    },
+    {
+      "version": "20260809110834",
+      "name": "phase_1_1_3_7_2_live_webhook_inbox",
+      "file": "20260809110834_phase_1_1_3_7_2_live_webhook_inbox.sql",
+      "canonical_md5": "3f63b4c80f985a526a5967c7ba715c59"
+    },
+    {
+      "version": "20260809114500",
+      "name": "phase_1_1_3_7_3_live_rollout_limits",
+      "file": "20260809114500_phase_1_1_3_7_3_live_rollout_limits.sql",
+      "canonical_md5": "12b020488dda928df85475e85e002f2e"
+    },
+    {
+      "version": "20260809115437",
+      "name": "phase_1_1_3_7_3_index_live_tester_creator",
+      "file": "20260809115437_phase_1_1_3_7_3_index_live_tester_creator.sql",
+      "canonical_md5": "e0c33f948b8f5b5af24cfc8d09c568ce"
+    },
+    {
+      "version": "20260809124304",
+      "name": "phase_1_1_3_7_4_two_person_approval",
+      "file": "20260809124304_phase_1_1_3_7_4_two_person_approval.sql",
+      "canonical_md5": "d9fe391f7fd895c7d200abe063780f7d"
+    },
+    {
+      "version": "20260809135611",
+      "name": "phase_1_1_3_7_4_1_platform_admin_access_management",
+      "file": "20260809135611_phase_1_1_3_7_4_1_platform_admin_access_management.sql",
+      "canonical_md5": "56418e26c5ae8d54ccb604bedc80d399"
+    },
+    {
+      "version": "20260809135754",
+      "name": "phase_1_1_3_7_4_1_platform_admin_access_lock",
+      "file": "20260809135754_phase_1_1_3_7_4_1_platform_admin_access_lock.sql",
+      "canonical_md5": "b0809a026172f65913b6bf9216db1012"
+    },
+    {
+      "version": "20260809140421",
+      "name": "phase_1_1_3_7_4_1_platform_admin_access_advisor_hardening",
+      "file": "20260809140421_phase_1_1_3_7_4_1_platform_admin_access_advisor_hardening.sql",
+      "canonical_md5": "0e51946f55dd6248b233a7fd7e5260b4"
+    },
+    {
+      "version": "20260809160649",
+      "name": "phase_1_1_3_7_5_2_server_eligibility_dry_run",
+      "file": "20260809160649_phase_1_1_3_7_5_2_server_eligibility_dry_run.sql",
+      "canonical_md5": "f62d696bbd4ad1a4f6282581040204b5"
+    },
+    {
+      "version": "20260810063856",
+      "name": "phase_1_1_3_7_5_6_shadow_executor_audit",
+      "file": "20260810063856_phase_1_1_3_7_5_6_shadow_executor_audit.sql",
+      "canonical_md5": "af23d314402d443b5ea695176f4a26e3"
+    },
+    {
+      "version": "20260810111946",
+      "name": "phase_1_1_3_8_1_bank_transfer_channels",
+      "file": "20260810111946_phase_1_1_3_8_1_bank_transfer_channels.sql",
+      "canonical_md5": "ad404f2491912491676bffdd9901be0c"
+    },
+    {
+      "version": "20260810112153",
+      "name": "phase_1_1_3_8_1_transfer_channel_actor_index",
+      "file": "20260810112153_phase_1_1_3_8_1_transfer_channel_actor_index.sql",
+      "canonical_md5": "1de8711106e7c3a7e65358a6c71862c4"
+    },
+    {
+      "version": "20260810121002",
+      "name": "platform_admin_self_profile",
+      "file": "20260810121002_platform_admin_self_profile.sql",
+      "canonical_md5": "7058b6b2ee271e95a4a48b91c5523688"
+    },
+    {
+      "version": "20260810124815",
+      "name": "phase_1_1_3_8_2_private_slip_upload",
+      "file": "20260810124815_phase_1_1_3_8_2_private_slip_upload.sql",
+      "canonical_md5": "2e46fd91e95c54173c0793770ed659ea"
+    },
+    {
+      "version": "20260810140617",
+      "name": "phase_1_1_3_8_3_transfer_proof_review",
+      "file": "20260810140617_phase_1_1_3_8_3_transfer_proof_review.sql",
+      "canonical_md5": "d418c1587c1a6ab37061d2299629a912"
+    },
+    {
+      "version": "20260810142427",
+      "name": "phase_1_1_3_8_4_transfer_fulfillment",
+      "file": "20260810142427_phase_1_1_3_8_4_transfer_fulfillment.sql",
+      "canonical_md5": "a8662cd1293cafb34ec68f98e4632920"
+    },
+    {
+      "version": "20260810145614",
+      "name": "phase_1_1_3_8_5_1_transfer_approval_policy",
+      "file": "20260810145614_phase_1_1_3_8_5_1_transfer_approval_policy.sql",
+      "canonical_md5": "824f138158b209c32d47f544c4a1132b"
+    },
+    {
+      "version": "20260810145708",
+      "name": "phase_1_1_3_8_5_1_transfer_approval_policy_hardening",
+      "file": "20260810145708_phase_1_1_3_8_5_1_transfer_approval_policy_hardening.sql",
+      "canonical_md5": "4f0094205eaeff41ca5d3e00ab3639ed"
+    },
+    {
+      "version": "20260810154426",
+      "name": "phase_1_1_3_8_5_2_enforce_transfer_approval_policy",
+      "file": "20260810154426_phase_1_1_3_8_5_2_enforce_transfer_approval_policy.sql",
+      "canonical_md5": "b40d85533ddbe953001b6ce52178dce8"
+    },
+    {
+      "version": "20260810155236",
+      "name": "phase_1_1_3_8_5_2_fix_fulfillment_queue_plan_join",
+      "file": "20260810155236_phase_1_1_3_8_5_2_fix_fulfillment_queue_plan_join.sql",
+      "canonical_md5": "9e90449c9e60568a7c0170fff219a0f0"
+    },
+    {
+      "version": "20260810155719",
+      "name": "phase_1_1_3_8_5_2_fix_fulfillment_queue_version_label",
+      "file": "20260810155719_phase_1_1_3_8_5_2_fix_fulfillment_queue_version_label.sql",
+      "canonical_md5": "8fc454f77520cd2b220ce2a5b1a7fa4e"
+    },
+    {
+      "version": "20260811051043",
+      "name": "phase_1_2_1_session_policy_foundation",
+      "file": "20260811051043_phase_1_2_1_session_policy_foundation.sql",
+      "canonical_md5": "663581c80338441b9221d1cf017bd42a"
+    },
+    {
+      "version": "20260811055204",
+      "name": "phase_1_2_2_2_session_activity_heartbeat",
+      "file": "20260811055204_phase_1_2_2_2_session_activity_heartbeat.sql",
+      "canonical_md5": "04f4f29ffbfbe6f5d08e6981e0a15aa3"
+    },
+    {
+      "version": "20260811064718",
+      "name": "phase_1_2_2_5_1_session_device_management_ui",
+      "file": "20260811064718_phase_1_2_2_5_1_session_device_management_ui.sql",
+      "canonical_md5": "3cdf216cdaa84208fd1ab8f0735dcc47"
+    },
+    {
+      "version": "20260811075414",
+      "name": "phase_1_2_2_5_2_revoke_single_session",
+      "file": "20260811075414_phase_1_2_2_5_2_revoke_single_session.sql",
+      "canonical_md5": "5e08a2691ca35a0515aa5878607041d2"
+    },
+    {
+      "version": "20260811080701",
+      "name": "phase_1_2_2_5_3_revoke_other_sessions",
+      "file": "20260811080701_phase_1_2_2_5_3_revoke_other_sessions.sql",
+      "canonical_md5": "db8e6ba3383e1cedeb42d3a1fb0eba50"
+    },
+    {
+      "version": "20260811083308",
+      "name": "phase_1_2_2_5_4_session_security_activity",
+      "file": "20260811083308_phase_1_2_2_5_4_session_security_activity.sql",
+      "canonical_md5": "2da3f8858ec7593003abc3ee99d4d922"
+    },
+    {
+      "version": "20260811085139",
+      "name": "phase_1_2_2_5_5_session_security_email_alerts",
+      "file": "20260811085139_phase_1_2_2_5_5_session_security_email_alerts.sql",
+      "canonical_md5": "c65d6338e024e5b0e3931b57c1ab6367"
+    },
+    {
+      "version": "20260811114930",
+      "name": "phase_1_2_2_5_5_fix_session_security_email_claim",
+      "file": "20260811114930_phase_1_2_2_5_5_fix_session_security_email_claim.sql",
+      "canonical_md5": "e1cac5265703cae6bd1d992b201f0df7"
+    },
+    {
+      "version": "20260811125537",
+      "name": "phase_1_2_4_2_1_function_permission_allowlist",
+      "file": "20260811125537_phase_1_2_4_2_1_function_permission_allowlist.sql",
+      "canonical_md5": "bd57c786693bf2d58b5e575769c13188"
+    },
+    {
+      "version": "20260811134909",
+      "name": "phase_1_2_4_2_2_anonymous_grant_hardening",
+      "file": "20260811134909_phase_1_2_4_2_2_anonymous_grant_hardening.sql",
+      "canonical_md5": "4f7e2dfe16b17f9fc5db65efa5b6e1d5"
+    },
+    {
+      "version": "20260811141405",
+      "name": "phase_1_2_4_2_3_rls_initplan_optimization",
+      "file": "20260811141405_phase_1_2_4_2_3_rls_initplan_optimization.sql",
+      "canonical_md5": "c3ca5e3689f75676a1d78914d80911b7"
+    }
+  ]
+}

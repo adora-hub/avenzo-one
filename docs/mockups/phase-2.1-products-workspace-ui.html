@@ -1,0 +1,3397 @@
+<!doctype html>
+<html lang="th" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AVENZO ONE — Products Workspace Prototype</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --page: #f4f5f7;
+        --surface: #ffffff;
+        --surface-strong: #f7f7f8;
+        --surface-hover: #f3f4f6;
+        --text: #18181b;
+        --text-soft: #52525b;
+        --text-muted: #71717a;
+        --border: #e4e4e7;
+        --border-strong: #d4d4d8;
+        --brand: #18181b;
+        --brand-text: #ffffff;
+        --focus: #2563eb;
+        --success: #08745b;
+        --success-bg: #e8f7f1;
+        --warning: #8a5a00;
+        --warning-bg: #fff7d6;
+        --danger: #c81e3a;
+        --danger-bg: #fff0f2;
+        --shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 8px 28px rgb(0 0 0 / 0.04);
+      }
+
+      html[data-theme="dark"] {
+        color-scheme: dark;
+        --page: #0d0d0f;
+        --surface: #171719;
+        --surface-strong: #202024;
+        --surface-hover: #25252a;
+        --text: #fafafa;
+        --text-soft: #d4d4d8;
+        --text-muted: #a1a1aa;
+        --border: #303036;
+        --border-strong: #414149;
+        --brand: #f4f4f5;
+        --brand-text: #18181b;
+        --focus: #60a5fa;
+        --success: #38e0ab;
+        --success-bg: #0b392d;
+        --warning: #ffd66b;
+        --warning-bg: #483600;
+        --danger: #ff8798;
+        --danger-bg: #4b1620;
+        --shadow: 0 1px 2px rgb(0 0 0 / 0.18), 0 18px 40px rgb(0 0 0 / 0.22);
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        min-width: 320px;
+        background: var(--page);
+        color: var(--text);
+        font-family: "Noto Sans Thai", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: 14px;
+      }
+
+      button, input, select { font: inherit; }
+
+      button:focus-visible,
+      input:focus-visible,
+      select:focus-visible,
+      a:focus-visible {
+        outline: 3px solid color-mix(in srgb, var(--focus) 32%, transparent);
+        outline-offset: 2px;
+      }
+
+      .app-shell {
+        min-height: 100vh;
+        padding: 34px 32px 72px;
+      }
+
+      .workspace {
+        width: 100%;
+        max-width: 1920px;
+        margin: 0 auto;
+      }
+
+      .prototype-note {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 22px;
+        padding: 7px 10px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: var(--surface);
+        color: var(--text-soft);
+        font-size: 12px;
+        font-weight: 700;
+        box-shadow: var(--shadow);
+      }
+
+      .prototype-note::before {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #3b82f6;
+        content: "";
+      }
+
+      .breadcrumb {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 9px;
+        margin: 0 0 24px;
+        color: var(--text-muted);
+        font-size: 13px;
+      }
+
+      .breadcrumb a,
+      .breadcrumb span {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        min-height: 28px;
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .breadcrumb a:hover { color: var(--text); }
+      .breadcrumb .current { color: var(--text); font-weight: 650; }
+      .chevron { color: var(--border-strong); font-size: 17px; }
+
+      .page-heading {
+        position: relative;
+        margin-bottom: 10px;
+      }
+
+      .title-line {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(24px, 3vw, 32px);
+        line-height: 1.15;
+        letter-spacing: -0.035em;
+      }
+
+      .count-badge {
+        display: inline-flex;
+        align-items: center;
+        min-height: 24px;
+        padding: 2px 8px;
+        border: 1px solid #111;
+        border-radius: 999px;
+        background: #111;
+        color: #fff;
+        font-size: 11px;
+        font-weight: 750;
+      }
+
+      html[data-theme="dark"] .count-badge {
+        border-color: #fff;
+        background: #fff;
+        color: #111;
+      }
+
+      .page-heading p {
+        margin: 0;
+        color: var(--text-soft);
+        font-size: 14px;
+      }
+
+      .heading-subrow {
+        margin-top: 3px;
+        padding-right: 158px;
+      }
+
+      .heading-subrow .primary {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+      }
+
+      .create-action { position: absolute; right: 0; bottom: 0; z-index: 20; }
+      .heading-subrow .create-action .primary { position: static; }
+      .create-menu { position: absolute; right: 0; top: calc(100% + 8px); width: 285px; padding: 6px; border: 1px solid var(--border-strong); border-radius: 11px; background: var(--surface); box-shadow: 0 18px 50px rgb(0 0 0 / .18); }
+      .create-menu a { display: block; padding: 10px 11px; border-radius: 8px; color: var(--text); text-decoration: none; }
+      .create-menu a:hover, .create-menu a:focus-visible { background: var(--surface-hover); }
+      .create-menu strong { display: block; font-size: 12px; }
+      .create-menu span { display: block; margin-top: 2px; color: var(--text-muted); font-size: 10px; line-height: 1.4; }
+
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        min-height: 38px;
+        padding: 8px 13px;
+        border: 1px solid var(--border-strong);
+        border-radius: 9px;
+        background: var(--surface);
+        color: var(--text);
+        cursor: pointer;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      .button:hover { background: var(--surface-hover); }
+      .button.primary { border-color: var(--brand); background: var(--brand); color: var(--brand-text); }
+      .button.primary:hover { opacity: 0.88; }
+      .button.icon-only { width: 38px; padding: 0; }
+
+      .data-grid {
+        overflow: visible;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: var(--surface);
+        box-shadow: var(--shadow);
+      }
+
+      .grid-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px;
+        border-bottom: 1px solid var(--border);
+        border-radius: 14px 14px 0 0;
+        background: var(--surface);
+      }
+
+      .search-wrap {
+        position: relative;
+        flex: 1 1 380px;
+        max-width: 520px;
+      }
+
+      .search-icon {
+        position: absolute;
+        top: 50%;
+        left: 12px;
+        transform: translateY(-50%);
+        color: var(--text-muted);
+        pointer-events: none;
+      }
+
+      .search-input,
+      .filter-select {
+        width: 100%;
+        min-height: 38px;
+        border: 1px solid var(--border-strong);
+        border-radius: 9px;
+        background: var(--surface);
+        color: var(--text);
+      }
+
+      .search-input { padding: 8px 36px 8px 36px; }
+      .search-input::placeholder { color: var(--text-muted); }
+
+      .clear-search {
+        position: absolute;
+        top: 50%;
+        right: 6px;
+        display: none;
+        width: 28px;
+        height: 28px;
+        transform: translateY(-50%);
+        border: 0;
+        border-radius: 7px;
+        background: transparent;
+        color: var(--text-muted);
+        cursor: pointer;
+      }
+
+      .clear-search:hover { background: var(--surface-hover); color: var(--text); }
+      .select-field {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+      }
+
+      .select-field select {
+        appearance: none;
+        -webkit-appearance: none;
+      }
+
+      .select-field-chevron {
+        position: absolute;
+        top: 50%;
+        right: 12px;
+        width: 14px;
+        height: 14px;
+        color: var(--text-muted);
+        pointer-events: none;
+        transform: translateY(-50%);
+      }
+
+      .filter-select-shell { min-width: 145px; }
+      .filter-select { width: 100%; min-height: 36px; padding: 7px 36px 7px 11px; cursor: pointer; }
+      .toolbar-spacer { flex: 1; }
+
+      .toolbar-icon-group {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding-left: 4px;
+      }
+
+      .toolbar-icon-button {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        border: 1px solid transparent;
+        border-radius: 7px;
+        background: transparent;
+        color: var(--focus);
+        cursor: pointer;
+      }
+
+      .toolbar-icon-button:hover {
+        border-color: var(--border);
+        background: var(--surface-hover);
+      }
+
+      .toolbar-icon-button svg {
+        width: 17px;
+        height: 17px;
+        fill: none;
+        stroke: currentColor;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 1.8;
+      }
+
+      .toolbar-icon-button[data-tooltip]::before,
+      .toolbar-icon-button[data-tooltip]::after {
+        position: absolute;
+        left: 50%;
+        z-index: 20;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 120ms ease, transform 120ms ease;
+      }
+
+      .toolbar-icon-button[data-tooltip]::before {
+        bottom: calc(100% + 8px);
+        padding: 6px 8px;
+        border-radius: 6px;
+        background: var(--text);
+        color: var(--surface);
+        content: attr(data-tooltip);
+        font-size: 11px;
+        font-weight: 650;
+        line-height: 1;
+        white-space: nowrap;
+        transform: translate(-50%, 4px);
+      }
+
+      .toolbar-icon-button[data-tooltip]::after {
+        bottom: calc(100% + 3px);
+        border: 5px solid transparent;
+        border-top-color: var(--text);
+        content: "";
+        transform: translate(-50%, 4px);
+      }
+
+      .toolbar-icon-button[data-tooltip]:hover::before,
+      .toolbar-icon-button[data-tooltip]:hover::after,
+      .toolbar-icon-button[data-tooltip]:focus-visible::before,
+      .toolbar-icon-button[data-tooltip]:focus-visible::after {
+        opacity: 1;
+        transform: translate(-50%, 0);
+      }
+
+      .selection-bar {
+        display: none;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        position: sticky;
+        top: 8px;
+        z-index: 14;
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface-strong);
+        color: var(--text-soft);
+        box-shadow: var(--shadow);
+      }
+
+      .selection-bar strong { color: var(--text); }
+
+      .selection-summary,
+      .selection-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .selection-summary-separator { color: var(--text-muted); }
+
+      .bulk-action { position: relative; }
+
+      .bulk-action-menu {
+        position: absolute;
+        top: calc(100% + 8px);
+        right: 0;
+        z-index: 30;
+        display: grid;
+        grid-template-columns: minmax(220px, 1.35fr) repeat(3, minmax(170px, 1fr));
+        width: min(900px, calc(100vw - 32px));
+        overflow: hidden;
+        border: 1px solid var(--border-strong);
+        border-radius: 12px;
+        background: var(--surface);
+        box-shadow: 0 18px 50px rgb(0 0 0 / 0.18);
+      }
+
+      .bulk-action-menu[hidden] { display: none; }
+
+      .bulk-action-group { min-width: 0; padding: 8px; }
+      .bulk-action-group + .bulk-action-group { border-left: 1px solid var(--border); }
+
+      .bulk-action-group-label {
+        margin: 0;
+        padding: 7px 9px 5px;
+        color: var(--text-muted);
+        font-size: 11px;
+        font-weight: 700;
+      }
+
+      .bulk-action-menu button {
+        display: grid;
+        width: 100%;
+        gap: 2px;
+        padding: 9px;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: var(--text);
+        cursor: pointer;
+        text-align: left;
+      }
+
+      .bulk-action-menu button:hover,
+      .bulk-action-menu button:focus-visible { background: var(--surface-hover); }
+
+      .bulk-action-menu strong { font-size: 13px; font-weight: 650; }
+      .bulk-action-menu span { color: var(--text-muted); font-size: 11px; line-height: 1.4; }
+
+      .bulk-edit-modal { width: min(760px, calc(100vw - 28px)); }
+
+      .bulk-edit-scope {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 16px;
+        padding: 11px 12px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--surface-strong);
+      }
+
+      .bulk-edit-scope strong { color: var(--text); }
+      .bulk-edit-scope span { color: var(--text-muted); font-size: 12px; }
+
+      .bulk-edit-form { display: grid; gap: 16px; }
+      .bulk-edit-fieldset { display: grid; gap: 10px; margin: 0; padding: 0; border: 0; }
+      .bulk-edit-fieldset legend { margin-bottom: 5px; font-weight: 700; }
+      .bulk-edit-helper { margin: 0; color: var(--text-muted); font-size: 12px; line-height: 1.5; }
+
+      .bulk-edit-search {
+        width: 100%;
+        min-height: 42px;
+        padding: 9px 11px;
+        border: 1px solid var(--border-strong);
+        border-radius: 9px;
+        background: var(--surface);
+        color: var(--text);
+      }
+
+      .bulk-edit-choice-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        max-height: 260px;
+        overflow: auto;
+      }
+
+      .bulk-edit-choice {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        min-height: 42px;
+        padding: 9px 11px;
+        border: 1px solid var(--border);
+        border-radius: 9px;
+        background: var(--surface);
+        cursor: pointer;
+      }
+
+      .bulk-edit-choice:hover { background: var(--surface-hover); }
+      .bulk-edit-choice:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 2px; }
+      .bulk-edit-choice strong { font-size: 13px; font-weight: 600; }
+
+      #productBulkEditModal.brand-picker-open .bulk-edit-modal { width: min(960px, calc(100vw - 32px)); }
+      .brand-picker { display: grid; gap: 14px; }
+      .brand-picker-search-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+      .brand-picker-results { min-width: 0; padding: 14px 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+      .brand-picker-list { display: grid; grid-template-rows: repeat(3, 28px); grid-auto-flow: column; grid-auto-columns: 160px; align-content: start; gap: 6px 18px; overflow-x: auto; overflow-y: hidden; padding: 0 4px 8px 0; }
+      .brand-picker-option { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px; min-width: 0; min-height: 28px; padding: 3px 2px; }
+      .brand-picker-option label { display: inline-flex; align-items: center; gap: 6px; min-width: 0; width: fit-content; cursor: pointer; user-select: none; }
+      .brand-picker-option:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+      .brand-picker-option-copy { display: inline-flex; align-items: center; gap: 5px; min-width: 0; }
+      .brand-picker-option strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 500; }
+      .brand-picker-badge { flex: 0 0 auto; padding: 2px 6px; border-radius: 999px; background: var(--surface-strong); color: var(--text-muted); font-size: 9px; font-weight: 700; letter-spacing: .02em; }
+      .brand-picker-info { position: relative; display: inline-grid; width: 18px; height: 18px; place-items: center; border: 0; border-radius: 50%; background: transparent; color: var(--text-muted); font: inherit; font-size: 10px; cursor: help; }
+      .brand-picker-info:hover,
+      .brand-picker-info:focus-visible { color: var(--text); }
+      .brand-picker-info:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+      .brand-picker-info::before,
+      .brand-picker-info::after { position: absolute; left: 50%; z-index: 20; pointer-events: none; opacity: 0; transition: opacity 120ms ease, transform 120ms ease; }
+      .brand-picker-info::before { bottom: calc(100% + 8px); min-width: 178px; padding: 6px 8px; border-radius: 6px; background: var(--text); color: var(--surface); content: attr(data-tooltip); font-size: 11px; font-weight: 500; line-height: 1.35; text-align: center; transform: translate(-50%, 3px); }
+      .brand-picker-info::after { bottom: calc(100% + 3px); border: 5px solid transparent; border-top-color: var(--text); content: ""; transform: translate(-50%, 3px); }
+      .brand-picker-info:hover::before,
+      .brand-picker-info:hover::after,
+      .brand-picker-info:focus-visible::before,
+      .brand-picker-info:focus-visible::after { opacity: 1; transform: translate(-50%, 0); }
+      .brand-picker-empty { display: none; padding: 28px; color: var(--text-muted); text-align: center; }
+      .brand-picker-empty.visible { display: block; }
+      .brand-picker-manage-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 2px; }
+      .brand-picker-manage-summary { display: flex; flex-wrap: wrap; gap: 4px 8px; color: var(--text-muted); font-size: 11px; }
+      .brand-picker-manage-summary strong { color: var(--text); font-weight: 600; }
+      .bulk-edit-mode-group {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        overflow: hidden;
+        border: 1px solid var(--border-strong);
+        border-radius: 9px;
+      }
+
+      .bulk-edit-mode-group label { position: relative; cursor: pointer; }
+      .bulk-edit-mode-group label + label { border-left: 1px solid var(--border); }
+      .bulk-edit-mode-group input { position: absolute; opacity: 0; pointer-events: none; }
+      .bulk-edit-mode-group span { display: block; padding: 10px; text-align: center; }
+      .bulk-edit-mode-group label:has(input:checked) span { background: var(--brand); color: var(--brand-text); }
+      .bulk-edit-mode-group label:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: -2px; }
+
+      .bulk-edit-warning {
+        padding: 10px 11px;
+        border: 1px solid color-mix(in srgb, var(--warning) 32%, transparent);
+        border-radius: 9px;
+        background: var(--warning-bg);
+        color: var(--warning);
+        font-size: 12px;
+        line-height: 1.5;
+      }
+
+      .bulk-edit-error {
+        display: none;
+        padding: 10px 11px;
+        border: 1px solid color-mix(in srgb, var(--danger) 32%, transparent);
+        border-radius: 9px;
+        background: var(--danger-bg);
+        color: var(--danger);
+        font-size: 12px;
+      }
+
+      .bulk-edit-error.visible { display: block; }
+
+      .sku-bulk-modal {
+        display: flex;
+        width: min(980px, calc(100vw - 28px));
+        max-height: min(88vh, 860px);
+        flex-direction: column;
+      }
+      .sku-bulk-modal > .modal-header,
+      .sku-bulk-modal > .modal-footer { flex: 0 0 auto; background: var(--surface); }
+      .sku-bulk-modal > .modal-body { min-height: 0; overflow-y: auto; }
+      .sku-bulk-modal > .modal-footer { position: sticky; bottom: 0; z-index: 3; }
+      .sku-bulk-layout { display: grid; grid-template-columns: 1fr; gap: 14px; }
+      .sku-bulk-panel { min-width: 0; padding: 14px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface); }
+      .sku-bulk-panel h3 { margin: 0 0 4px; font-size: 14px; }
+      .sku-bulk-panel > p { margin: 0 0 12px; color: var(--text-muted); font-size: 12px; }
+
+      .sku-scope-toggle {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        overflow: hidden;
+        border: 1px solid var(--border-strong);
+        border-radius: 9px;
+      }
+      .sku-scope-toggle label { position: relative; cursor: pointer; }
+      .sku-scope-toggle label + label { border-left: 1px solid var(--border); }
+      .sku-scope-toggle input { position: absolute; opacity: 0; pointer-events: none; }
+      .sku-scope-toggle span { display: block; padding: 10px 12px; text-align: center; }
+      .sku-scope-toggle label:has(input:checked) span { background: var(--brand); color: var(--brand-text); }
+      .sku-scope-toggle label:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: -2px; }
+      .sku-scope-summary {
+        margin-top: 10px;
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-radius: 9px;
+        background: var(--surface-strong);
+        color: var(--text-soft);
+        font-size: 12px;
+      }
+      .sku-scope-tools { display: grid; gap: 6px; margin-top: 10px; }
+      .sku-scope-tools input {
+        width: 100%;
+        min-height: 40px;
+        padding: 8px 11px;
+        border: 1px solid var(--border-strong);
+        border-radius: 9px;
+        background: var(--surface);
+        color: var(--text);
+        font: inherit;
+        font-size: 13px;
+      }
+      .sku-scope-tools span { color: var(--text-muted); font-size: 11px; }
+      .sku-scope-list { display: grid; gap: 7px; max-height: 220px; margin-top: 10px; overflow: auto; }
+      .sku-scope-summary[hidden],
+      .sku-scope-tools[hidden],
+      .sku-scope-list[hidden],
+      .sku-scope-row[hidden] { display: none; }
+      .sku-scope-row {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 9px;
+        min-height: 44px;
+        padding: 8px 10px;
+        border: 1px solid var(--border);
+        border-radius: 9px;
+      }
+      .sku-scope-row strong,
+      .sku-scope-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .sku-scope-row strong { font-size: 12px; }
+      .sku-scope-row span { color: var(--text-muted); font-size: 11px; }
+      .sku-scope-list[data-scope="all"] .sku-scope-row { opacity: 0.72; }
+      .sku-scope-list[data-scope="all"] input { pointer-events: none; }
+
+      .sku-bulk-control-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+      .sku-bulk-control-grid .field-stack { display: grid; gap: 6px; color: var(--text); font-size: 12px; font-weight: 600; }
+      .sku-bulk-control-grid input,
+      .sku-bulk-control-grid select,
+      .sku-bulk-control-grid textarea {
+        width: 100%;
+        min-height: 42px;
+        padding: 9px 11px;
+        border: 1px solid var(--border-strong);
+        border-radius: 9px;
+        background: var(--surface);
+        color: var(--text);
+      }
+      .sku-bulk-control-grid textarea { min-height: 80px; resize: vertical; }
+      .sku-bulk-control-grid .span-all { grid-column: 1 / -1; }
+
+      .sku-preview-wrap { overflow: hidden; border: 1px solid var(--border); border-radius: 9px; }
+      .sku-preview-table { width: 100%; min-width: 0; border-collapse: collapse; table-layout: fixed; }
+      .sku-preview-table th,
+      .sku-preview-table td { overflow: hidden; padding: 9px 10px; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+      .sku-preview-table th { position: sticky; top: 0; z-index: 1; background: #111; color: #fff; }
+      .sku-preview-table th:nth-child(1) { width: 34%; }
+      .sku-preview-table th:nth-child(2) { width: 24%; }
+      .sku-preview-table th:nth-child(3),
+      .sku-preview-table th:nth-child(4) { width: 21%; text-align: right; }
+      .sku-preview-table td:nth-child(3),
+      .sku-preview-table td:nth-child(4) { text-align: right; font-variant-numeric: tabular-nums; }
+      .sku-preview-table td:last-child { font-weight: 650; }
+      .sku-preview-table tbody tr:last-child td { border-bottom: 0; }
+      .sku-preview-empty { padding: 18px; color: var(--text-muted); text-align: center !important; }
+
+      @media (max-width: 1040px) {
+        .bulk-action-menu { grid-template-columns: repeat(2, minmax(220px, 1fr)); width: min(680px, calc(100vw - 32px)); }
+        .bulk-action-group + .bulk-action-group { border-left: 0; }
+        .bulk-action-group:nth-child(even) { border-left: 1px solid var(--border); }
+        .bulk-action-group:nth-child(n + 3) { border-top: 1px solid var(--border); }
+      }
+
+      @media (max-width: 980px) {
+        .brand-picker-list { grid-auto-columns: 150px; }
+      }
+
+      @media (max-width: 760px) {
+        .selection-bar { align-items: stretch; flex-direction: column; top: 4px; }
+        .selection-actions { display: grid; grid-template-columns: 1fr 1fr; }
+        .selection-actions .button { width: 100%; }
+        .bulk-action-menu { right: auto; left: 0; grid-template-columns: 1fr; width: min(340px, calc(100vw - 32px)); }
+        .bulk-action-group:nth-child(even) { border-left: 0; }
+        .bulk-action-group + .bulk-action-group { border-top: 1px solid var(--border); }
+        .bulk-edit-choice-grid { grid-template-columns: 1fr; }
+        .brand-picker-list { grid-auto-columns: 140px; }
+        .brand-picker-manage-row { align-items: stretch; flex-direction: column; }
+        .bulk-edit-mode-group { grid-template-columns: 1fr; }
+        .bulk-edit-mode-group label + label { border-top: 1px solid var(--border); border-left: 0; }
+        .sku-bulk-layout { grid-template-columns: 1fr; }
+        .sku-bulk-control-grid { grid-template-columns: 1fr; }
+        .sku-bulk-control-grid .span-all { grid-column: auto; }
+        .sku-preview-table thead { display: none; }
+        .sku-preview-table,
+        .sku-preview-table tbody,
+        .sku-preview-table tr,
+        .sku-preview-table td { display: block; width: 100%; }
+        .sku-preview-table tr { padding: 8px 10px; border-bottom: 1px solid var(--border); }
+        .sku-preview-table td {
+          display: grid;
+          grid-template-columns: 112px minmax(0, 1fr);
+          gap: 10px;
+          padding: 5px 0;
+          border: 0;
+          text-align: left !important;
+          white-space: normal;
+        }
+        .sku-preview-table td::before { color: var(--text-muted); content: attr(data-label); font-size: 11px; font-weight: 600; }
+        .sku-preview-table .sku-preview-empty { display: block; }
+        .sku-preview-table .sku-preview-empty::before { content: none; }
+      }
+
+      .table-wrap { overflow-x: auto; }
+
+      table {
+        width: 100%;
+        min-width: 1120px;
+        border-collapse: collapse;
+        table-layout: fixed;
+      }
+
+      th,
+      td {
+        border-bottom: 1px solid var(--border);
+        padding: 12px 14px;
+        text-align: left;
+        vertical-align: middle;
+      }
+
+      th {
+        position: relative;
+        height: 44px;
+        background: var(--surface-strong);
+        color: var(--text-muted);
+        font-size: 11px;
+        font-weight: 750;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+      }
+
+      #productsTable thead th {
+        border-bottom-color: #303030;
+        background: #111;
+        color: #fff;
+      }
+
+      #productsTable thead th + th { border-left: 1px solid #2b2b2b; }
+      #productsTable thead .column-resizer::after { background: #686868; }
+      #productsTable thead th:hover .column-resizer::after,
+      #productsTable thead .column-resizer[data-resizing="true"]::after { background: #fff; }
+
+      .column-resizer {
+        position: absolute;
+        top: 0;
+        right: -4px;
+        z-index: 4;
+        width: 9px;
+        height: 100%;
+        cursor: col-resize;
+        touch-action: none;
+      }
+
+      .column-resizer::after {
+        position: absolute;
+        top: 8px;
+        bottom: 8px;
+        left: 4px;
+        width: 1px;
+        background: var(--border-strong);
+        content: "";
+        opacity: 0;
+      }
+
+      th:hover .column-resizer::after,
+      .column-resizer[data-resizing="true"]::after {
+        background: var(--focus);
+        opacity: 1;
+      }
+
+      tbody tr:hover { background: var(--surface-hover); }
+      tbody tr[data-selected="true"] { background: color-mix(in srgb, var(--focus) 7%, var(--surface)); }
+      tbody tr:last-child td { border-bottom: 0; }
+
+      th.is-pinned,
+      td.is-pinned {
+        position: sticky;
+        background: var(--surface);
+        background-clip: padding-box;
+      }
+
+      #productsTable thead th.is-pinned { z-index: 9; background: #111; color: #fff; }
+      tbody td.is-pinned { z-index: 3; }
+      tbody tr:hover td.is-pinned { background: var(--surface-hover); }
+      tbody tr[data-selected="true"] td.is-pinned { background: color-mix(in srgb, var(--focus) 7%, var(--surface)); }
+      .pinned-boundary { box-shadow: 9px 0 13px -12px rgb(0 0 0 / 0.72); }
+
+      .check-cell { width: 46px; text-align: center; }
+      input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--focus); cursor: pointer; }
+
+      .sort-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+        font: inherit;
+        font-weight: inherit;
+        letter-spacing: inherit;
+        text-transform: inherit;
+      }
+
+      .product-cell {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 260px;
+      }
+
+      .product-image {
+        width: 48px;
+        height: 48px;
+        flex: 0 0 48px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--surface-strong);
+        object-fit: cover;
+        cursor: zoom-in;
+      }
+
+      .image-preview {
+        position: fixed;
+        z-index: 60;
+        display: none;
+        width: 260px;
+        padding: 9px;
+        border: 1px solid var(--border-strong);
+        border-radius: 14px;
+        background: var(--surface);
+        box-shadow: 0 24px 70px rgb(0 0 0 / 0.28);
+        pointer-events: none;
+      }
+
+      .image-preview img {
+        display: block;
+        width: 240px;
+        height: 240px;
+        border-radius: 10px;
+        object-fit: cover;
+      }
+
+      .image-preview strong,
+      .image-preview span { display: block; }
+      .image-preview strong { margin-top: 8px; }
+      .image-preview span { color: var(--text-muted); font-size: 12px; }
+
+      .product-name { margin-bottom: 2px; color: var(--text); font-weight: 750; }
+      .product-meta, .cell-subtext { color: var(--text-muted); font-size: 12px; }
+      .cell-main { color: var(--text); font-weight: 650; }
+      .stock-out { color: var(--danger); }
+      .stock-low { color: var(--warning); }
+
+      .copyable-code,
+      .editable-value {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        min-height: 31px;
+        max-width: 100%;
+        padding: 4px 6px;
+        border: 1px solid transparent;
+        border-radius: 7px;
+      }
+
+      .editable-value { cursor: text; }
+      .editable-value:hover { border-color: var(--border); background: var(--surface); }
+
+      .readonly-value { display: inline-flex; min-height: 31px; align-items: center; padding: 4px 6px; }
+      .variant-count-button {
+        margin-top: 2px;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: var(--focus);
+        cursor: pointer;
+        font: inherit;
+        font-size: 12px;
+      }
+      .variant-count-button:hover { text-decoration: underline; }
+      .cell-tags { display: flex; max-width: 100%; flex-wrap: wrap; gap: 4px; }
+      .cell-tag, .column-note-badge {
+        display: inline-flex;
+        align-items: center;
+        min-height: 22px;
+        padding: 2px 7px;
+        border-radius: 999px;
+        background: var(--surface-strong);
+        color: var(--text-soft);
+        font-size: 11px;
+        font-weight: 700;
+      }
+      .permission-value { color: var(--text-muted); font-size: 12px; font-weight: 700; }
+
+      .copy-button {
+        display: inline-grid;
+        width: 25px;
+        height: 25px;
+        flex: 0 0 25px;
+        place-items: center;
+        border: 0;
+        border-radius: 6px;
+        background: transparent;
+        color: var(--text-muted);
+        cursor: pointer;
+      }
+
+      .copy-button:hover { background: var(--surface-hover); color: var(--focus); }
+
+      .inline-editor {
+        width: 100%;
+        min-width: 72px;
+        height: 34px;
+        border: 1px solid var(--focus);
+        border-radius: 7px;
+        background: var(--surface);
+        color: var(--text);
+        padding: 5px 7px;
+        outline: 3px solid color-mix(in srgb, var(--focus) 16%, transparent);
+      }
+
+      .status-select-shell {
+        position: relative;
+        width: 120px;
+        min-width: 120px;
+        height: 30px;
+      }
+
+      .status-select {
+        width: 120px;
+        min-width: 120px;
+        max-width: 120px;
+        height: 30px;
+        appearance: none;
+        border: 1px solid var(--border-strong);
+        border-radius: 8px;
+        background: var(--surface);
+        color: var(--text);
+        padding: 0 32px 0 27px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 650;
+      }
+
+      .status-select-shell:focus-within .status-select {
+        border-color: var(--focus);
+        outline: 3px solid color-mix(in srgb, var(--focus) 18%, transparent);
+      }
+
+      .status-dot {
+        position: absolute;
+        top: 50%;
+        left: 10px;
+        z-index: 2;
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        transform: translateY(-50%);
+        pointer-events: none;
+      }
+
+      .status-select-shell.active .status-dot { background: var(--success); }
+      .status-select-shell.draft .status-dot { background: var(--text-muted); }
+      .status-select-shell.archived .status-dot { background: var(--danger); }
+
+      .status-chevron {
+        position: absolute;
+        top: 50%;
+        right: 12px;
+        z-index: 2;
+        width: 14px;
+        height: 14px;
+        color: var(--text-muted);
+        transform: translateY(-50%);
+        pointer-events: none;
+      }
+
+      .customize-popover {
+        position: fixed;
+        z-index: 70;
+        display: none;
+        width: min(590px, calc(100vw - 24px));
+        max-height: min(620px, calc(100vh - 24px));
+        overflow: hidden;
+        border: 1px solid var(--border-strong);
+        border-radius: 13px;
+        background: var(--surface);
+        box-shadow: 0 24px 70px rgb(0 0 0 / 0.28);
+      }
+
+      .customize-popover.visible { display: flex; flex-direction: column; }
+
+      .customize-header,
+      .customize-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 13px 14px;
+      }
+
+      .customize-header { border-bottom: 1px solid var(--border); }
+      .customize-header h2 { margin: 0; font-size: 16px; }
+      .customize-header p { margin: 3px 0 0; color: var(--text-muted); font-size: 12px; }
+      .customize-footer { justify-content: flex-end; border-top: 1px solid var(--border); }
+
+      .customize-table-head,
+      .customize-row {
+        display: grid;
+        grid-template-columns: minmax(150px, 1fr) 92px 120px 72px;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .customize-table-head {
+        padding: 9px 14px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface-strong);
+        color: var(--text-muted);
+        font-size: 11px;
+        font-weight: 750;
+        text-transform: uppercase;
+      }
+
+      .customize-list { overflow-y: auto; padding: 4px 0; }
+      .customize-row { padding: 9px 14px; border-bottom: 1px solid var(--border); }
+      .customize-row:last-child { border-bottom: 0; }
+
+      .customize-visible-label { display: flex; align-items: center; gap: 9px; min-width: 0; font-weight: 700; }
+      .customize-visible-label span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+      .column-width-input {
+        width: 78px;
+        min-height: 34px;
+        border: 1px solid var(--border-strong);
+        border-radius: 7px;
+        background: var(--surface);
+        color: var(--text);
+        padding: 5px 7px;
+      }
+
+      .pin-control { display: inline-flex; align-items: center; gap: 7px; color: var(--text-soft); font-size: 12px; }
+      .pin-toggle { width: 34px; height: 20px; accent-color: var(--focus); cursor: pointer; }
+      .reorder-controls { display: flex; justify-content: flex-end; gap: 4px; }
+      .reorder-button { width: 30px; height: 30px; padding: 0; }
+
+      @media (max-width: 620px) {
+        .customize-table-head { display: none; }
+        .customize-row { grid-template-columns: 1fr 84px; }
+        .pin-control { justify-content: flex-start; }
+        .reorder-controls { justify-content: flex-start; }
+      }
+
+      .row-action-wrap { position: relative; display: flex; justify-content: flex-end; }
+      .row-action {
+        width: 34px;
+        height: 34px;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: var(--text-soft);
+        cursor: pointer;
+        font-size: 20px;
+        line-height: 1;
+      }
+      .row-action:hover { background: var(--surface-hover); color: var(--text); }
+
+      .row-menu {
+        position: fixed;
+        z-index: 20;
+        display: none;
+        min-width: 168px;
+        padding: 5px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--surface);
+        box-shadow: 0 16px 42px rgb(0 0 0 / 0.2);
+      }
+
+      .row-menu button {
+        width: 100%;
+        padding: 9px 10px;
+        border: 0;
+        border-radius: 7px;
+        background: transparent;
+        color: var(--text);
+        cursor: pointer;
+        text-align: left;
+      }
+      .row-menu button:hover { background: var(--surface-hover); }
+
+      .excel-tools-menu {
+        position: fixed;
+        z-index: 75;
+        display: none;
+        min-width: 245px;
+        padding: 6px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--surface);
+        box-shadow: 0 18px 48px rgb(0 0 0 / 0.22);
+      }
+
+      .excel-tools-menu.visible { display: block; }
+
+      .excel-tools-menu button {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        width: 100%;
+        padding: 9px 10px;
+        border: 0;
+        border-radius: 7px;
+        background: transparent;
+        color: var(--text);
+        cursor: pointer;
+        font: inherit;
+        font-size: 13px;
+        text-align: left;
+      }
+
+      .excel-tools-menu button:hover,
+      .excel-tools-menu button:focus-visible {
+        background: var(--surface-hover);
+        outline: none;
+      }
+
+      .excel-tools-menu svg {
+        width: 16px;
+        height: 16px;
+        fill: none;
+        stroke: var(--focus);
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 1.8;
+      }
+
+      .empty-state {
+        display: none;
+        padding: 68px 24px;
+        color: var(--text-soft);
+        text-align: center;
+      }
+
+      .empty-state .empty-icon {
+        display: grid;
+        width: 48px;
+        height: 48px;
+        margin: 0 auto 12px;
+        place-items: center;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--surface-strong);
+        font-size: 22px;
+      }
+
+      .empty-state h2 { margin: 0 0 5px; color: var(--text); font-size: 17px; }
+      .empty-state p { margin: 0; }
+
+      .grid-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        padding: 11px 14px;
+        border-top: 1px solid var(--border);
+        background: var(--surface-strong);
+        color: var(--text-muted);
+        font-size: 12px;
+      }
+
+      .rows-per-page,
+      .pagination { display: flex; align-items: center; gap: 8px; }
+
+      .rows-select {
+        width: 100%;
+        min-height: 32px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface);
+        color: var(--text);
+        padding: 4px 34px 4px 8px;
+      }
+
+      .rows-select-shell { min-width: 62px; }
+
+      .page-button {
+        display: grid;
+        width: 32px;
+        height: 32px;
+        place-items: center;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface);
+        color: var(--text);
+        cursor: pointer;
+      }
+
+      .page-button:hover:not(:disabled) { background: var(--surface-hover); }
+      .page-button:disabled { cursor: not-allowed; opacity: 0.42; }
+
+      .toast {
+        position: fixed;
+        right: 18px;
+        bottom: 18px;
+        z-index: 40;
+        max-width: min(380px, calc(100vw - 36px));
+        padding: 12px 14px;
+        border: 1px solid var(--border-strong);
+        border-radius: 10px;
+        background: var(--surface);
+        color: var(--text);
+        box-shadow: 0 18px 50px rgb(0 0 0 / 0.22);
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(10px);
+        transition: 160ms ease;
+      }
+      .toast.visible { opacity: 1; transform: translateY(0); }
+
+      .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 80;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        background: rgb(0 0 0 / 0.48);
+      }
+
+      .modal-backdrop.visible { display: flex; }
+
+      .modal {
+        width: min(560px, 100%);
+        overflow: hidden;
+        border: 1px solid var(--border-strong);
+        border-radius: 14px;
+        background: var(--surface);
+        box-shadow: 0 28px 90px rgb(0 0 0 / 0.34);
+      }
+
+      .modal-header,
+      .modal-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 14px 16px;
+      }
+
+      .modal-header { border-bottom: 1px solid var(--border); }
+      .modal-footer { justify-content: flex-end; border-top: 1px solid var(--border); }
+      .modal-header h2 { margin: 0; font-size: 17px; }
+      .modal-body { padding: 16px; }
+      .modal-body p { margin: 0 0 10px; color: var(--text-soft); }
+
+      .modal-close {
+        width: 34px;
+        height: 34px;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: var(--text-muted);
+        cursor: pointer;
+        font-size: 20px;
+      }
+
+      .modal-close:hover { background: var(--surface-hover); color: var(--text); }
+
+      .quick-view-backdrop { justify-content: flex-end; padding: 0; }
+      .quick-view-panel {
+        width: min(680px, 100%);
+        height: 100%;
+        overflow: auto;
+        border-left: 1px solid var(--border-strong);
+        background: var(--surface);
+        box-shadow: -24px 0 70px rgb(0 0 0 / 0.28);
+      }
+      .quick-view-header { position: sticky; top: 0; z-index: 2; background: var(--surface); }
+      .quick-view-title { display: flex; min-width: 0; align-items: center; gap: 12px; }
+      .quick-view-title img { width: 54px; height: 54px; border-radius: 10px; }
+      .quick-view-title h2 { margin: 0; font-size: 18px; }
+      .quick-view-title p { margin: 3px 0 0; color: var(--text-muted); font-size: 12px; }
+      .quick-view-body { display: grid; gap: 14px; padding: 16px; }
+      .quick-section { border: 1px solid var(--border); border-radius: 11px; overflow: hidden; }
+      .quick-section h3 { margin: 0; padding: 11px 13px; border-bottom: 1px solid var(--border); background: var(--surface-strong); font-size: 14px; }
+      .quick-detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .quick-detail { min-width: 0; padding: 11px 13px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+      .quick-detail:nth-child(2n) { border-right: 0; }
+      .quick-detail span { display: block; color: var(--text-muted); font-size: 11px; font-weight: 700; }
+      .quick-detail strong { display: block; margin-top: 3px; overflow-wrap: anywhere; }
+      .quick-note { margin: 0; padding: 12px 13px; color: var(--text-soft); line-height: 1.6; }
+      .quick-sku-wrap { max-height: 330px; overflow: auto; }
+      .quick-sku-table { width: 100%; min-width: 620px; table-layout: fixed; border-collapse: separate; border-spacing: 0; font-size: 12px; }
+      .quick-sku-table th,
+      .quick-sku-table td { overflow: hidden; padding: 10px 11px; border-bottom: 1px solid var(--border); text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+      .quick-sku-table th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        display: table-cell;
+        border-bottom-color: #2f2f2f;
+        background: #111;
+        color: #fff;
+        font-size: 11px;
+        font-weight: 750;
+        letter-spacing: 0.02em;
+      }
+      .quick-sku-table th + th { border-left: 1px solid #303030; }
+      .quick-sku-table tr:last-child td { border-bottom: 0; }
+
+      @media (max-width: 560px) {
+        .quick-detail-grid { grid-template-columns: 1fr; }
+        .quick-detail { border-right: 0; }
+      }
+
+      .export-column-list {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .export-column-option {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        min-height: 42px;
+        padding: 9px 11px;
+        border: 1px solid var(--border);
+        border-radius: 9px;
+        background: var(--surface-strong);
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 650;
+      }
+
+      .export-column-option:has(input:focus-visible) {
+        outline: 2px solid var(--focus);
+        outline-offset: 2px;
+      }
+
+      .tooltip-wrap { position: relative; display: inline-flex; }
+
+      .tooltip-bubble {
+        position: absolute;
+        right: 0;
+        bottom: calc(100% + 9px);
+        z-index: 5;
+        width: max-content;
+        max-width: 230px;
+        padding: 7px 9px;
+        border: 1px solid var(--border-strong);
+        border-radius: 7px;
+        background: var(--text);
+        color: var(--surface);
+        font-size: 12px;
+        font-weight: 650;
+        line-height: 1.35;
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(4px);
+        transition: 140ms ease;
+      }
+
+      .tooltip-bubble::after {
+        position: absolute;
+        top: 100%;
+        right: 18px;
+        border: 5px solid transparent;
+        border-top-color: var(--text);
+        content: "";
+      }
+
+      .tooltip-wrap:hover .tooltip-bubble,
+      .tooltip-wrap:focus-within .tooltip-bubble {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      .bulk-textarea {
+        width: 100%;
+        min-height: 150px;
+        max-height: 280px;
+        resize: vertical;
+        overflow-y: auto;
+        border: 1px solid var(--border-strong);
+        border-radius: 9px;
+        background: var(--surface);
+        color: var(--text);
+        padding: 10px 12px;
+        line-height: 1.65;
+      }
+
+      .bulk-summary {
+        display: grid;
+        gap: 7px;
+        min-height: 26px;
+        margin-top: 10px;
+      }
+
+      .bulk-alert {
+        display: flex;
+        align-items: flex-start;
+        gap: 9px;
+        min-height: 38px;
+        padding: 9px 11px;
+        border: 1px solid var(--border);
+        border-radius: 9px;
+        background: var(--surface-strong);
+        color: var(--text-soft);
+        font-size: 12px;
+        line-height: 1.45;
+      }
+
+      .bulk-alert.success { border-color: color-mix(in srgb, var(--success) 30%, transparent); background: var(--success-bg); color: var(--success); }
+      .bulk-alert.warning { border-color: color-mix(in srgb, var(--danger) 30%, transparent); background: var(--danger-bg); color: var(--danger); }
+      .bulk-alert.duplicate { border-color: color-mix(in srgb, var(--warning) 32%, transparent); background: var(--warning-bg); color: var(--warning); }
+
+      .bulk-alert-icon {
+        width: 18px;
+        height: 18px;
+        flex: 0 0 18px;
+        margin-top: 1px;
+      }
+
+      .bulk-active {
+        display: none;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 14px;
+        border-bottom: 1px solid var(--border);
+        background: color-mix(in srgb, var(--focus) 7%, var(--surface));
+        color: var(--text-soft);
+        font-size: 12px;
+      }
+
+      @media (min-width: 1600px) {
+        .app-shell { padding-inline: 48px; }
+      }
+
+      @media (max-width: 1279px) {
+        .app-shell { padding-inline: 24px; }
+      }
+
+      @media (max-width: 760px) {
+        .app-shell { padding: 22px 14px 48px; }
+        .page-heading { margin-bottom: 14px; }
+        .heading-subrow { display: flex; align-items: stretch; flex-direction: column; gap: 12px; padding-right: 0; }
+        .heading-subrow .button { position: static; width: 100%; }
+        .create-action { position: relative; right: auto; bottom: auto; width: 100%; }
+        .create-menu { right: 0; left: 0; width: auto; }
+        .grid-toolbar { align-items: stretch; flex-wrap: wrap; }
+        .search-wrap { flex-basis: 100%; max-width: none; }
+        .filter-select-shell { flex: 1; }
+        .toolbar-spacer { display: none; }
+        .toolbar-icon-group { margin-left: auto; }
+        .grid-footer { align-items: flex-start; flex-direction: column; }
+        .pagination { width: 100%; justify-content: space-between; }
+        .prototype-note { margin-bottom: 16px; }
+        .export-column-list { grid-template-columns: 1fr; }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="app-shell">
+      <div class="workspace">
+        <div class="prototype-note">UI Prototype · Mock data only · ไม่เชื่อมระบบ</div>
+
+        <nav class="breadcrumb" aria-label="Breadcrumb">
+          <a href="#home" data-demo-action="Home">⌂ <span>Home</span></a>
+          <span class="chevron" aria-hidden="true">›</span>
+          <a href="#workspace" data-demo-action="Workspace">▦ <span>Workspace</span></a>
+          <span class="chevron" aria-hidden="true">›</span>
+          <span class="current" aria-current="page">Products</span>
+        </nav>
+
+        <header class="page-heading">
+          <div class="title-line">
+            <h1>Products</h1>
+            <span id="skuBadge" class="count-badge">0 SKU</span>
+          </div>
+          <div class="heading-subrow">
+            <p>จัดการสินค้า รหัส SKU, Sales Code และ Barcode</p>
+            <div class="create-action">
+              <button id="newProductButton" class="button primary" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="createProductMenu">＋ สร้างสินค้า ▾</button>
+              <div id="createProductMenu" class="create-menu" role="menu" hidden>
+                <a role="menuitem" href="phase-2.1-unified-product-creation-form.html"><strong>สร้างสินค้าปกติ</strong><span>ข้อมูลครบสำหรับสินค้าขายประจำและเติม Stock ต่อเนื่อง</span></a>
+                <a role="menuitem" href="phase-2.1-live-sales-code-reservation.html"><strong>สร้างสินค้าขายด่วน / Live Sale</strong><span>จอง Sales Code และเพิ่มสินค้ามาไว–ไปไวต่อเนื่อง</span></a>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <section class="data-grid" aria-labelledby="gridTitle">
+          <h2 id="gridTitle" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">รายการสินค้า</h2>
+
+          <div class="grid-toolbar">
+            <div class="search-wrap">
+              <span class="search-icon" aria-hidden="true">⌕</span>
+              <label for="searchInput" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">ค้นหาสินค้า</label>
+              <input id="searchInput" class="search-input" type="text" autocomplete="off" placeholder="ค้นหา Product, SKU, CF, Barcode, Brand หรือ Tag..." />
+              <button id="clearSearch" class="clear-search" type="button" aria-label="ล้างคำค้นหา">×</button>
+            </div>
+
+            <button id="bulkSearchButton" class="button" type="button">⌘ ค้นหาหลายรหัส</button>
+
+            <label for="statusFilter" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">กรองตามสถานะ</label>
+            <div class="select-field filter-select-shell">
+              <select id="statusFilter" class="filter-select">
+                <option value="all">ทุกสถานะ</option>
+                <option value="active">ใช้งานอยู่</option>
+                <option value="draft">ฉบับร่าง</option>
+                <option value="archived">เก็บถาวร</option>
+              </select>
+              <svg class="select-field-chevron" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 8 4 4 4-4"/></svg>
+            </div>
+
+            <div class="toolbar-spacer"></div>
+            <div class="toolbar-icon-group" role="menubar" aria-label="เครื่องมือตารางสินค้า">
+              <button id="clearFilters" class="toolbar-icon-button" type="button" role="menuitem" aria-label="ล้างตัวกรอง" data-tooltip="ล้างตัวกรอง">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16l-6.2 7.2v5.3l-3.6 2v-7.3z"/><path d="m16 16 4 4m0-4-4 4"/></svg>
+              </button>
+              <button id="excelToolsButton" class="toolbar-icon-button" type="button" role="menuitem" aria-label="เครื่องมือ Excel" aria-haspopup="menu" aria-controls="excelToolsMenu" aria-expanded="false" data-tooltip="เครื่องมือ Excel">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4z"/><path d="M9 4v16M9 9h11M9 15h11M3 8l4 8M7 8l-4 8"/></svg>
+              </button>
+              <button id="customizeColumnsButton" class="toolbar-icon-button" type="button" role="menuitem" aria-label="ปรับแต่งคอลัมน์" aria-haspopup="dialog" aria-controls="customizeColumnsPopover" aria-expanded="false" data-tooltip="ปรับแต่งคอลัมน์">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16M4 12h16M4 19h16"/><path d="M8 3v4M16 10v4M11 17v4"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div id="bulkActive" class="bulk-active" aria-live="polite">
+            กำลังค้นหาแบบกลุ่ม <strong id="bulkActiveCount">0</strong> รหัส
+            <button id="clearBulkSearch" class="button" type="button">ล้างกลุ่มรหัส</button>
+          </div>
+
+          <div id="selectionBar" class="selection-bar" aria-live="polite">
+            <div class="selection-summary">
+              <span>เลือกแล้ว <strong id="selectedCount">0</strong> สินค้า</span>
+              <span class="selection-summary-separator" aria-hidden="true">·</span>
+              <span>รวม <strong id="selectedSkuCount">0</strong> SKU</span>
+            </div>
+            <div class="selection-actions">
+              <div class="bulk-action">
+                <button id="bulkActionButton" class="button primary" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="bulkActionMenu">แก้ไขรายการที่เลือก ▾</button>
+                <div id="bulkActionMenu" class="bulk-action-menu" role="menu" aria-label="แก้ไขรายการที่เลือก" hidden>
+                  <section class="bulk-action-group" role="group" aria-label="ข้อมูลสินค้า">
+                    <p class="bulk-action-group-label">ข้อมูลสินค้า</p>
+                    <button type="button" role="menuitem" data-bulk-action="brand"><strong>เปลี่ยนแบรนด์</strong><span>กำหนดแบรนด์เดียวให้สินค้าที่เลือก</span></button>
+                    <button type="button" role="menuitem" data-bulk-action="category"><strong>เปลี่ยนหมวดหมู่</strong><span>ย้ายสินค้าที่เลือกไปยังหมวดหมู่เดียวกัน</span></button>
+                    <button type="button" role="menuitem" data-bulk-action="tags"><strong>จัดการป้ายกำกับ</strong><span>เพิ่ม นำออก หรือแทนที่ Tags</span></button>
+                    <button type="button" role="menuitem" data-bulk-action="status"><strong>เปลี่ยนสถานะ</strong><span>ใช้งานอยู่ ฉบับร่าง หรือเก็บถาวร</span></button>
+                  </section>
+                  <section class="bulk-action-group" role="group" aria-label="ราคาและต้นทุน">
+                    <p class="bulk-action-group-label">ราคาและต้นทุน</p>
+                    <button type="button" role="menuitem" data-bulk-action="price"><strong>แก้ไขราคาขาย</strong><span>ใช้กับทุก SKU หรือเลือกเฉพาะ SKU</span></button>
+                    <button type="button" role="menuitem" data-bulk-action="cost"><strong>แก้ไขราคาต้นทุน</strong><span>จำกัดตามสิทธิ์และมี Audit Log</span></button>
+                  </section>
+                  <section class="bulk-action-group" role="group" aria-label="คลังสินค้า">
+                    <p class="bulk-action-group-label">คลังสินค้า</p>
+                    <button type="button" role="menuitem" data-bulk-action="stock"><strong>ปรับจำนวนสต็อก</strong><span>สร้าง Stock Movement แยกตาม SKU</span></button>
+                  </section>
+                  <section class="bulk-action-group" role="group" aria-label="ขั้นสูง">
+                    <p class="bulk-action-group-label">ขั้นสูง</p>
+                    <button type="button" role="menuitem" data-bulk-action="advanced"><strong>แก้ไขหลายข้อมูลพร้อมกัน</strong><span>เปิดขั้นตอนแบบแนะนำทีละส่วน</span></button>
+                  </section>
+                </div>
+              </div>
+              <button id="clearSelection" class="button" type="button">ยกเลิกการเลือก</button>
+            </div>
+          </div>
+
+          <div id="tableWrap" class="table-wrap">
+            <table id="productsTable">
+              <colgroup id="productColumnGroup">
+                <col data-col-key="select" style="width: 48px" />
+                <col data-col-key="product" style="width: 300px" />
+                <col data-col-key="cf" style="width: 140px" />
+                <col data-col-key="sku" style="width: 220px" />
+                <col data-col-key="inventory" style="width: 170px" />
+                <col data-col-key="unit" style="width: 130px" />
+                <col data-col-key="price" style="width: 140px" />
+                <col data-col-key="status" style="width: 150px" />
+                <col data-col-key="category" style="width: 170px;display:none" />
+                <col data-col-key="brand" style="width: 150px;display:none" />
+                <col data-col-key="barcode" style="width: 190px;display:none" />
+                <col data-col-key="quantityBehavior" style="width: 180px;display:none" />
+                <col data-col-key="cost" style="width: 150px;display:none" />
+                <col data-col-key="tax" style="width: 130px;display:none" />
+                <col data-col-key="tags" style="width: 220px;display:none" />
+                <col data-col-key="branches" style="width: 190px;display:none" />
+                <col data-col-key="createdAt" style="width: 170px;display:none" />
+                <col data-col-key="updatedAt" style="width: 170px;display:none" />
+                <col data-col-key="createdBy" style="width: 210px;display:none" />
+                <col data-col-key="actions" style="width: 58px" />
+              </colgroup>
+              <thead>
+                <tr id="productHeaderRow">
+                  <th class="check-cell" data-system-column="select"><input id="selectAll" type="checkbox" aria-label="เลือกรายการทั้งหมดในหน้านี้" /></th>
+                  <th data-column="product"><button class="sort-button" type="button" data-sort="name">Product <span id="nameSort">↕</span></button><span class="column-resizer" data-resize="product" aria-hidden="true"></span></th>
+                  <th data-column="cf"><button class="sort-button" type="button" data-sort="sales">รหัส CF <span id="salesSort">↕</span></button><span class="column-resizer" data-resize="cf" aria-hidden="true"></span></th>
+                  <th data-column="sku"><button class="sort-button" type="button" data-sort="sku">SKU / Variants <span id="skuSort">↕</span></button><span class="column-resizer" data-resize="sku" aria-hidden="true"></span></th>
+                  <th data-column="inventory"><button class="sort-button" type="button" data-sort="inventory">Stock <span id="inventorySort">↕</span></button><span class="column-resizer" data-resize="inventory" aria-hidden="true"></span></th>
+                  <th data-column="unit">Base Unit<span class="column-resizer" data-resize="unit" aria-hidden="true"></span></th>
+                  <th data-column="price"><button class="sort-button" type="button" data-sort="price">Price <span id="priceSort">↕</span></button><span class="column-resizer" data-resize="price" aria-hidden="true"></span></th>
+                  <th data-column="status"><button class="sort-button" type="button" data-sort="status">Status <span id="statusSort">↕</span></button><span class="column-resizer" data-resize="status" aria-hidden="true"></span></th>
+                  <th data-column="category" style="display:none"><button class="sort-button" type="button" data-sort="category">หมวดหมู่ <span id="categorySort">↕</span></button><span class="column-resizer" data-resize="category" aria-hidden="true"></span></th>
+                  <th data-column="brand" style="display:none"><button class="sort-button" type="button" data-sort="brand">แบรนด์ <span id="brandSort">↕</span></button><span class="column-resizer" data-resize="brand" aria-hidden="true"></span></th>
+                  <th data-column="barcode" style="display:none">Barcode<span class="column-resizer" data-resize="barcode" aria-hidden="true"></span></th>
+                  <th data-column="quantityBehavior" style="display:none">วิธีนับจำนวน<span class="column-resizer" data-resize="quantityBehavior" aria-hidden="true"></span></th>
+                  <th data-column="cost" style="display:none">ราคาต้นทุน 🔒<span class="column-resizer" data-resize="cost" aria-hidden="true"></span></th>
+                  <th data-column="tax" style="display:none">อัตราภาษี<span class="column-resizer" data-resize="tax" aria-hidden="true"></span></th>
+                  <th data-column="tags" style="display:none">Tags<span class="column-resizer" data-resize="tags" aria-hidden="true"></span></th>
+                  <th data-column="branches" style="display:none">สาขา<span class="column-resizer" data-resize="branches" aria-hidden="true"></span></th>
+                  <th data-column="createdAt" style="display:none">วันที่สร้าง<span class="column-resizer" data-resize="createdAt" aria-hidden="true"></span></th>
+                  <th data-column="updatedAt" style="display:none">แก้ไขล่าสุด<span class="column-resizer" data-resize="updatedAt" aria-hidden="true"></span></th>
+                  <th data-column="createdBy" style="display:none">ผู้สร้าง<span class="column-resizer" data-resize="createdBy" aria-hidden="true"></span></th>
+                  <th data-system-column="actions" aria-label="Actions"></th>
+                </tr>
+              </thead>
+              <tbody id="productRows"></tbody>
+            </table>
+          </div>
+
+          <div id="emptyState" class="empty-state">
+            <div class="empty-icon" aria-hidden="true">⌕</div>
+            <h2>ไม่พบสินค้า</h2>
+            <p>ลองเปลี่ยนคำค้นหาหรือล้างตัวกรอง</p>
+          </div>
+
+          <footer class="grid-footer">
+            <div class="rows-per-page">
+              <span>แถวต่อหน้า</span>
+              <div class="select-field rows-select-shell">
+                <select id="pageSize" class="rows-select" aria-label="จำนวนแถวต่อหน้า">
+                  <option value="5">5</option>
+                  <option value="8" selected>8</option>
+                  <option value="12">12</option>
+                </select>
+                <svg class="select-field-chevron" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 8 4 4 4-4"/></svg>
+              </div>
+            </div>
+            <div class="pagination">
+              <span id="rangeLabel">0–0 จาก 0 รายการ</span>
+              <button id="previousPage" class="page-button" type="button" aria-label="หน้าก่อนหน้า">‹</button>
+              <span id="pageLabel">หน้า 1 / 1</span>
+              <button id="nextPage" class="page-button" type="button" aria-label="หน้าถัดไป">›</button>
+            </div>
+          </footer>
+        </section>
+      </div>
+    </main>
+
+    <div id="imagePreview" class="image-preview" aria-hidden="true">
+      <img id="imagePreviewPicture" src="" alt="" />
+      <strong id="imagePreviewName"></strong>
+      <span>ภาพจำลองสำหรับทดสอบ Hover Preview</span>
+    </div>
+
+    <section id="customizeColumnsPopover" class="customize-popover" role="dialog" aria-modal="false" aria-labelledby="customizeColumnsTitle">
+      <header class="customize-header">
+        <div>
+          <h2 id="customizeColumnsTitle">Customize Columns</h2>
+          <p>แสดง ซ่อน ปรับความกว้าง ปักหมุด และจัดลำดับคอลัมน์</p>
+        </div>
+        <button id="closeCustomizeColumns" class="modal-close" type="button" aria-label="ปิด Customize">×</button>
+      </header>
+      <div class="customize-table-head" aria-hidden="true"><span>Column</span><span>Width</span><span>Pin</span><span>Order</span></div>
+      <div id="customizeColumnsList" class="customize-list"></div>
+      <footer class="customize-footer">
+        <button id="restoreColumnsButton" class="button" type="button">คืนค่าเดิม</button>
+        <button id="cancelCustomizeColumns" class="button" type="button">ยกเลิก</button>
+        <button id="saveCustomizeColumns" class="button primary" type="button">บันทึก</button>
+      </footer>
+    </section>
+
+    <div id="bulkSearchModal" class="modal-backdrop" role="presentation">
+      <section class="modal" role="dialog" aria-modal="true" aria-labelledby="bulkSearchTitle">
+        <header class="modal-header">
+          <h2 id="bulkSearchTitle">ป้อนกลุ่มข้อมูล</h2>
+          <button id="closeBulkSearch" class="modal-close" type="button" aria-label="ปิด">×</button>
+        </header>
+        <div class="modal-body">
+          <p>ใส่ SKU, รหัส CF หรือ Barcode โดยแยกด้วย comma, เว้นวรรค หรือขึ้นบรรทัดใหม่</p>
+          <label for="bulkSearchTextarea" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">กลุ่มรหัสสินค้า</label>
+          <textarea id="bulkSearchTextarea" class="bulk-textarea" placeholder="B03&#10;b11&#10;BLZ-DBL-NVY"></textarea>
+          <div id="bulkSummary" class="bulk-summary" aria-live="polite"></div>
+        </div>
+        <footer class="modal-footer">
+          <button id="cancelBulkSearch" class="button" type="button">ยกเลิก</button>
+          <span class="tooltip-wrap">
+            <span class="tooltip-bubble" role="tooltip">กด Ctrl+Enter เพื่อค้นหาได้</span>
+            <button id="applyBulkSearch" class="button primary" type="button" aria-describedby="bulkSearchShortcut">ค้นหา</button>
+            <span id="bulkSearchShortcut" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">กด Control และ Enter เพื่อค้นหา</span>
+          </span>
+        </footer>
+      </section>
+    </div>
+
+    <div id="productBulkEditModal" class="modal-backdrop" role="presentation">
+      <section class="modal bulk-edit-modal" role="dialog" aria-modal="true" aria-labelledby="productBulkEditTitle" aria-describedby="productBulkEditDescription">
+        <header class="modal-header">
+          <div>
+            <h2 id="productBulkEditTitle">แก้ไขข้อมูลสินค้า</h2>
+            <p id="productBulkEditDescription" class="bulk-edit-helper">แก้ไขข้อมูลเดียวกันให้สินค้าที่เลือก</p>
+          </div>
+          <button id="closeProductBulkEdit" class="modal-close" type="button" aria-label="ปิด">×</button>
+        </header>
+        <div class="modal-body">
+          <div class="bulk-edit-scope">
+            <strong id="productBulkScope">0 สินค้า</strong>
+            <span id="productBulkSkuScope">รวม 0 SKU</span>
+          </div>
+          <form id="productBulkEditForm" class="bulk-edit-form">
+            <div id="productBulkEditBody"></div>
+            <div id="productBulkEditError" class="bulk-edit-error" role="alert"></div>
+          </form>
+        </div>
+        <footer class="modal-footer">
+          <button id="cancelProductBulkEdit" class="button" type="button">ยกเลิก</button>
+          <button id="applyProductBulkEdit" class="button primary" type="submit" form="productBulkEditForm">นำไปใช้กับรายการที่เลือก</button>
+        </footer>
+      </section>
+    </div>
+
+    <div id="skuBulkEditModal" class="modal-backdrop" role="presentation">
+      <section class="modal sku-bulk-modal" role="dialog" aria-modal="true" aria-labelledby="skuBulkEditTitle" aria-describedby="skuBulkEditDescription">
+        <header class="modal-header">
+          <div>
+            <h2 id="skuBulkEditTitle">แก้ไขข้อมูล SKU</h2>
+            <p id="skuBulkEditDescription" class="bulk-edit-helper">เลือก SKU ที่ต้องการแก้ไขก่อนยืนยัน</p>
+          </div>
+          <button id="closeSkuBulkEdit" class="modal-close" type="button" aria-label="ปิด">×</button>
+        </header>
+        <div class="modal-body">
+          <div class="bulk-edit-scope">
+            <strong id="skuBulkProductScope">0 สินค้า</strong>
+            <span id="skuBulkSkuScope">รวม 0 SKU</span>
+          </div>
+          <form id="skuBulkEditForm" class="bulk-edit-form">
+            <div class="sku-bulk-layout">
+              <section class="sku-bulk-panel">
+                <h3>เลือกขอบเขต SKU</h3>
+                <p>ค่าเริ่มต้นใช้กับทุก SKU ภายใต้ Product ที่เลือก</p>
+                <div class="sku-scope-toggle" role="radiogroup" aria-label="ขอบเขต SKU ที่ต้องการแก้ไข">
+                  <label><input type="radio" name="skuScope" value="all" checked><span>ทุก SKU</span></label>
+                  <label><input type="radio" name="skuScope" value="specific"><span>เลือกเฉพาะ SKU</span></label>
+                </div>
+                <div id="skuScopeSummary" class="sku-scope-summary" role="status"></div>
+                <label id="skuScopeSearchWrap" class="sku-scope-tools" hidden>
+                  <input id="skuScopeSearch" type="search" placeholder="ค้นหาชื่อสินค้า หรือ SKU" aria-label="ค้นหา SKU ที่ต้องการเลือก">
+                  <span id="skuScopeSearchSummary">แสดง SKU ที่เลือกได้ทั้งหมด</span>
+                </label>
+                <div id="skuScopeList" class="sku-scope-list" data-scope="all" hidden></div>
+              </section>
+              <section class="sku-bulk-panel">
+                <h3 id="skuBulkControlTitle">กำหนดค่าใหม่</h3>
+                <p id="skuBulkControlHelp">ระบบจะแสดงตัวอย่างก่อนยืนยัน</p>
+                <div id="skuBulkControls" class="sku-bulk-control-grid"></div>
+              </section>
+            </div>
+            <section class="sku-bulk-panel">
+              <h3>ตัวอย่างก่อนเปลี่ยน</h3>
+              <p>ตรวจ SKU ค่าปัจจุบัน และค่าหลังแก้ไขก่อนกดยืนยัน</p>
+              <div class="sku-preview-wrap">
+                <table class="sku-preview-table">
+                  <thead><tr><th>สินค้า</th><th>SKU</th><th>ค่าปัจจุบัน</th><th>ค่าหลังแก้ไข</th></tr></thead>
+                  <tbody id="skuBulkPreview"></tbody>
+                </table>
+              </div>
+            </section>
+            <div id="skuBulkEditError" class="bulk-edit-error" role="alert"></div>
+          </form>
+        </div>
+        <footer class="modal-footer">
+          <button id="cancelSkuBulkEdit" class="button" type="button">ยกเลิก</button>
+          <button id="applySkuBulkEdit" class="button primary" type="submit" form="skuBulkEditForm">ยืนยันใน Mockup</button>
+        </footer>
+      </section>
+    </div>
+
+    <div id="exportColumnsModal" class="modal-backdrop" role="presentation">
+      <section class="modal" role="dialog" aria-modal="true" aria-labelledby="exportColumnsTitle" aria-describedby="exportColumnsDescription">
+        <header class="modal-header">
+          <h2 id="exportColumnsTitle">กำหนดคอลัมน์ที่ส่งออก</h2>
+          <button id="closeExportColumns" class="modal-close" type="button" aria-label="ปิด">×</button>
+        </header>
+        <div class="modal-body">
+          <p id="exportColumnsDescription">เลือกข้อมูลที่จะใช้เมื่อต้องส่งออกรายการสินค้า การตั้งค่านี้แยกจากคอลัมน์ที่แสดงในตาราง</p>
+          <div id="exportColumnsList" class="export-column-list"></div>
+        </div>
+        <footer class="modal-footer">
+          <button id="selectAllExportColumns" class="button" type="button">เลือกทั้งหมด</button>
+          <button id="cancelExportColumns" class="button" type="button">ยกเลิก</button>
+          <button id="saveExportColumns" class="button primary" type="button">บันทึก</button>
+        </footer>
+      </section>
+    </div>
+
+    <div id="quickViewBackdrop" class="modal-backdrop quick-view-backdrop" role="presentation">
+      <aside id="quickViewPanel" class="quick-view-panel" role="dialog" aria-modal="true" aria-labelledby="quickViewTitle">
+        <header class="modal-header quick-view-header">
+          <div id="quickViewHeading" class="quick-view-title"></div>
+          <button id="closeQuickView" class="modal-close" type="button" aria-label="ปิดรายละเอียดสินค้า">×</button>
+        </header>
+        <div id="quickViewBody" class="quick-view-body"></div>
+      </aside>
+    </div>
+
+    <div id="rowMenu" class="row-menu" role="menu" aria-label="เมนูสินค้า">
+      <button type="button" role="menuitem" data-menu-action="quick-view">ดูรายละเอียดแบบ Quick View</button>
+      <button type="button" role="menuitem" data-menu-action="แก้ไขสินค้า">แก้ไขสินค้า</button>
+      <button type="button" role="menuitem" data-menu-action="จัดการ SKU">จัดการ SKU</button>
+    </div>
+    <div id="excelToolsMenu" class="excel-tools-menu" role="menu" aria-label="เครื่องมือ Excel">
+      <button type="button" role="menuitem" data-excel-action="import">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0-4-4m4 4 4-4"/><path d="M4 17v3h16v-3"/></svg>
+        นำเข้าด้วยไฟล์ Excel
+      </button>
+      <button type="button" role="menuitem" data-excel-action="template">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0-4-4m4 4 4-4"/><path d="M4 20h16"/></svg>
+        ดาวน์โหลด Template
+      </button>
+      <button type="button" role="menuitem" data-excel-action="export-columns">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16M4 12h16M4 19h16"/><path d="M8 3v4M16 10v4M11 17v4"/></svg>
+        กำหนดคอลัมน์ที่ส่งออก
+      </button>
+    </div>
+    <input id="excelImportInput" type="file" accept=".xlsx,.xls,.csv" hidden />
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <script>
+      const baseProducts = [
+        { id: 1, name: "เดรสไหมซาติน Dior", meta: "Evening Collection", sku: "DRS-DIOR-BLK", sales: "CF-D01", barcode: "8851000000018", variants: 4, inventory: 126, unit: "piece", status: "active", color: "#8c6f62", icon: "♛" },
+        { id: 2, name: "เสื้อเชิ้ตลินิน", meta: "Everyday Essentials", sku: "SHT-LIN-WHT", sales: "CF-S02", barcode: "8851000000025", variants: 3, inventory: 84, unit: "piece", status: "active", color: "#8ca2a8", icon: "♙" },
+        { id: 3, name: "กระเป๋าหนัง Mini", meta: "Leather Goods", sku: "BANG-MINI-TAN", sales: "CF-B03", barcode: "8851000000032", variants: 5, inventory: 18, unit: "piece", status: "active", color: "#9b7254", icon: "◆" },
+        { id: 4, name: "แหวนทอง Classic", meta: "Fine Jewelry", sku: "RNG-TY-GD-5", sales: "A001", barcode: "8851234567898", variants: 6, inventory: 0, unit: "piece", status: "draft", color: "#aa8c43", icon: "◉" },
+        { id: 5, name: "รองเท้าส้นสูง Luna", meta: "Shoes", sku: "SHO-LUNA-37", sales: "CF-L05", barcode: "8851000000056", variants: 3, inventory: 42, unit: "pair", status: "active", color: "#625f72", icon: "◢" },
+        { id: 6, name: "แจ็กเก็ตทรงครอป", meta: "Outerwear", sku: "JKT-CROP-BGE", sales: "CF-J06", barcode: "8851000000063", variants: 2, inventory: 7, unit: "piece", status: "active", color: "#8d8171", icon: "♜" },
+        { id: 7, name: "ต่างหู Pearl Drop", meta: "Accessories", sku: "EAR-PRL-01", sales: "CF-E07", barcode: "8851000000070", variants: 1, inventory: 65, unit: "pair", status: "active", color: "#9f9b96", icon: "●" },
+        { id: 8, name: "กางเกง Wide Leg", meta: "Tailoring", sku: "PNT-WIDE-BLK", sales: "CF-P08", barcode: "8851000000087", variants: 2, inventory: 24, unit: "piece", status: "archived", color: "#50535a", icon: "║" },
+        { id: 9, name: "ผ้าพันคอ Silk Print", meta: "Accessories", sku: "SCF-SLK-RED", sales: "CF-S09", barcode: "8851000000094", variants: 1, inventory: 31, unit: "piece", status: "active", color: "#a86268", icon: "≈" },
+        { id: 10, name: "เบลเซอร์ Double Breasted", meta: "Tailoring", sku: "BLZ-DBL-NVY", sales: "CF-B10", barcode: "8851000000100", variants: 4, inventory: 12, unit: "piece", status: "draft", color: "#536279", icon: "♝" },
+        { id: 11, name: "เข็มขัดหนัง Slim", meta: "Leather Goods", sku: "BLT-SLM-BRN", sales: "CF-B11", barcode: "8851000000117", variants: 2, inventory: 53, unit: "piece", status: "active", color: "#775743", icon: "▬" },
+        { id: 12, name: "สร้อยคอ Crystal", meta: "Fine Jewelry", sku: "NCK-CRY-SLV", sales: "CF-N12", barcode: "8851000000124", variants: 1, inventory: 9, unit: "piece", status: "active", color: "#8c96a5", icon: "◇" }
+      ];
+
+      const productProfiles = [
+        ["เดรส", "Dior", "discrete", 4590, 2700, ["พรีเมียม", "งานเย็น"], ["BKK-01", "CNX-01"]],
+        ["เสื้อ", "Avenzo", "discrete", 1290, 620, ["ลินิน", "ขายดี"], ["BKK-01"]],
+        ["กระเป๋า", "Avenzo", "discrete", 2890, 1450, ["หนัง", "Mini"], ["BKK-01", "PKT-01"]],
+        ["เครื่องประดับ", "Dior", "discrete", 8500, 5100, ["ทอง", "Classic"], ["BKK-01"]],
+        ["รองเท้า", "Luna", "discrete", 2190, 1080, ["รองเท้า", "ผู้หญิง"], ["BKK-01", "CNX-01"]],
+        ["เสื้อคลุม", "Avenzo", "discrete", 2490, 1320, ["Outerwear", "ใหม่"], ["BKK-01"]],
+        ["เครื่องประดับ", "Pearl Studio", "discrete", 990, 410, ["มุก", "ของขวัญ"], ["BKK-01"]],
+        ["กางเกง", "Avenzo", "discrete", 1790, 820, ["Tailoring", "Wide Leg"], ["BKK-01", "CNX-01"]],
+        ["ผ้าพันคอ", "Silk House", "discrete", 890, 330, ["Silk", "Accessories"], ["BKK-01"]],
+        ["เสื้อคลุม", "Avenzo", "discrete", 3290, 1700, ["Blazer", "Navy"], ["BKK-01", "PKT-01"]],
+        ["เข็มขัด", "Leather Lab", "discrete", 1190, 540, ["หนัง", "Slim"], ["BKK-01"]],
+        ["เครื่องประดับ", "Crystal Studio", "discrete", 1590, 720, ["Crystal", "ของขวัญ"], ["BKK-01", "CNX-01"]]
+      ];
+
+      const defaultProducts = baseProducts.map((product, index) => {
+        const [category, brand, quantityBehavior, price, cost, tags, branches] = productProfiles[index];
+        const available = Math.max(0, product.inventory - (product.inventory > 10 ? 4 : 0));
+        const skuItems = Array.from({ length: product.variants }, (_, variantIndex) => ({
+          name: product.variants === 1 ? "Default" : `ตัวเลือก ${variantIndex + 1}`,
+          sku: variantIndex === 0 ? product.sku : `${product.sku}-${String(variantIndex + 1).padStart(2, "0")}`,
+          sales: variantIndex === 0 ? product.sales : `${product.sales}-${variantIndex + 1}`,
+          barcode: variantIndex === 0 ? product.barcode : `${product.barcode.slice(0, -2)}${String(variantIndex + 1).padStart(2, "0")}`,
+          stock: Math.max(0, Math.floor(product.inventory / product.variants) + (variantIndex === 0 ? product.inventory % product.variants : 0))
+        }));
+        return {
+          ...product,
+          category,
+          brand,
+          quantityBehavior,
+          price,
+          cost,
+          tax: "VAT 7%",
+          tags,
+          branches,
+          available,
+          createdAt: `0${(index % 8) + 1} ส.ค. 2569`,
+          updatedAt: `${String((index % 12) + 3).padStart(2, "0")} ส.ค. 2569`,
+          createdBy: index % 2 ? "ad.tanyawholesale04@gmail.com" : "stadretstillchi2@gmail.com",
+          note: "ข้อมูลจำลองสำหรับตรวจสอบโครงสร้างสินค้า การขาย และการจัดการคลัง โดยไม่เชื่อมต่อระบบจริง",
+          netWeight: `${(0.2 + index * 0.08).toFixed(2)} kg`,
+          grossWeight: `${(0.3 + index * 0.1).toFixed(2)} kg`,
+          productDimensions: `${18 + index} × ${12 + index} × ${4 + (index % 5)} cm`,
+          boxDimensions: `${24 + index} × ${18 + index} × ${8 + (index % 4)} cm`,
+          packaging: product.unit === "pair" ? "1 คู่ / กล่อง" : "1 ชิ้น / กล่อง",
+          bundle: index === 5 ? "ชุดทดลอง 3 SKU" : null,
+          skuItems
+        };
+      });
+
+      const storageKeys = {
+        products: "avenzo.products-prototype.rows.v3",
+        widths: "avenzo.products-prototype.widths.v2",
+        columns: "avenzo.products-prototype.columns.v4",
+        exportColumns: "avenzo.products-prototype.export-columns.v2"
+      };
+
+      const exportColumnDefinitions = [
+        { key: "product", label: "Product" },
+        { key: "cf", label: "รหัส CF" },
+        { key: "sku", label: "SKU Code" },
+        { key: "barcode", label: "Barcode" },
+        { key: "inventory", label: "Stock" },
+        { key: "unit", label: "Base Unit" },
+        { key: "price", label: "ราคาขาย" },
+        { key: "category", label: "หมวดหมู่" },
+        { key: "brand", label: "แบรนด์" },
+        { key: "quantityBehavior", label: "วิธีนับจำนวน" },
+        { key: "tax", label: "อัตราภาษี" },
+        { key: "tags", label: "Tags" },
+        { key: "branches", label: "สาขา" },
+        { key: "createdAt", label: "วันที่สร้าง" },
+        { key: "updatedAt", label: "แก้ไขล่าสุด" },
+        { key: "createdBy", label: "ผู้สร้าง" },
+        { key: "status", label: "Status" }
+      ];
+
+      const defaultColumnConfig = [
+        { key: "product", label: "Product", width: 300, minWidth: 220, visible: true, pinned: false },
+        { key: "cf", label: "รหัส CF", width: 140, minWidth: 110, visible: true, pinned: false },
+        { key: "sku", label: "SKU / Variants", width: 220, minWidth: 170, visible: true, pinned: false },
+        { key: "inventory", label: "Stock", width: 170, minWidth: 130, visible: true, pinned: false },
+        { key: "unit", label: "Base Unit", width: 130, minWidth: 110, visible: true, pinned: false },
+        { key: "price", label: "Price", width: 140, minWidth: 120, visible: true, pinned: false },
+        { key: "status", label: "Status", width: 150, minWidth: 130, visible: true, pinned: false },
+        { key: "category", label: "หมวดหมู่", width: 170, minWidth: 130, visible: false, pinned: false },
+        { key: "brand", label: "แบรนด์", width: 150, minWidth: 120, visible: false, pinned: false },
+        { key: "barcode", label: "Barcode", width: 190, minWidth: 160, visible: false, pinned: false },
+        { key: "quantityBehavior", label: "วิธีนับจำนวน", width: 180, minWidth: 150, visible: false, pinned: false },
+        { key: "cost", label: "ราคาต้นทุน", width: 150, minWidth: 130, visible: false, pinned: false, sensitive: true },
+        { key: "tax", label: "อัตราภาษี", width: 130, minWidth: 110, visible: false, pinned: false },
+        { key: "tags", label: "Tags", width: 220, minWidth: 170, visible: false, pinned: false },
+        { key: "branches", label: "สาขา", width: 190, minWidth: 150, visible: false, pinned: false },
+        { key: "createdAt", label: "วันที่สร้าง", width: 170, minWidth: 140, visible: false, pinned: false },
+        { key: "updatedAt", label: "แก้ไขล่าสุด", width: 170, minWidth: 140, visible: false, pinned: false },
+        { key: "createdBy", label: "ผู้สร้าง", width: 210, minWidth: 180, visible: false, pinned: false }
+      ];
+
+      function readStoredJson(key, fallback) {
+        try {
+          const value = JSON.parse(localStorage.getItem(key));
+          return value ?? fallback;
+        } catch {
+          return fallback;
+        }
+      }
+
+      function normalizeColumnConfig(value) {
+        const source = Array.isArray(value) ? value : [];
+        const sourceByKey = new Map(source.map((column) => [column?.key, column]));
+        const normalized = defaultColumnConfig.map((definition, defaultIndex) => {
+          const stored = sourceByKey.get(definition.key) ?? {};
+          const width = Number(stored.width);
+          const order = Number(stored.order);
+          return {
+            ...definition,
+            order: Number.isFinite(order) ? order : defaultIndex,
+            width: Number.isFinite(width) ? Math.max(definition.minWidth, Math.min(520, width)) : definition.width,
+            visible: Object.prototype.hasOwnProperty.call(stored, "visible") ? stored.visible !== false : definition.visible,
+            pinned: stored.pinned === true
+          };
+        }).sort((left, right) => left.order - right.order);
+
+        let pinnedCount = 0;
+        normalized.forEach((column, index) => {
+          column.order = index;
+          if (column.pinned && column.visible && pinnedCount < 3) pinnedCount += 1;
+          else if (column.pinned) column.pinned = false;
+        });
+        return normalized;
+      }
+
+      function normalizeExportColumns(value) {
+        const validKeys = new Set(exportColumnDefinitions.map((column) => column.key));
+        const stored = Array.isArray(value) ? value.filter((key) => validKeys.has(key)) : [];
+        return stored.length ? [...new Set(stored)] : exportColumnDefinitions.map((column) => column.key);
+      }
+
+      let columnConfig = normalizeColumnConfig(readStoredJson(storageKeys.columns, defaultColumnConfig));
+      let exportColumnKeys = normalizeExportColumns(readStoredJson(storageKeys.exportColumns, []));
+      let products = readStoredJson(storageKeys.products, structuredClone(defaultProducts));
+      if (!Array.isArray(products) || products.length !== defaultProducts.length) products = structuredClone(defaultProducts);
+
+      const statusLabels = { active: "ใช้งานอยู่", draft: "ฉบับร่าง", archived: "เก็บถาวร" };
+      const state = { query: "", bulkCodes: [], status: "all", sortKey: "name", sortDirection: "asc", page: 1, pageSize: 8, selected: new Set() };
+      let activeMenuProduct = null;
+      let customizeDraft = [];
+      let bulkEditAction = null;
+      let skuBulkEditAction = null;
+      let toastTimer = null;
+
+      const elements = {
+        rows: document.getElementById("productRows"),
+        tableWrap: document.getElementById("tableWrap"),
+        empty: document.getElementById("emptyState"),
+        search: document.getElementById("searchInput"),
+        clearSearch: document.getElementById("clearSearch"),
+        status: document.getElementById("statusFilter"),
+        bulkModal: document.getElementById("bulkSearchModal"),
+        bulkTextarea: document.getElementById("bulkSearchTextarea"),
+        bulkSummary: document.getElementById("bulkSummary"),
+        bulkActive: document.getElementById("bulkActive"),
+        bulkActiveCount: document.getElementById("bulkActiveCount"),
+        imagePreview: document.getElementById("imagePreview"),
+        imagePreviewPicture: document.getElementById("imagePreviewPicture"),
+        imagePreviewName: document.getElementById("imagePreviewName"),
+        customizeButton: document.getElementById("customizeColumnsButton"),
+        customizePopover: document.getElementById("customizeColumnsPopover"),
+        customizeList: document.getElementById("customizeColumnsList"),
+        excelButton: document.getElementById("excelToolsButton"),
+        excelMenu: document.getElementById("excelToolsMenu"),
+        excelImportInput: document.getElementById("excelImportInput"),
+        exportColumnsModal: document.getElementById("exportColumnsModal"),
+        exportColumnsList: document.getElementById("exportColumnsList"),
+        pageSize: document.getElementById("pageSize"),
+        range: document.getElementById("rangeLabel"),
+        page: document.getElementById("pageLabel"),
+        previous: document.getElementById("previousPage"),
+        next: document.getElementById("nextPage"),
+        selectAll: document.getElementById("selectAll"),
+        selectionBar: document.getElementById("selectionBar"),
+        selectedCount: document.getElementById("selectedCount"),
+        selectedSkuCount: document.getElementById("selectedSkuCount"),
+        bulkActionButton: document.getElementById("bulkActionButton"),
+        bulkActionMenu: document.getElementById("bulkActionMenu"),
+        productBulkEditModal: document.getElementById("productBulkEditModal"),
+        productBulkEditForm: document.getElementById("productBulkEditForm"),
+        productBulkEditTitle: document.getElementById("productBulkEditTitle"),
+        productBulkEditDescription: document.getElementById("productBulkEditDescription"),
+        productBulkEditBody: document.getElementById("productBulkEditBody"),
+        productBulkEditError: document.getElementById("productBulkEditError"),
+        productBulkScope: document.getElementById("productBulkScope"),
+        productBulkSkuScope: document.getElementById("productBulkSkuScope"),
+        skuBulkEditModal: document.getElementById("skuBulkEditModal"),
+        skuBulkEditForm: document.getElementById("skuBulkEditForm"),
+        skuBulkEditTitle: document.getElementById("skuBulkEditTitle"),
+        skuBulkEditDescription: document.getElementById("skuBulkEditDescription"),
+        skuBulkProductScope: document.getElementById("skuBulkProductScope"),
+        skuBulkSkuScope: document.getElementById("skuBulkSkuScope"),
+        skuScopeList: document.getElementById("skuScopeList"),
+        skuScopeSummary: document.getElementById("skuScopeSummary"),
+        skuScopeSearchWrap: document.getElementById("skuScopeSearchWrap"),
+        skuScopeSearch: document.getElementById("skuScopeSearch"),
+        skuScopeSearchSummary: document.getElementById("skuScopeSearchSummary"),
+        skuBulkControls: document.getElementById("skuBulkControls"),
+        skuBulkControlTitle: document.getElementById("skuBulkControlTitle"),
+        skuBulkControlHelp: document.getElementById("skuBulkControlHelp"),
+        skuBulkPreview: document.getElementById("skuBulkPreview"),
+        skuBulkEditError: document.getElementById("skuBulkEditError"),
+        rowMenu: document.getElementById("rowMenu"),
+        quickViewBackdrop: document.getElementById("quickViewBackdrop"),
+        quickViewPanel: document.getElementById("quickViewPanel"),
+        quickViewHeading: document.getElementById("quickViewHeading"),
+        quickViewBody: document.getElementById("quickViewBody"),
+        toast: document.getElementById("toast"),
+        skuBadge: document.getElementById("skuBadge")
+      };
+
+      function productImage(product) {
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96"><rect width="96" height="96" rx="18" fill="${product.color}"/><circle cx="72" cy="22" r="19" fill="white" opacity=".12"/><path d="M8 78c18-23 32-28 52-14 11 8 20 8 28 4v28H8z" fill="black" opacity=".12"/><text x="48" y="60" text-anchor="middle" font-size="40" fill="white" font-family="Arial">${product.icon}</text></svg>`;
+        return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+      }
+
+      function escapeHtml(value) {
+        return String(value).replace(/[&<>'"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[character]);
+      }
+
+      function persistProducts() {
+        localStorage.setItem(storageKeys.products, JSON.stringify(products));
+      }
+
+      function persistColumnConfig() {
+        columnConfig = normalizeColumnConfig(columnConfig);
+        localStorage.setItem(storageKeys.columns, JSON.stringify(columnConfig));
+      }
+
+      function persistExportColumns() {
+        localStorage.setItem(storageKeys.exportColumns, JSON.stringify(exportColumnKeys));
+      }
+
+      function getColumnConfig(key) {
+        return columnConfig.find((column) => column.key === key);
+      }
+
+      function normalizeCode(value) {
+        return String(value).trim().toLocaleUpperCase("en-US");
+      }
+
+      function parseBulkCodes(value) {
+        return [...new Set(String(value).split(/[\s,;]+/).map(normalizeCode).filter(Boolean))];
+      }
+
+      function parseMainSearchTerms(value) {
+        const input = String(value).trim();
+        if (!input) return [];
+        const values = /[,;\n]/.test(input) ? input.split(/[,;\n]+/) : [input];
+        return [...new Set(values.map((term) => term.trim().toLocaleLowerCase("th")).filter(Boolean))];
+      }
+
+      function productMatchesCode(product, code) {
+        const token = normalizeCode(code);
+        const identifiers = [product.sku, product.sales, product.barcode, ...product.skuItems.flatMap((item) => [item.sku, item.sales, item.barcode])];
+        return identifiers
+          .map(normalizeCode)
+          .some((identifier) => identifier === token || identifier.endsWith(token) || identifier.includes(token));
+      }
+
+      function formatMoney(value) {
+        return new Intl.NumberFormat("th-TH", { style: "currency", currency: "THB", maximumFractionDigits: 2 }).format(value);
+      }
+
+      function quantityBehaviorLabel(value) {
+        return value === "continuous" ? "ทศนิยม / ชั่งตวง" : "จำนวนเต็ม / เป็นชิ้น";
+      }
+
+      function canInlineEditUnit(product) {
+        return product.status === "draft" && product.inventory === 0;
+      }
+
+      function filteredProducts() {
+        const queryTerms = parseMainSearchTerms(state.query);
+        const result = products.filter((product) => {
+          const matchesStatus = state.status === "all" || product.status === state.status;
+          const haystack = [
+            product.name, product.meta, product.sku, product.sales, product.barcode,
+            product.category, product.brand, product.tags.join(" "), product.branches.join(" "),
+            ...product.skuItems.flatMap((item) => [item.name, item.sku, item.sales, item.barcode])
+          ].join(" ").toLocaleLowerCase("th");
+          const matchesBulk = state.bulkCodes.length === 0 || state.bulkCodes.some((code) => productMatchesCode(product, code));
+          const matchesQuery = queryTerms.length === 0 || queryTerms.some((term) => haystack.includes(term));
+          return matchesStatus && matchesBulk && matchesQuery;
+        });
+
+        return result.sort((a, b) => {
+          let left = a[state.sortKey];
+          let right = b[state.sortKey];
+          if (state.sortKey === "sku") { left = a.sku; right = b.sku; }
+          if (typeof left === "string") return left.localeCompare(right, "th") * (state.sortDirection === "asc" ? 1 : -1);
+          return (left - right) * (state.sortDirection === "asc" ? 1 : -1);
+        });
+      }
+
+      function stockClass(value) {
+        if (value === 0) return "stock-out";
+        if (value <= 10) return "stock-low";
+        return "";
+      }
+
+      function render() {
+        const filtered = filteredProducts();
+        const pageCount = Math.max(1, Math.ceil(filtered.length / state.pageSize));
+        state.page = Math.min(state.page, pageCount);
+        const start = (state.page - 1) * state.pageSize;
+        const pageRows = filtered.slice(start, start + state.pageSize);
+
+        elements.rows.innerHTML = pageRows.map((product) => `
+          <tr data-selected="${state.selected.has(product.id)}">
+            <td class="check-cell" data-system-cell="select"><input type="checkbox" data-select-id="${product.id}" aria-label="เลือก ${product.name}" ${state.selected.has(product.id) ? "checked" : ""}></td>
+            <td data-cell-key="product">
+              <div class="product-cell">
+                <img class="product-image" data-product-image-id="${product.id}" tabindex="0" src="${productImage(product)}" alt="ภาพจำลอง ${escapeHtml(product.name)}">
+                <div><div class="product-name">${escapeHtml(product.name)}</div><div class="product-meta">${escapeHtml(product.meta)}</div></div>
+              </div>
+            </td>
+            <td data-cell-key="cf"><div class="editable-value" data-edit-id="${product.id}" data-edit-field="sales" title="คลิกเพื่อแก้รหัส CF"><span class="cell-main">${escapeHtml(product.sales)}</span><button class="copy-button" type="button" data-copy-value="${escapeHtml(product.sales)}" aria-label="คัดลอกรหัส CF ${escapeHtml(product.sales)}" title="คัดลอกรหัส CF">⧉</button></div></td>
+            <td data-cell-key="sku">
+              <div class="copyable-code"><span class="cell-main">${escapeHtml(product.sku)}</span><button class="copy-button" type="button" data-copy-value="${escapeHtml(product.sku)}" aria-label="คัดลอก SKU ${escapeHtml(product.sku)}" title="คัดลอก SKU">⧉</button></div>
+              <button class="variant-count-button" type="button" data-quick-view-id="${product.id}" data-quick-view-section="variants">${product.variants} variants · เปิดรายการ</button>
+            </td>
+            <td data-cell-key="inventory"><div class="readonly-value" title="Stock มาจาก Inventory read model"><span class="cell-main ${stockClass(product.inventory)}">${product.inventory.toLocaleString("th-TH")} in stock</span></div><div class="cell-subtext">Available ${product.available.toLocaleString("th-TH")}</div></td>
+            <td data-cell-key="unit">${canInlineEditUnit(product) ? `<div class="editable-value" data-edit-id="${product.id}" data-edit-field="unit" title="แก้ได้เฉพาะฉบับร่างที่ยังไม่มีสต็อก"><span class="cell-main">${escapeHtml(product.unit)}</span></div>` : `<div class="readonly-value" title="Base Unit ถูกล็อกเมื่อเริ่มมี Stock Movement"><span class="cell-main">${escapeHtml(product.unit)}</span></div>`}</td>
+            <td data-cell-key="price"><span class="cell-main">${formatMoney(product.price)}</span></td>
+            <td data-cell-key="status"><div class="status-select-shell ${product.status}"><span class="status-dot" aria-hidden="true"></span><select class="status-select" data-status-id="${product.id}" aria-label="สถานะ ${escapeHtml(product.name)}"><option value="active" ${product.status === "active" ? "selected" : ""}>ใช้งานอยู่</option><option value="draft" ${product.status === "draft" ? "selected" : ""}>ฉบับร่าง</option><option value="archived" ${product.status === "archived" ? "selected" : ""}>เก็บถาวร</option></select><svg class="status-chevron" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 8 4 4 4-4"/></svg></div></td>
+            <td data-cell-key="category"><span class="cell-main">${escapeHtml(product.category)}</span></td>
+            <td data-cell-key="brand"><span class="cell-main">${escapeHtml(product.brand)}</span></td>
+            <td data-cell-key="barcode"><div class="copyable-code"><span class="cell-main">${escapeHtml(product.barcode)}</span><button class="copy-button" type="button" data-copy-value="${escapeHtml(product.barcode)}" aria-label="คัดลอก Barcode" title="คัดลอก Barcode">⧉</button></div></td>
+            <td data-cell-key="quantityBehavior"><span class="cell-main">${quantityBehaviorLabel(product.quantityBehavior)}</span></td>
+            <td data-cell-key="cost"><span class="permission-value" title="ต้องมีสิทธิ์ product.cost.read">🔒 จำกัดสิทธิ์</span></td>
+            <td data-cell-key="tax"><span class="cell-main">${escapeHtml(product.tax)}</span></td>
+            <td data-cell-key="tags"><div class="cell-tags">${product.tags.slice(0, 2).map((tag) => `<span class="cell-tag">${escapeHtml(tag)}</span>`).join("")}</div></td>
+            <td data-cell-key="branches"><span class="cell-main">${escapeHtml(product.branches.join(", "))}</span></td>
+            <td data-cell-key="createdAt"><span class="cell-main">${escapeHtml(product.createdAt)}</span></td>
+            <td data-cell-key="updatedAt"><span class="cell-main">${escapeHtml(product.updatedAt)}</span></td>
+            <td data-cell-key="createdBy"><span class="cell-main">${escapeHtml(product.createdBy)}</span></td>
+            <td data-system-cell="actions">
+              <div class="row-action-wrap"><button class="row-action" type="button" data-menu-id="${product.id}" aria-label="เปิดเมนู ${product.name}" aria-haspopup="menu">⋯</button></div>
+            </td>
+          </tr>`).join("");
+
+        elements.tableWrap.style.display = filtered.length ? "block" : "none";
+        elements.empty.style.display = filtered.length ? "none" : "block";
+        elements.clearSearch.style.display = state.query ? "block" : "none";
+        elements.previous.disabled = state.page <= 1;
+        elements.next.disabled = state.page >= pageCount;
+        elements.page.textContent = `หน้า ${state.page} / ${pageCount}`;
+        elements.range.textContent = filtered.length ? `${start + 1}–${Math.min(start + state.pageSize, filtered.length)} จาก ${filtered.length} รายการ` : "0–0 จาก 0 รายการ";
+        elements.skuBadge.textContent = `${products.reduce((sum, product) => sum + product.variants, 0)} SKU`;
+        elements.bulkActiveCount.textContent = state.bulkCodes.length;
+        elements.bulkActive.style.display = state.bulkCodes.length ? "flex" : "none";
+
+        const pageIds = pageRows.map((product) => product.id);
+        const selectedOnPage = pageIds.filter((id) => state.selected.has(id)).length;
+        elements.selectAll.checked = pageIds.length > 0 && selectedOnPage === pageIds.length;
+        elements.selectAll.indeterminate = selectedOnPage > 0 && selectedOnPage < pageIds.length;
+        elements.selectedCount.textContent = state.selected.size;
+        elements.selectedSkuCount.textContent = products
+          .filter((product) => state.selected.has(product.id))
+          .reduce((sum, product) => sum + product.variants, 0);
+        elements.selectionBar.style.display = state.selected.size ? "flex" : "none";
+
+        document.querySelectorAll("[id$='Sort']").forEach((node) => node.textContent = "↕");
+        const activeSort = document.getElementById(`${state.sortKey}Sort`);
+        if (activeSort) activeSort.textContent = state.sortDirection === "asc" ? "↑" : "↓";
+        applyColumnLayout();
+      }
+
+      function showToast(message) {
+        clearTimeout(toastTimer);
+        elements.toast.textContent = message;
+        elements.toast.classList.add("visible");
+        toastTimer = setTimeout(() => elements.toast.classList.remove("visible"), 2800);
+      }
+
+      async function copyText(value) {
+        try {
+          await navigator.clipboard.writeText(value);
+        } catch {
+          const fallback = document.createElement("textarea");
+          fallback.value = value;
+          fallback.style.position = "fixed";
+          fallback.style.opacity = "0";
+          document.body.appendChild(fallback);
+          fallback.select();
+          document.execCommand("copy");
+          fallback.remove();
+        }
+        showToast(`คัดลอก ${value} แล้ว`);
+      }
+
+      function customAlertIcon(type) {
+        const paths = {
+          info: '<path d="M9 8h6M9 12h6M9 16h4M5 5h14v14H5z"/>',
+          success: '<path d="m5 12 4 4L19 6"/>',
+          warning: '<path d="M12 4 3 20h18L12 4Zm0 5v5m0 3v.01"/>',
+          duplicate: '<path d="M8 8h10v10H8zM5 15H4V4h11v1"/>'
+        };
+        return `<svg class="bulk-alert-icon" data-icon-override="${type}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[type]}</svg>`;
+      }
+
+      function updateBulkSummary() {
+        const rawCodes = String(elements.bulkTextarea.value).split(/[\s,;]+/).map(normalizeCode).filter(Boolean);
+        const codes = [...new Set(rawCodes)];
+        const duplicateCount = rawCodes.length - codes.length;
+        const found = codes.filter((code) => products.some((product) => productMatchesCode(product, code)));
+        const missing = codes.filter((code) => !found.includes(code));
+        elements.bulkSummary.innerHTML = [
+          `<div class="bulk-alert info" role="status">${customAlertIcon("info")}<span>รับข้อมูลทั้งหมด <strong>${codes.length}</strong> รหัส</span></div>`,
+          `<div class="bulk-alert success" role="status">${customAlertIcon("success")}<span>พบสินค้า <strong>${found.length}</strong> รหัส</span></div>`,
+          missing.length ? `<div class="bulk-alert warning" role="alert">${customAlertIcon("warning")}<span>ไม่พบ <strong>${missing.length}</strong> รหัส: ${missing.map(escapeHtml).join(", ")}</span></div>` : "",
+          duplicateCount ? `<div class="bulk-alert duplicate" role="status">${customAlertIcon("duplicate")}<span>ตัดรหัสซ้ำออก <strong>${duplicateCount}</strong> รายการ</span></div>` : ""
+        ].join("");
+        return codes;
+      }
+
+      function openBulkSearch() {
+        elements.bulkTextarea.value = state.bulkCodes.length ? state.bulkCodes.join("\n") : elements.search.value;
+        elements.bulkModal.classList.add("visible");
+        updateBulkSummary();
+        requestAnimationFrame(() => elements.bulkTextarea.focus());
+      }
+
+      function closeBulkSearch() {
+        elements.bulkModal.classList.remove("visible");
+        elements.search.focus();
+      }
+
+      function applyBulkSearch() {
+        const codes = updateBulkSummary();
+        if (!codes.length) {
+          showToast("กรุณาใส่รหัสอย่างน้อย 1 รายการ");
+          elements.bulkTextarea.focus();
+          return;
+        }
+        state.bulkCodes = codes;
+        state.query = "";
+        state.page = 1;
+        elements.search.value = "";
+        closeBulkSearch();
+        render();
+        showToast(`ค้นหาแบบกลุ่ม ${codes.length} รหัสแล้ว`);
+      }
+
+      function startInlineEdit(container) {
+        if (container.querySelector(".inline-editor")) return;
+        const product = products.find((item) => item.id === Number(container.dataset.editId));
+        const field = container.dataset.editField;
+        if (!product || !["sales", "unit"].includes(field)) return;
+        if (field === "unit" && !canInlineEditUnit(product)) {
+          showToast("Base Unit ถูกล็อกหลังมี Stock Movement");
+          return;
+        }
+
+        const previousValue = product[field];
+        const editor = field === "unit" ? document.createElement("select") : document.createElement("input");
+        editor.className = "inline-editor";
+        if (field === "unit") {
+          ["piece", "pair", "box", "pack", "set"].forEach((unit) => editor.add(new Option(unit, unit, false, unit === previousValue)));
+        } else {
+          editor.type = "text";
+          editor.value = previousValue;
+          if (field === "sales") editor.maxLength = 32;
+        }
+
+        container.innerHTML = "";
+        container.appendChild(editor);
+        editor.focus();
+        if (editor.select) editor.select();
+        let finished = false;
+
+        const finish = (save) => {
+          if (finished) return;
+          finished = true;
+          if (save) {
+            const value = editor.value.trim();
+            if (!value) {
+              showToast("ข้อมูลไม่ถูกต้อง จึงยังไม่บันทึก");
+            } else {
+              product[field] = value;
+              persistProducts();
+              showToast(`บันทึก ${field === "sales" ? "รหัส CF" : "Base Unit"} ใน Mockup แล้ว`);
+            }
+          }
+          render();
+        };
+
+        editor.addEventListener("keydown", (event) => {
+          if (event.key === "Enter") { event.preventDefault(); finish(true); }
+          if (event.key === "Escape") { event.preventDefault(); finish(false); }
+        });
+        editor.addEventListener("blur", () => finish(true));
+      }
+
+      function openQuickView(productId, section = "overview") {
+        const product = products.find((item) => item.id === Number(productId));
+        if (!product) return;
+        activeMenuProduct = product;
+        elements.quickViewHeading.innerHTML = `
+          <img src="${productImage(product)}" alt="ภาพจำลอง ${escapeHtml(product.name)}">
+          <div><h2 id="quickViewTitle">${escapeHtml(product.name)}</h2><p>${escapeHtml(product.category)} · ${escapeHtml(product.brand)} · ${escapeHtml(statusLabels[product.status])}</p></div>`;
+        elements.quickViewBody.innerHTML = `
+          <section class="quick-section" data-quick-section="overview">
+            <h3>ข้อมูลสำหรับการขาย</h3>
+            <div class="quick-detail-grid">
+              <div class="quick-detail"><span>รหัส CF</span><strong>${escapeHtml(product.sales)}</strong></div>
+              <div class="quick-detail"><span>SKU หลัก</span><strong>${escapeHtml(product.sku)}</strong></div>
+              <div class="quick-detail"><span>Barcode</span><strong>${escapeHtml(product.barcode)}</strong></div>
+              <div class="quick-detail"><span>ราคาขาย</span><strong>${formatMoney(product.price)}</strong></div>
+              <div class="quick-detail"><span>ราคาต้นทุน</span><strong class="permission-value">🔒 ต้องมีสิทธิ์ product.cost.read</strong></div>
+              <div class="quick-detail"><span>ภาษี</span><strong>${escapeHtml(product.tax)}</strong></div>
+              <div class="quick-detail"><span>วิธีนับจำนวน</span><strong>${quantityBehaviorLabel(product.quantityBehavior)}</strong></div>
+              <div class="quick-detail"><span>Base Unit</span><strong>${escapeHtml(product.unit)}</strong></div>
+            </div>
+          </section>
+          <section class="quick-section" data-quick-section="variants">
+            <h3>SKU / Variants (${product.skuItems.length})</h3>
+            <div class="quick-sku-wrap" tabindex="0" aria-label="ตาราง SKU เลื่อนได้เมื่อข้อมูลกว้าง"><table class="quick-sku-table"><colgroup><col style="width:18%"><col style="width:29%"><col style="width:18%"><col style="width:25%"><col style="width:10%"></colgroup><thead><tr><th scope="col">ตัวเลือก</th><th scope="col">SKU</th><th scope="col">รหัส CF</th><th scope="col">Barcode</th><th scope="col">Stock</th></tr></thead><tbody>${product.skuItems.map((item) => `<tr><td title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</td><td title="${escapeHtml(item.sku)}">${escapeHtml(item.sku)}</td><td title="${escapeHtml(item.sales)}">${escapeHtml(item.sales)}</td><td title="${escapeHtml(item.barcode)}">${escapeHtml(item.barcode)}</td><td>${item.stock.toLocaleString("th-TH")}</td></tr>`).join("")}</tbody></table></div>
+          </section>
+          <section class="quick-section">
+            <h3>คลังและการจัดส่ง</h3>
+            <div class="quick-detail-grid">
+              <div class="quick-detail"><span>On hand</span><strong>${product.inventory.toLocaleString("th-TH")}</strong></div>
+              <div class="quick-detail"><span>Available</span><strong>${product.available.toLocaleString("th-TH")}</strong></div>
+              <div class="quick-detail"><span>สาขา</span><strong>${escapeHtml(product.branches.join(", "))}</strong></div>
+              <div class="quick-detail"><span>การบรรจุ</span><strong>${escapeHtml(product.packaging)}</strong></div>
+              <div class="quick-detail"><span>น้ำหนักสินค้า / พร้อมกล่อง</span><strong>${escapeHtml(product.netWeight)} / ${escapeHtml(product.grossWeight)}</strong></div>
+              <div class="quick-detail"><span>ขนาดสินค้า / กล่อง</span><strong>${escapeHtml(product.productDimensions)} / ${escapeHtml(product.boxDimensions)}</strong></div>
+              <div class="quick-detail"><span>Bundle / Pack</span><strong>${escapeHtml(product.bundle || "—")}</strong></div>
+              <div class="quick-detail"><span>Tags</span><strong>${escapeHtml(product.tags.join(", "))}</strong></div>
+            </div>
+          </section>
+          <section class="quick-section">
+            <h3>ข้อมูลกำกับ</h3>
+            <div class="quick-detail-grid">
+              <div class="quick-detail"><span>สร้างเมื่อ</span><strong>${escapeHtml(product.createdAt)}</strong></div>
+              <div class="quick-detail"><span>แก้ไขล่าสุด</span><strong>${escapeHtml(product.updatedAt)}</strong></div>
+              <div class="quick-detail"><span>ผู้สร้าง</span><strong>${escapeHtml(product.createdBy)}</strong></div>
+            </div>
+            <p class="quick-note"><strong>หมายเหตุ:</strong> ${escapeHtml(product.note)}</p>
+          </section>`;
+        elements.quickViewBackdrop.classList.add("visible");
+        requestAnimationFrame(() => {
+          document.getElementById("closeQuickView").focus();
+          if (section === "variants") elements.quickViewBody.querySelector('[data-quick-section="variants"]')?.scrollIntoView({ block: "start" });
+        });
+      }
+
+      function closeQuickView() {
+        elements.quickViewBackdrop.classList.remove("visible");
+      }
+
+      function applyStoredColumnWidths() {
+        const legacyWidths = readStoredJson(storageKeys.widths, {});
+        document.querySelectorAll("col[data-col-key]").forEach((column) => {
+          const configuration = getColumnConfig(column.dataset.colKey);
+          const legacyWidth = Number(legacyWidths[column.dataset.colKey]);
+          if (configuration && Number.isFinite(legacyWidth)) configuration.width = Math.max(configuration.minWidth, Math.min(520, legacyWidth));
+          if (configuration) column.style.width = `${configuration.width}px`;
+        });
+        persistColumnConfig();
+        localStorage.removeItem(storageKeys.widths);
+      }
+
+      function clearPinnedPresentation(element) {
+        element.classList.remove("is-pinned", "pinned-boundary");
+        element.style.left = "";
+      }
+
+      function applyPinnedColumns() {
+        document.querySelectorAll("#productsTable th, #productsTable td").forEach(clearPinnedPresentation);
+
+        const selectionHeader = document.querySelector('[data-system-column="select"]');
+        const selectionCells = document.querySelectorAll('[data-system-cell="select"]');
+        const selectionWidth = document.querySelector('col[data-col-key="select"]')?.getBoundingClientRect().width || 48;
+        selectionHeader.classList.add("is-pinned");
+        selectionHeader.style.left = "0px";
+        selectionCells.forEach((cell) => { cell.classList.add("is-pinned"); cell.style.left = "0px"; });
+
+        let left = selectionWidth;
+        const pinnedColumns = columnConfig.filter((column) => column.visible && column.pinned).slice(0, 3);
+        pinnedColumns.forEach((column, index) => {
+          const header = document.querySelector(`[data-column="${column.key}"]`);
+          const cells = document.querySelectorAll(`[data-cell-key="${column.key}"]`);
+          header.classList.add("is-pinned");
+          header.style.left = `${left}px`;
+          cells.forEach((cell) => { cell.classList.add("is-pinned"); cell.style.left = `${left}px`; });
+          if (index === pinnedColumns.length - 1) {
+            header.classList.add("pinned-boundary");
+            cells.forEach((cell) => cell.classList.add("pinned-boundary"));
+          }
+          left += column.width;
+        });
+
+        if (pinnedColumns.length === 0) {
+          selectionHeader.classList.add("pinned-boundary");
+          selectionCells.forEach((cell) => cell.classList.add("pinned-boundary"));
+        }
+      }
+
+      function applyColumnLayout() {
+        const columnGroup = document.getElementById("productColumnGroup");
+        const headerRow = document.getElementById("productHeaderRow");
+        const selectColumn = columnGroup.querySelector('col[data-col-key="select"]');
+        const actionsColumn = columnGroup.querySelector('col[data-col-key="actions"]');
+        const selectHeader = headerRow.querySelector('[data-system-column="select"]');
+        const actionsHeader = headerRow.querySelector('[data-system-column="actions"]');
+        const layoutColumns = [
+          ...columnConfig.filter((column) => column.visible && column.pinned),
+          ...columnConfig.filter((column) => column.visible && !column.pinned),
+          ...columnConfig.filter((column) => !column.visible)
+        ];
+
+        columnGroup.appendChild(selectColumn);
+        headerRow.appendChild(selectHeader);
+        layoutColumns.forEach((configuration) => {
+          const column = columnGroup.querySelector(`col[data-col-key="${configuration.key}"]`);
+          const header = headerRow.querySelector(`[data-column="${configuration.key}"]`);
+          column.style.width = `${configuration.width}px`;
+          column.style.display = configuration.visible ? "table-column" : "none";
+          header.style.display = configuration.visible ? "table-cell" : "none";
+          columnGroup.appendChild(column);
+          headerRow.appendChild(header);
+        });
+        columnGroup.appendChild(actionsColumn);
+        headerRow.appendChild(actionsHeader);
+
+        elements.rows.querySelectorAll("tr").forEach((row) => {
+          const selectCell = row.querySelector('[data-system-cell="select"]');
+          const actionsCell = row.querySelector('[data-system-cell="actions"]');
+          row.appendChild(selectCell);
+          layoutColumns.forEach((configuration) => {
+            const cell = row.querySelector(`[data-cell-key="${configuration.key}"]`);
+            cell.style.display = configuration.visible ? "table-cell" : "none";
+            row.appendChild(cell);
+          });
+          row.appendChild(actionsCell);
+        });
+
+        const visibleWidth = columnConfig.filter((column) => column.visible).reduce((total, column) => total + column.width, 0);
+        document.getElementById("productsTable").style.minWidth = `${Math.max(720, visibleWidth + 106)}px`;
+        applyPinnedColumns();
+      }
+
+      function renderCustomizeRows() {
+        customizeDraft = normalizeColumnConfig(customizeDraft);
+        elements.customizeList.innerHTML = customizeDraft.map((column, index) => `
+          <div class="customize-row" data-customize-key="${column.key}">
+            <label class="customize-visible-label"><input type="checkbox" data-column-visible="${column.key}" ${column.visible ? "checked" : ""}><span>${escapeHtml(column.label)} ${column.sensitive ? '<small class="column-note-badge">จำกัดสิทธิ์</small>' : ""}</span></label>
+            <label><span style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">ความกว้าง ${escapeHtml(column.label)}</span><input class="column-width-input" type="number" min="${column.minWidth}" max="520" step="1" value="${column.width}" data-column-width="${column.key}"></label>
+            <label class="pin-control"><input class="pin-toggle" type="checkbox" data-column-pin="${column.key}" ${column.pinned ? "checked" : ""}> ปักหมุด</label>
+            <div class="reorder-controls"><button class="button reorder-button" type="button" data-column-move="up" data-column-key="${column.key}" aria-label="เลื่อน ${escapeHtml(column.label)} ขึ้น" ${index === 0 ? "disabled" : ""}>↑</button><button class="button reorder-button" type="button" data-column-move="down" data-column-key="${column.key}" aria-label="เลื่อน ${escapeHtml(column.label)} ลง" ${index === customizeDraft.length - 1 ? "disabled" : ""}>↓</button></div>
+          </div>`).join("");
+      }
+
+      function openCustomizeColumns() {
+        customizeDraft = structuredClone(columnConfig);
+        renderCustomizeRows();
+        const rect = elements.customizeButton.getBoundingClientRect();
+        elements.customizePopover.classList.add("visible");
+        elements.customizeButton.setAttribute("aria-expanded", "true");
+        const popoverWidth = Math.min(590, window.innerWidth - 24);
+        const left = Math.max(12, Math.min(window.innerWidth - popoverWidth - 12, rect.right - popoverWidth));
+        const top = Math.max(12, Math.min(window.innerHeight - 500, rect.bottom + 7));
+        elements.customizePopover.style.left = `${left}px`;
+        elements.customizePopover.style.top = `${top}px`;
+        requestAnimationFrame(() => elements.customizeList.querySelector("input")?.focus());
+      }
+
+      function closeCustomizeColumns() {
+        elements.customizePopover.classList.remove("visible");
+        elements.customizeButton.setAttribute("aria-expanded", "false");
+        elements.customizeButton.focus();
+      }
+
+      function openExcelToolsMenu() {
+        const rect = elements.excelButton.getBoundingClientRect();
+        elements.excelMenu.classList.add("visible");
+        elements.excelButton.setAttribute("aria-expanded", "true");
+        const menuRect = elements.excelMenu.getBoundingClientRect();
+        const left = Math.min(window.innerWidth - menuRect.width - 12, Math.max(12, rect.right - menuRect.width));
+        const top = Math.min(window.innerHeight - menuRect.height - 12, rect.bottom + 8);
+        elements.excelMenu.style.left = `${left}px`;
+        elements.excelMenu.style.top = `${top}px`;
+      }
+
+      function closeExcelToolsMenu({ restoreFocus = false } = {}) {
+        elements.excelMenu.classList.remove("visible");
+        elements.excelButton.setAttribute("aria-expanded", "false");
+        if (restoreFocus) elements.excelButton.focus();
+      }
+
+      function downloadProductTemplate() {
+        const csv = ["Product Name,Category,Brand,SKU Code,Sales Code,Barcode,Base Unit,Quantity Behavior,Price,Tax,Tags,Branches,Status", "Example Product,Apparel,Example Brand,SKU-001,CF-001,8850000000001,piece,discrete,100,VAT 7%,new|sample,BKK-01,draft"].join("\n");
+        const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = "avenzo-products-template.csv";
+        anchor.click();
+        URL.revokeObjectURL(url);
+        showToast("ดาวน์โหลด Template จำลองแล้ว");
+      }
+
+      function renderExportColumnOptions() {
+        elements.exportColumnsList.innerHTML = exportColumnDefinitions.map((column) => `
+          <label class="export-column-option">
+            <input type="checkbox" value="${column.key}" ${exportColumnKeys.includes(column.key) ? "checked" : ""} />
+            <span>${escapeHtml(column.label)}</span>
+          </label>`).join("");
+      }
+
+      function openExportColumns() {
+        renderExportColumnOptions();
+        elements.exportColumnsModal.classList.add("visible");
+        requestAnimationFrame(() => elements.exportColumnsList.querySelector("input")?.focus());
+      }
+
+      function closeExportColumns({ restoreFocus = true } = {}) {
+        elements.exportColumnsModal.classList.remove("visible");
+        if (restoreFocus) elements.excelButton.focus();
+      }
+
+      function keepFocusInside(container, event) {
+        if (event.key !== "Tab") return;
+        const focusable = [...container.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])')]
+          .filter((element) => element.offsetParent !== null);
+        if (!focusable.length) return;
+        const first = focusable[0];
+        const last = focusable.at(-1);
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+
+      document.querySelectorAll("[data-resize]").forEach((resizer) => {
+        resizer.addEventListener("pointerdown", (event) => {
+          event.preventDefault();
+          const key = resizer.dataset.resize;
+          const column = document.querySelector(`col[data-col-key="${key}"]`);
+          const startX = event.clientX;
+          const startWidth = column.getBoundingClientRect().width;
+          resizer.dataset.resizing = "true";
+          resizer.setPointerCapture(event.pointerId);
+
+          const move = (moveEvent) => {
+            const nextWidth = Math.max(90, Math.min(520, startWidth + moveEvent.clientX - startX));
+            column.style.width = `${Math.round(nextWidth)}px`;
+            const configuration = getColumnConfig(key);
+            if (configuration) configuration.width = Math.round(nextWidth);
+            applyPinnedColumns();
+          };
+
+          const stop = () => {
+            resizer.dataset.resizing = "false";
+            resizer.removeEventListener("pointermove", move);
+            resizer.removeEventListener("pointerup", stop);
+            const configuration = getColumnConfig(key);
+            if (configuration) {
+              configuration.width = Math.round(column.getBoundingClientRect().width);
+              persistColumnConfig();
+            }
+            applyColumnLayout();
+            showToast(`บันทึกความกว้างคอลัมน์ ${key} แล้ว`);
+          };
+
+          resizer.addEventListener("pointermove", move);
+          resizer.addEventListener("pointerup", stop);
+        });
+      });
+
+      elements.search.addEventListener("input", (event) => { state.query = event.target.value; state.page = 1; render(); });
+      elements.search.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") { event.preventDefault(); openBulkSearch(); }
+      });
+      elements.clearSearch.addEventListener("click", () => { state.query = ""; elements.search.value = ""; elements.search.focus(); state.page = 1; render(); });
+      elements.status.addEventListener("change", (event) => { state.status = event.target.value; state.page = 1; render(); });
+      elements.pageSize.addEventListener("change", (event) => { state.pageSize = Number(event.target.value); state.page = 1; render(); });
+      elements.previous.addEventListener("click", () => { state.page -= 1; render(); });
+      elements.next.addEventListener("click", () => { state.page += 1; render(); });
+
+      document.getElementById("clearFilters").addEventListener("click", () => {
+        state.query = ""; state.bulkCodes = []; state.status = "all"; state.page = 1;
+        elements.search.value = ""; elements.status.value = "all";
+        render(); showToast("ล้างคำค้นหาและตัวกรองแล้ว");
+      });
+
+      document.querySelector(".toolbar-icon-group").addEventListener("keydown", (event) => {
+        const items = [...event.currentTarget.querySelectorAll('[role="menuitem"]')];
+        const currentIndex = items.indexOf(document.activeElement);
+        if (currentIndex < 0) return;
+        let nextIndex = currentIndex;
+        if (event.key === "ArrowRight") nextIndex = (currentIndex + 1) % items.length;
+        else if (event.key === "ArrowLeft") nextIndex = (currentIndex - 1 + items.length) % items.length;
+        else if (event.key === "Home") nextIndex = 0;
+        else if (event.key === "End") nextIndex = items.length - 1;
+        else return;
+        event.preventDefault();
+        items[nextIndex].focus();
+      });
+
+      document.getElementById("clearBulkSearch").addEventListener("click", () => { state.bulkCodes = []; state.page = 1; render(); showToast("ล้างกลุ่มรหัสแล้ว"); });
+
+      function selectedProducts() {
+        return products.filter((product) => state.selected.has(product.id));
+      }
+
+      function selectedSkuTotal() {
+        return selectedProducts().reduce((sum, product) => sum + product.variants, 0);
+      }
+
+      function setProductBulkError(message = "") {
+        elements.productBulkEditError.textContent = message;
+        elements.productBulkEditError.classList.toggle("visible", Boolean(message));
+      }
+
+      function closeProductBulkEdit({ restoreFocus = false } = {}) {
+        elements.productBulkEditModal.classList.remove("visible", "brand-picker-open");
+        setProductBulkError();
+        bulkEditAction = null;
+        if (restoreFocus) elements.bulkActionButton.focus();
+      }
+
+                  function productBulkBrandMarkup() {
+        const supplementalBrands = ["ไม่มีแบรนด์", "Alexander", "Balenciaga", "Bottega", "Bulgari", "Cartier", "Celine", "Chanel", "Coach", "Fendi", "Givenchy", "Gucci", "Hermès", "Kate Spade", "Kenzo", "Loewe", "Louis Vuitton", "Michael Kors", "Miu Miu", "Pandora", "Prada", "Swarovski", "Tiffany & Co.", "Van Cleef & Arpels", "Versace", "Vivienne Westwood", "YSL"];
+        const brandNames = [...new Set([...products.map((product) => product.brand), ...supplementalBrands])].sort((left, right) => left.localeCompare(right, "th"));
+        const orderedBrands = ["ไม่มีแบรนด์", ...brandNames.filter((name) => name !== "ไม่มีแบรนด์")];
+        const actualCounts = products.reduce((counts, product) => counts.set(product.brand, (counts.get(product.brand) || 0) + 1), new Map());
+        const brandCount = (name) => name === "ไม่มีแบรนด์" ? 0 : Math.max(actualCounts.get(name) || 0, 3 + (brandNames.indexOf(name) * 11) % 96);
+        const recent = ["Dior", "Tory", "MK", "Avenzo"].filter((name) => brandNames.includes(name));
+        const frequent = [...brandNames].filter((name) => name !== "ไม่มีแบรนด์" && !recent.includes(name)).sort((left, right) => brandCount(right) - brandCount(left)).slice(0, 4);
+        const badgeFor = (name) => recent.includes(name) ? "ใช้ล่าสุด" : frequent.includes(name) ? "ใช้บ่อย" : "";
+        const option = (name) => {
+          const count = brandCount(name);
+          const badge = badgeFor(name);
+          const tooltip = name === "ไม่มีแบรนด์" ? "สินค้าที่ไม่กำหนดแบรนด์" : `แบรนด์นี้ใช้กับสินค้า ${count.toLocaleString("th-TH")} รายการ`;
+          return `<div class="brand-picker-option" data-choice-label="${escapeHtml(name).toLocaleLowerCase("th")}"><label><input type="radio" name="bulkProductValue" value="${escapeHtml(name)}"><span class="brand-picker-option-copy"><strong>${escapeHtml(name)}</strong>${badge ? `<span class="brand-picker-badge">${badge}</span>` : ""}</span></label><button class="brand-picker-info" type="button" aria-label="${escapeHtml(tooltip)}" data-tooltip="${escapeHtml(tooltip)}">i</button></div>`;
+        };
+        return `<div class="brand-picker"><div class="brand-picker-search-row"><label class="bulk-edit-fieldset"><span>ค้นหาแบรนด์</span><input id="productBulkChoiceSearch" class="bulk-edit-search" type="search" placeholder="พิมพ์ชื่อแบรนด์..." autocomplete="off"></label></div><div class="brand-picker-results"><div class="brand-picker-list">${orderedBrands.map(option).join("")}</div><div id="productBulkPickerEmpty" class="brand-picker-empty">ไม่พบแบรนด์ที่ค้นหา</div></div><div class="brand-picker-manage-row"><div class="brand-picker-manage-summary"><strong>เลือกแล้ว ${state.selected.size.toLocaleString("th-TH")} สินค้า</strong><span>รวม ${selectedSkuTotal().toLocaleString("th-TH")} SKU</span><span>แบรนด์ทั้งหมด ${orderedBrands.length.toLocaleString("th-TH")}</span></div><button class="button" type="button" data-manage-master data-master-label="Brand">จัดการแบรนด์</button></div></div>`;
+      }
+      function productBulkCategoryMarkup() {
+        const categories = [...new Set(products.map((product) => product.category))].sort((left, right) => left.localeCompare(right, "th"));
+        const option = (name) => {
+          const count = products.filter((product) => product.category === name).length;
+          const tooltip = `หมวดหมู่นี้ใช้กับสินค้า ${count.toLocaleString("th-TH")} รายการ`;
+          return `<div class="brand-picker-option" data-choice-label="${escapeHtml(name).toLocaleLowerCase("th")}"><label><input type="radio" name="bulkProductValue" value="${escapeHtml(name)}"><span class="brand-picker-option-copy"><strong>${escapeHtml(name)}</strong></span></label><button class="brand-picker-info" type="button" aria-label="${escapeHtml(tooltip)}" data-tooltip="${escapeHtml(tooltip)}">i</button></div>`;
+        };
+        return `<div class="brand-picker"><div class="brand-picker-search-row"><label class="bulk-edit-fieldset"><span>ค้นหาหมวดหมู่</span><input id="productBulkChoiceSearch" class="bulk-edit-search" type="search" placeholder="พิมพ์ชื่อหมวดหมู่..." autocomplete="off"></label></div><div class="brand-picker-results"><div class="brand-picker-list">${categories.map(option).join("")}</div><div id="productBulkPickerEmpty" class="brand-picker-empty">ไม่พบหมวดหมู่ที่ค้นหา</div></div><div class="brand-picker-manage-row"><div class="brand-picker-manage-summary"><strong>เลือกแล้ว ${state.selected.size.toLocaleString("th-TH")} สินค้า</strong><span>รวม ${selectedSkuTotal().toLocaleString("th-TH")} SKU</span><span>หมวดหมู่ทั้งหมด ${categories.length.toLocaleString("th-TH")}</span></div><button class="button" type="button" data-manage-master data-master-label="Category">จัดการหมวดหมู่</button></div></div>`;
+      }
+
+      function productBulkChoiceMarkup() {
+        const values = ["active", "draft", "archived"];
+        const warning = '<div class="bulk-edit-warning">การเลือก “เก็บถาวร” จะซ่อนสินค้าจากงานขายใหม่ แต่ยังเก็บประวัติเดิมไว้</div>';
+        return `${warning}<fieldset class="bulk-edit-fieldset"><legend>เลือกค่าใหม่</legend><div id="productBulkChoiceGrid" class="bulk-edit-choice-grid">${values.map((value) => `<label class="bulk-edit-choice"><input type="radio" name="bulkProductValue" value="${escapeHtml(value)}"><strong>${escapeHtml(statusLabels[value])}</strong></label>`).join("")}</div></fieldset>`;
+      }
+
+      function productBulkTagsMarkup() {
+        const tags = [...new Set(products.flatMap((product) => product.tags))].sort((left, right) => left.localeCompare(right, "th"));
+        const option = (tag) => {
+          const count = products.filter((product) => product.tags.includes(tag)).length;
+          const tooltip = `ป้ายนี้ใช้กับสินค้า ${count.toLocaleString("th-TH")} รายการ`;
+          return `<div class="brand-picker-option" data-choice-label="${escapeHtml(tag).toLocaleLowerCase("th")}"><label><input type="checkbox" name="tagValue" value="${escapeHtml(tag)}"><span class="brand-picker-option-copy"><strong>${escapeHtml(tag)}</strong></span></label><button class="brand-picker-info" type="button" aria-label="${escapeHtml(tooltip)}" data-tooltip="${escapeHtml(tooltip)}">i</button></div>`;
+        };
+        return `<fieldset class="bulk-edit-fieldset"><legend>วิธีจัดการป้ายกำกับ</legend><div class="bulk-edit-mode-group"><label><input type="radio" name="tagMode" value="add" checked><span>เพิ่มป้ายกำกับ</span></label><label><input type="radio" name="tagMode" value="remove"><span>นำป้ายออก</span></label><label><input type="radio" name="tagMode" value="replace"><span>แทนที่ทั้งหมด</span></label></div><p class="bulk-edit-helper">ค่าเริ่มต้นคือเพิ่มป้าย โดยไม่ลบป้ายเดิมของสินค้า</p></fieldset><div class="brand-picker"><div class="brand-picker-search-row"><label class="bulk-edit-fieldset"><span>ค้นหาป้ายกำกับ</span><input id="productBulkChoiceSearch" class="bulk-edit-search" type="search" placeholder="เช่น งานใหม่ โปรโมชั่น" autocomplete="off"></label></div><div class="brand-picker-results"><div class="brand-picker-list">${tags.map(option).join("")}</div><div id="productBulkPickerEmpty" class="brand-picker-empty">ไม่พบป้ายกำกับที่ค้นหา</div></div><div class="brand-picker-manage-row"><div class="brand-picker-manage-summary"><strong>เลือกแล้ว ${state.selected.size.toLocaleString("th-TH")} สินค้า</strong><span>รวม ${selectedSkuTotal().toLocaleString("th-TH")} SKU</span><span>ป้ายกำกับทั้งหมด ${tags.length.toLocaleString("th-TH")}</span></div><button class="button" type="button" data-manage-master data-master-label="Tag">จัดการป้ายกำกับ</button></div></div>`;
+      }
+
+      function renderProductBulkEdit(action) {
+        const config = {
+          brand: ["เปลี่ยนแบรนด์", "กำหนดแบรนด์เดียวให้ Product ที่เลือก"],
+          category: ["เปลี่ยนหมวดหมู่", "ย้าย Product ที่เลือกไปยังหมวดหมู่เดียวกัน"],
+          tags: ["จัดการป้ายกำกับ", "เพิ่ม นำออก หรือแทนที่ Tags ของ Product ที่เลือก"],
+          status: ["เปลี่ยนสถานะสินค้า", "กำหนดสถานะเดียวให้ Product ที่เลือก"]
+        }[action];
+        if (!config) return;
+        elements.productBulkEditTitle.textContent = config[0];
+        elements.productBulkEditDescription.textContent = config[1];
+        elements.productBulkScope.textContent = `${state.selected.size} สินค้า`;
+        elements.productBulkSkuScope.textContent = `รวม ${selectedSkuTotal()} SKU`;
+        elements.productBulkEditModal.classList.toggle("brand-picker-open", ["brand", "category", "tags"].includes(action));
+        elements.productBulkEditBody.innerHTML = action === "tags" ? productBulkTagsMarkup() : action === "brand" ? productBulkBrandMarkup() : action === "category" ? productBulkCategoryMarkup() : productBulkChoiceMarkup();
+        setProductBulkError();
+      }
+
+      function openProductBulkEdit(action) {
+        bulkEditAction = action;
+        renderProductBulkEdit(action);
+        elements.productBulkEditModal.classList.add("visible");
+        requestAnimationFrame(() => elements.productBulkEditBody.querySelector("input")?.focus());
+      }
+
+      function applyProductBulkEdit(event) {
+        event.preventDefault();
+        const selected = selectedProducts();
+        const formData = new FormData(elements.productBulkEditForm);
+        if (bulkEditAction === "tags") {
+          const mode = formData.get("tagMode");
+          const values = formData.getAll("tagValue").map(String);
+          if (!values.length) {
+            setProductBulkError("กรุณาเลือกป้ายกำกับอย่างน้อย 1 รายการ");
+            return;
+          }
+          selected.forEach((product) => {
+            if (mode === "replace") product.tags = [...values];
+            else if (mode === "remove") product.tags = product.tags.filter((tag) => !values.includes(tag));
+            else product.tags = [...new Set([...product.tags, ...values])];
+          });
+        } else {
+          const value = formData.get("bulkProductValue");
+          if (!value) {
+            setProductBulkError("กรุณาเลือกค่าใหม่ก่อนนำไปใช้");
+            return;
+          }
+          selected.forEach((product) => { product[bulkEditAction] = String(value); });
+        }
+        persistProducts();
+        render();
+        const changedCount = selected.length;
+        closeProductBulkEdit({ restoreFocus: true });
+        showToast(`อัปเดต ${changedCount} สินค้าใน Mockup แล้ว`);
+      }
+
+      function selectedSkuRows() {
+        return selectedProducts().flatMap((product) => product.skuItems.map((sku, index) => ({
+          key: `${product.id}:${index}`,
+          product,
+          sku,
+          index
+        })));
+      }
+
+      function activeSkuRows() {
+        const rows = selectedSkuRows();
+        const data = new FormData(elements.skuBulkEditForm);
+        if (data.get("skuScope") !== "specific") return rows;
+        const selectedKeys = new Set(data.getAll("skuKey").map(String));
+        return rows.filter((row) => selectedKeys.has(row.key));
+      }
+
+      function setSkuBulkError(message = "") {
+        elements.skuBulkEditError.textContent = message;
+        elements.skuBulkEditError.classList.toggle("visible", Boolean(message));
+      }
+
+      function closeSkuBulkEdit({ restoreFocus = false } = {}) {
+        elements.skuBulkEditModal.classList.remove("visible");
+        setSkuBulkError();
+        skuBulkEditAction = null;
+        if (restoreFocus) elements.bulkActionButton.focus();
+      }
+
+      function skuControlMarkup(action) {
+        if (action === "stock") {
+          return '<label class="field-stack"><span>สาขา / คลังสินค้า</span><select name="stockLocation" required><option value="">เลือกคลังสินค้า</option><option value="BKK-01">BKK-01 · คลังกรุงเทพ</option><option value="PKT-01">PKT-01 · คลังภูเก็ต</option></select></label><label class="field-stack"><span>วิธีปรับสต็อก</span><select name="stockDirection"><option value="increase">ปรับเพิ่ม</option><option value="decrease">ปรับลด</option><option value="set">กำหนดยอดใหม่</option></select></label><label class="field-stack"><span>จำนวน</span><input name="bulkValue" type="number" min="0" step="1" placeholder="0" required></label><label class="field-stack span-all"><span>เหตุผลการปรับ</span><textarea name="stockReason" minlength="3" maxlength="300" placeholder="เช่น ตรวจนับสต็อกหน้าร้าน" required></textarea></label><div class="bulk-edit-warning span-all">การยืนยันในระบบจริงต้องสร้าง Stock Movement พร้อมผู้ดำเนินการและ Audit Log ห้ามแก้ยอดคงเหลือตรง ๆ</div>';
+        }
+        const label = action === "cost" ? "ราคาต้นทุน" : "ราคาขาย";
+        const permission = action === "cost" ? '<div class="bulk-edit-warning span-all">ข้อมูลราคาต้นทุนจะแสดงและแก้ไขได้เฉพาะผู้มีสิทธิ์ product.cost.manage</div>' : "";
+        return `<label class="field-stack"><span>วิธีคำนวณ</span><select name="priceMode"><option value="set">กำหนดราคาใหม่</option><option value="amount">เพิ่ม / ลดเป็นจำนวนเงิน</option><option value="percent">เพิ่ม / ลดเป็นเปอร์เซ็นต์</option></select></label><label class="field-stack"><span>${label} (บาท)</span><input name="bulkValue" type="number" step="0.01" placeholder="0.00" required></label><label class="field-stack"><span>การปัดเศษ</span><select name="rounding"><option value="none">ไม่ปัดเศษ</option><option value="whole">ปัดเป็นจำนวนเต็ม</option><option value="ten">ปัดเป็นหลักสิบ</option></select></label>${permission}`;
+      }
+
+      function skuCurrentValue(row) {
+        if (skuBulkEditAction === "stock") return row.sku.stock;
+        return skuBulkEditAction === "cost" ? row.sku.cost ?? row.product.cost : row.sku.price ?? row.product.price;
+      }
+
+      function skuNextValue(row) {
+        const data = new FormData(elements.skuBulkEditForm);
+        const current = Number(skuCurrentValue(row));
+        const rawInput = String(data.get("bulkValue") ?? "").trim();
+        if (!rawInput) return current;
+        const input = Number(rawInput);
+        if (!Number.isFinite(input)) return current;
+        if (skuBulkEditAction === "stock") {
+          const direction = data.get("stockDirection");
+          if (direction === "increase") return current + input;
+          if (direction === "decrease") return Math.max(0, current - input);
+          return input;
+        }
+        const mode = data.get("priceMode");
+        let next = mode === "amount" ? current + input : mode === "percent" ? current * (1 + input / 100) : input;
+        const rounding = data.get("rounding");
+        if (rounding === "whole") next = Math.round(next);
+        if (rounding === "ten") next = Math.round(next / 10) * 10;
+        return Math.max(0, next);
+      }
+
+      function filterSkuScopeList() {
+        const query = elements.skuScopeSearch.value.trim().toLocaleLowerCase("th-TH");
+        let visibleCount = 0;
+        elements.skuScopeList.querySelectorAll(".sku-scope-row").forEach((row) => {
+          const matches = !query || row.dataset.search.includes(query);
+          row.hidden = !matches;
+          if (matches) visibleCount += 1;
+        });
+        const total = elements.skuScopeList.querySelectorAll(".sku-scope-row").length;
+        elements.skuScopeSearchSummary.textContent = query ? `พบ ${visibleCount} จาก ${total} SKU` : `เลือกได้ทั้งหมด ${total} SKU`;
+      }
+
+      function updateSkuBulkPreview() {
+        const formData = new FormData(elements.skuBulkEditForm);
+        const scope = formData.get("skuScope") || "all";
+        const isAllSku = scope === "all";
+        const totalSku = selectedSkuRows().length;
+        elements.skuScopeList.dataset.scope = scope;
+        elements.skuScopeSummary.hidden = !isAllSku;
+        elements.skuScopeSearchWrap.hidden = isAllSku;
+        elements.skuScopeList.hidden = isAllSku;
+        elements.skuScopeSummary.textContent = `กำลังแก้ไข SKU ทั้งหมด ${totalSku} รายการ`;
+        elements.skuScopeList.querySelectorAll('input[name="skuKey"]').forEach((input) => {
+          input.disabled = isAllSku;
+        });
+        if (!isAllSku) filterSkuScopeList();
+
+        const rows = activeSkuRows();
+        elements.skuBulkPreview.innerHTML = rows.length
+          ? rows.map((row) => {
+            const current = skuCurrentValue(row);
+            const next = skuNextValue(row);
+            const display = (value) => skuBulkEditAction === "stock" ? `${Number(value).toLocaleString("th-TH")} ${row.product.unit}` : formatMoney(value);
+            return `<tr><td data-label="สินค้า">${escapeHtml(row.product.name)}</td><td data-label="SKU">${escapeHtml(row.sku.sku)}</td><td data-label="ค่าปัจจุบัน">${display(current)}</td><td data-label="ค่าหลังแก้ไข">${display(next)}</td></tr>`;
+          }).join("")
+          : '<tr><td class="sku-preview-empty" colspan="4">เลือกอย่างน้อย 1 SKU เพื่อดูตัวอย่าง</td></tr>';
+      }
+
+      function renderSkuBulkEdit(action) {
+        const config = {
+          price: ["แก้ไขราคาขาย", "กำหนดราคาใหม่หรือปรับราคาให้ SKU ที่เลือก"],
+          cost: ["แก้ไขราคาต้นทุน", "จำกัดตามสิทธิ์และบันทึก Audit Log ในระบบจริง"],
+          stock: ["ปรับจำนวนสต็อก", "การยืนยันจริงจะสร้าง Stock Movement แยกตาม SKU"]
+        }[action];
+        if (!config) return;
+        elements.skuBulkEditTitle.textContent = config[0];
+        elements.skuBulkEditDescription.textContent = config[1];
+        elements.skuBulkProductScope.textContent = `${state.selected.size} สินค้า`;
+        elements.skuBulkSkuScope.textContent = `รวม ${selectedSkuTotal()} SKU`;
+        elements.skuBulkControlTitle.textContent = config[0];
+        elements.skuBulkControlHelp.textContent = action === "stock" ? "ระบุคลัง จำนวน และเหตุผลให้ครบ" : "เลือกวิธีคำนวณแล้วตรวจตัวอย่างก่อนยืนยัน";
+        elements.skuBulkControls.innerHTML = skuControlMarkup(action);
+        elements.skuBulkEditForm.querySelector('input[name="skuScope"][value="all"]').checked = true;
+        elements.skuScopeSearch.value = "";
+        elements.skuScopeList.innerHTML = selectedSkuRows().map((row) => `<label class="sku-scope-row" data-search="${escapeHtml(`${row.sku.sku} ${row.product.name}`.toLocaleLowerCase("th-TH"))}"><input type="checkbox" name="skuKey" value="${row.key}" checked disabled><strong>${escapeHtml(row.sku.sku)}</strong><span>${escapeHtml(row.product.name)}</span></label>`).join("");
+        setSkuBulkError();
+        updateSkuBulkPreview();
+      }
+
+      function openSkuBulkEdit(action) {
+        skuBulkEditAction = action;
+        renderSkuBulkEdit(action);
+        elements.skuBulkEditModal.classList.add("visible");
+        requestAnimationFrame(() => elements.skuBulkEditModal.querySelector("input, select")?.focus());
+      }
+
+      function applySkuBulkEdit(event) {
+        event.preventDefault();
+        const rows = activeSkuRows();
+        if (!rows.length) {
+          setSkuBulkError("กรุณาเลือก SKU อย่างน้อย 1 รายการ");
+          return;
+        }
+        const data = new FormData(elements.skuBulkEditForm);
+        const rawInput = String(data.get("bulkValue") ?? "").trim();
+        const input = Number(rawInput);
+        if (!rawInput || !Number.isFinite(input) || input < 0) {
+          setSkuBulkError("กรุณากรอกค่าที่ต้องการเปลี่ยนให้ถูกต้อง");
+          return;
+        }
+        if (skuBulkEditAction === "stock" && (!data.get("stockLocation") || String(data.get("stockReason") || "").trim().length < 3)) {
+          setSkuBulkError("กรุณาเลือกคลังและระบุเหตุผลอย่างน้อย 3 ตัวอักษร");
+          return;
+        }
+        rows.forEach((row) => {
+          const next = skuNextValue(row);
+          if (skuBulkEditAction === "stock") row.sku.stock = next;
+          else row.sku[skuBulkEditAction] = next;
+        });
+        const changedCount = rows.length;
+        persistProducts();
+        render();
+        closeSkuBulkEdit({ restoreFocus: true });
+        showToast(`จำลองการอัปเดต ${changedCount} SKU แล้ว — ยังไม่เขียนระบบจริง`);
+      }
+
+      function closeBulkActionMenu({ restoreFocus = false } = {}) {
+        elements.bulkActionMenu.hidden = true;
+        elements.bulkActionButton.setAttribute("aria-expanded", "false");
+        if (restoreFocus) elements.bulkActionButton.focus();
+      }
+
+      function openBulkActionMenu() {
+        elements.bulkActionMenu.hidden = false;
+        elements.bulkActionButton.setAttribute("aria-expanded", "true");
+      }
+
+      elements.bulkActionButton.addEventListener("click", () => {
+        if (elements.bulkActionMenu.hidden) openBulkActionMenu();
+        else closeBulkActionMenu({ restoreFocus: true });
+      });
+
+      elements.bulkActionButton.addEventListener("keydown", (event) => {
+        if (event.key !== "ArrowDown") return;
+        event.preventDefault();
+        openBulkActionMenu();
+        elements.bulkActionMenu.querySelector('[role="menuitem"]')?.focus();
+      });
+
+      elements.bulkActionMenu.addEventListener("keydown", (event) => {
+        const items = [...elements.bulkActionMenu.querySelectorAll('[role="menuitem"]')];
+        const currentIndex = items.indexOf(document.activeElement);
+        if (event.key === "Escape") {
+          event.preventDefault();
+          closeBulkActionMenu({ restoreFocus: true });
+          return;
+        }
+        let nextIndex = currentIndex;
+        if (event.key === "ArrowDown") nextIndex = (currentIndex + 1) % items.length;
+        else if (event.key === "ArrowUp") nextIndex = (currentIndex - 1 + items.length) % items.length;
+        else if (event.key === "Home") nextIndex = 0;
+        else if (event.key === "End") nextIndex = items.length - 1;
+        else return;
+        event.preventDefault();
+        items[nextIndex].focus();
+      });
+
+      elements.bulkActionMenu.addEventListener("click", (event) => {
+        const action = event.target.closest("[data-bulk-action]")?.dataset.bulkAction;
+        if (!action) return;
+        closeBulkActionMenu();
+        if (["brand", "category", "tags", "status"].includes(action)) {
+          openProductBulkEdit(action);
+          return;
+        }
+        if (["price", "cost", "stock"].includes(action)) {
+          openSkuBulkEdit(action);
+          return;
+        }
+        showToast("การแก้ไขหลายข้อมูลพร้อมกันจะอยู่ในระยะถัดไป");
+      });
+
+      elements.productBulkEditForm.addEventListener("submit", applyProductBulkEdit);
+      document.getElementById("closeProductBulkEdit").addEventListener("click", () => closeProductBulkEdit({ restoreFocus: true }));
+      document.getElementById("cancelProductBulkEdit").addEventListener("click", () => closeProductBulkEdit({ restoreFocus: true }));
+      elements.productBulkEditModal.addEventListener("click", (event) => {
+        if (event.target === elements.productBulkEditModal) closeProductBulkEdit({ restoreFocus: true });
+      });
+      elements.productBulkEditModal.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          closeProductBulkEdit({ restoreFocus: true });
+          return;
+        }
+        keepFocusInside(elements.productBulkEditModal, event);
+      });
+                  elements.productBulkEditModal.addEventListener("input", (event) => {
+        if (event.target.id !== "productBulkChoiceSearch") return;
+        const query = event.target.value.trim().toLocaleLowerCase("th");
+        const choices = [...elements.productBulkEditModal.querySelectorAll("[data-choice-label]")];
+        choices.forEach((choice) => {
+          choice.hidden = Boolean(query) && !choice.dataset.choiceLabel.includes(query);
+        });
+
+        const matchCount = choices.filter((choice) => !choice.hidden).length;
+        const empty = document.getElementById("productBulkPickerEmpty");
+        if (empty) {
+          const itemLabel = bulkEditAction === "brand" ? "แบรนด์" : bulkEditAction === "category" ? "หมวดหมู่" : "ป้ายกำกับ";
+          empty.textContent = query ? `ไม่พบ${itemLabel} “${event.target.value.trim()}”` : `ไม่พบ${itemLabel}ที่ค้นหา`;
+          empty.classList.toggle("visible", Boolean(query) && matchCount === 0);
+        }
+      });
+      elements.productBulkEditModal.addEventListener("click", (event) => {
+        const infoButton = event.target.closest(".brand-picker-info");
+        if (infoButton) {
+          event.preventDefault();
+          return;
+        }
+        const manageButton = event.target.closest("[data-manage-master]");
+        if (!manageButton) return;
+        showToast(`เปิด ${manageButton.dataset.masterLabel} master ใน Mockup — ยังไม่เชื่อมระบบจริง`);
+      });
+      elements.skuBulkEditForm.addEventListener("input", updateSkuBulkPreview);
+      elements.skuBulkEditForm.addEventListener("change", updateSkuBulkPreview);
+      elements.skuScopeSearch.addEventListener("input", filterSkuScopeList);
+      elements.skuBulkEditForm.addEventListener("submit", applySkuBulkEdit);
+      document.getElementById("closeSkuBulkEdit").addEventListener("click", () => closeSkuBulkEdit({ restoreFocus: true }));
+      document.getElementById("cancelSkuBulkEdit").addEventListener("click", () => closeSkuBulkEdit({ restoreFocus: true }));
+      elements.skuBulkEditModal.addEventListener("click", (event) => {
+        if (event.target === elements.skuBulkEditModal) closeSkuBulkEdit({ restoreFocus: true });
+      });
+      elements.skuBulkEditModal.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          closeSkuBulkEdit({ restoreFocus: true });
+          return;
+        }
+        keepFocusInside(elements.skuBulkEditModal, event);
+      });
+
+      document.getElementById("clearSelection").addEventListener("click", () => {
+        closeBulkActionMenu();
+        state.selected.clear();
+        render();
+      });
+
+      elements.selectAll.addEventListener("change", (event) => {
+        const filtered = filteredProducts();
+        const start = (state.page - 1) * state.pageSize;
+        filtered.slice(start, start + state.pageSize).forEach((product) => event.target.checked ? state.selected.add(product.id) : state.selected.delete(product.id));
+        render();
+      });
+
+      elements.rows.addEventListener("change", (event) => {
+        const checkbox = event.target.closest("[data-select-id]");
+        if (checkbox) {
+          const id = Number(checkbox.dataset.selectId);
+          checkbox.checked ? state.selected.add(id) : state.selected.delete(id);
+          render();
+          return;
+        }
+
+        const statusSelect = event.target.closest("[data-status-id]");
+        if (statusSelect) {
+          const product = products.find((item) => item.id === Number(statusSelect.dataset.statusId));
+          const nextStatus = statusSelect.value;
+          if (nextStatus === "archived" && product.status !== "archived" && !window.confirm(`ยืนยันเก็บ ${product.name} เป็นรายการถาวรใน Mockup?`)) {
+            render();
+            return;
+          }
+          product.status = nextStatus;
+          persistProducts();
+          render();
+          showToast(`เปลี่ยนสถานะเป็น ${statusLabels[nextStatus]} แล้ว`);
+        }
+      });
+
+      document.querySelectorAll("[data-sort]").forEach((button) => button.addEventListener("click", () => {
+        if (state.sortKey === button.dataset.sort) state.sortDirection = state.sortDirection === "asc" ? "desc" : "asc";
+        else { state.sortKey = button.dataset.sort; state.sortDirection = "asc"; }
+        state.page = 1; render();
+      }));
+
+      elements.rows.addEventListener("click", (event) => {
+        const quickViewButton = event.target.closest("[data-quick-view-id]");
+        if (quickViewButton) {
+          openQuickView(quickViewButton.dataset.quickViewId, quickViewButton.dataset.quickViewSection);
+          return;
+        }
+
+        const copyButton = event.target.closest("[data-copy-value]");
+        if (copyButton) {
+          event.stopPropagation();
+          copyText(copyButton.dataset.copyValue);
+          return;
+        }
+
+        const editable = event.target.closest("[data-edit-field]");
+        if (editable) {
+          startInlineEdit(editable);
+          return;
+        }
+
+        const button = event.target.closest("[data-menu-id]");
+        if (!button) return;
+        activeMenuProduct = products.find((product) => product.id === Number(button.dataset.menuId));
+        const rect = button.getBoundingClientRect();
+        elements.rowMenu.style.display = "block";
+        const menuWidth = 168;
+        elements.rowMenu.style.left = `${Math.max(8, Math.min(window.innerWidth - menuWidth - 8, rect.right - menuWidth))}px`;
+        elements.rowMenu.style.top = `${Math.min(window.innerHeight - 130, rect.bottom + 4)}px`;
+      });
+
+      function showImagePreview(target, clientX, clientY) {
+        const product = products.find((item) => item.id === Number(target.dataset.productImageId));
+        if (!product) return;
+        elements.imagePreviewPicture.src = productImage(product);
+        elements.imagePreviewPicture.alt = `ภาพขยาย ${product.name}`;
+        elements.imagePreviewName.textContent = product.name;
+        elements.imagePreview.style.display = "block";
+        const previewWidth = 280;
+        const previewHeight = 310;
+        const left = Math.min(window.innerWidth - previewWidth - 10, clientX + 18);
+        const top = Math.min(window.innerHeight - previewHeight - 10, clientY + 18);
+        elements.imagePreview.style.left = `${Math.max(10, left)}px`;
+        elements.imagePreview.style.top = `${Math.max(10, top)}px`;
+        elements.imagePreview.setAttribute("aria-hidden", "false");
+      }
+
+      function hideImagePreview() {
+        elements.imagePreview.style.display = "none";
+        elements.imagePreview.setAttribute("aria-hidden", "true");
+      }
+
+      elements.rows.addEventListener("mouseover", (event) => {
+        const image = event.target.closest("[data-product-image-id]");
+        if (image) showImagePreview(image, event.clientX, event.clientY);
+      });
+      elements.rows.addEventListener("mousemove", (event) => {
+        const image = event.target.closest("[data-product-image-id]");
+        if (image) showImagePreview(image, event.clientX, event.clientY);
+      });
+      elements.rows.addEventListener("mouseout", (event) => {
+        if (event.target.closest("[data-product-image-id]")) hideImagePreview();
+      });
+      elements.rows.addEventListener("focusin", (event) => {
+        const image = event.target.closest("[data-product-image-id]");
+        if (image) {
+          const rect = image.getBoundingClientRect();
+          showImagePreview(image, rect.right, rect.top);
+        }
+      });
+      elements.rows.addEventListener("focusout", (event) => {
+        if (event.target.closest("[data-product-image-id]")) hideImagePreview();
+      });
+
+      elements.rowMenu.addEventListener("click", (event) => {
+        const action = event.target.closest("[data-menu-action]");
+        if (!action || !activeMenuProduct) return;
+        elements.rowMenu.style.display = "none";
+        if (action.dataset.menuAction === "quick-view") {
+          openQuickView(activeMenuProduct.id);
+          return;
+        }
+        showToast(`${action.dataset.menuAction}: ${activeMenuProduct.name} — Prototype เท่านั้น`);
+      });
+
+      document.getElementById("closeQuickView").addEventListener("click", closeQuickView);
+      elements.quickViewBackdrop.addEventListener("click", (event) => { if (event.target === elements.quickViewBackdrop) closeQuickView(); });
+      elements.quickViewPanel.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") { event.preventDefault(); closeQuickView(); return; }
+        keepFocusInside(elements.quickViewPanel, event);
+      });
+
+      document.addEventListener("click", (event) => {
+        if (!event.target.closest("[data-menu-id]") && !event.target.closest("#rowMenu")) elements.rowMenu.style.display = "none";
+        if (elements.customizePopover.classList.contains("visible") && !event.target.closest("#customizeColumnsPopover") && !event.target.closest("#customizeColumnsButton")) closeCustomizeColumns();
+        if (elements.excelMenu.classList.contains("visible") && !event.target.closest("#excelToolsMenu") && !event.target.closest("#excelToolsButton")) closeExcelToolsMenu();
+        if (!elements.bulkActionMenu.hidden && !event.target.closest(".bulk-action")) closeBulkActionMenu();
+      });
+
+      document.getElementById("bulkSearchButton").addEventListener("click", openBulkSearch);
+      document.getElementById("closeBulkSearch").addEventListener("click", closeBulkSearch);
+      document.getElementById("cancelBulkSearch").addEventListener("click", closeBulkSearch);
+      document.getElementById("applyBulkSearch").addEventListener("click", applyBulkSearch);
+      elements.bulkTextarea.addEventListener("input", updateBulkSummary);
+      elements.bulkTextarea.addEventListener("keydown", (event) => {
+        if ((event.ctrlKey || event.metaKey) && event.key === "Enter") { event.preventDefault(); applyBulkSearch(); }
+        if (event.key === "Escape") { event.preventDefault(); closeBulkSearch(); }
+      });
+      elements.bulkModal.addEventListener("click", (event) => { if (event.target === elements.bulkModal) closeBulkSearch(); });
+      elements.bulkModal.addEventListener("keydown", (event) => keepFocusInside(elements.bulkModal, event));
+
+      elements.customizeButton.addEventListener("click", () => {
+        closeExcelToolsMenu();
+        if (elements.customizePopover.classList.contains("visible")) closeCustomizeColumns();
+        else openCustomizeColumns();
+      });
+
+      elements.excelButton.addEventListener("click", () => {
+        if (elements.customizePopover.classList.contains("visible")) closeCustomizeColumns();
+        if (elements.excelMenu.classList.contains("visible")) closeExcelToolsMenu({ restoreFocus: true });
+        else openExcelToolsMenu();
+      });
+      elements.excelButton.addEventListener("keydown", (event) => {
+        if (event.key !== "ArrowDown") return;
+        event.preventDefault();
+        openExcelToolsMenu();
+        elements.excelMenu.querySelector('[role="menuitem"]')?.focus();
+      });
+      elements.excelMenu.addEventListener("keydown", (event) => {
+        const items = [...elements.excelMenu.querySelectorAll('[role="menuitem"]')];
+        const currentIndex = items.indexOf(document.activeElement);
+        if (event.key === "Escape") {
+          event.preventDefault();
+          closeExcelToolsMenu({ restoreFocus: true });
+          return;
+        }
+        if (event.key === "Tab") {
+          closeExcelToolsMenu();
+          return;
+        }
+        let nextIndex = currentIndex;
+        if (event.key === "ArrowDown") nextIndex = (currentIndex + 1) % items.length;
+        else if (event.key === "ArrowUp") nextIndex = (currentIndex - 1 + items.length) % items.length;
+        else if (event.key === "Home") nextIndex = 0;
+        else if (event.key === "End") nextIndex = items.length - 1;
+        else return;
+        event.preventDefault();
+        items[nextIndex].focus();
+      });
+      elements.excelMenu.addEventListener("click", (event) => {
+        const action = event.target.closest("[data-excel-action]")?.dataset.excelAction;
+        if (!action) return;
+        closeExcelToolsMenu();
+        if (action === "import") elements.excelImportInput.click();
+        else if (action === "template") downloadProductTemplate();
+        else openExportColumns();
+      });
+      elements.excelImportInput.addEventListener("change", () => {
+        const file = elements.excelImportInput.files?.[0];
+        if (file) showToast(`เลือกไฟล์ ${file.name} แล้ว — Prototype จะไม่อัปโหลดข้อมูล`);
+        elements.excelImportInput.value = "";
+      });
+      document.getElementById("closeExportColumns").addEventListener("click", () => closeExportColumns());
+      document.getElementById("cancelExportColumns").addEventListener("click", () => closeExportColumns());
+      document.getElementById("selectAllExportColumns").addEventListener("click", () => {
+        elements.exportColumnsList.querySelectorAll('input[type="checkbox"]').forEach((input) => { input.checked = true; });
+      });
+      document.getElementById("saveExportColumns").addEventListener("click", () => {
+        const selected = [...elements.exportColumnsList.querySelectorAll('input[type="checkbox"]:checked')].map((input) => input.value);
+        if (!selected.length) {
+          showToast("เลือกอย่างน้อย 1 คอลัมน์");
+          return;
+        }
+        exportColumnKeys = normalizeExportColumns(selected);
+        persistExportColumns();
+        closeExportColumns();
+        showToast(`บันทึกคอลัมน์ส่งออก ${exportColumnKeys.length} รายการแล้ว`);
+      });
+      elements.exportColumnsModal.addEventListener("click", (event) => {
+        if (event.target === elements.exportColumnsModal) closeExportColumns();
+      });
+      elements.exportColumnsModal.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          closeExportColumns();
+          return;
+        }
+        keepFocusInside(elements.exportColumnsModal, event);
+      });
+      document.getElementById("closeCustomizeColumns").addEventListener("click", closeCustomizeColumns);
+      document.getElementById("cancelCustomizeColumns").addEventListener("click", closeCustomizeColumns);
+      elements.customizePopover.addEventListener("keydown", (event) => { if (event.key === "Escape") closeCustomizeColumns(); });
+      elements.customizeList.addEventListener("change", (event) => {
+        const visibleInput = event.target.closest("[data-column-visible]");
+        if (visibleInput) {
+          const column = customizeDraft.find((item) => item.key === visibleInput.dataset.columnVisible);
+          column.visible = visibleInput.checked;
+          if (!column.visible) column.pinned = false;
+          renderCustomizeRows();
+          return;
+        }
+
+        const widthInput = event.target.closest("[data-column-width]");
+        if (widthInput) {
+          const column = customizeDraft.find((item) => item.key === widthInput.dataset.columnWidth);
+          column.width = Math.max(column.minWidth, Math.min(520, Number(widthInput.value) || column.width));
+          widthInput.value = column.width;
+          return;
+        }
+
+        const pinInput = event.target.closest("[data-column-pin]");
+        if (pinInput) {
+          const column = customizeDraft.find((item) => item.key === pinInput.dataset.columnPin);
+          if (pinInput.checked && customizeDraft.filter((item) => item.pinned && item.visible).length >= 3) {
+            pinInput.checked = false;
+            showToast("ปักหมุดได้สูงสุด 3 คอลัมน์");
+            return;
+          }
+          column.pinned = pinInput.checked;
+          if (column.pinned) column.visible = true;
+          renderCustomizeRows();
+        }
+      });
+
+      elements.customizeList.addEventListener("click", (event) => {
+        const moveButton = event.target.closest("[data-column-move]");
+        if (!moveButton) return;
+        const index = customizeDraft.findIndex((column) => column.key === moveButton.dataset.columnKey);
+        const targetIndex = moveButton.dataset.columnMove === "up" ? index - 1 : index + 1;
+        if (index < 0 || targetIndex < 0 || targetIndex >= customizeDraft.length) return;
+        const [column] = customizeDraft.splice(index, 1);
+        customizeDraft.splice(targetIndex, 0, column);
+        customizeDraft.forEach((item, order) => { item.order = order; });
+        renderCustomizeRows();
+        elements.customizeList.querySelector(`[data-column-key="${column.key}"][data-column-move="${moveButton.dataset.columnMove}"]`)?.focus();
+      });
+
+      document.getElementById("restoreColumnsButton").addEventListener("click", () => {
+        customizeDraft = normalizeColumnConfig(structuredClone(defaultColumnConfig));
+        renderCustomizeRows();
+        showToast("เตรียมคืนค่าคอลัมน์เดิม กดบันทึกเพื่อยืนยัน");
+      });
+
+      document.getElementById("saveCustomizeColumns").addEventListener("click", () => {
+        if (!customizeDraft.some((column) => column.visible)) {
+          showToast("ต้องแสดงอย่างน้อย 1 คอลัมน์");
+          return;
+        }
+        columnConfig = normalizeColumnConfig(structuredClone(customizeDraft));
+        persistColumnConfig();
+        render();
+        closeCustomizeColumns();
+        showToast("บันทึกการตั้งค่าคอลัมน์แล้ว");
+      });
+
+      const newProductButton = document.getElementById("newProductButton");
+      const createProductMenu = document.getElementById("createProductMenu");
+      const closeCreateProductMenu = () => { createProductMenu.hidden = true; newProductButton.setAttribute("aria-expanded", "false"); };
+      newProductButton.addEventListener("click", () => {
+        createProductMenu.hidden = !createProductMenu.hidden;
+        newProductButton.setAttribute("aria-expanded", String(!createProductMenu.hidden));
+        if (!createProductMenu.hidden) createProductMenu.querySelector("a").focus();
+      });
+      document.addEventListener("click", (event) => { if (!event.target.closest(".create-action")) closeCreateProductMenu(); });
+      document.addEventListener("keydown", (event) => { if (event.key === "Escape" && !createProductMenu.hidden) { closeCreateProductMenu(); newProductButton.focus(); } });
+      document.querySelectorAll("[data-demo-action]").forEach((link) => link.addEventListener("click", (event) => { event.preventDefault(); showToast(`${link.dataset.demoAction} — Breadcrumb Prototype`); }));
+      applyStoredColumnWidths();
+      render();
+    </script>
+  </body>
+</html>

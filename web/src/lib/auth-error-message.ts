@@ -5,6 +5,7 @@ type AuthErrorLike = {
 
 const authErrorMessages: Record<string, string> = {
   anonymous_provider_disabled: 'ระบบไม่อนุญาตให้เข้าใช้งานแบบไม่ระบุตัวตน',
+  auth_service_unreachable: 'ไม่สามารถเชื่อมต่อระบบยืนยันตัวตนได้ชั่วคราว กรุณาตรวจสอบเครือข่ายแล้วลองใหม่',
   bad_code_verifier: 'ลิงก์ยืนยันไม่ถูกต้อง กรุณาขอลิงก์ใหม่อีกครั้ง',
   email_address_invalid: 'รูปแบบอีเมลไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง',
   email_address_not_authorized: 'อีเมลนี้ยังไม่ได้รับอนุญาตให้ใช้งานระบบ',
@@ -46,6 +47,7 @@ export function isExistingAccountError(error: unknown) {
 export function getThaiAuthError(error: unknown) {
   const { code = '', message = '' } = asAuthError(error)
   if (authErrorMessages[code]) return authErrorMessages[code]
+  if (/fetch failed|network|unable to connect/i.test(message)) return authErrorMessages.auth_service_unreachable
   if (/invalid login credentials/i.test(message)) return authErrorMessages.invalid_credentials
   if (/email not confirmed/i.test(message)) return authErrorMessages.email_not_confirmed
   if (/rate limit|too many requests/i.test(message)) return authErrorMessages.over_request_rate_limit

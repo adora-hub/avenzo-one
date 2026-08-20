@@ -1,0 +1,1414 @@
+# Design QA — Phase B Part 5 Unified Variant Creation
+
+วันที่ตรวจ: 16 สิงหาคม 2026
+
+## เป้าหมาย
+
+นำ Variant Builder จาก Approved Mockup มาใช้ในฟอร์มจริง โดยคงลำดับเนื้อหา, option cards, bulk tools, variant matrix, status controls และ responsive behavior
+
+## หลักฐานภาพ
+
+- Reference: `docs/mockups/evidence/phase-b5/mockup-variant-builder.png`
+- Actual: `docs/mockups/evidence/phase-b5/actual-variant-builder.png`
+
+## Interaction QA
+
+- เลือกรูปแบบสินค้า Variant แล้ว builder แสดง: ผ่าน
+- ค่าเริ่มต้น สี 2 ค่า × ไซซ์ 4 ค่า = 8 Combination: ผ่าน
+- Bulk price ใช้กับทุกรายการ: ผ่าน
+- F5 คืนค่า 8 Combination และราคาที่กรอก: ผ่าน
+- จำกัด 3 กลุ่ม, 12 ค่าต่อกลุ่ม, 100 Combination: ผ่านจาก code/test gate
+
+---
+
+# Design QA — Product Creation Success Modal
+
+วันที่ตรวจ: 16 สิงหาคม 2026
+
+## Source visual truth
+
+- ภาพอ้างอิง: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-db7f57ab-a1fb-41b1-ada6-fb02cf92098d.png`
+- เป้าหมายที่อนุมัติ: ปุ่มหลัก 2 ปุ่มอยู่แถวบน และลิงก์ “ดูรายละเอียดสินค้านี้ →” อยู่แถวล่างกึ่งกลางเต็มความกว้าง
+- Source pixels: 788 × 402 px
+- State: Success dialog · light theme · desktop
+
+## Implementation evidence
+
+- Component: `web/src/app/organizations/[id]/products/new/unified-product-creation-form.tsx`
+- Styles: `web/src/app/globals.css`
+- Browser-rendered screenshot: unavailable
+- Implementation pixels / CSS viewport / density: unavailable เพราะ in-app Browser เริ่มทำงานไม่ได้จาก Windows sandbox (`apply deny-read ACLs`)
+
+## Full-view comparison
+
+- Blocked: ไม่มี browser-rendered implementation screenshot จึงยังเปรียบเทียบภาพแบบ normalized view ไม่ได้
+
+## Focused region comparison
+
+- Static structure ยืนยันว่าปุ่ม “กลับหน้ารายการสินค้า” และ “สร้างสินค้ารายการถัดไป” อยู่ใน action grid เดียวกัน
+- ลิงก์ “ดูรายละเอียดสินค้านี้ →” ถูกย้ายออกมาเป็นแถวถัดไป กึ่งกลาง และกว้างเต็ม footer
+- Mobile rule เรียงปุ่มหลัก “สร้างสินค้ารายการถัดไป” ก่อนปุ่มรอง
+- ยังไม่ถือเป็น visual evidence จนกว่าจะจับภาพจาก browser ได้
+
+## Verification
+
+- Regression tests: 10/10 passed
+- TypeScript: passed
+- Interaction contract: focus trap, Escape, navigation destinations และ no Stock side effect ยังถูกตรวจด้วย test
+
+- Error state และ duplicate code guard: ผ่านจาก validation/test gate
+
+## Visual QA
+
+- โครงสร้าง card, spacing, typography และ matrix ตรง Approved Mockup
+- ปรับ bulk toolbar ให้ปุ่มไม่ตัดบรรทัดในพื้นที่จริง
+- แถบสรุปแสดงจำนวน Combination และช่วงราคาในโหมด Variant
+- ฟอร์มจริงคง App Shell และ Sidebar ของระบบ ไม่ถือเป็นความแตกต่างจากตัว Mockup แบบ standalone
+
+ผล: **ผ่านสำหรับ Owner verification**
+---
+
+# Design QA — Products Data Grid Variant Expansion
+
+วันที่ตรวจ: 17 สิงหาคม 2026
+
+## Source visual truth
+
+- ภาพอ้างอิง: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-d18d849a-7fdf-416e-90f5-dc03cf1489b6.png`
+- เป้าหมาย: Product หนึ่งแถวสามารถเปิดดู SKU Variant ที่ซ่อนอยู่ได้ โดยไม่เปลี่ยนฐานข้อมูลหรือ command ฝั่งระบบ
+- State: Products Data Grid · desktop · Product ที่มี 2 SKU
+
+## Implementation evidence
+
+- Component: `web/src/app/organizations/[id]/products/products-data-grid.tsx`
+- Styles: `web/src/app/globals.css`
+- Regression test: `web/scripts/test-products-r7-4-default-grid-alignment.mjs`
+- Browser-rendered screenshot: unavailable เพราะการเชื่อมต่อ in-app Browser ถูก Windows sandbox ปฏิเสธ (`apply deny-read ACLs`)
+
+## Interaction QA
+
+- Product ที่มีมากกว่า 1 SKU แสดงปุ่ม “ดู N ตัวเลือก”: ผ่านจาก component/test
+- เปิด/ปิด Variant Card ด้วยปุ่มเดิมและ `aria-expanded`: ผ่านจาก component/test
+- แสดงชื่อ Variant, SKU, รหัสขาย/CF, Barcode, ราคา, หน่วยนับ และสถานะจาก read model จริง: ผ่านจาก component/test
+- รองรับคัดลอกรหัสแต่ละ SKU และหน้าจอ mobile: ผ่านจาก component/test
+- Product ที่มี SKU เดียวยังคงเป็นแถวเดียว: ผ่านจากเงื่อนไข `skuCount > 1`
+- มากกว่า 5 SKU แสดงจำนวนที่เหลือและลิงก์ไปจัดการ SKU ทั้งหมด: ผ่านจาก component/test
+
+## Verification
+
+- Focused regression: 7/7 passed
+- Related Product Grid regressions: 21/21 passed
+- TypeScript: passed
+- Local Products route: server responded 307 to login for unauthenticated request; authenticated visual state must be checked in the user's signed-in browser
+
+## Visual comparison
+
+- Blocked: ไม่สามารถจับ implementation screenshot จาก browser ใน session นี้ จึงยังไม่สามารถยืนยัน pixel-level spacing และ overflow ของ Variant Card ได้
+
+final result: blocked
+
+---
+
+# Design QA — Products Copy Controls
+
+วันที่ตรวจ: 17 สิงหาคม 2026
+
+## Source visual truth
+
+- ภาพอ้างอิง: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-b80fe93f-e503-4bf6-ae6c-77e1d077e145.png`
+- เป้าหมาย: ปุ่มคัดลอก SKU, รหัสขาย/CF และ Barcode ใช้ Copy icon มาตรฐานเดียวกัน พร้อม Tooltip ด้านบน
+- State: Products Data Grid และ Variant Card · desktop
+
+## Implementation evidence
+
+- Component: `web/src/app/organizations/[id]/products/products-data-grid.tsx`
+- Styles: `web/src/app/globals.css`
+- Regression tests: `web/scripts/test-products-r7-4-default-grid-alignment.mjs`, `web/scripts/test-products-r7-visual-parity.mjs`, `web/scripts/test-products-r3-data-grid.mjs`
+
+## Interaction QA
+
+- Copy controls ทั้ง 6 ตำแหน่งใช้ shared `copyButton`: ผ่านจาก source audit/test
+- ใช้ Copy icon เดียวกับตารางหลัก ไม่มีข้อความ “คัดลอก” เป็นปุ่ม: ผ่านจาก source audit/test
+- Tooltip แสดงด้านบนเมื่อ hover และ keyboard focus: ผ่านจาก component/test
+- สำเร็จเปลี่ยนเป็นเครื่องหมายยืนยันและข้อความ “คัดลอกแล้ว”: ผ่านจาก component/test
+- Failure feedback แสดง “คัดลอกไม่สำเร็จ”: ผ่านจาก component/test
+
+## Verification
+
+- Product visual parity: 5/5 passed
+- Product data grid: 6/6 passed
+- Default grid alignment: 8/8 passed
+- TypeScript: passed
+- Browser-rendered visual comparison: unavailable เพราะ in-app Browser ถูก Windows sandbox ปฏิเสธ (`apply deny-read ACLs`)
+
+final result: blocked
+
+---
+
+# Design QA — Products Inline Edit Alignment
+
+วันที่ตรวจ: 17 สิงหาคม 2026
+
+## Source visual truth
+
+- ภาพอ้างอิง: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-8fbd397e-5a5d-4bd9-a8ab-75d7b6f39e69.png`
+- เป้าหมาย: ไอคอนแก้ไข Stock และราคาขายอยู่ระดับเดียวกับข้อความหลัก พร้อม Tooltip ด้านบน
+
+## Implementation evidence
+
+- Component: `web/src/app/organizations/[id]/products/products-data-grid.tsx`
+- Styles: `web/src/app/globals.css`
+- Regression test: `web/scripts/test-products-r7-visual-parity.mjs`
+
+## Interaction QA
+
+- ไอคอนเริ่มจากแถวข้อความหลักด้วย `align-items: flex-start` และ offset 2px: ผ่านจาก source/test
+- Stock และราคาใช้ Tooltip fixed ด้านบนตัวไอคอน: ผ่านจาก component/test
+- Tooltip รองรับทั้ง mouse hover และ keyboard focus: ผ่านจาก component/test
+- ถอด Tooltip pseudo-element ด้านล่างเดิมออกเพื่อไม่ให้ถูก cell overflow บัง: ผ่านจาก source audit
+
+## Verification
+
+- Product visual parity: 5/5 passed
+
+---
+# Design QA — Products Search Button Group
+
+วันที่ตรวจ: 17 สิงหาคม 2026
+
+## Source visual truth
+
+- ภาพอ้างอิง: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-8883e790-50f9-4ff5-9516-02440e5f2a4e.png`
+- Workspace copy: `web/products-search-button-group-reference.png`
+- Source pixels: 699 × 59 px
+- เป้าหมาย: ลดความกว้างรวมของช่องค้นหาและปุ่มค้นหาหลายรหัสประมาณ 40% พร้อมเชื่อมขอบเป็น Button Group โดยไม่เปลี่ยนพฤติกรรมเดิม
+- State: Products Data Grid · desktop · light theme · idle
+
+## Implementation evidence
+
+- Component: `web/src/app/organizations/[id]/products/product-sku-workspace.tsx`
+- Styles: `web/src/app/globals.css`
+- Regression test: `web/scripts/test-products-r7-visual-parity.mjs`
+- Local route: `http://localhost:3000/organizations/69408fd5-4f58-4546-9ab4-5b92009bd241/products` ตอบกลับ HTTP 200
+- Browser-rendered screenshot: unavailable เพราะ in-app Browser ถูก Windows sandbox ปฏิเสธ (`apply deny-read ACLs`)
+- Implementation pixels / CSS viewport / density: unavailable
+
+## Focused comparison
+
+- ลดชุดเดิมจากภาพอ้างอิงกว้าง 699px เหลือ track รวม 420px หรือ 60% ของความกว้างเดิมโดยประมาณ
+- ช่องค้นหาและปุ่มอยู่ใน `product-search-button-group` เดียวกัน ไม่มี gap และใช้เส้นขอบร่วมกันด้วย `margin-left: -1px`
+- ช่องค้นหาใช้รัศมีเฉพาะด้านซ้าย และปุ่มใช้รัศมีเฉพาะด้านขวา
+- หน้าจอไม่เกิน 760px กลุ่มกลับเป็นความกว้าง 100% เพื่อไม่ให้ส่วนควบคุมแคบเกินไป
+
+## Required fidelity surfaces
+
+- Fonts and typography: ใช้ font, น้ำหนัก และความสูง 38px เดิมของ Products toolbar
+- Spacing and layout rhythm: ลดความกว้างตามคำขอและเชื่อม control เป็นกลุ่มเดียว; ตัวกรองสถานะยังเป็น control แยก
+- Colors and visual tokens: รักษาปุ่มดำ/ขาวและ hover token เดิมทั้ง light/dark theme
+- Image quality and asset fidelity: ไม่มี raster asset ใน control; ไอคอนและข้อความเดิมไม่ถูกเปลี่ยน
+- Copy and content: คง placeholder และข้อความ “ค้นหาหลายรหัส” เดิม
+
+## Interaction verification
+
+- การค้นหาแบบเรียลไทม์และ comma-separated search: ผ่าน regression test
+- Enter เปิดหน้าต่างค้นหาหลายรหัส: ผ่าน regression test
+- ปุ่มค้นหาหลายรหัส, ล้างคำค้นหา และตัวกรองสถานะ: handlers เดิมไม่ถูกแก้
+- Product Visual Parity: 5/5 passed
+- Product Data Grid: 7/7 passed
+- TypeScript: passed
+- `git diff --check`: passed
+
+## Blocker
+
+- ไม่สามารถจับภาพ implementation และเทียบแบบ side-by-side ใน session นี้ เนื่องจาก in-app Browser เริ่มทำงานไม่ได้จาก Windows ACL
+
+final result: blocked
+- Default grid alignment: 8/8 passed
+- TypeScript: passed
+- Browser-rendered visual comparison: unavailable เพราะ in-app Browser ถูก Windows sandbox ปฏิเสธ (`apply deny-read ACLs`)
+
+final result: blocked
+
+---
+
+# Design QA — Products Sticky Actions Column
+
+วันที่ตรวจ: 17 สิงหาคม 2026
+
+## Source visual truth
+
+- ภาพอ้างอิง: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-2919d20a-1965-40ec-80df-4e11bde59edc.png`
+- Source pixels: 103 × 409 px
+- เป้าหมาย: คอลัมน์การดำเนินการต้องมองเห็นเสมอทางขวาเมื่อเลื่อนตารางแนวนอน และหัวคอลัมน์ต้องสื่อความหมายของปุ่มเมนูในแต่ละแถว
+- State: Products Data Grid · desktop · focused right edge
+
+## Implementation evidence
+
+- Component: `web/src/app/organizations/[id]/products/products-data-grid.tsx`
+- Styles: `web/src/app/globals.css`
+- Regression test: `web/scripts/test-products-r3-data-grid.mjs`
+- Browser-rendered screenshot: unavailable เพราะ in-app Browser เริ่มทำงานไม่ได้จาก Windows sandbox (`apply deny-read ACLs`)
+- Implementation pixels / CSS viewport / density: unavailable
+
+## Focused comparison
+
+- คอลัมน์คำสั่งกำหนดความกว้างคงที่ 72px และ `position: sticky; right: 0`
+- หัวคอลัมน์แสดงสัญลักษณ์เมนู พร้อมชื่อสำหรับ screen reader ว่า “การดำเนินการ”
+- เซลล์คอลัมน์รักษาสีพื้นหลังให้ตรงกับสถานะปกติ, hover และ selected
+- มีเงาขอบซ้ายเพื่อแยกคอลัมน์ Fixed ออกจากข้อมูลที่เลื่อนผ่านด้านหลัง
+- รองรับหัวตารางทั้งโหมดสว่างและโหมดมืด
+
+## Required fidelity surfaces
+
+- Fonts and typography: ใช้ขนาดและน้ำหนักเดียวกับปุ่มเมนูแถวเดิม
+- Spacing and layout rhythm: ความกว้าง 72px และระยะซ้ายขวา 12px ตรงโครงสร้างเดิม
+- Colors and visual tokens: ใช้ surface, hover และ selected tokens เดิมของ Products
+- Image quality and asset fidelity: ไม่มี raster asset ในส่วนนี้; ใช้สัญลักษณ์เมนูเดิมของตาราง
+- Copy and content: เพิ่มชื่อ “การดำเนินการ” สำหรับ accessibility โดยไม่เพิ่มข้อความรกในหัวตาราง
+
+## Verification
+
+- Product Data Grid tests: 7/7 passed
+- Default Grid Alignment tests: 9/9 passed
+- Visual Parity tests: 5/5 passed
+- TypeScript: passed
+- Local Products route: HTTP 200
+
+## Blocker
+
+
+---
+
+# Design QA — Products Action Icon Hover and Tooltip
+
+วันที่ตรวจ: 17 สิงหาคม 2026
+
+## Source visual truth
+
+- ภาพอ้างอิง: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-542999ee-cbd1-454c-81ed-4db2191058af.png`
+- Source pixels: 103 × 304 px
+- เป้าหมาย: Hover เปลี่ยนเฉพาะสีไอคอน `…` โดยไม่มีพื้นหลังหรือกรอบแบบปุ่ม และแสดง Tooltip ด้านบน
+
+## Implementation evidence
+
+- Component: `web/src/app/organizations/[id]/products/products-data-grid.tsx`
+- Styles: `web/src/app/globals.css`
+- Test: `web/scripts/test-products-r3-data-grid.mjs`
+- Browser screenshot: unavailable เพราะ in-app Browser ถูก Windows ACL ปฏิเสธ (`apply deny-read ACLs`)
+
+## Interaction verification
+
+- Mouse hover และ keyboard focus แสดง Tooltip “การดำเนินการ” ผ่าน shared top-tooltip component
+- Hover ไม่มีพื้นหลังและไม่มีกรอบ; เปลี่ยนเฉพาะสีไอคอน
+- Focus-visible ยังคง focus ring เพื่อการใช้งานด้วยคีย์บอร์ด
+- Click, Enter, Space และ ArrowDown ยังเปิดเมนูเดิม
+- Product Data Grid tests: 7/7 passed
+- Visual Parity tests: 5/5 passed
+- TypeScript: passed
+
+## Blocker
+
+- ไม่สามารถจับภาพ Hover state จาก Browser เพื่อทำ pixel-level comparison ได้ใน session นี้
+
+final result: blocked
+
+---
+
+# Design QA — Products Advanced Filter Bar Scaffold
+
+วันที่ตรวจ: 17 สิงหาคม 2026
+
+## Source visual truth
+
+- ภาพอ้างอิง: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-adb3ccc4-a9d6-436c-a5b9-0b9d019cc42f.png`
+- Source pixels: 1773 × 95 px
+- เป้าหมาย: ใช้พื้นที่ว่างถัดจากสถานะเป็นโครงตัวกรองเพิ่มเติม โดยไม่รบกวนช่องค้นหาเดิมและเครื่องมือตารางทางขวา
+- State: Products Data Grid · desktop · light theme · filter panel closed/open
+
+## Implementation evidence
+
+- Component: `web/src/app/organizations/[id]/products/product-sku-workspace.tsx`
+- Styles: `web/src/app/globals.css`
+- Regression test: `web/scripts/test-products-r7-visual-parity.mjs`
+- Browser-rendered screenshot: unavailable
+- Implementation pixels / CSS viewport / device density: unavailable เพราะทั้ง in-app Browser และ Windows Computer Use เริ่มทำงานไม่ได้จาก Windows sandbox (`apply deny-read ACLs`)
+
+## Full-view comparison evidence
+
+- Blocked: ไม่สามารถจับภาพ implementation ที่ viewport และ state เดียวกับภาพอ้างอิง จึงยังยืนยันระยะจริงระหว่างสถานะ ปุ่มตัวกรองเพิ่มเติม และไอคอนเครื่องมือตารางไม่ได้
+
+## Focused region comparison evidence
+
+- Static structure ยืนยันว่า Filter Bar มีสาม track: Search Button Group 420px, สถานะ 146px และพื้นที่ตัวกรองเพิ่มเติมที่ยืดได้
+- ปุ่มเปิด–ปิดใช้ความสูง 36px, border radius 9px และ token เดียวกับ Combobox สถานะ
+- แผงตัวกรองมีหัวข้อ คำอธิบาย empty state และ footer เตรียมไว้ โดยยังไม่เพิ่ม field ของข้อ 2–6
+- หน้าจอไม่เกิน 760px เปลี่ยนเป็นหนึ่งคอลัมน์และปุ่ม/แผงกว้างเต็มพื้นที่
+- Focused visual comparison ยังถูกบล็อกเพราะไม่มี browser-rendered screenshot
+
+## Required fidelity surfaces
+
+- Fonts and typography: ใช้ font inheritance และขนาด 12–15px ตามระบบ Products เดิม; ยังต้องยืนยันการ wrap จากภาพจริง
+- Spacing and layout rhythm: ใช้ความสูง 36px และระยะ 4–16px ตาม toolbar เดิม; pixel comparison ยังถูกบล็อก
+- Colors and visual tokens: ใช้ `surface`, `border`, `text`, `focus` tokens เดิม รองรับ light/dark โดยไม่เพิ่มค่าสีใหม่
+- Image quality and asset fidelity: ไม่มี raster asset ใหม่; คง search และ table action icons เดิม
+- Copy and content: ใช้คำว่า “ตัวกรองเพิ่มเติม” และอธิบายว่าต้องเลือกเงื่อนไขให้ครบก่อนค้นหา
+
+## Primary interactions checked
+
+- Click เปิด/ปิดแผง, click นอกพื้นที่ปิด, Escape ปิดและคืน focus: มี implementation และ TypeScript ผ่าน
+- เปิดตัวกรองสถานะจะปิดแผงตัวกรองเพิ่มเติม และเปิดแผงเพิ่มเติมจะปิดสถานะ: มี implementation
+- Visual Parity: 5/5 passed
+- Product Data Grid: 7/7 passed
+- Page Structure: 4/4 passed
+- TypeScript: passed
+- Console errors: ตรวจไม่ได้เพราะ browser runtime ถูกบล็อก
+
+## Findings
+
+- [P2] ยังไม่มี browser-rendered evidence สำหรับระยะและสถานะเปิดจริง
+  - Location: Products toolbar / `.product-advanced-filter-panel`
+  - Evidence: source เปิดอ่านได้เฉพาะ metadata แต่ Browser และ Computer Use จบด้วย Windows ACL error
+  - Impact: ยังไม่สามารถยืนยัน pixel-level alignment, clipping, stacking และ dark mode จากภาพจริง
+  - Fix: เปิด browser runtime ได้แล้วจับ desktop light/dark และ mobile open state จาก route ที่ล็อกอิน
+
+## Comparison history
+
+- รอบแรก: implementation และ automated gates ผ่าน แต่ visual comparison ถูกบล็อกก่อนมีภาพ implementation; ยังไม่มี P0/P1 และไม่มี visual fix ที่อ้างจากภาพจริง
+
+final result: blocked
+---
+
+# Design QA — Products Advanced Filter Step 2
+
+วันที่ตรวจ: 17 สิงหาคม 2026
+
+## Source visual truth
+
+- ภาพอ้างอิงสถานะเปิด: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-1d26cb46-9a2d-46bc-9949-34342d78df2f.png`
+- Source pixels: 1793 × 603 px
+- เป้าหมาย: ขยายแผงเป็น 680px เพิ่มวันที่สร้าง/วันที่แก้ไขและช่วงวันที่ โดยสถานะกับวันที่รอใช้พร้อมกันเมื่อกดค้นหา
+
+## Implementation evidence
+
+- Component: `web/src/app/organizations/[id]/products/product-sku-workspace.tsx`
+- Server route: `web/src/app/organizations/[id]/products/page.tsx`
+- Repository: `web/src/lib/foundation/supabase-repository.ts`
+- Styles: `web/src/app/globals.css`
+- Regression test: `web/scripts/test-products-r7-visual-parity.mjs`
+- Browser-rendered screenshot: unavailable เพราะ session ไม่มี Browser/Chrome/Computer tool ที่เรียกใช้งานได้
+
+## Interaction verification
+
+- สถานะในหน้า Products เปลี่ยนเป็น draft และเปิดแผงเพื่อให้ผู้ใช้เห็นปุ่มค้นหา
+- เลือกวันที่สร้างหรือวันที่แก้ไข พร้อมระบุเฉพาะวันเริ่ม วันสิ้นสุด หรือทั้งคู่ได้
+- ช่วงวันที่ผิดลำดับแสดงข้อความเตือนก่อนส่ง URL
+- ปุ่มล้างทั้งหมดล้างสถานะและวันที่ใน draft; ปุ่มค้นหาส่งสถานะและวันที่ครั้งเดียว
+- URL ใช้ `date_by`, `date_from`, `date_to` และรักษาค่าเมื่อค้นหาหลายรหัส เปิด Quick View หรือเปลี่ยนหน้า
+- Repository กรอง tenant-scoped products ด้วย `created_at` หรือ `updated_at` ตามเวลา Asia/Bangkok
+- Panel desktop กว้างสูงสุด 680px; หน้าจอไม่เกิน 760px เรียงหนึ่งคอลัมน์
+
+## Automated checks
+
+- TypeScript: passed
+- Visual Parity: 5/5 passed
+- Product Data Grid: 7/7 passed
+- Product Page Structure: 4/4 passed
+- Responsive Visual Matrix: 13/13 passed
+- Pagination: 4/4 passed
+- `git diff --check`: passed
+
+## Evidence limits
+
+- ยังยืนยัน pixel-level alignment, native date-picker appearance, dark mode และ keyboard focus order จาก browser จริงไม่ได้
+- ต้องรับภาพ F5 จากผู้ใช้ในสถานะเปิดแผงเพื่อปิด visual gate
+
+final result: blocked
+
+## Owner production parity approval
+
+- Screenshot: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-36327a17-22bc-4a4c-a496-66f34a1bb035.png`
+- Owner ยืนยันข้อ 1–2 และปุ่มที่แก้ไขผ่านเมื่อ 17 สิงหาคม 2026
+- ปุ่มใช้ Products standard: Secondary แบบ outline และ Primary สีดำพร้อม hover สีเทา
+
+final result: passed
+
+---
+
+# Design QA — Product Quick Create Queue Thumbnail and Icon Actions
+
+วันที่ตรวจ: 17 สิงหาคม 2026
+
+## Source visual truth
+
+- ภาพอ้างอิง: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-c61fd6e1-4530-45c4-8240-64b0053d38d7.png`
+- เป้าหมาย: คิวสินค้าที่รอสร้างต้องแสดงภาพแรกของสินค้าในแต่ละแถว และเปลี่ยนปุ่มข้อความแก้ไข/นำออกเป็น icon-only action พร้อม Tooltip ด้านบน
+- State: Unified Product Creation · Quick Create Queue · desktop · light theme
+
+## Implementation evidence
+
+- Component: `web/src/app/organizations/[id]/products/new/unified-product-creation-form.tsx`
+- Styles: `web/src/app/globals.css`
+- Design standard: `docs/AVENZO_ONE_Design_System_and_UIUX_Standards_V1.md`
+- Browser-rendered screenshot: unavailable เพราะ in-app Browser เริ่มทำงานไม่ได้จาก Windows sandbox (`apply deny-read ACLs`)
+- Implementation pixels / CSS viewport / density: unavailable
+
+## Static and interaction verification
+
+- ทุกสินค้าที่กดเก็บใหม่ต้องมีภาพอย่างน้อย 1 ภาพ มิฉะนั้นระบบไม่เพิ่มเข้าคิว
+- แต่ละแถว snapshot `imageId` และชื่อภาพปก แล้วแสดง thumbnail 44 × 44 px อัตราส่วน 1:1
+- เมื่อ F5 แล้วไฟล์จากเครื่องไม่สามารถถูกเก็บใน Browser Draft ได้ตามข้อจำกัดเดิม จะแสดงสถานะให้เลือกรูปใหม่แทนการแสดงภาพผิดรายการ
+- ปุ่มแก้ไขและนำออกใช้ icon-only action พร้อม `aria-label`
+- Tooltip แสดงด้านบนทั้ง mouse hover และ keyboard focus
+- คู่มือ Design System เปลี่ยนมาตรฐานเป็น icon-only ทุกปุ่มต้องมี Accessible Label และ Tooltip เสมอ
+
+## Automated checks
+
+- SKU Components: 6/6 passed
+- SKU Staging Interaction: 11/11 passed
+- Validation Summary Interaction: 12/12 passed
+- TypeScript: passed
+- `git diff --check`: passed (มีเพียงคำเตือน line ending ของ Git บน Windows)
+
+## Required fidelity surfaces
+
+- Fonts and typography: ใช้ขนาดข้อความและ token เดิมของ staging table; ต้องยืนยันการตัดชื่อยาวจาก browser จริง
+- Spacing and layout rhythm: thumbnail 44px, gap 9px และ icon action 32px; ต้องยืนยันแนวฐานจาก browser จริง
+- Colors and visual tokens: ใช้ surface/text/status tokens เดิม รวม danger hover สำหรับนำออก
+- Image quality and asset fidelity: ใช้ภาพจริงที่ผู้ใช้เลือกและ `object-fit: cover`; ไม่ใช้ placeholder เมื่อมีไฟล์อยู่ใน session
+- Copy and content: Tooltip ใช้ “แก้ไขสินค้า” และ “นำออกจากคิว”; สถานะหลัง F5 อธิบายว่ารูปจากเครื่องไม่ถูกเก็บ
+
+## Blocker
+
+- ไม่สามารถจับ implementation screenshot และทดสอบ hover/focus แบบ pixel-level ได้ เพราะ browser runtime ถูก Windows ACL ปฏิเสธ
+
+final result: blocked
+---
+
+# Design QA — Quick Create Queue Sticky Actions and Product Snapshot
+
+วันที่ตรวจ: 17 สิงหาคม 2026
+
+## Source visual truth
+
+- ภาพอ้างอิง: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-37e42457-33d2-4611-9de0-daf23ee7fa3e.png`
+- เป้าหมาย: ตรึงคอลัมน์แก้ไข/นำออกไว้ขวาสุด และทำคิว Browser Draft ให้เก็บ–คืนข้อมูลสินค้าทั้งรายการเพื่อทดสอบการสร้างต่อเนื่อง
+- State: Unified Product Creation · Quick Create Queue · desktop · light theme · horizontal overflow
+
+## Implementation evidence
+
+- Component: `web/src/app/organizations/[id]/products/new/unified-product-creation-form.tsx`
+- Styles: `web/src/app/globals.css`
+- Regression test: `web/scripts/test-products-r7-sku-staging-interaction.mjs`
+- Browser-rendered screenshot: unavailable เพราะ in-app Browser เริ่มทำงานไม่ได้จาก Windows sandbox (`apply deny-read ACLs`)
+- Implementation pixels / CSS viewport / density: unavailable
+
+## Interaction verification
+
+- คอลัมน์ดำเนินการกำหนด `position: sticky; right: 0` และความกว้างคงที่ 82px
+- คิว snapshot ค่าฟอร์ม, checkbox, หมวดหมู่, แบรนด์, Tags, รูปแบบสินค้า, ภาษี, หน่วยขาย, Bundle และสาขาของแต่ละรายการแยกกัน
+- รูปสินค้าเก็บใน memory ตาม draft ID ตลอด session; หลัง F5 แสดงให้เลือกไฟล์ใหม่ตามข้อจำกัด Browser Draft
+- เมื่อเก็บรายการใหม่ ฟอร์มล้างข้อมูลเฉพาะสินค้า แต่คง Base Unit, สาขา, ภาษี และค่ารัน Sales Code เพื่อเตรียมรหัสถัดไป
+- แก้ไขคืน snapshot และรูปของรายการนั้นโดยไม่ผสมกับรายการอื่น
+- นำออกลบ snapshot และ revoke object URL ของรูปที่เกี่ยวข้อง
+- ขนาด Browser Draft เพิ่มเป็น 1 MB พร้อม sanitize จำนวน field และความยาวข้อความก่อนคืนค่า
+
+## Automated checks
+
+- SKU Components + Staging + Validation: 30/30 passed
+- TypeScript: passed
+- Sticky/snapshot interaction contract: 12/12 passed
+
+## Required fidelity surfaces
+
+- Fonts and typography: คง typography เดิมของ staging table และ icon actions
+- Spacing and layout rhythm: action column 82px พร้อมเงาขอบซ้ายเพื่อแยกจากข้อมูลที่เลื่อนผ่าน
+- Colors and visual tokens: ใช้ surface tokens เดิม รองรับ light/dark
+- Image quality and asset fidelity: ใช้ thumbnail จากไฟล์จริงใน session; ไม่มีการสร้างภาพแทน
+- Copy and content: เปลี่ยน feedback จากเก็บ SKU เป็นเก็บสินค้าทั้งรายการให้ตรงพฤติกรรม
+
+## Blocker
+
+- ไม่สามารถจับภาพ implementation, ทดสอบ horizontal scroll, hover/focus Tooltip และเปรียบเทียบ pixel-level กับภาพอ้างอิงใน session นี้ เพราะ browser runtime ถูก Windows ACL ปฏิเสธ
+
+final result: blocked
+---
+
+# Design QA — Queue Fixed Actions and Inline Sale Price
+
+วันที่ตรวจ: 17 สิงหาคม 2026
+
+## Source visual truth
+
+- ภาพอ้างอิง: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-b340bc7b-718c-49b4-ae35-ad94c54bda30.png`
+- เป้าหมาย: คอลัมน์ดำเนินการต้องตรึงขวาสุดโดยไม่ถูกข้อมูลทับ และต้องแก้ราคาขายในแถวคิวสินค้าได้
+- State: Unified Product Creation · Browser Draft queue · desktop · light theme · horizontal overflow
+
+## Implementation evidence
+
+- Component: `web/src/app/organizations/[id]/products/new/unified-product-creation-form.tsx`
+- Styles: `web/src/app/globals.css`
+- Regression test: `web/scripts/test-products-r7-sku-staging-interaction.mjs`
+- Route verification: local route ตอบ `200` และ Next.js compile สำเร็จ
+- Browser-rendered screenshot: unavailable เพราะ browser runtime ถูก Windows ACL ปฏิเสธ (`apply deny-read ACLs`)
+- Implementation pixels / CSS viewport / density: unavailable
+
+## Full-view and focused-region evidence
+
+- Full-view comparison: blocked เพราะไม่สามารถจับ implementation screenshot จาก browser ได้
+- Focused region: ตรวจ contract ของตารางคิว โดย action column มี `position: sticky !important`, `right: 0`, width คงที่ 82px, z-index และพื้นหลังแยกจากข้อมูลที่เลื่อนผ่าน
+- Tooltip เปลี่ยนเป็น fixed viewport overlay เพื่อไม่ให้ถูก scroll container ตัดหรือทับ
+- เพิ่มคอลัมน์ราคาขายเป็น number input ในแต่ละแถว และค่าแก้ไขถูกเก็บกลับ Browser Draft/snapshot ก่อนนำไป validation และ payload
+
+## Required fidelity surfaces
+
+- Fonts and typography: ใช้ typography เดิมของ staging table และช่องกรอกแบบ compact
+- Spacing and layout rhythm: action column คงที่ 82px; price input กว้าง 112px; ตารางใช้ `border-collapse: separate` เพื่อให้ sticky cell ทำงานสม่ำเสมอ
+- Colors and visual tokens: ใช้ input/surface/border tokens เดิม รองรับ light/dark
+- Image quality and asset fidelity: ไม่มีการเปลี่ยนภาพสินค้าในงานนี้
+- Copy and content: หัวคอลัมน์เพิ่ม `ราคาขาย`; Tooltip ใช้ข้อความเดิมสำหรับแก้ไขและนำออก
+
+## Automated checks
+
+- Product identifier + interaction + staging: 35/35 passed
+- TypeScript: passed
+- `git diff --check`: passed (มีเพียงคำเตือน line ending ของ Git บน Windows)
+- Dev server compile: passed; route `GET /organizations/.../products/new` ตอบ `200`
+
+## Blocker
+
+- ไม่สามารถจับภาพ implementation และทดสอบ horizontal scroll/Tooltip แบบ visual browser ได้ เพราะ Windows ACL ปิดกั้น browser runtime
+
+final result: blocked
+---
+
+# Design QA — Validation Auto-Navigation
+
+วันที่ตรวจ: 17 สิงหาคม 2026
+
+## Source visual truth
+
+- ภาพอ้างอิง: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-77b6525f-f77a-40fc-9020-8535cbc74b26.png`
+- เป้าหมาย: เมื่อกดเก็บสินค้าแล้วพบ validation error ระบบต้องเลื่อนไปและโฟกัสช่องแรกที่ต้องแก้แทนการปล่อยให้ผู้ใช้ค้นหาเอง
+- State: Unified Product Creation · standard product · local validation danger state
+
+## Implementation evidence
+
+- Component: `web/src/app/organizations/[id]/products/new/unified-product-creation-form.tsx`
+- Regression test: `web/scripts/test-products-r7-sku-staging-interaction.mjs`
+- Route verification: local route ตอบ `200` และ Next.js compile สำเร็จ
+- Browser-rendered screenshot: unavailable เพราะ in-app Browser runtime ถูก Windows ACL ปฏิเสธ (`apply deny-read ACLs`)
+- Viewport / pixels / density: unavailable
+
+## Interaction behavior
+
+- ราคาขาย → เลื่อนไปและ focus ช่อง `salePrice`
+- Base Unit → `baseUnitCode`
+- SKU / Sales Code / Barcode → ช่องรหัสที่ตรงกัน
+- ชื่อ SKU → `skuName`
+- รูปสินค้า → file input ในส่วนรูปภาพ
+- Variant → control แรกในส่วน SKU
+- ช่องเป้าหมายได้รับ `aria-invalid` และ validation marker ก่อน focus
+
+## Required fidelity surfaces
+
+- Fonts and typography: ไม่มีการเปลี่ยน typography
+- Spacing and layout rhythm: ไม่มีการเปลี่ยน layout; ใช้ smooth scroll และ center alignment
+- Colors and visual tokens: ใช้ validation marker/token เดิม
+- Image quality and asset fidelity: ไม่มีการเปลี่ยน asset
+- Copy and content: คงข้อความเตือนเดิมและเพิ่ม navigation behavior เท่านั้น
+
+## Automated checks
+
+- Product identifier + interaction + staging: 36/36 passed
+- TypeScript: passed
+- `git diff --check`: passed (มีเพียงคำเตือน line ending บน Windows)
+- Dev server compile: passed; route ตอบ `200`
+
+## Blocker
+
+- ไม่สามารถจับ browser-rendered screenshot และทดสอบ smooth scroll/focus แบบ visual ได้ เพราะ Windows ACL ปิดกั้น browser runtime
+
+final result: blocked
+---
+
+# Design QA — Compact Queue Sale Price Field
+
+วันที่ตรวจ: 17 สิงหาคม 2026
+
+## Source visual truth
+
+- ภาพอ้างอิง: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-e02108d6-349b-449a-bde6-45f2d9d42809.png`
+- เป้าหมาย: ช่องราคาขายในคิวต้องเป็นกรอบเดียว สัญลักษณ์บาทและตัวเลขไม่ซ้อน และไม่มี spinner ของ browser
+- State: Unified Product Creation · queued product price · focused input · desktop light theme
+
+## Implementation evidence
+
+- Styles: `web/src/app/globals.css`
+- Regression test: `web/scripts/test-products-r7-sku-staging-interaction.mjs`
+- Browser-rendered screenshot: unavailable เพราะ in-app Browser runtime ถูก Windows ACL ปฏิเสธ (`apply deny-read ACLs`)
+- Viewport / pixels / density: unavailable
+
+## Focused region changes
+
+- เปลี่ยน price field เป็น two-column inline grid: สัญลักษณ์บาท 24px และพื้นที่ตัวเลขที่เหลือ
+- ล้าง inner input border, radius, outline และ box-shadow เพื่อไม่ให้เกิดกรอบซ้อน
+- ใช้ outer `:focus-within` เป็น focus ring เพียงชั้นเดียว
+- ซ่อน native number spinner ทั้ง standard appearance และ WebKit controls
+
+## Required fidelity surfaces
+
+- Fonts and typography: คง font size 12px และ tabular numerals
+- Spacing and layout rhythm: ความกว้างรวม 118px คงเดิม; แบ่งพื้นที่ `฿` 24px
+- Colors and visual tokens: ใช้ surface, border, text และ focus tokens เดิม
+- Image quality and asset fidelity: ไม่มี asset ใน control นี้
+- Copy and content: ค่าและ aria-label เดิมไม่เปลี่ยน
+
+## Automated checks
+
+- Product identifier + interaction + staging: 37/37 passed
+- TypeScript: passed
+- `git diff --check`: passed (มีเพียงคำเตือน line ending บน Windows)
+- Dev server compile: passed; route ตอบ `200`
+
+## Blocker
+
+- ไม่สามารถจับ browser-rendered screenshot และตรวจ focused state แบบ visual ได้ เพราะ Windows ACL ปิดกั้น browser runtime
+
+final result: blocked
+
+---
+
+# Design QA — Queue-aware Creation Summary (Approach 1)
+
+วันที่ตรวจ: 17 สิงหาคม 2026
+
+## Source visual truth
+
+- ภาพอ้างอิง: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-c492e0e8-df40-4ea8-a056-070648bb069d.png`
+- เป้าหมาย: เมื่อเก็บสินค้าไว้ในคิวแล้ว Summary, Timeline และปุ่มหลักต้องสรุปคิว ไม่ใช่ฟอร์มรายการถัดไปที่ถูกล้าง
+- Scope: Unified Product Creation เฉพาะ Summary/Timeline/Primary action; ไม่เปลี่ยน Server command
+
+## Implemented behavior
+
+- ตรวจจับ `queueReviewMode` เมื่อมีสินค้าในคิวและไม่มีรายการใหม่กำลังกรอก
+- Summary เปลี่ยนเป็นจำนวนสินค้าในคิว, ช่วงราคา, จำนวนรูป และจำนวนรายการที่ครบ
+- Timeline คำนวณข้อมูลทั่วไป รูป SKU ราคา สาขา และข้อมูลเสริมจาก Snapshot ของทุกแถว
+- ปุ่มหลักเปลี่ยนเป็น `ตรวจสอบคิว N รายการ`
+- ถ้ามีสินค้าใหม่กำลังกรอก ปุ่มแจ้งให้เก็บรายการนั้นก่อนตรวจคิว
+- การตรวจคิวไม่ส่งข้อมูลเข้า Server; แสดงชัดเจนว่า Batch command ยังไม่เปิด เพื่อป้องกันข้อมูลสูญหาย
+
+## Automated checks
+
+- TypeScript `npx tsc --noEmit`: passed
+- Queue staging regression: 18/18 passed
+- Validation summary regression: 12/12 passed
+- `git diff --check`: passed (มีเพียงคำเตือน line ending บน Windows)
+- Local route: ตอบ 307 ไปหน้า login ตาม session ที่ไม่มีใน command-line; route ถูก resolve สำเร็จ
+
+## Blocker
+
+- Browser automation เริ่มไม่ได้ เพราะ Windows ACL ปิดกั้น Node REPL kernel (`apply deny-read ACLs`)
+- จึงยังไม่สามารถจับ screenshot และตรวจ pixel/interaction บน session ที่ login แล้วได้
+
+final result: blocked
+
+---
+
+# Design QA — Products Bulk Edit Mockup Part 1–4
+
+วันที่ตรวจ: 17 สิงหาคม 2026
+
+## Source visual truth
+
+- Approved product plan: Selection Action Bar, grouped action menu, Product-level modal และ SKU-level modal
+- Design standards: `docs/AVENZO_ONE_Design_System_and_UIUX_Standards_V1.md`
+- Mockup-first contract: `docs/AVENZO_ONE_UI_Mockup_First_Implementation_Guide_V1.md`
+
+## Implementation
+
+- `docs/mockups/phase-2.1-products-workspace-ui.html`
+- Target state: เลือก Product หลายรายการ → เปิดเมนูแก้ไข → Product-level หรือ SKU-level modal → ตรวจ Preview → ยืนยันใน Mockup เท่านั้น
+
+## Verification evidence
+
+- JavaScript parsed successfully with bundled Node runtime
+- Static Part 1–4 contract passed: selection bar, 8 grouped actions, both modal families, SKU scope, Preview, Stock Movement warning และ cost permission warning
+- Existing `test:products-r7-visual-parity`: 5/5 passed
+- `git diff --check`: passed after EOF normalization
+- Existing `test:products-r7-page-structure`: 3/4 passed; one pre-existing production Product Creation action-order assertion failed and is outside this standalone mockup change
+
+## Required fidelity surfaces
+
+- Fonts and typography: uses the existing mockup typography and button hierarchy; browser-rendered comparison unavailable
+- Spacing and layout rhythm: responsive two-panel SKU modal and sticky selection bar implemented; browser-rendered comparison unavailable
+- Colors and visual tokens: reuses existing semantic tokens and table header treatment
+- Image quality and asset fidelity: no new imagery or replacement assets introduced
+- Copy and content: Thai user-facing labels; technical safeguards explain Stock Movement, Audit Log and cost permission
+
+## Browser and interaction QA
+
+- Intended viewport: desktop 1440×900 plus responsive breakpoint at 760px
+- Browser-rendered screenshot: unavailable
+- Primary interactions statically verified: selection count, grouped keyboard menu, Product-level editing, SKU scope, price/cost/stock Preview, modal Escape/backdrop handling
+- Console errors checked: unavailable because the browser runtime could not start under the Windows workspace ACL (`apply deny-read ACLs`)
+
+## Findings
+
+- [P1] Visual comparison and live interaction capture are still required before owner approval.
+  - Evidence: browser runtime was blocked before the local file could be rendered and captured.
+  - Impact: code and structural tests pass, but typography, spacing, focus behavior and responsive layout have not been visually accepted.
+  - Fix: open the local mockup, exercise Part 1–4, and capture the approved state before production implementation.
+
+## Comparison history
+
+- Initial pass: blocked before source/implementation visual capture; no visual fixes claimed from code inspection alone.
+
+## Final result
+
+final result: blocked
+
+---
+
+# Design QA — Bulk Action Menu Wide Group Layout
+
+วันที่ตรวจ: 17 สิงหาคม 2026
+
+## Source visual truth
+
+- User reference: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-1507ccca-bb64-472f-ad97-5f98402dc34d.png`
+- Approved direction: ขยายเมนูและวางกลุ่มข้อมูลสินค้า ราคา/ต้นทุน คลังสินค้า และขั้นสูงไว้ข้างกัน
+- Design standards: `docs/AVENZO_ONE_Design_System_and_UIUX_Standards_V1.md`
+
+## Implementation
+
+- `docs/mockups/phase-2.1-products-workspace-ui.html`
+- Desktop: 4 columns, maximum width 900px
+- Tablet: 2 columns, maximum width 680px
+- Mobile: 1 column, maximum width 340px
+
+## Verification evidence
+
+- JavaScript syntax: passed
+- Responsive layout contract: passed
+- `git diff --check`: passed
+- Browser-rendered screenshot: unavailable because Windows workspace ACL blocked both source-image opening and in-app browser runtime
+
+## Required fidelity surfaces
+
+- Typography: existing approved menu scale preserved
+- Spacing/layout: groups changed from vertical stack to 4/2/1 responsive grid
+- Colors/tokens: existing surface, border and hover tokens preserved
+- Image assets: no new assets introduced
+- Copy/content: all existing labels and actions preserved
+
+## Findings
+
+- [P1] Owner visual review remains required because a rendered screenshot could not be captured in this environment.
+
+## Comparison history
+
+- Static implementation completed; visual side-by-side remains blocked by Windows ACL.
+
+## Final result
+
+final result: blocked
+
+---
+
+# Design QA — Wide Brand Picker
+
+วันที่ตรวจ: 17 สิงหาคม 2026
+
+## Source visual truth
+
+- User reference: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-9a664a79-f87d-4ce5-8aab-72a9c3e7a5f6.png`
+- Approved direction: หน้าต่างเลือกแบรนด์แนวกว้าง ลดภาระการจำชื่อด้วยการค้นหา แบรนด์ล่าสุด แบรนด์ใช้บ่อย และรายการทั้งหมด
+- Design standards: `docs/AVENZO_ONE_Design_System_and_UIUX_Standards_V1.md`
+
+## Implementation
+
+- `docs/mockups/phase-2.1-products-workspace-ui.html`
+- Desktop maximum width 1040px; brand list 4 columns with internal scrolling
+- Recent and frequent brand groups use 2-column cards; mobile collapses to 1 column
+- Includes pinned “ไม่มีแบรนด์”, live search count, empty state, product counts and mock-only Brand master action
+
+## Verification evidence
+
+- JavaScript syntax: passed
+- Brand picker static contracts: 9/9 passed
+- `git diff --check`: passed with only the existing LF-to-CRLF warning
+- Browser-rendered screenshot: unavailable because the Windows workspace ACL blocked the browser runtime
+
+## Required fidelity surfaces
+
+- Fonts and typography: existing mockup hierarchy retained; brand title 13px and supporting count 11px
+- Spacing and layout rhythm: wide 1040px modal, 4/2/1 responsive grid and bounded scroll region implemented
+- Colors and visual tokens: existing surface, border, hover, focus and selected tokens reused
+- Image quality and asset fidelity: no new image assets introduced
+- Copy and content: Thai task labels, search feedback and Brand master guidance included
+
+## Browser and interaction QA
+
+- Intended viewport: desktop 1440×900 plus mobile breakpoint at 760px
+- Primary interactions statically verified: open modal, search filtering, match count, empty state, radio selection, Brand master mock toast and responsive contracts
+- Console errors checked: unavailable because browser-rendered evidence could not be captured
+
+## Findings
+
+- [P1] Owner visual and live interaction review is still required before approval.
+  - Evidence: source screenshot is available, but no implementation screenshot could be captured in the same viewport.
+  - Impact: static code passes, but visual spacing and scroll behavior cannot be marked accepted.
+  - Fix: open the local mockup, select products, choose “เปลี่ยนแบรนด์”, then review search, recent/frequent groups and the all-brand list.
+
+## Comparison history
+
+- Initial pass: static implementation completed; visual side-by-side remains blocked by the workspace ACL.
+
+## Final result
+
+final result: blocked
+
+---
+
+# Design QA — Compact Brand Picker with Badges and Tooltips
+
+วันที่ตรวจ: 17 สิงหาคม 2026
+
+## Source visual truth
+
+- Badge reference: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-78eec268-00bf-456b-9673-2c96638ef809.png`
+- Tooltip reference: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-531d55f0-19ce-4704-9b50-fc981f496d98.png`
+- Owner-approved direction: ลด Modal, รวมรายการแบรนด์, ใช้ Badge “ใช้ล่าสุด/ใช้บ่อย”, ซ่อนจำนวนสินค้าไว้ใน Tooltip และโหลดรายการเริ่มต้นแบบจำกัด
+- Design standards: `docs/AVENZO_ONE_Design_System_and_UIUX_Standards_V1.md`
+
+## Implementation
+
+- `docs/mockups/phase-2.1-products-workspace-ui.html`
+- Modal maximum width 780px
+- Unified 2-column brand list; mobile 1 column
+- Initial set limited to 16 brands, with “แสดงแบรนด์เพิ่มเติม”
+- Live search searches all brands regardless of the initial limit
+- One priority badge per brand: “ใช้ล่าสุด” before “ใช้บ่อย”
+- Product count shown only through top tooltip on hover and keyboard focus
+
+## Verification evidence
+
+- JavaScript syntax: passed
+- Compact Brand Picker contracts: 9/9 passed
+- Obsolete wide-picker contracts removed: 3/3 passed
+- `git diff --check`: passed with only the existing LF-to-CRLF warning
+- Browser-rendered screenshot: unavailable because the in-app browser runtime was blocked by the Windows workspace ACL (`apply deny-read ACLs`)
+
+## Required fidelity surfaces
+
+- Fonts and typography: existing mockup field, button and option hierarchy retained; badges use compact supporting text
+- Spacing and layout rhythm: modal reduced from 1040px to 780px; unified 2/1 responsive list implemented
+- Colors and visual tokens: existing surface, border, hover, focus and selected tokens reused
+- Image quality and asset fidelity: no image assets introduced or replaced
+- Copy and content: Thai search, badges, count tooltip, empty state and show-more wording included
+
+## Browser and interaction QA
+
+- Intended viewport: desktop 1440×900 and mobile breakpoint at 760px
+- Primary interactions statically verified: search all brands, initial limit, show more, radio selection, badge priority, tooltip hover/focus and Brand master mock action
+- Console errors checked: unavailable because browser startup failed before the local file could render
+
+## Findings
+
+- [P1] Owner visual review remains required before mockup approval.
+  - Evidence: both source references exist, but no implementation screenshot could be captured in the same state.
+  - Impact: static behavior passes, but modal density, tooltip placement and responsive wrapping are not visually accepted yet.
+  - Fix: open the local mockup and inspect “เปลี่ยนแบรนด์” at desktop width, then hover/focus the information icon and try search/show-more.
+
+## Comparison history
+
+- Previous wide picker: 1040px, separate recent/frequent/all sections and visible counts.
+- Current iteration: 780px, unified list, priority badges, count tooltips and initial 16-brand limit.
+- Post-fix visual evidence remains blocked by the workspace ACL.
+
+## Final result
+
+final result: blocked
+
+---
+
+# Design QA — Brand Picker Click Target and Compact Spacing
+
+วันที่ตรวจ: 17 สิงหาคม 2026
+
+## Source visual truth
+
+- User reference: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-5d4b067c-79f5-4ea5-a355-f8cfe23716ae.png`
+- Requested change: ยกเลิก Hover แบบปุ่ม, คลิกได้ที่ Radio และชื่อแบรนด์, ลดระยะภายในรายการ
+
+## Implementation
+
+- `docs/mockups/phase-2.1-products-workspace-ui.html`
+- Removed card background hover from `.brand-picker-option`
+- Radio and brand name remain inside the same label click target
+- Reduced list gap from 7px to 5px/6px, label gap from 9px to 6px, item height from 46px to 42px and padding from 8×10px to 6×9px
+- Keyboard focus and information tooltip behavior preserved
+
+## Verification evidence
+
+- JavaScript syntax: passed
+- Radio/name click contract: passed
+- Button-like hover contract removed: passed
+- `git diff --check`: passed with only the existing LF-to-CRLF warning
+- Browser-rendered evidence: unavailable because the in-app browser runtime remains blocked by the Windows workspace ACL
+
+## Required fidelity surfaces
+
+- Typography: unchanged
+- Spacing/layout: compact spacing applied only within Brand Picker options
+- Colors/tokens: hover fill removed; selected and focus tokens retained
+- Image quality: no image assets affected
+- Copy/content: unchanged
+
+## Findings
+
+- [P1] Owner visual review is required because a new browser screenshot could not be captured.
+
+## Comparison history
+
+- Previous: whole option visually behaved like a hover button.
+- Current: no card hover fill; explicit Radio/name label selection remains.
+
+## Final result
+
+final result: blocked
+
+---
+
+# Design QA — Wide Plain Brand Radio Grid
+
+วันที่ตรวจ: 17 สิงหาคม 2026
+
+## Source visual truth
+
+- User reference: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-1feac7ef-e5e8-4939-bfb8-4f2b972da621.png`
+- Requested change: ใช้หน้าต่างเลือกแบรนด์แบบกว้าง แสดงรายการหลายคอลัมน์ พร้อมช่องค้นหาและข้อมูลสรุปข้างปุ่มจัดการแบรนด์
+
+## Implementation
+
+- `docs/mockups/phase-2.1-products-workspace-ui.html`
+- Modal กว้างสูงสุด 960px
+- รายการแบรนด์แบบ Radio ข้อความธรรมดา 5 คอลัมน์บน Desktop, 3 คอลัมน์บน Tablet และ 1 คอลัมน์บน Mobile
+- แสดงแบรนด์ทั้งหมดในพื้นที่เลื่อนได้ และค้นหาจากชื่อแบรนด์ได้ทันที
+- คง Badge `ใช้ล่าสุด` / `ใช้บ่อย` และ Tooltip จำนวนสินค้าที่ใช้แบรนด์
+- Footer แสดงจำนวนสินค้าที่เลือก, จำนวน SKU และจำนวนแบรนด์ทั้งหมดข้างปุ่ม `จัดการแบรนด์`
+
+## Verification evidence
+
+- JavaScript syntax: passed
+- Five-column brand picker contracts: passed 8/8
+- Obsolete compact-list contracts removed: passed 4/4
+- `git diff --check`: passed with only the existing LF-to-CRLF warning
+- Browser-rendered comparison evidence: unavailable because the in-app browser runtime is blocked by the Windows workspace ACL
+
+## Required fidelity surfaces
+
+- Typography: ใช้รูปแบบเดิมของ Products mockup
+- Spacing/layout: เทียบตามหน้าต่างอ้างอิงแบบหลายคอลัมน์และพื้นที่ Footer
+- Colors/tokens: ใช้ Design System เดิม ไม่มี Hover แบบปุ่มในรายการ
+- Interaction: Radio/ชื่อแบรนด์เลือกค่าเดียวกัน, Search filter, Info tooltip และ Manage Brands mock action
+- Responsive: 5/3/1 columns ตามขนาดหน้าจอ
+
+## Findings
+
+- [P1] ต้องให้เจ้าของงานตรวจภาพจริง เพราะไม่สามารถบันทึก Browser screenshot ใหม่เพื่อทำ visual comparison ได้
+
+## Final result
+
+final result: blocked
+
+---
+
+# Design QA — Brand Picker Three-row Horizontal Grid
+
+วันที่ตรวจ: 17 สิงหาคม 2026
+
+## Source visual truth
+
+- User reference: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-d94393f0-acca-4315-9756-516079066bd3.png`
+- Requested change: แสดงรายการแบรนด์เพียง 3 แถว และเลื่อนแนวนอนเพื่อดูรายการถัดไป
+
+## Implementation
+
+- `docs/mockups/phase-2.1-products-workspace-ui.html`
+- รายการแบรนด์เรียงแนวนอนด้วย Grid จำนวน 3 แถวคงที่
+- Desktop ใช้ความกว้างคอลัมน์ 160px, Tablet 150px และ Mobile 140px
+- คง Search, Radio selection, Badge, Tooltip, จำนวนสินค้า/SKU/แบรนด์ และปุ่มจัดการแบรนด์เดิม
+- ซ่อม selector และ media query ที่มีอักขระส่วนเกินใกล้ส่วนนี้
+
+## Verification evidence
+
+- JavaScript syntax: passed (1 script block)
+- Three-row layout contracts: passed 8/8
+- `git diff --check`: passed with only the existing LF-to-CRLF warning
+- Browser-rendered comparison evidence: unavailable because the in-app browser runtime is blocked by the Windows workspace ACL
+
+## Findings
+
+- [P1] ต้องให้เจ้าของงานตรวจภาพจริง เพราะไม่สามารถจับ Browser screenshot เพื่อเปรียบเทียบกับภาพอ้างอิงได้
+
+## Final result
+
+final result: blocked
+
+---
+
+# Design QA — Three-row Brand, Category and Tag Pickers
+
+วันที่ตรวจ: 17 สิงหาคม 2026
+
+## Source visual truth
+
+- Approved visual direction: C:/Users/Windows/AppData/Local/Temp/codex-clipboard-d94393f0-acca-4315-9756-516079066bd3.png
+- Requested scope: นำมาตรฐาน 3 แถวไปใช้กับแบรนด์ หมวดหมู่ และป้ายกำกับ
+
+## Implementation
+
+- docs/mockups/phase-2.1-products-workspace-ui.html
+- Brand และ Category ใช้ Radio เลือกค่าเดียว
+- Tags ใช้ Checkbox เลือกได้หลายค่า พร้อมโหมดเพิ่ม/นำออก/แทนที่
+- ทั้งสามส่วนมี Search, 3-row horizontal grid, empty state, Tooltip จำนวนสินค้า และข้อมูลสรุป
+- ปุ่มจัดการ Master ยังเป็น Mock action และไม่เชื่อมระบบจริง
+
+## Verification evidence
+
+- JavaScript syntax: passed (1 script block)
+- Brand/Category/Tags interaction contracts: passed 10/10
+- git diff --check: passed with only the existing LF-to-CRLF warning
+- Browser-rendered comparison evidence: unavailable because the in-app browser runtime is blocked by the Windows workspace ACL
+
+## Findings
+
+- [P1] ต้องให้เจ้าของงานตรวจภาพและ interaction จริง เนื่องจากไม่สามารถจับ Browser screenshot และตรวจ console ได้
+
+## Final result
+
+final result: blocked
+
+---
+
+# Design QA — SKU Bulk Edit Modal Restructure
+
+วันที่ตรวจ: 17 สิงหาคม 2026
+
+## Source visual truth
+
+- Owner-approved direction: ปรับ Modal แก้ไข SKU แบบกลุ่มเป็น 4 ส่วนตามลำดับ
+- Scope: โครง Modal, ขอบเขต SKU, ฟอร์มราคา/สต็อก และตาราง Preview/Sticky footer
+
+## Implementation
+
+- `docs/mockups/phase-2.1-products-workspace-ui.html`
+- Modal กว้างสูงสุด 980px และใช้ Scroll หลักเพียงชั้นเดียว
+- โหมดทุก SKU แสดงสรุปจำนวน; โหมดเลือกเฉพาะ SKU จึงแสดง Search และ Checkbox list
+- ฟอร์มราคาเรียง 3 ช่องเต็มความกว้าง; ฟอร์มสต็อกคงเหตุผลและคำเตือนเต็มแถว
+- Preview table ไม่มี forced minimum width หรือ nested scroll และเปลี่ยนเป็น label/value บนจอเล็ก
+- Footer อยู่ด้านล่างของ Modal ตลอด พร้อมลำดับ Cancel ก่อน Primary ตาม Design System
+
+## Verification evidence
+
+- JavaScript syntax: passed
+- Four-part static UI contracts: passed 11/11
+- `git diff --check`: passed
+- Browser-rendered comparison evidence: unavailable because the in-app browser runtime is blocked by the Windows workspace ACL
+
+## Findings
+
+- [P1] ต้องให้เจ้าของงานตรวจภาพและ interaction จริง เนื่องจากไม่สามารถจับ Browser screenshot และตรวจ console ได้ในสภาพแวดล้อมนี้
+
+## Final result
+
+final result: blocked
+---
+
+# Design QA — Production Bulk Product Editing
+
+วันที่ตรวจ: 17 สิงหาคม 2026
+
+## Source visual truth
+
+- `docs/mockups/phase-2.1-products-workspace-ui.html`
+- Owner instruction: นำ Production ให้ตรงกับ mockup 100% โดยไม่เปลี่ยนดีไซน์เอง และหยุดให้ Owner ทดสอบก่อน Commit/Push
+
+## Implementation
+
+- Selection bar แสดงจำนวน Product และ SKU ที่เลือก
+- Action menu แบบ 4 กลุ่ม กว้างสูงสุด 900px ตาม mockup
+- Product master picker กว้างสูงสุด 960px มี Search และรายการ 3 แถวแบบเลื่อนแนวนอน
+- SKU modal กว้างสูงสุด 980px มีขอบเขตทุก SKU/เลือกเฉพาะ SKU, ฟอร์มราคา/ต้นทุน/สต็อก และ Preview
+- ใช้ command/read repository เดิมของระบบจริง ไม่สร้างเส้นทางเขียนข้อมูลนอก trusted command
+
+## Verification evidence
+
+- TypeScript: passed
+- Products data-grid: 7/7 passed
+- Products visual parity: 6/6 passed
+- Products status control: 4/4 passed
+- Products pagination: 4/4 passed
+- `git diff --check`: passed with only line-ending warnings
+- Local server: running; unauthenticated HTTP probe redirects to sign-in as expected
+- Browser-rendered comparison evidence: unavailable because browser runtime is blocked by the Windows workspace ACL
+
+## Findings
+
+- [P1] Owner ต้องตรวจภาพและ interaction ใน authenticated Local session ก่อน Commit/Push
+
+## Final result
+
+final result: blocked
+## Owner comparison correction — 17 สิงหาคม 2026
+
+- Fixed global Product Editor input collision that enlarged Radio/Checkbox to 100% × 44px.
+- Restored approved compact Radio/Checkbox, three-row horizontal master picker, plain close icon, badges, top tooltips, manage row, and zero nested form padding.
+- Real Organization data remains authoritative: Local counts and available brands can differ from mock data.
+- TypeScript, visual parity 6/6, and Products grid 7/7 passed.
+- Browser-rendered verification remains blocked pending Owner refresh/test in authenticated Local session.
+
+final result: blocked
+
+## Owner comparison correction — modal scope and footer — 17 August 2026
+
+- Restored the selected Product/SKU summary surface using Production design tokens.
+- Restored the full-width footer divider using `--border-default`.
+- Matched compact modal actions at 38px height and 13px text; no other Product UI was intentionally changed.
+- TypeScript, visual parity 6/6, and `git diff --check` passed.
+- Browser-rendered verification remains blocked pending Owner refresh/test in authenticated Local session.
+
+final result: blocked
+## Owner icon correction — Product master picker — 17 August 2026
+
+- Replaced the plain text `i` with the open-source Tabler `IconInfoHexagon` at 16px.
+- Preserved the existing top tooltip, accessible label, focus behavior, and theme color inheritance.
+- TypeScript, visual parity 6/6, and `git diff --check` passed.
+- Browser-rendered verification remains blocked because the local in-app browser runtime is denied by the Windows workspace ACL; Owner refresh/test is required.
+
+final result: blocked
+## Master Data Picker Design System promotion — 17 August 2026
+
+- Promoted the approved Brand Picker to `Master Data Picker Dialog` in AVENZO ONE Design System & UI/UX Standards V1.4.
+- Shared production pattern now covers Brand, Category and Tags; recent/frequent badges and 18px `IconInfoHexagon` right tooltip use the same rules.
+- Price, Cost and Stock remain specialized SKU workflows with scope, preview, validation and audit requirements.
+- TypeScript: passed.
+- Products visual parity: 6/6 passed.
+- `git diff --check`: passed with only line-ending warnings.
+- Browser-rendered comparison remains blocked because the browser runtime is denied by the Windows workspace ACL; Owner visual confirmation is still required.
+
+final result: blocked
+## Bulk SKU modal standards correction — 17 August 2026
+
+- Root cause: the modal used undefined legacy tokens (`--border`, `--surface-muted`, `--text-muted`), so borders and surfaces silently disappeared.
+- Replaced all undefined tokens inside the complete Bulk Edit CSS range with current Design System tokens.
+- Standardized 40px segmented controls and 42px inputs/comboboxes with the approved 12px right arrow spacing.
+- Added an outer table border, row/column dividers, sticky header, numeric alignment, 310px maximum preview height, and vertical/horizontal scrolling.
+- Preserved horizontal table scrolling on narrow screens so column meanings are not removed.
+- TypeScript: passed.
+- Products visual parity: 6/6 passed.
+- Products responsive visual matrix: 13/13 passed.
+- Products data grid: 7/7 passed.
+- `git diff --check`: passed with line-ending warnings only.
+- One unrelated pre-existing Products creation page-structure assertion remains stale: it expects the old summary action order (`ตรวจสอบและสร้าง`, `บันทึกร่าง`, `ยกเลิก`). No creation-page code was changed in this correction.
+- Browser-rendered comparison remains blocked by the Windows workspace ACL; Owner visual confirmation is required after refresh.
+
+final result: blocked
+## Bulk Price modal border and scroll correction — 18 August 2026
+
+- Root cause of missing control borders: the Bulk SKU controls referenced undefined `--border-strong`; corrected to the Design System token `--border-default`.
+- Converted the Bulk SKU dialog into a constrained Flex column. Header and Footer are fixed siblings; only the Body is the vertical scroll container.
+- Removed the sticky Footer overlay so the SKU-specific list and Preview table remain reachable and are not covered by actions.
+- Preserved independent scrolling for the SKU selector and the Preview table, including visible scrollbar gutters.
+- Updated AVENZO ONE Design System section 5.5.2 and locked the behavior with visual parity assertions.
+- TypeScript: passed.
+- Products visual parity: 6/6 passed.
+- Products responsive visual matrix: 13/13 passed.
+- Products data grid: 7/7 passed.
+- `git diff --check`: passed with line-ending warnings only.
+- Browser-rendered comparison remains blocked because the in-app browser runtime is denied by the Windows workspace ACL; Owner refresh/test is required.
+
+final result: blocked
+## Product Master Data managers — 18 August 2026
+
+- Source visual truth: approved Brand Manager and Category Manager screenshots supplied in the task.
+- Standardized Brand Manager trigger, row actions, secondary actions and primary save action to the Products 38px button standard.
+- Connected `จัดการหมวดหมู่` to the shared Master Data Manager with real add, rename and archive behavior through the trusted command path.
+- Archived Brand and Category values remain available in the manager while normal Product pickers show active values only.
+- TypeScript: passed.
+- Master-data and Products visual parity tests: 14/14 passed.
+- Production build: passed.
+- Local Products route: compiled and returned 200 for the authenticated browser session.
+- Browser-rendered screenshot comparison remains blocked because the in-app browser runtime is denied by the Windows workspace ACL; Owner refresh/test is required.
+
+final result: blocked
+
+## Product Tags Master Data Manager — 18 August 2026
+
+- Source visual truth: approved Tags Manager and Bulk Tags Picker screenshots supplied in the task.
+- Extended the `Master Data Manager Dialog` standard to Category, Brand and Tags.
+- Connected `จัดการป้ายกำกับ` to the shared manager with add, rename and archive behavior through `product.master.upsert`.
+- Tags Manager updates the open picker immediately; archived Tags remain manageable but are excluded from normal Product filters and selection.
+- TypeScript: passed.
+- Products, Master Data and Saved Tags tests: 22/22 passed.
+- Local Products route: compiled and returned 200 for the authenticated browser session.
+- Browser-rendered screenshot comparison remains blocked because both in-app Browser and Chrome control runtimes are denied by the Windows workspace ACL; Owner refresh/test is required.
+
+final result: blocked
+
+## Products sticky pagination — 18 August 2026
+
+- Source target: user screenshot codex-clipboard-0ebded22-924b-46fa-8892-f84f303fe4c2.png showing the Products pagination footer at the bottom of the table/page.
+- Implementation: .product-grid-pagination-footer now uses viewport-aware position: sticky; bottom: 0, solid surface background inherited from .product-grid-footer, top divider, elevated z-index, and a subtle top shadow. It remains a panel-scoped footer rather than a global fixed bar, so it does not cover the horizontal scrollbar.
+- Automated verification: pagination regression tests pass 5/5; TypeScript --noEmit passes; local Products route responds HTTP 200.
+- Visual comparison: blocked. The Codex Desktop image/browser sandbox cannot read the supplied Temp screenshot or capture the local page because Windows ACL setup fails with helper_unknown_error: apply deny-read ACLs.
+- Manual check requested: refresh the Products page, scroll vertically through the list, and confirm the pagination stays at the viewport bottom while the horizontal scrollbar remains directly above it.
+
+final result: blocked
+### Products sticky pagination bottom-edge correction — 18 August 2026
+
+- Corrected the remaining desktop gap by removing the 72px Content bottom gutter only on the Products list page (:not(.product-creation-page)) at viewport widths 761px and above.
+- The pagination remains panel-scoped and sticky; mobile safe-area spacing and the Product creation page are unchanged.
+- Automated verification: pagination regression tests pass 5/5; TypeScript passes; local Products route responds HTTP 200.
+- Visual comparison remains blocked by the Codex Desktop Windows ACL capture failure; manual F5 verification is required.
+
+final result: blocked
+## Products expanded SKU table column parity — 18 August 2026
+
+- Source target: user screenshot codex-clipboard-bcff06fb-50c4-4681-bef7-eeb3aefead47.png.
+- Heading and description are now one inline sentence, with the description enclosed in parentheses.
+- Expanded SKU rows now inherit the user's visible column set, order, saved widths and pinned positions from the parent Products DataTable, with a fixed actions column.
+- SKU-specific price, stock, status, identifiers, unit, profile and cost values use the existing bounded read model; Product-level metadata is repeated only where it is genuinely shared.
+- Expanded rows render only after the user opens them and do not issue per-row API requests; the preview remains capped at five SKU rows with a link to the full SKU list.
+- Automated verification: expanded variant 1/1; Products R2 5/5; R7.4 default alignment 9/9; R3 DataGrid 7/7; optional columns 6/6; pagination 5/5; TypeScript passed; local Products route HTTP 200.
+- Browser-rendered screenshot comparison remains blocked because the in-app browser runtime is denied by the Windows workspace ACL; Owner F5 verification is required.
+
+final result: blocked
+## Products expanded SKU variant images — 18 August 2026
+
+- Scope: Products expanded SKU rows; the reported silver and gold variants displayed the same Product cover image.
+- Root cause: the variant cell always rendered `row.coverImage`, while the Products list read model did not load `sku_variant_images`.
+- Fix: load SKU image assignments in batches, resolve the primary/first image per SKU, use the Product cover only as fallback, and use a placeholder when neither exists. The hover preview uses the same resolved image.
+- Performance: one batched assignment query and one batched assigned-image query; no per-SKU request.
+- Verification: TypeScript passed; expanded-variant test passed; R2 read-model tests passed 6/6; R3 data-grid tests passed 7/7; R7.4 alignment tests passed 9/9; the local Products route responded HTTP 200.
+- Live data inspection: blocked because the Supabase connection does not grant access to project `kenhlerbirchcpzgnfsh`.
+- Visual comparison: blocked because an authenticated browser verification surface was unavailable. The owner must refresh the Products page and expand the Product row to confirm each SKU image.
+- final result: blocked
+## Warehouse & Stock UI standardization — 18 August 2026
+
+### Scope
+
+- Route: `/organizations/:organizationId/inventory`.
+- Reference: `docs/mockups/warehouse-stock-current-reference.png`.
+- UI-only: information hierarchy, component grouping, spacing, labels, responsive layout and visual states.
+- Explicitly excluded: workflow changes, command behavior, permissions, repository queries, stock calculations and persistence.
+
+### Static review
+
+- Global breadcrumb is present in the application header.
+- Page hierarchy follows breadcrumb → heading/status → summaries → view tabs/actions → filters → results.
+- Warehouse setup actions and stock transaction actions remain separate groups.
+- Existing AVENZO button, status badge, tab, filter, table, dialog, sheet and mobile-card patterns are reused.
+- Breadcrumb uses `@tabler/icons-react`; no new handcrafted icon asset was introduced.
+- Table header, borders, control heights, select arrow spacing and light/dark surfaces use shared tokens and approved Product-grid conventions.
+- Mobile rules stack actions and filters and switch the result table to cards without changing data behavior.
+
+### Functional verification
+
+- TypeScript: passed.
+- Operations UI foundation: 4/4 passed.
+- Warehouse & Stock vertical slice: 4/4 passed.
+- Local route: HTTP 200.
+
+### Visual comparison
+
+- Blocked: browser-control runtime could not start because the Windows sandbox helper returned `apply deny-read ACLs`.
+- A post-change screenshot at the same authenticated state and viewport could not be captured in this run.
+- Light/dark and responsive visual inspection still requires Owner verification in the local browser.
+
+final result: blocked
+
+## Warehouse view tabs with icons — 18 August 2026
+
+- Source visual truth: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-f854d301-1f70-49d9-ad7e-0f2b0a63367a.png` (desktop compact tabs with leading icons).
+- Implementation: `/organizations/69408fd5-4f58-4546-9ab4-5b92009bd241/inventory`, light theme, warehouse view.
+- Viewport and pixel dimensions: unavailable because the browser capture runtime and Temp image reader were denied by the Windows ACL helper.
+- Density normalization: unavailable; no valid source/implementation image pair could be opened for comparison.
+- Full-view comparison evidence: blocked before capture by `apply deny-read ACLs`.
+- Focused region comparison evidence: blocked before capture by `apply deny-read ACLs`.
+- Static review: all three tabs now use semantic Tabler icons before the Thai labels, retain the existing link destinations and active state, and share 16px icon sizing with a 7px text gap.
+- Typography: existing tab font, weight and line height are preserved.
+- Spacing/layout: icon and label use centered inline-flex alignment; mobile tabs continue to distribute equally.
+- Colors/tokens: existing tab surface, border, hover and selected tokens are unchanged.
+- Image quality: vector icons come from the repository's existing `@tabler/icons-react` library; no raster or handcrafted SVG asset was introduced.
+- Copy/content: `คลังสินค้า`, `ยอดคงเหลือ` and `การเคลื่อนไหว` are unchanged.
+- Functional verification: TypeScript passed; Operations UI foundation 4/4; Warehouse & Stock vertical slice 4/4; local route HTTP 200.
+- Primary interactions and console errors: not browser-tested because the browser runtime could not start.
+- Manual check required: F5 the Warehouse page and switch all three tabs in desktop and mobile widths.
+
+## Products Thai page heading — 18 August 2026
+
+- Source visual truth: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-cac754bb-def4-4dd6-b834-bf6e13c5c4e3.png`.
+- Implementation route: `/organizations/69408fd5-4f58-4546-9ab4-5b92009bd241/products`.
+- Scope: copy-only localization; page layout, count badge, create menu, table and all data behavior remain unchanged.
+- Main heading: `Products` is replaced by `สินค้า`; the SKU view uses `รหัสสินค้า (SKU)`.
+- Supporting copy: English domain labels are expressed for Thai users as `รหัสสินค้า (SKU)`, `รหัสขาย / รหัส CF` and `บาร์โค้ด` while preserving the Organization name.
+- Automated verification: Products workspace R1 regression passed 4/4; Products visual parity regression passed 6/6; TypeScript passed; local route HTTP 200.
+- Full-view comparison evidence: blocked because the in-app browser runtime could not start; the Windows sandbox helper returned `apply deny-read ACLs`.
+- Focused region comparison evidence: blocked for the same reason; no implementation screenshot could be captured at the matching authenticated state.
+- Primary interactions and console errors: not browser-tested because browser capture was blocked.
+- Manual check required: refresh the Products page and confirm the Thai heading and supporting sentence at the approved desktop viewport.
+
+final result: blocked
+
+## Products pinned-column vertical shadow — 18 August 2026
+
+- Source visual truth: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-116eae4a-b745-4374-a6b0-902372d2a99d.png`.
+- Scope: visual separation at the right edge of the pinned columns; column sizes, pinning behavior, saved preferences and scrolling remain unchanged.
+- Main grid: the final pinned column now casts a clearer vertical shadow into the horizontally scrollable region.
+- Expanded SKU grid: the same shadow treatment is applied at its pinned boundary for component consistency.
+- Automated verification: optional-column and pinning regression passed 6/6; Products visual parity passed 6/6; TypeScript passed.
+- Local Products route: HTTP 200.
+- Full-view and focused comparison evidence: blocked because the in-app browser runtime could not start; Windows returned `apply deny-read ACLs`.
+- Primary interactions and console errors: not browser-tested because browser capture was blocked.
+- Manual check required: refresh Products, horizontally scroll the grid and confirm the vertical shadow stays attached to the last pinned column.
+
+final result: blocked
+## Products export column selector completeness
+
+- Reference: user screenshot `codex-clipboard-7cfd3fce-5c22-4aa3-9570-88dfd8ccd445.png`.
+- Implemented: Export selector now mirrors all 20 Products grid columns, uses Thai labels, and permission-gates Cost Price.
+- Automated QA: optional-column tests 9/9, default-grid tests 9/9, TypeScript passed, Dev Server compiled the Products route.
+- Visual QA: blocked because the Chrome control runtime was rejected by the Windows sandbox (`apply deny-read ACLs`).
+- Final result: blocked for visual comparison only; functional and compile gates passed.
+
+## Products Excel Import Phase 1 (Parts 1.1-1.5) - 18 August 2026
+
+- Scope: local UI-only Excel import flow; no parser, upload API, trusted command, database write, SKU creation or Stock Movement.
+- Part 1.1: accessible import dialog with focus trap, Escape/backdrop close and focus return.
+- Part 1.2: Thai four-step guidance and reusable XLSX template download.
+- Part 1.3: duplicate-policy UI for update existing or skip duplicate, with explicit no-delete/no-stock warning.
+- Part 1.4: drag-and-drop/file-picker states for XLSX, XLS and CSV up to 10 MB; only local file metadata is retained.
+- Part 1.5: fixed mock preview, summary cards, preview table, confirmation and completion states.
+- Automated QA: TypeScript passed; Excel-import UI 1/1; Products visual parity 6/6; Excel template 1/1.
+- Visual browser QA: blocked because the in-app browser runtime could not start; Windows sandbox returned `apply deny-read ACLs`.
+- Manual check required: open the local Products page, select Excel import, and walk through setup, preview and completion states.
+
+final result: blocked for automated visual comparison only; UI contract and compile gates passed.
+## Products Excel Template compact primary button - 18 August 2026
+
+- Source visual truth: `C:/Users/Windows/AppData/Local/Temp/codex-clipboard-3872c92f-da63-4c94-9e32-64c490535348.png` plus the user's explicit Design System direction.
+- Implementation route: `/organizations/69408fd5-4f58-4546-9ab4-5b92009bd241/products`, Excel import dialog setup state.
+- Scope: visual-only button styling; download behavior and all data behavior remain unchanged.
+- Fonts and typography: reduced to 12px with 600 weight and compact line height.
+- Spacing and layout: fixed 34px height, 12px horizontal padding, 8px radius and 14px Tabler download icon.
+- Colors and tokens: black primary surface with white text; hover/focus-visible changes to neutral gray.
+- Image quality: existing vector icon library retained; no new raster or handcrafted SVG.
+- Copy/content: `ดาวน์โหลด Template` remains unchanged.
+- Automated verification: TypeScript passed; Excel import UI 1/1; diff check passed.
+- Browser-rendered implementation screenshot: unavailable because the in-app browser runtime failed with Windows sandbox `apply deny-read ACLs`.
+- Full-view and focused comparison evidence: blocked because the browser capture runtime and Temp image reader could not start.
+- Manual check required: open the Excel import dialog and verify default, hover and keyboard-focus states.
+
+final result: blocked

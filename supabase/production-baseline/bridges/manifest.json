@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "purpose": "Recovered SQL that exists in the Production schema but is absent from supabase_migrations.schema_migrations.",
+  "production_mutation": false,
+  "normalization": "CRLF converted to LF before SHA-256",
+  "bridges": [
+    {
+      "before_version": "20260807084013",
+      "name": "git_bridge_phase_0_7_permission_aware_ui",
+      "file": "../../migrations/20260806230000_phase_0_7_permission_aware_ui.sql",
+      "sha256": "cec9ee65b45eddbb0c0cffee402c4183dead4e6de5db320f3386297a602daa21"
+    },
+    {
+      "before_version": "20260807084013",
+      "name": "git_bridge_phase_0_7_restrict_organization_creation",
+      "file": "../../migrations/20260806233000_phase_0_7_restrict_organization_creation.sql",
+      "sha256": "73298d72fd885611abde6a423ae0a98adda240fb82c2f47b534cc536d0013d95"
+    },
+    {
+      "before_version": "20260807084013",
+      "name": "git_bridge_phase_0_7_member_access_summary",
+      "file": "../../migrations/20260806234500_phase_0_7_member_access_summary.sql",
+      "sha256": "f40ce627f30b125da2f21debdffd2748ff52e09f83213cd310383abff821b77e"
+    },
+    {
+      "before_version": "20260807135259",
+      "name": "git_bridge_phase_1_0_2_plans_prices",
+      "file": "../../migrations/20260807150000_phase_1_0_2_plans_prices.sql",
+      "sha256": "557eed16db61227940232540b4726b095064c46242843090302ca4f734e3a2c3"
+    },
+    {
+      "before_version": "20260807135259",
+      "name": "git_bridge_phase_1_0_2_1_plan_lifecycle",
+      "file": "../../migrations/20260807160000_phase_1_0_2_1_plan_lifecycle.sql",
+      "sha256": "03f33152fff385e5d186202a0a7e00573fc64ec56f0da689d92340545f120f47"
+    },
+    {
+      "before_version": "20260809080324",
+      "name": "git_bridge_phase_1_1_3_3_stripe_test_checkout",
+      "file": "../../migrations/20260808150000_phase_1_1_3_3_stripe_test_checkout.sql",
+      "sha256": "2e8f3b46a698427b92c1d94c3dc9198feb2b95417b86d49345a630f0d130d618"
+    },
+    {
+      "before_version": "20260811125537",
+      "name": "recovered_bridge_stripe_test_event_current_definition",
+      "file": "recovered_stripe_test_event_current_definition.sql",
+      "sha256": "95408f2270012e493074e95451cf6637994be6a3c882d747371ae070493361a5"
+    }
+  ]
+}

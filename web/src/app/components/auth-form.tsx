@@ -3,9 +3,21 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent, KeyboardEvent } from 'react'
 import { getThaiAuthError, isExistingAccountError } from '@/lib/auth-error-message'
+import { requestNewDeviceLoginNotification, reportSessionSecurityNotificationFailure } from '@/lib/session-security-notification-client'
+import { getAppSessionLogoutMessage } from '@/lib/session-activity'
 import { createClient } from '@/lib/supabase/browser'
 
 const rememberedEmailKey = 'avenzo-one:remembered-email:v1'
+const productionAppOrigin = 'https://app.avenzoone.com'
+
+function getPasswordRecoveryRedirectUrl() {
+  const configuredOrigin = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '')
+  const recoveryOrigin = configuredOrigin?.startsWith('https://')
+    ? configuredOrigin
+    : productionAppOrigin
+
+  return `${recoveryOrigin}/auth/callback?next=${encodeURIComponent('/auth/set-password')}`
+}
 
 const passwordRules = [
   { key: 'length', label: 'อย่างน้อย 8 ตัวอักษร', test: (value: string) => value.length >= 8 },
@@ -48,6 +60,21 @@ export function AuthForm() {
   const passwordMeetsRequirements = passwordChecks.every((rule) => rule.passed)
 
   useEffect(() => {
+    const search = new URLSearchParams(window.location.search)
+    const sessionMessage = getAppSessionLogoutMessage(search.get('session'))
+    if (sessionMessage) {
+      setMessageTone('error')
+      setMessage(sessionMessage)
+    }
+
+    if (search.get('forgot') === '1') {
+      setMode('forgot-password')
+      if (search.get('recovery') === 'expired') {
+        setMessageTone('error')
+        setMessage('ลิงก์ตั้งรหัสผ่านหมดอายุหรือถูกใช้แล้ว กรุณาขอลิงก์ใหม่')
+      }
+    }
+
     const rememberedEmail = window.localStorage.getItem(rememberedEmailKey)
     if (rememberedEmail) {
       setEmail(rememberedEmail)
@@ -55,17 +82,52 @@ export function AuthForm() {
     }
 
     const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+    const recoveryError = hash.get('error_code') || hash.get('error')
+    if (recoveryError) {
+      setMode('forgot-password')
+      setMessageTone('error')
+      setMessage(
+        recoveryError === 'otp_expired'
+          ? 'ลิงก์ตั้งรหัสผ่านหมดอายุหรือถูกใช้แล้ว กรุณาขอลิงก์ใหม่ด้านล่าง'
+          : 'ไม่สามารถเปิดลิงก์ตั้งรหัสผ่านได้ กรุณาขอลิงก์ใหม่ด้านล่าง',
+      )
+      window.history.replaceState({}, document.title, '/?forgot=1&recovery=expired')
+      return
+    }
+
     const accessToken = hash.get('access_token')
     const refreshToken = hash.get('refresh_token')
+    const authType = hash.get('type')
     if (!accessToken || !refreshToken) return
 
     setLoading(true)
-    createClient().auth.setSession({ access_token: accessToken, refresh_token: refreshToken }).then(async ({ error }) => {
-      if (error) {
+    fetch('/api/auth/session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        accessToken,
+        refreshToken,
+        register: authType !== 'recovery',
+      }),
+    }).then(async (response) => {
+      const result = await response.json() as {
+        registered?: boolean
+        error?: { code?: string; message?: string }
+      }
+      if (!response.ok) {
         setMessageTone('error')
-        setMessage(getThaiAuthError(error))
+        setMessage(getThaiAuthError(result.error))
         setLoading(false)
         return
+      }
+      if (authType === 'recovery') {
+        window.history.replaceState({}, document.title, '/auth/set-password')
+        window.location.assign('/auth/set-password')
+        return
+      }
+      if (result.registered) {
+        const notification = await requestNewDeviceLoginNotification()
+        reportSessionSecurityNotificationFailure('hash-session', notification)
       }
       window.history.replaceState({}, document.title, window.location.pathname)
       const pendingResponse = await fetch('/api/invitations/pending')
@@ -91,7 +153,10 @@ export function AuthForm() {
       }
       if (mode === 'forgot-password') {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/auth/callback?next=/auth/set-password`,
+          // Password recovery is an account-level flow. Always return users to
+          // the public AVENZO ONE app, even when an administrator requested the
+          // email while testing from localhost.
+          redirectTo: getPasswordRecoveryRedirectUrl(),
         })
         if (error) throw error
         setMessageTone('success')
@@ -99,16 +164,40 @@ export function AuthForm() {
         return
       }
 
-      const result = mode === 'sign-in'
-        ? await supabase.auth.signInWithPassword({ email, password })
-        : await supabase.auth.signUp({
-            email,
-            password,
-            options: { emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}` },
-          })
+      if (mode === 'sign-in') {
+        const response = await fetch('/api/auth/sign-in', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, next: next ?? undefined }),
+        })
+        const result = await response.json() as {
+          destination?: string
+          registered?: boolean
+          error?: { code?: string; message?: string }
+        }
+
+        if (!response.ok || !result.destination) throw result.error ?? new Error('Sign in failed')
+
+        const normalizedEmail = email.trim().toLowerCase()
+        if (rememberEmail) window.localStorage.setItem(rememberedEmailKey, normalizedEmail)
+        else window.localStorage.removeItem(rememberedEmailKey)
+
+        if (result.registered) {
+          const notification = await requestNewDeviceLoginNotification()
+          reportSessionSecurityNotificationFailure('password-login', notification)
+        }
+        window.location.assign(result.destination)
+        return
+      }
+
+      const result = await supabase.auth.signUp({
+        email,
+        password,
+        options: { emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}` },
+      })
 
       if (result.error) throw result.error
-      if (mode === 'sign-up') {
+      {
         const existingAccount = !result.data.user?.identities?.length
         if (existingAccount) {
           setMessageTone('error')
@@ -119,33 +208,6 @@ export function AuthForm() {
           setMessage('สมัครสำเร็จ กรุณาตรวจสอบอีเมลเพื่อยืนยันบัญชี หากไม่พบให้กดส่งอีเมลอีกครั้ง')
           setCanResend(true)
         }
-      } else {
-        const normalizedEmail = email.trim().toLowerCase()
-        if (rememberEmail) window.localStorage.setItem(rememberedEmailKey, normalizedEmail)
-        else window.localStorage.removeItem(rememberedEmailKey)
-
-        const signedInUserId = result.data.user?.id
-        if (!signedInUserId) throw new Error('ไม่พบข้อมูลบัญชีหลังเข้าสู่ระบบ กรุณาลองใหม่อีกครั้ง')
-
-        const platformAdminResult = await supabase
-          .from('platform_admins')
-          .select('status')
-          .eq('user_id', signedInUserId)
-          .maybeSingle()
-
-        if (platformAdminResult.data?.status === 'active') {
-          const destination = next ? nextPath : '/platform-admin'
-          const assurance = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
-          if (assurance.error) throw assurance.error
-          if (assurance.data.nextLevel === 'aal2' && assurance.data.currentLevel !== 'aal2') {
-            window.location.assign(`/auth/mfa?next=${encodeURIComponent(destination)}`)
-            return
-          }
-          window.location.assign(destination)
-          return
-        }
-
-        window.location.assign(nextPath)
       }
     } catch (error) {
       setMessageTone('error')
