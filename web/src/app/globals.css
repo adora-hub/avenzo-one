@@ -1770,6 +1770,9 @@ html[data-theme="dark"] .product-grid-table th:hover .product-grid-column-resize
 .product-initial-stock-duplicate-summary dd { margin: 2px 0 0; overflow-wrap: anywhere; color: var(--text-primary); font-size: 11px; font-weight: 700; }
 .product-initial-stock-duplicate-safety { display: grid; gap: 2px; padding: 8px 10px; border-left: 3px solid var(--status-info-border); color: var(--status-info-text); background: var(--surface-default); }
 .product-initial-stock-duplicate-safety strong { font-size: 11px; }
+.product-initial-stock-conflict-review { display: grid; gap: 2px; padding: 8px 10px; border-left: 3px solid var(--status-warning-border); color: var(--status-warning-text); background: var(--surface-default); }
+.product-initial-stock-conflict-review.reviewed { border-left-color: var(--status-info-border); color: var(--status-info-text); }
+.product-initial-stock-conflict-review strong { font-size: 11px; }
 .product-initial-stock-batch-state ul { margin: 3px 0 0; padding-left: 18px; }
 .product-initial-stock-rollback-impact { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 4px; }
 .product-initial-stock-rollback-impact > span { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 8px 10px; border: 1px solid var(--status-danger-border); border-radius: 8px; background: var(--surface-default); }
@@ -1778,7 +1781,8 @@ html[data-theme="dark"] .product-grid-table th:hover .product-grid-column-resize
 .product-initial-stock-rollback-reasons > strong { font-size: 11px; }
 .product-initial-stock-rollback-reasons code { color: inherit; font-weight: 700; }
 .product-initial-stock-rollback-actions { display: flex; justify-content: flex-end; gap: 8px; padding-top: 4px; }
-.product-initial-stock-batch-panel > footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.product-initial-stock-batch-panel > footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 12px; }
+.product-initial-stock-batch-panel > footer > span { flex: 1 1 260px; }
 .product-initial-stock-batch-panel > footer .button { flex: 0 0 auto; min-width: 190px; gap: 7px; }
 .product-initial-stock-table tr[data-batch-invalid="true"] { background: var(--status-danger-surface); }
 .product-initial-stock-row-batch-error { font-weight: 700; }

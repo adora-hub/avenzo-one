@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type Dispatch, type KeyboardEvent, type SetStateAction } from 'react'
 import { checkVariantProductIdentifiersAction } from '@/app/actions/foundation'
+import { variantIdentifierCheckFailureMessage, withVariantIdentifierCheckTimeout } from '@/lib/foundation/variant-identifier-check-ui'
 
 export type VariantOptionValueDraft = {
   id: string
@@ -182,49 +183,80 @@ export function VariantCreationBuilder({
     tone: 'idle', text: 'ระบบจะตรวจ SKU, รหัส CF และ Barcode ของทุก Variant อัตโนมัติ',
     collisionKeys: [], collisions: [],
   })
+  const [isIdentifierChecking, setIsIdentifierChecking] = useState(false)
   const checkRequestRef = useRef(0)
+  const checkInFlightRef = useRef(false)
+  const isMountedRef = useRef(true)
 
   const enabledIdentifiers = useMemo(() => combinations.filter((item) => item.enabled).map((item) => ({
     key: item.key, skuCode: item.skuCode, salesCode: item.salesCode, barcode: item.barcode,
   })), [combinations])
   const enabledIdentifierSignature = JSON.stringify(enabledIdentifiers)
 
-  async function checkVariantIdentifiers() {
+    async function checkVariantIdentifiers() {
+    if (checkInFlightRef.current || isIdentifierChecking) return
     if (!enabledIdentifiers.length || enabledIdentifiers.some((item) => !item.skuCode || !item.salesCode)) {
       onIdentifierCheckChange?.(false)
       setIdentifierCheck({ tone: 'idle', text: 'กรอก SKU และรหัสขาย / รหัส CF ให้ครบทุก Variant ก่อนตรวจ', collisionKeys: [], collisions: [] })
       return
     }
     const requestId = ++checkRequestRef.current
+    checkInFlightRef.current = true
+    setIsIdentifierChecking(true)
     onIdentifierCheckChange?.(false)
     setIdentifierCheck({ tone: 'checking', text: `กำลังตรวจ ${enabledIdentifiers.length} Variant…`, collisionKeys: [], collisions: [] })
-    const result = await checkVariantProductIdentifiersAction({ organizationId, variants: enabledIdentifiers })
-    if (requestId !== checkRequestRef.current) return
-    if (!result.ok) {
+    try {
+      const result = await withVariantIdentifierCheckTimeout(
+        checkVariantProductIdentifiersAction({ organizationId, variants: enabledIdentifiers }),
+      )
+      if (!isMountedRef.current || requestId !== checkRequestRef.current) return
+      if (!result.ok) {
+        onIdentifierCheckChange?.(false)
+        setIdentifierCheck({ tone: 'danger', text: 'ตรวจรหัสไม่สำเร็จ กรุณากด “ตรวจรหัสอีกครั้ง”', collisionKeys: [], collisions: [] })
+        return
+      }
+      const collisionKeys = result.data.collisions.map((collision) => `${collision.key}:${collision.field}`)
+      if (collisionKeys.length) {
+        const inForm = result.data.collisions.filter((collision) => collision.reason === 'duplicate_in_form').length
+        const existing = result.data.collisions.filter((collision) => collision.reason === 'already_exists').length
+        onIdentifierCheckChange?.(false)
+        setIdentifierCheck({ tone: 'danger', text: `พบรหัสซ้ำ ${collisionKeys.length} จุด${inForm ? ` · ในฟอร์ม ${inForm}` : ''}${existing ? ` · มีในระบบแล้ว ${existing}` : ''}`, collisionKeys, collisions: result.data.collisions })
+      } else {
+        onIdentifierCheckChange?.(true)
+        setIdentifierCheck({ tone: 'success', text: `รหัสทั้ง ${result.data.checked} ค่า ของ ${enabledIdentifiers.length} Variant สามารถใช้ได้`, collisionKeys: [], collisions: [] })
+      }
+    } catch (error) {
+      if (!isMountedRef.current || requestId !== checkRequestRef.current) return
       onIdentifierCheckChange?.(false)
-      setIdentifierCheck({ tone: 'danger', text: 'ตรวจรหัสไม่สำเร็จ กรุณาลองอีกครั้ง', collisionKeys: [], collisions: [] })
-      return
-    }
-    const collisionKeys = result.data.collisions.map((collision) => `${collision.key}:${collision.field}`)
-    if (collisionKeys.length) {
-      const inForm = result.data.collisions.filter((collision) => collision.reason === 'duplicate_in_form').length
-      const existing = result.data.collisions.filter((collision) => collision.reason === 'already_exists').length
-      onIdentifierCheckChange?.(false)
-      setIdentifierCheck({ tone: 'danger', text: `พบรหัสซ้ำ ${collisionKeys.length} จุด${inForm ? ` · ในฟอร์ม ${inForm}` : ''}${existing ? ` · มีในระบบแล้ว ${existing}` : ''}`, collisionKeys, collisions: result.data.collisions })
-    } else {
-      onIdentifierCheckChange?.(true)
-      setIdentifierCheck({ tone: 'success', text: `รหัสทั้ง ${result.data.checked} ค่า ของ ${enabledIdentifiers.length} Variant สามารถใช้ได้`, collisionKeys: [], collisions: [] })
+      setIdentifierCheck({ tone: 'danger', text: variantIdentifierCheckFailureMessage(error), collisionKeys: [], collisions: [] })
+    } finally {
+      if (requestId === checkRequestRef.current) {
+        checkInFlightRef.current = false
+        if (isMountedRef.current) setIsIdentifierChecking(false)
+      }
     }
   }
 
   useEffect(() => {
+    isMountedRef.current = true
+    return () => {
+      isMountedRef.current = false
+      checkRequestRef.current += 1
+      checkInFlightRef.current = false
+    }
+  }, [])
+
+  useEffect(() => {
+    checkRequestRef.current += 1
+    checkInFlightRef.current = false
+    if (isMountedRef.current) setIsIdentifierChecking(false)
+    onIdentifierCheckChange?.(false)
     const timer = window.setTimeout(() => { void checkVariantIdentifiers() }, 650)
     return () => window.clearTimeout(timer)
     // Signature represents every identifier field; recheck after each edit.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabledIdentifierSignature, organizationId])
-
-  function commitGroups(next: VariantOptionGroupDraft[]) {
+function commitGroups(next: VariantOptionGroupDraft[]) {
     setGroups(next)
     setCombinations((current) => synchronizeVariantCombinations(next, current, skuPrefix))
   }
@@ -336,7 +368,7 @@ export function VariantCreationBuilder({
         <div className="product-variant-bulk-actions"><button className="button compact product-primary-action" type="button" disabled={disabled || combinations.length === 0} onClick={applyBulkValues}>ใช้กับทุกรายการ</button><button className="button compact secondary" type="button" disabled={disabled || combinations.length === 0} onClick={() => { setBulkPrice(''); setBulkBarcode('none'); setBulkStatus('draft'); setCombinations((current) => current.map((item) => ({ ...item, price: '', barcode: '', status: 'draft' }))) }}>ล้างค่า</button></div>
       </div>
 
-      <div className={`product-variant-identifier-check ${identifierCheck.tone}`} role="status" aria-live="polite"><span>{identifierCheck.tone === 'success' ? '✓' : identifierCheck.tone === 'danger' ? '!' : 'ⓘ'}</span><span>{identifierCheck.text}</span><button className="button compact secondary" type="button" disabled={disabled || identifierCheck.tone === 'checking'} onClick={() => { void checkVariantIdentifiers() }}>{identifierCheck.tone === 'checking' ? 'กำลังตรวจ…' : 'ตรวจรหัสอีกครั้ง'}</button></div>
+      <div className={`product-variant-identifier-check ${identifierCheck.tone}`} role="status" aria-live="polite"><span>{identifierCheck.tone === 'success' ? '✓' : identifierCheck.tone === 'danger' ? '!' : 'ⓘ'}</span><span>{identifierCheck.text}</span><button className="button compact secondary" type="button" disabled={disabled || isIdentifierChecking} aria-busy={isIdentifierChecking} onClick={() => { void checkVariantIdentifiers() }}>{isIdentifierChecking ? 'กำลังตรวจ…' : 'ตรวจรหัสอีกครั้ง'}</button></div>
       {suggestedIdentifierCollisions.length ? <div className="product-variant-identifier-suggestions" role="list" aria-label="รหัสถัดไปที่สามารถใช้ได้"><strong>รหัสถัดไปที่ว่างจริง</strong><div>{suggestedIdentifierCollisions.map((collision) => <button className="button compact secondary" type="button" role="listitem" key={`${collision.key}:${collision.value}`} onClick={() => useIdentifierSuggestion(collision)} disabled={disabled}><span>{collision.field === 'sku_code' ? 'SKU Code' : collision.field === 'sales_code' ? 'รหัส CF' : 'Barcode'}</span><code>{collision.value}</code><span aria-hidden="true">→</span><code>{collision.suggestion}</code></button>)}</div><small>กดใช้รหัสแล้วระบบจะตรวจฐานข้อมูลซ้ำให้อัตโนมัติ</small></div> : null}
 
       <div className="product-variant-matrix-wrap"><table className="product-variant-matrix">

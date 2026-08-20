@@ -179,3 +179,47 @@ test('Input-Button Group Height Parity keeps the bulk action level with its numb
     /@media \(pointer: coarse\)[\s\S]*?\.product-initial-stock-bulk \{ --input-action-group-height: 44px; \}/
   )
 })
+test('UI-01.4E presents concurrent conflict as a full-batch rollback', async () => {
+  const form = await read(formPath)
+  const helper = await read('../src/lib/foundation/initial-stock-batch-ui.ts')
+  assert.match(helper, /InitialStockBatchStatus[^\n]*'conflict'/)
+  assert.match(form, /พบข้อมูล Initial Stock เปลี่ยนแปลงพร้อมกัน — Rollback ทั้ง Batch/)
+  assert.match(form, /initialStockBatchStatus !== 'conflict'/)
+  assert.match(form, /ไม่มี SKU ใดถูกเพิ่มสต็อก กรุณาตรวจสอบข้อมูลล่าสุดก่อนลองอีกครั้ง/)
+  assert.match(form, /ผลกระทบจาก concurrent conflict/)
+  assert.match(form, /0<\/strong> SKU ที่บันทึก/)
+  assert.match(form, /ข้อมูลปลายทางหรือยอดอ้างอิงถูกแก้ไขระหว่างการตรวจสอบ Batch/)
+  assert.doesNotMatch(form, /Partial Success|partial success|สำเร็จบางส่วน/)
+})
+
+test('UI-01.4E requires review before retry and preserves the new-Batch retry contract', async () => {
+  const form = await read(formPath)
+  const simulationHandler = form.slice(form.indexOf('function simulateInitialStockConflict()'), form.indexOf('function validateInitialStockBatch()'))
+  assert.match(simulationHandler, /setInitialStockBatchStatus\('conflict'\)/)
+  assert.match(simulationHandler, /function reviewInitialStockConflict\(\)/)
+  assert.match(simulationHandler, /collectInitialStockBatchIssues\(\)/)
+  assert.match(simulationHandler, /collectInitialStockBatchErrors\(rowIssues\)/)
+  assert.match(simulationHandler, /setInitialStockConflictReviewed\(true\)/)
+  assert.match(simulationHandler, /initialStockBatchStatus === 'conflict' && !initialStockConflictReviewed/)
+  assert.match(form, /disabled=\{initialStockBatchBusy \|\| !initialStockConflictReviewed\}/)
+  assert.match(form, /aria-describedby="initialStockConflictReviewStatus"/)
+  assert.match(form, /ตรวจสอบข้อมูลอีกครั้ง/)
+  assert.match(form, /ลองใหม่ด้วย Batch ID ใหม่/)
+})
+
+test('UI-01.4E stays local UI-only and provides an explicit Owner simulation trigger', async () => {
+  const form = await read(formPath)
+  const simulationHandler = form.slice(form.indexOf('function simulateInitialStockConflict()'), form.indexOf('function validateInitialStockBatch()'))
+  assert.match(form, /initialStockBatchStatus === 'success' \|\| initialStockBatchStatus === 'duplicate'/)
+  assert.match(form, />จำลอง Conflict<\/button>/)
+  assert.doesNotMatch(simulationHandler, /executeFoundationCommandAction|loadInitialStockDestinationsAction|supabase|fetch\(/)
+  assert.doesNotMatch(simulationHandler, /setInitialStockQuantities|setInitialStockBranchId|setInitialStockWarehouse|setInitialStockLocation/)
+})
+
+test('UI-01.4E uses semantic conflict tokens and existing responsive actions', async () => {
+  const styles = await read(stylesPath)
+  assert.match(styles, /\.product-initial-stock-conflict-review[^}]*var\(--status-warning-border\)[^}]*var\(--status-warning-text\)[^}]*var\(--surface-default\)/)
+  assert.match(styles, /\.product-initial-stock-conflict-review\.reviewed[^}]*var\(--status-info-border\)[^}]*var\(--status-info-text\)/)
+  assert.match(styles, /\.product-initial-stock-batch-panel > footer \{[^}]*flex-wrap: wrap/)
+  assert.match(styles, /@media \(max-width: 760px\)[\s\S]*\.product-initial-stock-rollback-actions \.button \{ width: 100%/)
+})
