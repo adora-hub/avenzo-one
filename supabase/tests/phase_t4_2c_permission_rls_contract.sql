@@ -85,24 +85,109 @@ begin
 
   if to_regclass('public.inventory_locations') is not null
      or to_regclass('public.inventory_movements') is not null
-     or to_regclass('public.inventory_receive_batches') is not null
-     or to_regclass('public.inventory_receive_batch_items') is not null then
-    raise exception 't4_2c_duplicate_or_batch_schema_created';
+     or (select array_agg(c.relname::text order by c.relname)
+         from pg_catalog.pg_class c
+         join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+         where n.nspname = 'public'
+           and c.relkind in ('r', 'p')
+           and c.relname ilike '%batch%'
+           and c.relname ~* '(inventory|stock|receive|receipt|movement)')
+         is distinct from array[
+             'inventory_receive_batch_items',
+             'inventory_receive_batches'
+           ]::text[] then
+    raise exception 't4_2c_duplicate_alias_or_legacy_batch_table_created';
   end if;
 
-  if exists (
-    select 1
-    from pg_catalog.pg_policies p
-    where position('inventory_batch.read' in coalesce(p.qual, '')) > 0
-       or position('inventory_batch.read' in coalesce(p.with_check, '')) > 0
-  ) or exists (
-    select 1
-    from pg_catalog.pg_proc p
-    join pg_catalog.pg_namespace n on n.oid = p.pronamespace
-    where n.nspname in ('public', 'private')
-      and position('inventory_batch.read' in coalesce(p.prosrc, '')) > 0
-  ) then
-    raise exception 't4_2c_batch_permission_has_active_surface';
+  if (select array_agg(c.column_name::text order by c.ordinal_position)
+      from information_schema.columns c
+      where c.table_schema = 'public'
+        and c.table_name = 'inventory_receive_batches') is distinct from array[
+          'id', 'organization_id', 'branch_id', 'batch_type',
+          'idempotency_key', 'request_hash_version', 'request_hash',
+          'reference', 'reason_code', 'reason_note', 'item_count',
+          'actor_user_id', 'status', 'result', 'occurred_at',
+          'created_at', 'completed_at'
+        ]::text[]
+     or (select array_agg(c.column_name::text order by c.ordinal_position)
+         from information_schema.columns c
+         where c.table_schema = 'public'
+           and c.table_name = 'inventory_receive_batch_items') is distinct from array[
+             'id', 'organization_id', 'branch_id', 'batch_id', 'line_no',
+             'sku_id', 'warehouse_id', 'location_id', 'quantity',
+             'base_unit_code', 'inventory_command_id', 'created_at'
+           ]::text[] then
+    raise exception 't4_2c_t4_4b_batch_table_structure_conflict';
+  end if;
+
+  if (select array_agg(p.policyname::text order by p.policyname)
+      from pg_catalog.pg_policies p
+      where p.schemaname = 'public'
+        and p.tablename in (
+          'inventory_receive_batches', 'inventory_receive_batch_items'
+        )) is distinct from array[
+          'inventory_receive_batch_items_permission_select',
+          'inventory_receive_batches_permission_select'
+        ]::text[]
+     or (select count(*) from pg_catalog.pg_policies p
+         where p.schemaname = 'public'
+           and p.tablename in (
+             'inventory_receive_batches', 'inventory_receive_batch_items'
+           )
+           and p.cmd = 'SELECT'
+           and p.roles = array['authenticated']::name[]
+           and position('inventory_batch.read' in coalesce(p.qual, '')) > 0) <> 2 then
+    raise exception 't4_2c_t4_4b_batch_policy_surface_conflict';
+  end if;
+
+  if (select array_agg(c.relname || '.' || t.tgname order by c.relname, t.tgname)
+      from pg_catalog.pg_trigger t
+      join pg_catalog.pg_class c on c.oid = t.tgrelid
+      join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+      where n.nspname = 'public'
+        and c.relname in (
+          'inventory_receive_batches', 'inventory_receive_batch_items'
+        )
+        and not t.tgisinternal) is distinct from array[
+          'inventory_receive_batch_items.guard_inventory_receive_batch_item_insert',
+          'inventory_receive_batch_items.prevent_inventory_receive_batch_item_update_delete',
+          'inventory_receive_batches.guard_inventory_receive_batch_update',
+          'inventory_receive_batches.prevent_inventory_receive_batch_delete'
+        ]::text[] then
+    raise exception 't4_2c_t4_4b_batch_trigger_surface_conflict';
+  end if;
+
+  if (select count(*)
+      from pg_catalog.pg_proc p
+      join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+      where (n.nspname, p.proname) in (
+        ('private', 'require_inventory_receive_batch_context'),
+        ('private', 'guard_inventory_receive_batch_update'),
+        ('private', 'guard_inventory_receive_batch_item_insert'),
+        ('public', 'server_receive_inventory_batch')
+      )) <> 4
+     or exists (
+       select 1
+       from pg_catalog.pg_proc p
+       join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+       where n.nspname in ('public', 'private')
+         and p.proname ilike '%inventory%receive%batch%'
+         and (n.nspname, p.proname) not in (
+           ('private', 'require_inventory_receive_batch_context'),
+           ('private', 'guard_inventory_receive_batch_update'),
+           ('private', 'guard_inventory_receive_batch_item_insert'),
+           ('public', 'server_receive_inventory_batch')
+         )
+     )
+     or to_regprocedure(
+       'public.server_receive_inventory_batch(jsonb,uuid)'
+     ) is null
+     or (select count(*)
+         from pg_catalog.pg_proc p
+         join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+         where n.nspname = 'public'
+           and p.proname like 'server%receive%batch%') <> 1 then
+    raise exception 't4_2c_t4_4b_batch_function_or_rpc_surface_conflict';
   end if;
 
   if (select count(*)
@@ -499,5 +584,3 @@ end
 $final_assertions$;
 
 rollback;
-
-

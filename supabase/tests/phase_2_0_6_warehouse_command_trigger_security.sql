@@ -61,6 +61,20 @@ select public.server_execute_foundation_command(
 ) \gset sku_
 
 select public.server_execute_foundation_command(
+  '00000000-0000-4000-8000-000000000735',
+  '00000000-0000-4000-8000-000000000710',
+  'product.activate',
+  jsonb_build_object(
+    'product_id', :'product_server_execute_foundation_command'::jsonb ->> 'entity_id',
+    'expected_version',
+      (:'product_server_execute_foundation_command'::jsonb ->> 'version')::bigint
+  ),
+  repeat('b', 64),
+  '00000000-0000-4000-8000-000000000701',
+  now()
+);
+
+select public.server_execute_foundation_command(
   '00000000-0000-4000-8000-000000000733',
   '00000000-0000-4000-8000-000000000710',
   'location.create',
