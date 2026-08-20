@@ -226,6 +226,7 @@ Variant มาตรฐาน:
 - ปุ่ม Icon-only ทุกปุ่มต้องมี Accessible Label และ Tooltip เสมอ โดย Tooltip แสดงด้านบนเป็นค่าเริ่มต้น เว้นแต่พื้นที่ไม่พอจึงค่อยเปลี่ยนทิศทาง
 - ปุ่มต้องมี Feedback ทางสายตาเมื่อ Hover เช่น เปลี่ยนสีเล็กน้อย ยกตัวเล็กน้อย หรือแสดง Shadow อย่างพอดี โดยไม่ทำให้ Layout กระโดด
 - Dialog มาตรฐานวาง Primary ด้านขวา และ Cancel ก่อนหน้า Primary
+- **Live Sale Accent Exception:** เฉพาะพื้นที่ทำงาน Live Sale ปุ่มหลักและ Badge ใช้พื้นหลัง `#AAE600`, Hover `#D6E600` และตัวอักษร `#000000`; ต้อง Scope ผ่าน Container ของ Live Sale และห้ามเปลี่ยน Primary Button หรือ Badge ส่วนกลางของระบบ
 - Action ที่ย้อนกลับยากต้องมี Confirmation พร้อมชื่อรายการและผลที่จะเกิด
 
 ### 5.2 Form

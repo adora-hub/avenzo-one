@@ -243,9 +243,18 @@ Stop gate: **หยุดให้ Owner ทดสอบ UI และข้อ�
 
 นำ Mockup ชุดรหัสขายด่วนมาเชื่อมระบบจริง โดยสร้าง Live Session และผูก Live Code กับ Product/Variant
 
+แนวทาง Rapid Entry Table รุ่นใหม่ถูกล็อกไว้ใน
+`AVENZO_ONE_Live_Sale_Rapid_Entry_Table_Development_Guide_V1.md` โดยเปลี่ยนจาก
+การกรอกทีละสินค้าเป็นตารางสูงสุด 50 แถว, รองรับคอม/Tablet แนวนอนตั้งแต่
+1,024 CSS pixels, Naming Template ที่มี `{code}`, Inline edit, รูปต่อแถว,
+Bulk price/stock/unit/Branch และแยก UI approval ออกจาก Backend integration
+อย่างชัดเจน
+
 เกณฑ์ผ่าน:
 
-- จอง `B001–B070` ได้แบบ Atomic
+- จองช่วงต่อเนื่องสูงสุด 50 รหัส เช่น `B001–B050` ได้แบบ Atomic
+- ตรวจ Prefix แบบ Advisory และแนะนำช่วงว่างถัดไป ก่อนยืนยันด้วย Atomic claim
+- สร้างชื่อพร้อมใช้จาก Naming Template เช่น `PayDay-{code}` และแก้เฉพาะแถวได้
 - กำหนดสาขา ผู้รับผิดชอบ เวลาเริ่ม/จบ และสถานะได้
 - Live Code เดิมใช้ซ้ำต่าง Session ได้ตาม Contract
 - ปิด/หมดอายุ Session แล้วจัดการรหัสอย่างปลอดภัย
@@ -321,7 +330,7 @@ Stop gate: **หยุดให้ Owner ทดสอบ UI และข้อ�
 | 4. Atomic Sales Code Allocator | Completed locally | Registry + sequence/reservation + idempotency/audit + concurrency ผ่าน |
 | 5. Unified Variant Creation | Completed locally | Atomic graph + Variant image recovery + UI/F5 + SQL/TS/build ผ่าน · `AVENZO_ONE_Product_Variant_B5_Unified_Variant_Creation.md` |
 | 6. Products Workspace Alignment | Not started | รักษา Approved Products UI |
-| 7. Live Sale Reservation | Not started | ใช้ Approved Live Sale concept |
+| 7. Live Sale Reservation | UI planning in progress | Live-UI-01–04 completed locally; Rapid Entry Table V1 requirements frozen in `AVENZO_ONE_Live_Sale_Rapid_Entry_Table_Development_Guide_V1.md` |
 | 8. Deterministic Live CF Parser | Not started | ไม่ใช้ AI เป็น Authority |
 | 9. Reservation, Stock & Billing | Not started | ทุกคำสั่ง resolve เป็น sku_id |
 | 10. Migration, Rollout & E2E | Not started | ต้องหยุดให้ Owner ทดสอบ |
