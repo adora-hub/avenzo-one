@@ -216,6 +216,10 @@ Variant มาตรฐาน:
 
 - ปุ่มมาตรฐาน (`primary`, `secondary`, `outline`, `danger`) ใช้ความสูงกลาง 44 px
 - ปุ่มแบบ Compact ใช้ความสูงกลาง 38 px และใช้เฉพาะ Action ย่อย เช่น Action ในตาราง
+- **Input-Button Group Height Parity:** Input, Select, and Button controls that form one inline action group must share `--input-action-group-height` and have the same computed height.
+- Use 34 px for dense desktop groups and 44 px for coarse-pointer/touch targets. The Button must use zero block padding and must never inherit a larger minimum height than its paired field.
+- Apply the reusable `input-action-group` pattern, or a feature group explicitly mapped to this contract. Do not reduce the global Compact Button height to solve a local mismatch.
+- Helper or error text may extend below a field, but it must not alter the paired controls' height.
 - การ์ดแบบฟอร์มที่อยู่ใน Grid แถวเดียวกันต้องวางปุ่มหลักที่แนวฐานเดียวกัน โดยใช้ Pattern `form-card-with-footer` เพื่อดัน Action สุดท้ายไว้ด้านล่างของการ์ด
 - ห้ามแก้ตำแหน่งปุ่มด้วย Margin เฉพาะหน้า หรือกำหนดความสูงการ์ดแบบ Hard-code
 - ขณะ Loading ให้กันการกดซ้ำและคงความกว้างของปุ่ม

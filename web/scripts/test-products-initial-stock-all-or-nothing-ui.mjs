@@ -20,7 +20,7 @@ test('UI-01.2 models Initial Stock as one batch without partial success', async 
 test('UI-01.2 shows batch rollback copy and identifies invalid SKU rows', async () => {
   const form = await read(formPath)
   assert.match(form, /บันทึก Initial Stock ไม่สำเร็จ — Rollback ทั้ง Batch/)
-  assert.match(form, /ไม่มี SKU ใดถูกเพิ่มสต็อกสำเร็จบางส่วน/)
+  assert.match(form, /ไม่มี SKU ใดถูกเพิ่มสต็อก ข้อมูลที่กรอกยังอยู่ครบเพื่อให้แก้ไขได้/)
   assert.match(form, /ข้อมูลที่กรอกยังอยู่ครบเพื่อให้แก้ไขได้/)
   assert.match(form, /data-batch-invalid=\{batchIssues\.length \? 'true' : 'false'\}/)
   assert.match(form, /product-initial-stock-row-batch-error/)
@@ -29,21 +29,21 @@ test('UI-01.2 shows batch rollback copy and identifies invalid SKU rows', async 
 test('UI-01.2 reports success only after every batch validation passes', async () => {
   assert.equal(resolveInitialStockBatchOutcome({ hasValidationErrors: true, isDuplicate: true }), 'error')
   const form = await read(formPath)
-  const handler = form.slice(form.indexOf('function validateInitialStockBatch()'), form.indexOf('const variantPrices'))
+  const handler = form.slice(form.indexOf('function validateInitialStockBatch('), form.indexOf('const variantPrices'))
   assert.match(handler, /hasValidationErrors: batchErrors\.length > 0 \|\| rowIssues\.length > 0/)
   assert.match(form, /ทุก SKU ผ่านการตรวจสอบทั้ง Batch/)
   assert.match(form, /เป็นผลจาก UI Simulation เท่านั้น ยังไม่มีการเพิ่ม Stock หรือสร้าง Stock Movement จริง/)
   assert.doesNotMatch(handler, /executeFoundationCommandAction|loadInitialStockDestinationsAction|supabase|fetch\(/)
 })
-test('UI-01.2 preserves the same batch for retry and handles duplicate UI results', async () => {
+test('UI-01.2 handles duplicate UI results without writing stock', async () => {
   const form = await read(formPath)
   assert.equal(formatInitialStockBatchId(1), 'UI-BATCH-001')
   assert.match(form, /formatInitialStockBatchId\(initialStockBatchRevision\)/)
-  assert.match(form, /initialStockLastSuccessfulFingerprint === initialStockBatchFingerprint/)
+  assert.match(form, /initialStockLastSuccessfulFingerprint === validationBatchFingerprint/)
   assert.match(form, /setInitialStockBatchStatus\(outcome\)/)
   assert.match(form, /พบคำสั่งซ้ำ — แสดงผลลัพธ์เดิม/)
-  assert.match(form, /Retry จะใช้ Batch ID เดิมจนกว่าจะเริ่มสินค้ารายการใหม่/)
-  assert.match(form, /ลองบันทึกทั้งชุดอีกครั้ง/)
+
+
 })
 
 test('UI-01.2 disables confirmation and batch inputs while loading', async () => {
@@ -68,7 +68,7 @@ test('UI-01.2 applies semantic batch states and preserves Owner section order', 
 
 test('UI-01.3 explains rollback impact and gives actionable correction controls', async () => {
   const [form, styles] = await Promise.all([read(formPath), read(stylesPath)])
-  assert.match(form, /ไม่มี SKU ใดถูกเพิ่มสต็อกสำเร็จบางส่วน ข้อมูลที่กรอกยังอยู่ครบเพื่อให้แก้ไขได้/)
+  assert.match(form, /ไม่มี SKU ใดถูกเพิ่มสต็อก ข้อมูลที่กรอกยังอยู่ครบเพื่อให้แก้ไขได้/)
   assert.match(form, /initialStockAffectedSkuCount/)
   assert.match(form, /0<\/strong> SKU ที่บันทึก/)
   assert.match(form, /สาเหตุที่ต้องแก้/)
@@ -76,7 +76,7 @@ test('UI-01.3 explains rollback impact and gives actionable correction controls'
   assert.match(form, /issue\.skuCode/)
   assert.match(form, /focusInitialStockCorrectionTarget/)
   assert.match(form, />แก้ไขข้อมูล<\/button>/)
-  assert.match(form, />ตรวจสอบอีกครั้ง<\/button>/)
+  assert.match(form, />ลองอีกครั้ง<\/button>/)
   assert.match(styles, /\.product-initial-stock-rollback-impact/)
   assert.match(styles, /\.product-initial-stock-rollback-actions/)
 })
@@ -95,7 +95,7 @@ test('UI-01.3 moves keyboard focus to the first correctable batch field', async 
 })
 test('UI-01.4A locks the batch synchronously and exposes an accessible stable loading state', async () => {
   const [form, styles] = await Promise.all([read(formPath), read(stylesPath)])
-  const handler = form.slice(form.indexOf('function validateInitialStockBatch()'), form.indexOf('const variantPrices'))
+  const handler = form.slice(form.indexOf('function validateInitialStockBatch('), form.indexOf('const variantPrices'))
   assert.match(form, /initialStockBatchInFlightRef = useRef\(false\)/)
   assert.match(handler, /if \(initialStockBatchInFlightRef\.current \|\| initialStockBatchStatus === 'loading'\) return/)
   assert.match(handler, /initialStockBatchInFlightRef\.current = true/)
@@ -129,10 +129,10 @@ test('UI-01.4B validates every required batch field and clears resolved warnings
 })
 test('UI-01.4C distinguishes a duplicate from a new success and shows the prior result', async () => {
   const [form, styles] = await Promise.all([read(formPath), read(stylesPath)])
-  const handler = form.slice(form.indexOf('function validateInitialStockBatch()'), form.indexOf('const variantPrices'))
+  const handler = form.slice(form.indexOf('function validateInitialStockBatch('), form.indexOf('const variantPrices'))
   assert.match(form, /type InitialStockBatchResultSummary/)
   assert.match(form, /initialStockLastSuccessfulResult/)
-  assert.match(form, /setInitialStockLastSuccessfulResult\(initialStockCurrentResult\)/)
+  assert.match(form, /setInitialStockLastSuccessfulResult\(validationBatchResult\)/)
   assert.match(form, /setInitialStockLastSuccessfulResult\(null\)/)
   assert.match(handler, /if \(outcome === 'success'\) \{/)
   assert.match(form, /พบคำสั่งซ้ำ — แสดงผลลัพธ์เดิม/)
@@ -147,4 +147,35 @@ test('UI-01.4C distinguishes a duplicate from a new success and shows the prior 
   assert.match(form, /aria-live="polite" aria-atomic="true"/)
   assert.match(styles, /\.product-initial-stock-duplicate-summary[^}]*grid-template-columns: repeat\(2/)
   assert.match(styles, /@media \(max-width: 760px\)[\s\S]*\.product-initial-stock-duplicate-summary \{ grid-template-columns: 1fr; \}/)
+})
+test('UI-01.4D creates a new Batch ID for retry and preserves the entered batch values', async () => {
+  const form = await read(formPath)
+  const retryHandler = form.slice(form.indexOf('function retryInitialStockBatch()'), form.indexOf('function validateInitialStockBatch('))
+  assert.match(retryHandler, /const nextBatchRevision = initialStockBatchRevision \+ 1/)
+  assert.match(retryHandler, /setInitialStockBatchRevision\(nextBatchRevision\)/)
+  assert.match(retryHandler, /runInitialStockBatchValidation\(nextBatchRevision\)/)
+  assert.doesNotMatch(retryHandler, /setInitialStockQuantities|setInitialStockBranchId|setInitialStockWarehouse|setInitialStockLocation/)
+  assert.match(form, /การลองอีกครั้งจะสร้าง Batch ID ใหม่ โดยเก็บค่าจำนวน สาขา คลัง และตำแหน่งเดิมไว้/)
+  assert.match(form, />ลองอีกครั้ง<\/button>/)
+})
+
+test('UI-01.4D guards retry while loading and never presents partial success', async () => {
+  const form = await read(formPath)
+  const retryHandler = form.slice(form.indexOf('function retryInitialStockBatch()'), form.indexOf('function validateInitialStockBatch('))
+  assert.match(retryHandler, /if \(initialStockBatchInFlightRef\.current \|\| initialStockBatchStatus === 'loading'\) return/)
+  assert.match(form, /onClick=\{retryInitialStockBatch\} disabled=\{initialStockBatchBusy\} aria-busy=\{initialStockBatchBusy\}/)
+  assert.match(form, /กำลังลองอีกครั้งด้วย Batch ใหม่…/)
+  assert.match(form, /ไม่มี SKU ใดถูกเพิ่มสต็อก ข้อมูลที่กรอกยังอยู่ครบเพื่อให้แก้ไขได้/)
+  assert.doesNotMatch(form, /Partial Success|partial success|สำเร็จบางส่วน/)
+})
+
+test('Input-Button Group Height Parity keeps the bulk action level with its number field', async () => {
+  const styles = await read(stylesPath)
+  assert.match(styles, /--input-action-group-height: 34px/)
+  assert.match(styles, /\.product-initial-stock-bulk input,[\s\S]*?\.product-initial-stock-bulk > \.button \{[\s\S]*?height: var\(--input-action-group-height\); min-height: var\(--input-action-group-height\)/)
+  assert.match(styles, /\.product-initial-stock-bulk > \.button \{ padding-block: 0; \}/)
+  assert.match(
+    styles,
+    /@media \(pointer: coarse\)[\s\S]*?\.product-initial-stock-bulk \{ --input-action-group-height: 44px; \}/
+  )
 })

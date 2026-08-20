@@ -1048,6 +1048,7 @@ export function UnifiedProductCreationForm({
   const [initialStockBatchRevision, setInitialStockBatchRevision] = useState(1)
   const [initialStockBatchStatus, setInitialStockBatchStatus] = useState<InitialStockBatchStatus>('idle')
   const [initialStockBatchAttempted, setInitialStockBatchAttempted] = useState(false)
+  const [initialStockLastAttemptFailed, setInitialStockLastAttemptFailed] = useState(false)
   const [initialStockBatchIssues, setInitialStockBatchIssues] = useState<InitialStockBatchIssue[]>([])
   const [initialStockBatchErrors, setInitialStockBatchErrors] = useState<string[]>([])
   const [initialStockLastSuccessfulFingerprint, setInitialStockLastSuccessfulFingerprint] = useState('')
@@ -1704,6 +1705,7 @@ export function UnifiedProductCreationForm({
     initialStockBatchInFlightRef.current = false
     setInitialStockBatchStatus('idle')
     setInitialStockBatchAttempted(false)
+    setInitialStockLastAttemptFailed(false)
     setInitialStockBatchIssues([])
     setInitialStockBatchErrors([])
     setInitialStockLastSuccessfulFingerprint('')
@@ -2854,8 +2856,8 @@ export function UnifiedProductCreationForm({
         initialStockQuantityError(bundleInitialStockQuantity),
       ].filter(Boolean)
     : []
-  const initialStockBatchFingerprint = JSON.stringify({
-    batchId: initialStockBatchId,
+  const createInitialStockBatchFingerprint = (batchId: string) => JSON.stringify({
+    batchId,
     branchId: initialStockBranchId,
     warehouseId: initialStockWarehouse,
     locationId: initialStockLocation,
@@ -2908,6 +2910,7 @@ export function UnifiedProductCreationForm({
   const initialStockShowValidation = initialStockBatchAttempted
     && initialStockBatchStatus !== 'loading'
     && (initialStockLiveBatchErrors.length > 0 || initialStockLiveBatchIssues.length > 0)
+  const initialStockBatchBusy = initialStockBatchStatus === 'loading' || initialStockBatchInFlightRef.current
   const initialStockBranchInvalid = initialStockShowValidation && !initialStockBranchId
   const initialStockWarehouseInvalid = initialStockShowValidation && !initialStockWarehouse
   const initialStockLocationInvalid = initialStockShowValidation && !initialStockLocation
@@ -2931,14 +2934,26 @@ export function UnifiedProductCreationForm({
     target?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     if (target instanceof HTMLElement && target.id !== 'initialStockBatchTitle') target.focus({ preventScroll: true })
   }
+  function retryInitialStockBatch() {
+    if (initialStockBatchInFlightRef.current || initialStockBatchStatus === 'loading') return
+    const nextBatchRevision = initialStockBatchRevision + 1
+    setInitialStockBatchRevision(nextBatchRevision)
+    runInitialStockBatchValidation(nextBatchRevision)
+  }
   function validateInitialStockBatch() {
+    runInitialStockBatchValidation(initialStockBatchRevision)
+  }
+  function runInitialStockBatchValidation(batchRevision: number) {
     if (initialStockBatchInFlightRef.current || initialStockBatchStatus === 'loading') return
     initialStockBatchInFlightRef.current = true
+    const validationBatchId = formatInitialStockBatchId(batchRevision)
+    const validationBatchFingerprint = createInitialStockBatchFingerprint(validationBatchId)
+    const validationBatchResult = { ...initialStockCurrentResult, batchId: validationBatchId }
     const rowIssues = collectInitialStockBatchIssues()
     const batchErrors = collectInitialStockBatchErrors(rowIssues)
     const outcome = resolveInitialStockBatchOutcome({
       hasValidationErrors: batchErrors.length > 0 || rowIssues.length > 0,
-      isDuplicate: initialStockLastSuccessfulFingerprint === initialStockBatchFingerprint,
+      isDuplicate: initialStockLastSuccessfulFingerprint === validationBatchFingerprint,
     })
     setInitialStockBatchAttempted(true)
     setInitialStockBatchStatus('loading')
@@ -2949,18 +2964,21 @@ export function UnifiedProductCreationForm({
       initialStockBatchInFlightRef.current = false
       initialStockBatchTimerRef.current = null
       if (outcome === 'error') {
+        setInitialStockLastAttemptFailed(true)
         setInitialStockBatchIssues(rowIssues)
         setInitialStockBatchErrors(batchErrors)
         setInitialStockBatchStatus('error')
         return
       }
+      setInitialStockLastAttemptFailed(false)
       if (outcome === 'success') {
-        setInitialStockLastSuccessfulFingerprint(initialStockBatchFingerprint)
-        setInitialStockLastSuccessfulResult(initialStockCurrentResult)
+        setInitialStockLastSuccessfulFingerprint(validationBatchFingerprint)
+        setInitialStockLastSuccessfulResult(validationBatchResult)
       }
       setInitialStockBatchStatus(outcome)
     }, 650)
-  }const variantPrices = enabledVariantCombinations
+  }
+  const variantPrices = enabledVariantCombinations
     .filter((combination) => combination.price.trim() !== '')
     .map((combination) => Number(combination.price))
     .filter((price) => Number.isFinite(price) && price >= 0)
@@ -3271,12 +3289,12 @@ export function UnifiedProductCreationForm({
                     <div className="product-initial-stock-summary"><span>รวมยอดตั้งต้น</span><strong>{new Intl.NumberFormat('th-TH', { maximumFractionDigits: 6 }).format(initialStockTotal)} {BASE_UNIT_LABELS[summaryFields.baseUnitCode] ?? (summaryFields.baseUnitCode || 'หน่วย')}</strong></div>
                     <section className="product-initial-stock-batch-panel" data-state={initialStockBatchStatus} aria-labelledby="initialStockBatchTitle" aria-busy={initialStockBatchStatus === 'loading'}>
                       <header><div><strong id="initialStockBatchTitle">ตรวจสอบ Initial Stock แบบ Batch เดียว</strong><small>{initialStockBatchId} · UI Simulation</small></div><span className="product-status-pill draft"><i aria-hidden="true" />ไม่ส่ง Backend</span></header>
-                      {initialStockBatchStatus === 'loading' ? <div className="product-initial-stock-batch-state info loading" role="status" aria-live="polite" aria-atomic="true"><span className="product-loading-spinner" aria-hidden="true" /><div><strong>กำลังตรวจสอบทั้ง Batch…</strong><span>ปุ่มยืนยันและข้อมูลใน Batch ถูกปิดชั่วคราวเพื่อป้องกันการกดซ้ำ</span></div></div> : null}
-                      {initialStockShowValidation ? <div className="product-initial-stock-batch-state danger" role="alert" aria-live="assertive"><strong>{initialStockBatchStatus === 'error' ? 'บันทึก Initial Stock ไม่สำเร็จ — Rollback ทั้ง Batch' : 'ข้อมูล Batch ยังไม่ครบ — แก้ไขต่อได้ทันที'}</strong><span>{initialStockBatchStatus === 'error' ? 'ไม่มี SKU ใดถูกเพิ่มสต็อกสำเร็จบางส่วน ข้อมูลที่กรอกยังอยู่ครบเพื่อให้แก้ไขได้' : 'ระบบตรวจใหม่จากข้อมูลปัจจุบัน จุดที่แก้ถูกแล้วจะหายจากรายการโดยอัตโนมัติ'}</span><div className="product-initial-stock-rollback-impact" aria-label="ผลกระทบจากการย้อนกลับทั้ง Batch"><span><strong>{initialStockAffectedSkuCount}</strong> SKU ใน Batch</span><span><strong>0</strong> SKU ที่บันทึก</span></div>{initialStockLiveBatchErrors.length ? <div className="product-initial-stock-rollback-reasons"><strong>สาเหตุที่ต้องแก้</strong><ul>{initialStockLiveBatchErrors.map((error) => <li key={error}>{error}</li>)}</ul></div> : null}{initialStockLiveBatchIssues.length ? <div className="product-initial-stock-rollback-reasons"><strong>รายการ SKU ที่พบปัญหา</strong><ul>{initialStockLiveBatchIssues.map((issue) => <li key={`${issue.rowKey}-${issue.message}`}><code>{issue.skuCode}</code> — {issue.message}</li>)}</ul></div> : null}<div className="product-initial-stock-rollback-actions"><button className="button compact secondary" type="button" onClick={focusInitialStockCorrectionTarget}>แก้ไขข้อมูล</button><button className="button compact product-primary-action" type="button" onClick={validateInitialStockBatch}>ตรวจสอบอีกครั้ง</button></div></div> : null}
+                      {initialStockBatchStatus === 'loading' ? <div className="product-initial-stock-batch-state info loading" role="status" aria-live="polite" aria-atomic="true"><span className="product-loading-spinner" aria-hidden="true" /><div><strong>{initialStockLastAttemptFailed ? 'กำลังลองอีกครั้งด้วย Batch ใหม่…' : 'กำลังตรวจสอบทั้ง Batch…'}</strong><span>ปุ่มยืนยันและข้อมูลใน Batch ถูกปิดชั่วคราวเพื่อป้องกันการกดซ้ำ</span></div></div> : null}
+                      {initialStockShowValidation ? <div className="product-initial-stock-batch-state danger" role="alert" aria-live="assertive"><strong>{initialStockBatchStatus === 'error' ? 'บันทึก Initial Stock ไม่สำเร็จ — Rollback ทั้ง Batch' : 'ข้อมูล Batch ยังไม่ครบ — แก้ไขต่อได้ทันที'}</strong><span>{initialStockBatchStatus === 'error' ? 'ไม่มี SKU ใดถูกเพิ่มสต็อก ข้อมูลที่กรอกยังอยู่ครบเพื่อให้แก้ไขได้' : 'ระบบตรวจใหม่จากข้อมูลปัจจุบัน จุดที่แก้ถูกแล้วจะหายจากรายการโดยอัตโนมัติ'}</span><div className="product-initial-stock-rollback-impact" aria-label="ผลกระทบจากการย้อนกลับทั้ง Batch"><span><strong>{initialStockAffectedSkuCount}</strong> SKU ใน Batch</span><span><strong>0</strong> SKU ที่บันทึก</span></div>{initialStockLiveBatchErrors.length ? <div className="product-initial-stock-rollback-reasons"><strong>สาเหตุที่ต้องแก้</strong><ul>{initialStockLiveBatchErrors.map((error) => <li key={error}>{error}</li>)}</ul></div> : null}{initialStockLiveBatchIssues.length ? <div className="product-initial-stock-rollback-reasons"><strong>รายการ SKU ที่พบปัญหา</strong><ul>{initialStockLiveBatchIssues.map((issue) => <li key={`${issue.rowKey}-${issue.message}`}><code>{issue.skuCode}</code> — {issue.message}</li>)}</ul></div> : null}<div className="product-initial-stock-rollback-actions"><button className="button compact secondary" type="button" onClick={focusInitialStockCorrectionTarget}>แก้ไขข้อมูล</button><button className="button compact product-primary-action" type="button" onClick={retryInitialStockBatch} disabled={initialStockBatchBusy} aria-busy={initialStockBatchBusy}>ลองอีกครั้ง</button></div></div> : null}
                       {initialStockBatchStatus === 'success' ? <div className="product-initial-stock-batch-state success" role="status"><strong>ทุก SKU ผ่านการตรวจสอบทั้ง Batch</strong><span>เป็นผลจาก UI Simulation เท่านั้น ยังไม่มีการเพิ่ม Stock หรือสร้าง Stock Movement จริง</span></div> : null}
                       {initialStockBatchStatus === 'duplicate' ? <div className="product-initial-stock-batch-state info duplicate" role="status" aria-live="polite" aria-atomic="true"><div className="product-initial-stock-duplicate-heading"><span className="product-status-pill"><i aria-hidden="true" />ผลตรวจเดิม</span><strong>พบคำสั่งซ้ำ — แสดงผลลัพธ์เดิม</strong></div><span>ข้อมูลชุดนี้ตรงกับ Batch ที่เคยตรวจผ่านใน Browser session นี้ ระบบจึงไม่เริ่มรายการใหม่</span><dl className="product-initial-stock-duplicate-summary"><div><dt>Reference</dt><dd>{initialStockDuplicateResult.batchId}</dd></div><div><dt>SKU</dt><dd>{initialStockDuplicateResult.skuCount} รายการ</dd></div><div><dt>จำนวนรวม</dt><dd>{new Intl.NumberFormat('th-TH', { maximumFractionDigits: 6 }).format(initialStockDuplicateResult.totalQuantity)} {initialStockDuplicateResult.unitLabel}</dd></div><div><dt>ปลายทาง</dt><dd>{initialStockDuplicateResult.destinationLabel}</dd></div></dl><div className="product-initial-stock-duplicate-safety"><strong>ไม่มีการเพิ่มสต็อกซ้ำ</strong><span>เป็น Duplicate UI Simulation เท่านั้น ยังไม่มี Stock write หรือ Stock Movement จริง</span></div></div> : null}
                       {initialStockBatchStatus === 'idle' ? <p>ระบบจะตรวจปลายทางและทุก SKU พร้อมกัน หากแถวใดผิดจะถือว่า Batch ทั้งชุดไม่ผ่าน</p> : null}
-                      <footer><span>Retry จะใช้ Batch ID เดิมจนกว่าจะเริ่มสินค้ารายการใหม่</span>{!initialStockShowValidation ? <button className="button compact product-primary-action" type="button" onClick={validateInitialStockBatch} disabled={initialStockBatchStatus === 'loading'} aria-busy={initialStockBatchStatus === 'loading'}>{initialStockBatchStatus === 'loading' ? <><span className="product-loading-spinner compact" aria-hidden="true" />กำลังประมวลผล…</> : initialStockBatchStatus === 'success' || initialStockBatchStatus === 'duplicate' ? 'ตรวจ Batch เดิมอีกครั้ง' : initialStockBatchAttempted ? 'ลองบันทึกทั้งชุดอีกครั้ง' : 'ตรวจสอบ Batch ทั้งชุด'}</button> : null}</footer>
+                      <footer><span>การลองอีกครั้งจะสร้าง Batch ID ใหม่ โดยเก็บค่าจำนวน สาขา คลัง และตำแหน่งเดิมไว้</span>{!initialStockShowValidation ? <button className="button compact product-primary-action" type="button" onClick={initialStockLastAttemptFailed ? retryInitialStockBatch : validateInitialStockBatch} disabled={initialStockBatchStatus === 'loading'} aria-busy={initialStockBatchStatus === 'loading'}>{initialStockBatchStatus === 'loading' ? <><span className="product-loading-spinner compact" aria-hidden="true" />กำลังประมวลผล…</> : initialStockLastAttemptFailed ? 'ลองอีกครั้ง' : initialStockBatchStatus === 'success' || initialStockBatchStatus === 'duplicate' ? 'ตรวจ Batch เดิมอีกครั้ง' : 'ตรวจสอบ Batch ทั้งชุด'}</button> : null}</footer>
                     </section>
                     <div className="product-inline-note">ค่าที่กรอกจะไม่หายเมื่อปิด–เปิดหรือสลับรูปแบบสินค้า และถูกล้างเมื่อเริ่มสินค้ารายการใหม่</div>
                   </>

@@ -96,6 +96,7 @@
   --focus-ring: rgba(18, 62, 107, .32);
   --button-height: 44px;
   --button-compact-height: 38px;
+  --input-action-group-height: 34px;
 }
 .sr-only { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0, 0, 0, 0) !important; white-space: nowrap !important; border: 0 !important; }
 
@@ -1728,6 +1729,14 @@ html[data-theme="dark"] .product-grid-table th:hover .product-grid-column-resize
 .product-initial-stock-bulk { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 9px; padding: 10px; border: 1px solid var(--border-default); border-radius: 10px; background: var(--surface-subtle); }
 .product-initial-stock-bulk label { display: grid; width: min(220px, 100%); gap: 5px; color: var(--text-primary); font-size: 11px; font-weight: 700; }
 .product-initial-stock-bulk input { min-height: 34px; padding: 6px 9px; border: 1px solid var(--border-default); border-radius: 8px; color: var(--input-text); background: var(--input-background); font: inherit; }
+.input-action-group input,
+.input-action-group select,
+.input-action-group > .button,
+.product-initial-stock-bulk input,
+.product-initial-stock-bulk > .button {
+  box-sizing: border-box; height: var(--input-action-group-height); min-height: var(--input-action-group-height);
+}
+.input-action-group > .button, .product-initial-stock-bulk > .button { padding-block: 0; }
 .product-initial-stock-progress { margin-left: auto; color: var(--text-secondary); font-size: 11px; }
 .product-initial-stock-progress strong { color: var(--text-primary); }
 .product-initial-stock-quantity { display: grid; gap: 3px; }
@@ -1782,6 +1791,9 @@ html[data-theme="dark"] .product-grid-table th:hover .product-grid-column-resize
 html[data-theme='dark'] .product-initial-stock-prototype-badge { color: #111; background: #fff; }
 @media (prefers-reduced-motion: reduce) {
   .product-loading-spinner { animation: none; }
+}
+@media (pointer: coarse) {
+  .input-action-group, .product-initial-stock-bulk { --input-action-group-height: 44px; }
 }
 @media (max-width: 760px) {
   .product-section-toggle-meta { gap: 8px; }
