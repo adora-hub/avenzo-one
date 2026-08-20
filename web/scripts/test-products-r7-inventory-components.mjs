@@ -56,9 +56,9 @@ test('R7.2.3G preserves stock authority and Reserved Allocated disclosure', asyn
   assert.doesNotMatch(form, /available_quantity:/)
 })
 
-test('image section is open by default and can be collapsed without changing image state', async () => {
+test('optional image section is collapsed by default and can be opened without changing image state', async () => {
   const form = await read(formPath)
-  assert.match(form, /const \[imagesSectionOpen, setImagesSectionOpen\] = useState\(true\)/)
+  assert.match(form, /const \[imagesSectionOpen, setImagesSectionOpen\] = useState\(false\)/)
   assert.match(form, /aria-label="เปิดหรือปิดส่วนรูปสินค้า"/)
   assert.match(form, /imagesSectionOpen \? <>/)
   assert.match(form, /issue\.sectionId === 'images' && !imagesSectionOpen/)

@@ -1514,6 +1514,13 @@ html[data-theme="dark"] .product-grid-table th:hover .product-grid-column-resize
 .product-variant-remove:hover { background: var(--surface-subtle); }
 .product-variant-bulk-toolbar { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); align-items: end; gap: 9px; padding: 11px; border: 1px solid var(--border-default); border-radius: 10px; background: var(--surface-subtle); }
 .product-variant-bulk-toolbar label { display: grid; gap: 6px; }
+.product-variant-next-sequence { display: grid; align-content: end; gap: 4px; }
+.product-variant-next-sequence .button { width: 100%; }
+.product-variant-next-sequence small { color: var(--text-secondary); font-size: 10px; line-height: 1.35; }
+.product-variant-sku-format-preview { display: grid; min-height: 40px; align-content: center; gap: 2px; grid-column: span 2; padding: 7px 10px; border: 1px solid var(--status-info-border); border-radius: 8px; color: var(--status-info-text); background: var(--status-info-surface); }
+.product-variant-sku-format-preview span, .product-variant-sku-format-preview small { font-size: 10px; }
+.product-variant-sku-format-preview strong { overflow-wrap: anywhere; color: var(--text-primary); font-size: 12px; }
+.product-variant-sku-format-preview small { color: var(--text-secondary); }
 .product-variant-sequence-controls { display: grid; grid-template-columns: 1.1fr 1fr .7fr; gap: 6px; grid-column: span 2; }
 .product-variant-sequence-controls label > span { color: var(--text-secondary); font-size: 10px; }
 .product-variant-identifier-check { display: flex; min-height: 42px; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--border-default); border-radius: 9px; color: var(--text-secondary); background: var(--surface-subtle); font-size: 11px; }
@@ -2077,6 +2084,7 @@ html[data-theme='dark'] .product-initial-stock-prototype-badge { color: #111; ba
   .product-variant-group-action small { white-space: normal; }
   .product-variant-option-card { grid-template-columns: 1fr; }
   .product-variant-bulk-toolbar { grid-template-columns: 1fr 1fr; }
+  .product-variant-sku-format-preview { grid-column: 1 / -1; }
   .product-variant-bulk-actions { grid-column: 1 / -1; }
   .product-variant-bulk-actions .button { flex: 1 1 0; }
   .product-identifier-assistant-head, .product-sku-staging-head { align-items: stretch; flex-direction: column; }

@@ -34,7 +34,7 @@
 
 | ชนิดรหัส | ตัวอย่าง | ขอบเขต | หน้าที่ |
 |---|---|---|---|
-| SKU Code | `TS-BLU-S` | Unique ภายใน Organization | รหัสถาวรภายในของ SKU แต่ละตัวเลือก |
+| SKU Code | `TS-001-BLU-S` | Unique ภายใน Organization | รหัสถาวรภายในของ SKU แต่ละตัวเลือก |
 | Sales Code / รหัส CF ประจำสินค้า | `A001` | Unique ภายใน Organization และชี้ไปยัง SKU เดียว | ค้นหา สแกน รับ CF หรือเปิดบิลแบบถาวร |
 | Barcode | `8851234567890` | ตาม Identifier Contract และต้อง resolve เป็น SKU เดียว | สแกนสินค้า |
 | Live Code | `B001` | Unique ภายใน Live Session หรือชุดจองรหัส | รหัสชั่วคราวที่ใช้ร่วมกับสี/ไซซ์ในรอบ Live |
@@ -52,10 +52,10 @@ Product หนึ่งรายการสามารถมี Option Group �
 
 | Product | Live Code | สี | ไซซ์ | SKU Code |
 |---|---|---|---|---|
-| เสื้อยืด Basic | B001 | สีฟ้า | S | `TS-BLU-S` |
-| เสื้อยืด Basic | B001 | สีฟ้า | M | `TS-BLU-M` |
-| เสื้อยืด Basic | B001 | สีฟ้า | L | `TS-BLU-L` |
-| เสื้อยืด Basic | B001 | สีฟ้า | XL | `TS-BLU-XL` |
+| เสื้อยืด Basic | B001 | สีฟ้า | S | `TS-001-BLU-S` |
+| เสื้อยืด Basic | B001 | สีฟ้า | M | `TS-001-BLU-M` |
+| เสื้อยืด Basic | B001 | สีฟ้า | L | `TS-001-BLU-L` |
+| เสื้อยืด Basic | B001 | สีฟ้า | XL | `TS-001-BLU-XL` |
 
 แต่ละ SKU Combination ต้องกำหนดหรือสืบทอดข้อมูลต่อไปนี้ได้:
 
@@ -67,6 +67,22 @@ Product หนึ่งรายการสามารถมี Option Group �
 - ชื่อเรียกอื่นของ Option เช่น `ฟ้า`, `สีฟ้า`, `Blue`
 
 สี/ไซซ์เป็น Variant Option ส่วนคู่/ชิ้น/แพ็ค/กล่องเป็นหน่วยนับหรือหน่วยขาย ห้ามนำสองแนวคิดนี้มารวมเป็นข้อมูลเดียว
+
+### 4.1 SKU-01 Owner-approved SKU Code Standard
+
+Authority: `AVENZO_ONE_SKU-01_Variant_SKU_Code_Standard.md`
+
+รูปแบบมาตรฐานสำหรับ Product ใหม่:
+
+```text
+{PRODUCT_PREFIX}-{PRODUCT_SEQUENCE}-{OPTION_CODE_1}[-{OPTION_CODE_2}...]
+```
+
+- สีทอง: `TS-001-GLD`
+- สีเงิน: `TS-001-SLV`
+- สีทอง ไซซ์ S: `TS-001-GLD-S`
+- Product ถัดไปภายใต้ Prefix TS: `TS-002-...`
+- ห้ามเปลี่ยน SKU เดิมอัตโนมัติ; Client เป็น Preview และ Database transaction เป็นผู้ยืนยัน Unique ขั้นสุดท้าย
 
 ## 5. Live CF Resolution Contract
 
@@ -503,6 +519,7 @@ Stop Gate: Phase V เป็น Future Plan เท่านั้น ห้า�
 | 16 ส.ค. 2026 | ทำ Mockup ก่อนระบบจริง และพัฒนาทีละ Part พร้อม Stop Gate |
 | 16 ส.ค. 2026 | Variant ใช้ Base Unit ร่วม, Sales Code/CF และราคาขายต่อ Combination; Tax Category/ต้นทุนเป็นค่าร่วมเริ่มต้น |
 | 18 ส.ค. 2026 | Initial Stock ในหน้าสร้างสินค้าเป็น Optional UX แต่ต้องสร้าง Inventory Movement ต่อ SKU/Location ห้ามแก้ Balance โดยตรง |
+| 20 ส.ค. 2026 | รูปสินค้าใน Product Creation เป็น Optional และปิด Section เป็นค่าเริ่มต้น: ผู้ใช้สร้าง Product/SKU แบบ Draft โดยไม่มีรูปได้ แล้วเพิ่มรูปภายหลัง; Section เปิดอัตโนมัติเมื่อมีรูปใน Draft หรือเกิดข้อผิดพลาด และรูปที่เลือกยังคงผ่าน Image Gate สูงสุด 9 ภาพ |
 | 18 ส.ค. 2026 | เลือกสินค้าเข้ารอบ Live ไม่ลด on_hand; CF ต้องสร้าง Reservation ก่อน และขายออกเมื่อถึง Fulfillment milestone ที่อนุมัติ |
 | 18 ส.ค. 2026 | Live Session ระยะแรกใช้ Fulfillment Warehouse/Location ที่ชัดเจน ไม่ตัด Stock กลางระดับ Organization |
 | 18 ส.ค. 2026 | T1 ล็อก Initial Stock เป็น recoverable two-stage workflow: สร้าง/activate Product+SKU ก่อน แล้วใช้ idempotent `receive` ต่อ SKU/Location; draft ไม่ post stock, Virtual Bundle ไม่รับยอด และ Preassembled Bundle รอ Assembly contract |
@@ -516,3 +533,4 @@ Stop Gate: Phase V เป็น Future Plan เท่านั้น ห้า�
 | 19 ส.ค. 2026 | เพิ่ม C14 Connected Commerce Intelligence เป็น Future Plan: เชื่อม intent/timing กับ Stock/Price Authority, Notification, Live, Order, Review และ Attribution โดยต้องผ่าน Consent/KPI/Frequency Gate |
 | 19 ส.ค. 2026 | เพิ่ม C15 Customer Transaction Standing & Fair Recovery เป็น Future Plan: แสดงสถานะการทำรายการแบบข้อเท็จจริง ใช้ progressive friction/time decay/recovery และ human review/appeal ก่อนจำกัดสิทธิ์ โดยแยกข้อมูลตาม Organization |
 | 19 ส.ค. 2026 | เพิ่ม C16 Customer Benefits & Loyalty Layer เป็น Future Plan: แยกสิทธิ์ร้านค้าและสิทธิ์แพลตฟอร์ม มี eligibility/expiry/re-evaluation, fairness, privacy และ appeal โดยไม่จัดอันดับคุณค่าลูกค้า |
+| 20 ส.ค. 2026 | SKU-04 Completed: เพิ่ม Server Preview และ Organization+Prefix high-water allocator; จอง Product Sequence พร้อม Product+SKU Variant ใน Transaction เดียว ใช้ advisory lock, idempotency และ rollback ทั้งชุด; ผ่าน isolated database/concurrency tests และ Apply Migration `20260820134813` เฉพาะ AVENZO ONE PREVIEW แล้ว โดย Production ไม่ถูกแตะ |

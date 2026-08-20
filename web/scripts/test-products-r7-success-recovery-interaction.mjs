@@ -22,9 +22,11 @@ test('R7.2.4F restores only a valid recovery record and removes unsafe storage',
   assert.match(form, /else window\.localStorage\.removeItem\(pendingDraftKey\)/)
 })
 
-test('R7.2.4F recovery validates only replacement images instead of stale creation fields', async () => {
+test('Recovery can finish without an image after the user removes failed files', async () => {
   const form = await read(formPath)
-  assert.match(form, /if \(pendingDraft\) \{[\s\S]*กรุณาเลือกภาพใหม่อย่างน้อย 1 ภาพเพื่ออัปโหลดต่อ[\s\S]*return issues/)
+  assert.match(form, /if \(pendingDraft\) \{[\s\S]*images\.some\(\(image\) => image\.stage === 'failed'\)[\s\S]*return issues/)
+  assert.doesNotMatch(form, /กรุณาเลือกภาพใหม่อย่างน้อย 1 ภาพเพื่ออัปโหลดต่อ/)
+  assert.match(form, /เสร็จสิ้นโดยไม่มีรูป/)
   assert.ok(form.indexOf('if (pendingDraft) {') < form.indexOf("if (!payload.name) add('general'"))
 })
 
@@ -51,11 +53,11 @@ test('R7.2.4F renders an explicit recovery state with retry and safe Product acc
   assert.match(form, /เปิด Product Draft/)
 })
 
-test('R7.2.4F opens the approved success dialog only after image completion', async () => {
+test('Success dialog reports whether optional images were uploaded', async () => {
   const form = await read(formPath)
   assert.ok(form.indexOf('if (failedCount > 0)') < form.indexOf('setCreationSuccess({'))
   assert.match(form, /สร้างสินค้าเรียบร้อยแล้ว/)
-  assert.match(form, /พร้อม \{creationSuccess\.skuCount\} SKU ถูกสร้างเป็นฉบับร่าง/)
+  assert.match(form, /creationSuccess\.imageCount \? ' และอัปโหลดรูปที่เลือกครบแล้ว' : ' โดยยังไม่มีรูปสินค้า สามารถเพิ่มรูปภายหลังได้'/)
   assert.match(form, /role="dialog" aria-modal="true"/)
 })
 

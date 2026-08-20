@@ -1091,9 +1091,11 @@ export class SupabaseFoundationCommandRepository implements FoundationCommandRep
     requestHash: string,
   ): Promise<FoundationCommandOutcome> {
     if (command.kind === 'entity') {
-      const rpcName = productVariantCreationCommandTypes.includes(
-        command.commandType as typeof productVariantCreationCommandTypes[number],
-      )
+      const rpcName = command.commandType === 'product.create_with_variants'
+        ? 'server_execute_variant_sku_sequence_command'
+        : productVariantCreationCommandTypes.includes(
+          command.commandType as typeof productVariantCreationCommandTypes[number],
+        )
         ? 'server_execute_variant_creation_command'
         : productCreationCommandTypes.includes(
         command.commandType as typeof productCreationCommandTypes[number],
@@ -1108,7 +1110,7 @@ export class SupabaseFoundationCommandRepository implements FoundationCommandRep
           )
             ? 'server_execute_product_domain_command'
             : 'server_execute_foundation_command'
-      const { data, error } = await this.admin.rpc(rpcName, {
+      let { data, error } = await this.admin.rpc(rpcName, {
         p_command_id: command.commandId,
         p_organization_id: command.organizationId,
         p_command_type: command.commandType,
@@ -1116,6 +1118,22 @@ export class SupabaseFoundationCommandRepository implements FoundationCommandRep
         p_request_hash: requestHash,
         p_actor_user_id: actorUserId,
       })
+      // Rolling-deploy compatibility: Preview can continue using the existing
+      // atomic Variant command until the SKU-04 RPC migration is applied.
+      // Never fall back for conflicts, permission errors, or other failures.
+      if (command.commandType === 'product.create_with_variants'
+        && error && (error.code === 'PGRST202' || error.code === '42883')) {
+        const fallback = await this.admin.rpc('server_execute_variant_creation_command', {
+          p_command_id: command.commandId,
+          p_organization_id: command.organizationId,
+          p_command_type: command.commandType,
+          p_payload: command.payload,
+          p_request_hash: requestHash,
+          p_actor_user_id: actorUserId,
+        })
+        data = fallback.data
+        error = fallback.error
+      }
       if (error) throw error
       return (data ?? {}) as FoundationCommandOutcome
     }

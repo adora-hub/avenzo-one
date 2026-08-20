@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState, type Dispatch, type KeyboardEvent, type SetStateAction } from 'react'
-import { checkVariantProductIdentifiersAction } from '@/app/actions/foundation'
+import { checkVariantProductIdentifiersAction, previewVariantSkuSequenceAction } from '@/app/actions/foundation'
 import { variantIdentifierCheckFailureMessage, withVariantIdentifierCheckTimeout } from '@/lib/foundation/variant-identifier-check-ui'
 
 export type VariantOptionValueDraft = {
@@ -31,6 +31,12 @@ export type VariantCombinationDraft = {
 
 type ProductImageOption = { id: string; name: string }
 
+export type VariantSkuSequenceDraft = {
+  prefix: string
+  sequence: number
+  digits: number
+}
+
 type Props = {
   organizationId: string
   groups: VariantOptionGroupDraft[]
@@ -39,6 +45,7 @@ type Props = {
   setCombinations: Dispatch<SetStateAction<VariantCombinationDraft[]>>
   images: ProductImageOption[]
   onIdentifierCheckChange?: (ready: boolean) => void
+  onSkuSequenceChange?: (value: VariantSkuSequenceDraft) => void
   disabled?: boolean
 }
 
@@ -156,6 +163,39 @@ export function synchronizeVariantCombinations(
   })
 }
 
+export function formatVariantSkuBase(prefix: string, sequence: number, digits = 3) {
+  const safePrefix = prefix.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12) || 'SKU'
+  const safeSequence = Math.max(1, Math.trunc(sequence || 1))
+  const safeDigits = Math.max(3, Math.min(8, Math.trunc(digits || 3)))
+  return `${safePrefix}-${String(safeSequence).padStart(safeDigits, '0')}`
+}
+
+export function nextVariantSkuProductSequence(sequence: number) {
+  return Math.min(99999999, Math.max(1, Math.trunc(sequence || 1)) + 1)
+}
+
+export function findDuplicateVariantIdentifiers(
+  variants: Array<{ key: string; skuCode: string; salesCode: string; barcode: string }>,
+): VariantIdentifierCollision[] {
+  const fields = [
+    ['sku_code', 'skuCode'],
+    ['sales_code', 'salesCode'],
+    ['barcode', 'barcode'],
+  ] as const
+
+  return fields.flatMap(([field, property]) => {
+    const keysByValue = new Map<string, string[]>()
+    variants.forEach((variant) => {
+      const value = variant[property].normalize('NFKC').trim().toUpperCase()
+      if (!value) return
+      keysByValue.set(value, [...(keysByValue.get(value) ?? []), variant.key])
+    })
+    return [...keysByValue.entries()].flatMap(([value, keys]) => keys.length > 1
+      ? keys.map((key) => ({ key, field, value, reason: 'duplicate_in_form' as const }))
+      : [])
+  })
+}
+
 function groupKind(name: string): VariantOptionGroupDraft['kind'] {
   const normalized = name.toLocaleLowerCase('th-TH')
   if (normalized.includes('สี') || normalized === 'color') return 'color'
@@ -164,9 +204,11 @@ function groupKind(name: string): VariantOptionGroupDraft['kind'] {
 }
 
 export function VariantCreationBuilder({
-  organizationId, groups, setGroups, combinations, setCombinations, images, onIdentifierCheckChange, disabled = false,
+  organizationId, groups, setGroups, combinations, setCombinations, images,
+  onIdentifierCheckChange, onSkuSequenceChange, disabled = false,
 }: Props) {
   const [skuPrefix, setSkuPrefix] = useState('TS')
+  const [skuProductSequence, setSkuProductSequence] = useState(1)
   const [bulkPrice, setBulkPrice] = useState('')
   const [bulkBarcode, setBulkBarcode] = useState<'none' | 'sku' | 'sequence'>('none')
   const [bulkStatus, setBulkStatus] = useState<'draft' | 'active'>('draft')
@@ -174,6 +216,10 @@ export function VariantCreationBuilder({
   const [salesCodePrefix, setSalesCodePrefix] = useState('B')
   const [salesCodeStart, setSalesCodeStart] = useState(1)
   const [salesCodeDigits, setSalesCodeDigits] = useState(3)
+  const [serverSequencePreview, setServerSequencePreview] = useState<{
+    status: 'idle' | 'loading' | 'ready' | 'error'
+    nextSequence?: number
+  }>({ status: 'idle' })
   const [identifierCheck, setIdentifierCheck] = useState<{
     tone: 'idle' | 'checking' | 'success' | 'danger'
     text: string
@@ -187,17 +233,61 @@ export function VariantCreationBuilder({
   const checkRequestRef = useRef(0)
   const checkInFlightRef = useRef(false)
   const isMountedRef = useRef(true)
+  const sequencePreviewRequestRef = useRef(0)
+  const manuallyEditedSkuKeysRef = useRef(new Set<string>())
 
   const enabledIdentifiers = useMemo(() => combinations.filter((item) => item.enabled).map((item) => ({
     key: item.key, skuCode: item.skuCode, salesCode: item.salesCode, barcode: item.barcode,
   })), [combinations])
   const enabledIdentifierSignature = JSON.stringify(enabledIdentifiers)
+  const skuBaseCode = formatVariantSkuBase(skuPrefix, skuProductSequence)
+
+  useEffect(() => {
+    onSkuSequenceChange?.({ prefix: skuPrefix, sequence: skuProductSequence, digits: 3 })
+  }, [onSkuSequenceChange, skuPrefix, skuProductSequence])
+
+  useEffect(() => {
+    const requestId = ++sequencePreviewRequestRef.current
+    if (!/^[A-Z0-9]{2,12}$/.test(skuPrefix)) {
+      setServerSequencePreview({ status: 'idle' })
+      return
+    }
+    setServerSequencePreview({ status: 'loading' })
+    const timer = window.setTimeout(async () => {
+      try {
+        const result = await withVariantIdentifierCheckTimeout(
+          previewVariantSkuSequenceAction({ organizationId, prefix: skuPrefix, digitCount: 3 }),
+        )
+        if (!isMountedRef.current || requestId !== sequencePreviewRequestRef.current) return
+        setServerSequencePreview(result.ok
+          ? { status: 'ready', nextSequence: result.data.nextSequence }
+          : { status: 'error' })
+      } catch {
+        if (isMountedRef.current && requestId === sequencePreviewRequestRef.current) {
+          setServerSequencePreview({ status: 'error' })
+        }
+      }
+    }, 450)
+    return () => window.clearTimeout(timer)
+  }, [organizationId, skuPrefix])
 
     async function checkVariantIdentifiers() {
     if (checkInFlightRef.current || isIdentifierChecking) return
     if (!enabledIdentifiers.length || enabledIdentifiers.some((item) => !item.skuCode || !item.salesCode)) {
       onIdentifierCheckChange?.(false)
       setIdentifierCheck({ tone: 'idle', text: 'กรอก SKU และรหัสขาย / รหัส CF ให้ครบทุก Variant ก่อนตรวจ', collisionKeys: [], collisions: [] })
+      return
+    }
+    const localCollisions = findDuplicateVariantIdentifiers(enabledIdentifiers)
+    if (localCollisions.length) {
+      const collisionKeys = localCollisions.map((collision) => `${collision.key}:${collision.field}`)
+      onIdentifierCheckChange?.(false)
+      setIdentifierCheck({
+        tone: 'danger',
+        text: `พบรหัสซ้ำ ${collisionKeys.length} จุด · ในฟอร์ม ${collisionKeys.length} กรุณาแก้รหัสที่ซ้ำก่อนตรวจฐานข้อมูล`,
+        collisionKeys,
+        collisions: localCollisions,
+      })
       return
     }
     const requestId = ++checkRequestRef.current
@@ -242,6 +332,7 @@ export function VariantCreationBuilder({
     return () => {
       isMountedRef.current = false
       checkRequestRef.current += 1
+      sequencePreviewRequestRef.current += 1
       checkInFlightRef.current = false
     }
   }, [])
@@ -256,9 +347,23 @@ export function VariantCreationBuilder({
     // Signature represents every identifier field; recheck after each edit.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabledIdentifierSignature, organizationId])
+
+  useEffect(() => {
+    const activeKeys = new Set(combinations.map((item) => item.key))
+    manuallyEditedSkuKeysRef.current.forEach((key) => {
+      if (!activeKeys.has(key)) manuallyEditedSkuKeysRef.current.delete(key)
+    })
+    const valuesById = new Map(groups.flatMap((group) => group.values.map((value) => [value.id, value])))
+    setCombinations((current) => current.map((item) => {
+      if (manuallyEditedSkuKeysRef.current.has(item.key)) return item
+      const generatedSkuCode = `${skuBaseCode}-${item.optionValueIds.map((id) => valuesById.get(id)?.code ?? 'VAR').join('-')}`.slice(0, 80)
+      return item.skuCode === generatedSkuCode ? item : { ...item, skuCode: generatedSkuCode }
+    }))
+  }, [groups, skuBaseCode, setCombinations])
+
 function commitGroups(next: VariantOptionGroupDraft[]) {
     setGroups(next)
-    setCombinations((current) => synchronizeVariantCombinations(next, current, skuPrefix))
+    setCombinations((current) => synchronizeVariantCombinations(next, current, skuBaseCode))
   }
 
   function addGroup() {
@@ -309,10 +414,11 @@ function commitGroups(next: VariantOptionGroupDraft[]) {
   }
 
   function applyBulkValues() {
-    const safePrefix = skuPrefix.toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 24) || 'SKU'
+    const safePrefix = skuBaseCode
     const safeSalesPrefix = salesCodePrefix.toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 10) || 'B'
     const valuesById = new Map(groups.flatMap((group) => group.values.map((value) => [value.id, value])))
     let sequenceIndex = 0
+    manuallyEditedSkuKeysRef.current.clear()
     setCombinations((current) => current.map((item, index) => {
       const skuCode = `${safePrefix}-${item.optionValueIds.map((id) => valuesById.get(id)?.code ?? 'VAR').join('-')}`.slice(0, 80)
       const salesCode = salesCodeMode === 'same-sku'
@@ -335,6 +441,10 @@ function commitGroups(next: VariantOptionGroupDraft[]) {
   const enabledCount = combinations.filter((item) => item.enabled).length
   const allEnabled = combinations.length > 0 && enabledCount === combinations.length
   const groupLimitReached = groups.length >= 3
+  const skuFormatPreview = [skuBaseCode, ...groups.flatMap((group) => group.values[0]?.code ? [group.values[0].code] : [])].join('-').slice(0, 80)
+  const recommendedProductSequence = serverSequencePreview.status === 'ready'
+    ? serverSequencePreview.nextSequence ?? nextVariantSkuProductSequence(skuProductSequence)
+    : nextVariantSkuProductSequence(skuProductSequence)
   const suggestedIdentifierCollisions = [...new Map(identifierCheck.collisions
     .filter((collision) => collision.reason === 'already_exists' && collision.suggestion)
     .map((collision) => [`${collision.key}:${collision.value.toUpperCase()}`, collision]))
@@ -359,7 +469,10 @@ function commitGroups(next: VariantOptionGroupDraft[]) {
       </article>)}</div>
 
       <div className="product-variant-bulk-toolbar" aria-label="เครื่องมือกรอกหลาย Combination">
-        <label><span>คำนำหน้า SKU</span><input value={skuPrefix} maxLength={24} disabled={disabled} placeholder="เช่น TS" onChange={(event) => setSkuPrefix(event.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 24))} /></label>
+        <label><span>คำนำหน้า SKU</span><input value={skuPrefix} maxLength={12} disabled={disabled} placeholder="เช่น TS" aria-describedby="variantSkuFormatHelp" onChange={(event) => setSkuPrefix(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12))} /></label>
+        <label><span>เลขลำดับ Product</span><input type="number" min="1" max="99999999" step="1" value={skuProductSequence} disabled={disabled} aria-describedby="variantSkuFormatHelp variantSkuNextHelp" onChange={(event) => setSkuProductSequence(Math.max(1, Math.trunc(Number(event.target.value) || 1)))} /></label>
+        <div className="product-variant-next-sequence"><button className="button compact secondary" type="button" disabled={disabled || serverSequencePreview.status === 'loading' || recommendedProductSequence >= 99999999} aria-describedby="variantSkuNextHelp" onClick={() => setSkuProductSequence(recommendedProductSequence)}>{serverSequencePreview.status === 'loading' ? 'กำลังตรวจเลขถัดไป…' : `ใช้เลขถัดไป ${String(recommendedProductSequence).padStart(3, '0')}`}</button><small id="variantSkuNextHelp">{serverSequencePreview.status === 'ready' ? 'ฐานข้อมูลแนะนำเลขที่ว่างถัดไป · ยังไม่จองจนกดสร้าง' : serverSequencePreview.status === 'error' ? 'เชื่อมฐานข้อมูลไม่ได้ · แสดงเลขถัดไปจากหน้านี้ชั่วคราว' : 'กรอกคำนำหน้าอย่างน้อย 2 ตัวอักษร'}</small></div>
+        <div className="product-variant-sku-format-preview" id="variantSkuFormatHelp" role="status" aria-live="polite"><span>รูปแบบ SKU ที่จะใช้</span><strong>{skuFormatPreview}</strong><small>{serverSequencePreview.status === 'error' ? 'สภาพแวดล้อมนี้ยังไม่มีตัวจองเลข SKU-04 · ระบบเดิมยังตรวจ Unique ก่อนบันทึก' : 'เลขนี้จะถูกจองพร้อม Product และ SKU ใน Transaction เดียวเมื่อกดสร้างสำเร็จ'}</small></div>
         <label><span>วิธีกำหนดรหัสขาย / CF</span><span className="product-select-control"><select value={salesCodeMode} disabled={disabled} onChange={(event) => setSalesCodeMode(event.target.value as typeof salesCodeMode)}><option value="sequence">รันเลขต่อเนื่อง</option><option value="same-sku">ใช้รหัสเดียวกับ SKU</option><option value="manual">กรอกเองแต่ละ Variant</option></select></span></label>
         {salesCodeMode === 'sequence' ? <div className="product-variant-sequence-controls"><label><span>Prefix</span><input value={salesCodePrefix} maxLength={10} disabled={disabled} onChange={(event) => setSalesCodePrefix(event.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 10))} /></label><label><span>เลขเริ่มต้น</span><input type="number" min="0" max="99999999" value={salesCodeStart} disabled={disabled} onChange={(event) => setSalesCodeStart(Math.max(0, Math.trunc(Number(event.target.value) || 0)))} /></label><label><span>หลัก</span><input type="number" min="2" max="8" value={salesCodeDigits} disabled={disabled} onChange={(event) => setSalesCodeDigits(Math.min(8, Math.max(2, Math.trunc(Number(event.target.value) || 3))))} /></label></div> : null}
         <label><span>ราคาขายทุกตัวเลือก</span><input value={bulkPrice} type="number" min="0" max="999999999" step="0.01" disabled={disabled} placeholder="เช่น 390.00" onChange={(event) => setBulkPrice(event.target.value)} /></label>
@@ -377,7 +490,8 @@ function commitGroups(next: VariantOptionGroupDraft[]) {
           const selections = item.optionValueIds.flatMap((id) => { const found = valuesById.get(id); return found ? [found] : [] })
           const name = selections.map(({ value }) => value.name).join(' / ')
           const detail = selections.map(({ group, value }) => `${group.name}: ${value.name}`).join(' · ')
-          return <tr key={item.key} className={item.enabled ? '' : 'is-disabled'}><td><input type="checkbox" checked={item.enabled} disabled={disabled} aria-label={`เปิดขาย ${name}`} onChange={(event) => updateCombination(item.key, { enabled: event.target.checked })} /></td><td className="product-variant-combination-name"><strong>{name}</strong><span>{detail}</span></td><td><input value={item.skuCode} aria-invalid={identifierCheck.collisionKeys.includes(`${item.key}:sku_code`)} maxLength={80} disabled={disabled || !item.enabled} aria-label={`SKU Code ${name}`} onChange={(event) => updateCombination(item.key, { skuCode: event.target.value.toUpperCase().replace(/[^A-Z0-9._-]/g, '').slice(0, 80) })} /></td><td><input value={item.salesCode} aria-invalid={identifierCheck.collisionKeys.includes(`${item.key}:sales_code`)} maxLength={80} disabled={disabled || !item.enabled} placeholder="เช่น B001" aria-label={`รหัสขาย / รหัส CF ${name}`} onChange={(event) => updateCombination(item.key, { salesCode: event.target.value.toUpperCase().replace(/[^A-Z0-9._-]/g, '').slice(0, 80) })} /></td><td><input value={item.price} type="number" min="0" max="999999999" step="0.01" disabled={disabled || !item.enabled} aria-label={`ราคาขาย ${name}`} onChange={(event) => updateCombination(item.key, { price: event.target.value })} /></td><td><input value={item.barcode} aria-invalid={identifierCheck.collisionKeys.includes(`${item.key}:barcode`)} maxLength={128} disabled={disabled || !item.enabled} placeholder="ยังไม่กำหนด" aria-label={`Barcode ${name}`} onChange={(event) => updateCombination(item.key, { barcode: event.target.value.toUpperCase().replace(/[^A-Z0-9._-]/g, '').slice(0, 128) })} /></td><td><span className="product-select-control"><select value={item.imageId} disabled={disabled || !item.enabled} aria-label={`รูปประจำ Variant ${name}`} onChange={(event) => updateCombination(item.key, { imageId: event.target.value })}><option value="">ใช้ภาพ Product</option>{images.map((image, imageIndex) => <option key={image.id} value={image.id}>ภาพที่ {imageIndex + 1} · {image.name}</option>)}</select></span></td><td><span className="product-select-control"><select value={item.status} disabled={disabled || !item.enabled} aria-label={`สถานะ ${name}`} onChange={(event) => updateCombination(item.key, { status: event.target.value as VariantCombinationDraft['status'] })}><option value="draft">ฉบับร่าง</option><option value="active">ใช้งานอยู่</option></select></span></td></tr>
+          const skuWasEditedManually = manuallyEditedSkuKeysRef.current.has(item.key)
+          return <tr key={item.key} className={item.enabled ? '' : 'is-disabled'}><td><input type="checkbox" checked={item.enabled} disabled={disabled} aria-label={`เปิดขาย ${name}`} onChange={(event) => updateCombination(item.key, { enabled: event.target.checked })} /></td><td className="product-variant-combination-name"><strong>{name}</strong><span>{detail}</span></td><td><input value={item.skuCode} aria-invalid={identifierCheck.collisionKeys.includes(`${item.key}:sku_code`)} maxLength={80} disabled={disabled || !item.enabled} aria-label={`SKU Code ${name}${skuWasEditedManually ? ' แก้ไขเอง' : ' สร้างอัตโนมัติ'}`} onChange={(event) => { manuallyEditedSkuKeysRef.current.add(item.key); updateCombination(item.key, { skuCode: event.target.value.toUpperCase().replace(/[^A-Z0-9._-]/g, '').slice(0, 80) }) }} /></td><td><input value={item.salesCode} aria-invalid={identifierCheck.collisionKeys.includes(`${item.key}:sales_code`)} maxLength={80} disabled={disabled || !item.enabled} placeholder="เช่น B001" aria-label={`รหัสขาย / รหัส CF ${name}`} onChange={(event) => updateCombination(item.key, { salesCode: event.target.value.toUpperCase().replace(/[^A-Z0-9._-]/g, '').slice(0, 80) })} /></td><td><input value={item.price} type="number" min="0" max="999999999" step="0.01" disabled={disabled || !item.enabled} aria-label={`ราคาขาย ${name}`} onChange={(event) => updateCombination(item.key, { price: event.target.value })} /></td><td><input value={item.barcode} aria-invalid={identifierCheck.collisionKeys.includes(`${item.key}:barcode`)} maxLength={128} disabled={disabled || !item.enabled} placeholder="ยังไม่กำหนด" aria-label={`Barcode ${name}`} onChange={(event) => updateCombination(item.key, { barcode: event.target.value.toUpperCase().replace(/[^A-Z0-9._-]/g, '').slice(0, 128) })} /></td><td><span className="product-select-control"><select value={item.imageId} disabled={disabled || !item.enabled} aria-label={`รูปประจำ Variant ${name}`} onChange={(event) => updateCombination(item.key, { imageId: event.target.value })}><option value="">ใช้ภาพ Product</option>{images.map((image, imageIndex) => <option key={image.id} value={image.id}>ภาพที่ {imageIndex + 1} · {image.name}</option>)}</select></span></td><td><span className="product-select-control"><select value={item.status} disabled={disabled || !item.enabled} aria-label={`สถานะ ${name}`} onChange={(event) => updateCombination(item.key, { status: event.target.value as VariantCombinationDraft['status'] })}><option value="draft">ฉบับร่าง</option><option value="active">ใช้งานอยู่</option></select></span></td></tr>
         }) : <tr><td colSpan={8} className="product-variant-empty">เพิ่มค่าให้ครบทุกกลุ่ม เพื่อสร้าง SKU Combination</td></tr>}</tbody>
       </table></div>
       <div className="product-variant-builder-footnote"><span aria-hidden="true">ⓘ</span><span>ปิด Combination ที่ไม่ขายได้ · เมื่อกดสร้าง ระบบจะบันทึก Product และ SKU ที่เปิดไว้ทั้งหมดในคำสั่งเดียว</span></div>

@@ -138,7 +138,8 @@ function validateEntityPayload(commandType: FoundationCommandType, payload: Reco
       'product_weight_kg', 'product_length_cm', 'product_width_cm',
       'product_height_cm', 'package_weight_kg', 'package_length_cm',
       'package_width_cm', 'package_height_cm', 'safety_stock', 'reorder_min',
-      'reorder_max', 'sell_units', 'option_groups', 'variants',
+      'reorder_max', 'sell_units', 'sku_prefix', 'sku_product_sequence',
+      'sku_sequence_digits', 'option_groups', 'variants',
     ],
     'product.variant_images.assign': ['product_id', 'assignments'],
     'product.update': ['product_id', 'expected_version', 'name', 'description'],
@@ -202,6 +203,15 @@ function validateEntityPayload(commandType: FoundationCommandType, payload: Reco
     if (!optionalString(payload.name, 160)
       || payload.structure_type !== 'variant'
       || !/^[a-z][a-z0-9_]{0,31}$/.test(String(payload.base_unit_code))) {
+      throw new FoundationError('validation_failed', 400)
+    }
+    if (!/^[A-Z0-9]{2,12}$/.test(String(payload.sku_prefix ?? ''))
+      || !Number.isInteger(payload.sku_product_sequence)
+      || Number(payload.sku_product_sequence) < 1
+      || Number(payload.sku_product_sequence) > 99999999
+      || !Number.isInteger(payload.sku_sequence_digits)
+      || Number(payload.sku_sequence_digits) < 3
+      || Number(payload.sku_sequence_digits) > 8) {
       throw new FoundationError('validation_failed', 400)
     }
     optionalString(payload.description, 2000)

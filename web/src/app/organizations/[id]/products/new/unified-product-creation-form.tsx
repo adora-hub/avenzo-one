@@ -29,6 +29,7 @@ import {
   synchronizeVariantCombinations,
   type VariantCombinationDraft,
   type VariantOptionGroupDraft,
+  type VariantSkuSequenceDraft,
 } from './variant-creation-builder'
 export type ProductMasterOption = { id: string; name: string; status?: 'active' | 'archived'; version?: number }
 type ProductBranchOption = Pick<ProductMasterOption, 'id' | 'name'> & { code: string }
@@ -95,7 +96,7 @@ type UploadStage = 'selected' | 'preparing' | 'uploading' | 'finalizing' | 'read
 type SelectedImage = { id: string; file: File; previewUrl: string; stage: UploadStage }
 type VariantSkuMapping = { key: string; skuId: string; imageId: string }
 type PendingDraft = { productId: string; skuId?: string; variantSkus?: VariantSkuMapping[]; readyImageIdsByClientId?: Record<string, string>; productName: string; savedAt: string }
-type CreationSuccess = { productId: string; productName: string; skuCount: number; productCount?: number }
+type CreationSuccess = { productId: string; productName: string; skuCount: number; productCount?: number; imageCount?: number }
 type Feedback = { tone: 'info' | 'success' | 'danger'; text: string }
 type IdentifierStatusKey = 'skuCode' | 'salesCode' | 'barcode'
 type IdentifierStatusMap = Record<IdentifierStatusKey, Feedback>
@@ -150,6 +151,7 @@ const errorLabels: Record<string, string> = {
   duplicate_sku_code: 'SKU Code นี้ถูกใช้แล้วใน Organization',
   duplicate_sales_code: 'Sales Code นี้ถูกใช้แล้วใน Organization',
   duplicate_barcode: 'Barcode นี้ถูกใช้แล้วใน Organization',
+  sku_sequence_conflict: 'เลขลำดับ Product นี้ถูกใช้แล้ว กรุณากด “ใช้เลขถัดไป” แล้วตรวจรหัสอีกครั้ง',
   command_payload_conflict: 'คำสั่งเดิมถูกใช้กับข้อมูลคนละชุด กรุณาลองใหม่',
   version_conflict: 'ข้อมูลอ้างอิงมีการเปลี่ยนแปลง กรุณาปิดหน้าต่างแล้วเปิดใหม่ก่อนลองอีกครั้ง',
   foundation_command_failed: 'ระบบบันทึกไม่สำเร็จ กรุณาลองใหม่หรือติดต่อผู้ดูแลระบบ',
@@ -1024,6 +1026,7 @@ export function UnifiedProductCreationForm({
   const [variantGroups, setVariantGroups] = useState<VariantOptionGroupDraft[]>(() => sanitizeVariantGroups(structuredClone(DEFAULT_VARIANT_GROUPS)))
   const [variantCombinations, setVariantCombinations] = useState<VariantCombinationDraft[]>(() => synchronizeVariantCombinations(structuredClone(DEFAULT_VARIANT_GROUPS), [], 'TS'))
   const [variantIdentifiersReady, setVariantIdentifiersReady] = useState(false)
+  const [variantSkuSequence, setVariantSkuSequence] = useState<VariantSkuSequenceDraft>({ prefix: 'TS', sequence: 1, digits: 3 })
   const [salesCodeMode, setSalesCodeMode] = useState<SalesCodeMode>('manual')
   const [barcodeMode, setBarcodeMode] = useState<BarcodeMode>('manufacturer')
   const [salesSequencePrefix, setSalesSequencePrefix] = useState('A')
@@ -1042,7 +1045,7 @@ export function UnifiedProductCreationForm({
   const [bundleStockMode, setBundleStockMode] = useState<BundleStockMode>('virtual')
   const [bundleComponents, setBundleComponents] = useState<BundleComponentDraft[]>([])
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>(() => branches.map((branch) => branch.id))
-  const [imagesSectionOpen, setImagesSectionOpen] = useState(true)
+  const [imagesSectionOpen, setImagesSectionOpen] = useState(false)
   const [physicalSectionOpen, setPhysicalSectionOpen] = useState(false)
   const [metadataSectionOpen, setMetadataSectionOpen] = useState(false)
   const [initialStockEnabled, setInitialStockEnabled] = useState(false)
@@ -1610,7 +1613,6 @@ export function UnifiedProductCreationForm({
   function skuDraftValidationErrors(record: SkuDraft) {
     const errors: string[] = []
     if (!record.name) errors.push('ชื่อรุ่น / ตัวเลือกสินค้า')
-    if (!record.imageId || !images.some((image) => image.id === record.imageId)) errors.push('รูปสินค้าอย่างน้อย 1 ภาพ')
     if (FORBIDDEN_CONTROL_CHARACTERS.test(record.name)) errors.push('ชื่อ SKU มีอักขระควบคุมที่ไม่อนุญาต')
     if (structure === 'variant' && !editingSkuDraftId && !variantOptionOne.trim() && !variantOptionTwo.trim()) errors.push('Variant ต้องมีตัวเลือกอย่างน้อย 1 ค่า')
     if (!record.skuCode) errors.push('SKU Code')
@@ -1691,6 +1693,7 @@ export function UnifiedProductCreationForm({
     setTagInput('')
     setStructure('standard')
     setImages([])
+    setImagesSectionOpen(false)
     setImageFeedback(null)
     setVariantOptionOne('')
     setVariantOptionTwo('')
@@ -1854,8 +1857,10 @@ export function UnifiedProductCreationForm({
     setBundleStockMode(snapshot.bundleStockMode)
     setBundleComponents(snapshot.bundleComponents)
     setSelectedBranchIds(snapshot.selectedBranchIds.filter((branchId) => allowedBranchIds.has(branchId)))
-    setImages(skuDraftImages[id] ?? [])
-    setImageFeedback(skuDraftImages[id]?.length ? { tone: 'info', text: `คืนรูปสินค้า ${skuDraftImages[id].length} ภาพจากคิวแล้ว` } : { tone: 'info', text: 'รูปจากเครื่องไม่อยู่หลัง F5 กรุณาเลือกอย่างน้อย 1 ภาพก่อนบันทึกการแก้ไข' })
+    const restoredImages = skuDraftImages[id] ?? []
+    setImages(restoredImages)
+    setImagesSectionOpen(restoredImages.length > 0)
+    setImageFeedback(restoredImages.length ? { tone: 'info', text: `คืนรูปสินค้า ${restoredImages.length} ภาพจากคิวแล้ว` } : { tone: 'info', text: 'รายการนี้ยังไม่มีรูปสินค้า สามารถบันทึกก่อนแล้วเพิ่มรูปภายหลังได้' })
     markIdentifierCheckStale()
     setIdentifierFeedback({ tone: 'info', text: `กำลังแก้ไขสินค้า ${snapshot.fields.name || record.name} · กด “บันทึกการแก้ไขสินค้า” เมื่อเสร็จ` })
 
@@ -1933,7 +1938,7 @@ export function UnifiedProductCreationForm({
       setImageFeedback({ tone: 'success', text: `เลือกภาพจากเครื่องแล้ว ${next.length} ภาพ` })
       setFeedback(null)
     } catch {
-      const message = 'เลือกได้ 1–9 ภาพ เฉพาะ JPEG, PNG หรือ WebP และไม่เกิน 5 MB ต่อภาพ'
+      const message = 'เลือกได้สูงสุด 9 ภาพ เฉพาะ JPEG, PNG หรือ WebP และไม่เกิน 5 MB ต่อภาพ'
       setImageFeedback({ tone: 'danger', text: message })
       setFeedback({ tone: 'danger', text: message })
     }
@@ -1947,7 +1952,7 @@ export function UnifiedProductCreationForm({
       return current.filter((image) => image.id !== id)
     })
     setVariantCombinations((current) => current.map((item) => item.imageId === id ? { ...item, imageId: '' } : item))
-    setImageFeedback({ tone: 'info', text: remaining ? `เหลือรูปสินค้า ${remaining} ภาพ` : 'นำรูปสินค้าออกแล้ว กรุณาเลือกอย่างน้อย 1 ภาพ' })
+    setImageFeedback({ tone: 'info', text: remaining ? `เหลือรูปสินค้า ${remaining} ภาพ` : 'นำรูปสินค้าออกแล้ว สามารถสร้างสินค้าโดยยังไม่มีรูปและเพิ่มภายหลังได้' })
   }
 
   function moveImage(index: number, direction: -1 | 1) {
@@ -2027,6 +2032,7 @@ export function UnifiedProductCreationForm({
   }
 
   function setImageStage(id: string, stage: UploadStage) {
+    if (stage === 'failed') setImagesSectionOpen(true)
     setImages((current) => current.map((image) => image.id === id ? { ...image, stage } : image))
   }
 
@@ -2284,6 +2290,9 @@ export function UnifiedProductCreationForm({
       return {
         ...commonPayload,
         structure_type: 'variant' as const,
+        sku_prefix: variantSkuSequence.prefix,
+        sku_product_sequence: variantSkuSequence.sequence,
+        sku_sequence_digits: variantSkuSequence.digits,
         option_groups: variantGroups.map((group) => ({
           name: group.name.trim(),
           kind: group.kind,
@@ -2365,7 +2374,6 @@ export function UnifiedProductCreationForm({
     const payload = buildPayload(data)
 
     if (pendingDraft) {
-      if (images.length < 1) add('images', 'รูปสินค้า', 'ข้อมูลหลักถูกสร้างแล้ว กรุณาเลือกภาพใหม่อย่างน้อย 1 ภาพเพื่ออัปโหลดต่อ')
       if (images.some((image) => image.stage === 'failed')) add('images', 'รูปสินค้า', 'มีรูปที่อัปโหลดไม่สำเร็จ กรุณาเลือกไฟล์ใหม่')
       return issues
     }
@@ -2376,7 +2384,6 @@ export function UnifiedProductCreationForm({
       add('general', 'ข้อความสินค้า', 'พบอักขระควบคุมที่ไม่อนุญาต กรุณาแก้ข้อความก่อนสร้าง', 'name')
     }
 
-    if (images.length < 1) add('images', 'รูปสินค้า', 'กรุณาเลือกรูปสินค้าอย่างน้อย 1 ภาพ')
     if (images.some((image) => image.stage === 'failed')) add('images', 'รูปสินค้า', 'มีรูปที่อัปโหลดไม่สำเร็จ กรุณาเลือกไฟล์ใหม่')
 
     if (structure === 'variant') {
@@ -2541,7 +2548,6 @@ export function UnifiedProductCreationForm({
       issues.push({ id: `queue-${sectionId}-${issues.length + 1}`, sectionId, label, message })
     }
     if (!queueSectionCompletion.general) add('general', 'ข้อมูลทั่วไปในคิว', 'มีสินค้าที่ไม่มีชื่อหรือหมวดหมู่ กรุณากดแก้ไขรายการนั้น')
-    if (!queueSectionCompletion.images) add('images', 'รูปสินค้าในคิว', 'มีสินค้าที่ไม่มีรูปจากเครื่อง กรุณากดแก้ไขและเลือกภาพใหม่')
     if (!queueSectionCompletion.sku) add('sku', 'รหัสสินค้าในคิว', 'มี SKU ที่ชื่อ รหัสสินค้า หรือหน่วยนับไม่ครบ')
     if (!queueSectionCompletion.pricing) add('pricing', 'ราคาขายในคิว', 'มีสินค้าที่ยังไม่ได้กำหนดราคาขายตั้งแต่ 0 ขึ้นไป')
     if (!queueSectionCompletion.inventory) add('inventory', 'สาขาที่เปิดขาย', 'มีสินค้าที่ยังไม่ได้เลือกสาขาที่เปิดขาย')
@@ -2657,8 +2663,11 @@ export function UnifiedProductCreationForm({
         productName: `คิวสินค้า ${createdProducts.length} รายการ`,
         skuCount: createdProducts.length,
         productCount: createdProducts.length,
+        imageCount: queueImageCount,
       })
-      setFeedback({ tone: 'success', text: `สร้างสินค้า ${createdProducts.length} รายการและอัปโหลดรูปครบแล้ว โดยยังคงสถานะฉบับร่างเพื่อให้ตรวจสอบก่อนเปิดใช้งาน` })
+      setFeedback({ tone: 'success', text: queueImageCount > 0
+        ? `สร้างสินค้า ${createdProducts.length} รายการและอัปโหลดรูปที่เลือกครบแล้ว โดยยังคงสถานะฉบับร่างเพื่อให้ตรวจสอบก่อนเปิดใช้งาน`
+        : `สร้างสินค้า ${createdProducts.length} รายการเป็นฉบับร่างแล้ว สามารถเพิ่มรูปสินค้าในภายหลังได้` })
     })
   }
 
@@ -2733,8 +2742,10 @@ export function UnifiedProductCreationForm({
       setCompletedProductId(recovery.productId)
       setPendingDraft(null)
       const createdSkuCount = recovery.variantSkus?.length ?? 1
-      setCreationSuccess({ productId: recovery.productId, productName: recovery.productName, skuCount: createdSkuCount })
-      setFeedback({ tone: 'success', text: structure === 'variant' ? `สร้าง Product, SKU Variant ${createdSkuCount} รายการ และรูปสินค้าเรียบร้อยแล้ว` : 'สร้าง Product, SKU แรก และรูปสินค้าเรียบร้อยแล้ว โดยยังคงสถานะฉบับร่างเพื่อให้ตรวจสอบก่อนเปิดใช้งาน' })
+      setCreationSuccess({ productId: recovery.productId, productName: recovery.productName, skuCount: createdSkuCount, imageCount: images.length })
+      setFeedback({ tone: 'success', text: images.length > 0
+        ? structure === 'variant' ? `สร้าง Product, SKU Variant ${createdSkuCount} รายการ และอัปโหลดรูปที่เลือกเรียบร้อยแล้ว` : 'สร้าง Product, SKU แรก และอัปโหลดรูปที่เลือกเรียบร้อยแล้ว โดยยังคงสถานะฉบับร่างเพื่อให้ตรวจสอบก่อนเปิดใช้งาน'
+        : structure === 'variant' ? `สร้าง Product และ SKU Variant ${createdSkuCount} รายการเป็นฉบับร่างแล้ว สามารถเพิ่มรูปภายหลังได้` : 'สร้าง Product และ SKU แรกเป็นฉบับร่างแล้ว สามารถเพิ่มรูปภายหลังได้' })
       router.refresh()
     })
   }
@@ -2759,7 +2770,7 @@ export function UnifiedProductCreationForm({
   )
   const queueReviewMode = structure !== 'variant' && skuDrafts.length > 0 && !hasUnqueuedProductChanges
   const queueDraftsWithImages = skuDrafts.map((draft) => ({ draft, images: skuDraftImages[draft.id] ?? [] }))
-  const queueCompleteCount = queueDraftsWithImages.filter(({ draft, images: draftImages }) => {
+  const queueCompleteCount = queueDraftsWithImages.filter(({ draft }) => {
     const salePrice = optionalNumber(draft.salePrice)
     return Boolean(
       draft.snapshot.fields.name?.trim()
@@ -2768,8 +2779,7 @@ export function UnifiedProductCreationForm({
         && draft.skuCode
         && BASE_UNIT_CODES.has(draft.baseUnitCode)
         && salePrice !== undefined
-        && salePrice >= 0
-        && draftImages.some((image) => image.id === draft.imageId),
+        && salePrice >= 0,
     )
   }).length
   const queueImageCount = queueDraftsWithImages.reduce((total, item) => total + item.images.length, 0)
@@ -3142,7 +3152,7 @@ export function UnifiedProductCreationForm({
   const summaryBundle = structure === 'bundle' ? `${bundleComponents.length} Components · ${bundleStockMode === 'assembled' ? 'Pre-assembled' : 'Virtual'}` : 'ไม่ใช่ Bundle'
   const queueSectionCompletion = {
     general: skuDrafts.length > 0 && skuDrafts.every((draft) => Boolean(draft.snapshot.fields.name?.trim() && draft.snapshot.categoryId)),
-    images: skuDrafts.length > 0 && queueDraftsWithImages.every(({ draft, images: draftImages }) => draftImages.some((image) => image.id === draft.imageId)),
+    images: true,
     sku: skuDrafts.length > 0 && skuDrafts.every((draft) => Boolean(draft.name && draft.skuCode && BASE_UNIT_CODES.has(draft.baseUnitCode))),
     pricing: skuDrafts.length > 0 && skuDrafts.every((draft) => { const value = optionalNumber(draft.salePrice); return value !== undefined && value >= 0 }),
     physical: true,
@@ -3152,7 +3162,7 @@ export function UnifiedProductCreationForm({
   }
   const currentFormSectionCompletion = {
     general: Boolean(summaryFields.name && categoryId),
-    images: images.length > 0,
+    images: true,
     sku: structure === 'variant'
       ? variantIdentifiersReady && enabledVariantCombinations.length > 0 && enabledVariantCombinations.every((combination) => combination.skuCode.trim() && combination.salesCode.trim())
       : Boolean(skuDrafts.length > 0 || (summaryFields.skuName && summaryFields.skuCode)),
@@ -3166,12 +3176,12 @@ export function UnifiedProductCreationForm({
   }
   const sectionCompletion = queueReviewMode ? queueSectionCompletion : currentFormSectionCompletion
   const completionChecks = queueReviewMode
-    ? [sectionCompletion.general, sectionCompletion.images, sectionCompletion.sku, sectionCompletion.pricing, sectionCompletion.inventory, queueCompleteCount === skuDrafts.length]
-    : [sectionCompletion.general, sectionCompletion.images, sectionCompletion.sku, Boolean(summaryFields.baseUnitCode), sectionCompletion.pricing, images.length > 0]
+    ? [sectionCompletion.general, sectionCompletion.sku, sectionCompletion.pricing, sectionCompletion.inventory, queueCompleteCount === skuDrafts.length]
+    : [sectionCompletion.general, sectionCompletion.sku, Boolean(summaryFields.baseUnitCode), sectionCompletion.pricing]
   const completionPercent = Math.round(completionChecks.filter(Boolean).length / completionChecks.length * 100)
   const summarySections = [
     { id: 'general', label: 'ข้อมูลทั่วไป', optional: false },
-    { id: 'images', label: 'รูปสินค้า', optional: false },
+    { id: 'images', label: 'รูปสินค้า', optional: true },
     { id: 'sku', label: structure === 'variant' ? 'SKU Variant' : 'SKU แรก', optional: false },
     { id: 'pricing', label: 'ราคาและภาษี', optional: false },
     { id: 'inventory', label: 'สาขาและสต๊อก', optional: false },
@@ -3181,7 +3191,7 @@ export function UnifiedProductCreationForm({
   ] as const
   const currentSectionId = validationAttempted && validationIssues.length
     ? validationIssues[0].sectionId
-    : summarySections.find((section) => !sectionCompletion[section.id])?.id ?? 'metadata'
+    : summarySections.find((section) => !section.optional && !sectionCompletion[section.id])?.id ?? 'metadata'
   const validationIssueCountForSection = (sectionId: ValidationSectionId) => validationIssues.filter((issue) => issue.sectionId === sectionId).length
   const failedImageCount = images.filter((image) => image.stage === 'failed').length
   const readyImageCount = images.filter((image) => image.stage === 'ready').length
@@ -3198,7 +3208,7 @@ export function UnifiedProductCreationForm({
   const primaryActionLabel = isPending
     ? 'กำลังบันทึก…'
     : pendingDraft
-      ? 'อัปโหลดต่อ'
+      ? images.length > 0 ? 'อัปโหลดต่อ' : 'เสร็จสิ้นโดยไม่มีรูป'
       : queueReviewMode
         ? `ตรวจสอบและสร้าง ${skuDrafts.length} รายการ`
         : skuDrafts.length > 0 && hasUnqueuedProductChanges
@@ -3222,7 +3232,7 @@ export function UnifiedProductCreationForm({
       </div>
     </header>
 
-    <div className="product-production-banner" role="note"><span aria-hidden="true">ⓘ</span><span><strong>เชื่อมระบบจริงแล้ว</strong> — {structure === 'variant' ? 'Product และ SKU Variant สร้างพร้อมกันผ่าน Atomic command' : 'Product และ SKU แรกสร้างผ่าน Atomic command'}, รูปภาพผ่าน Image Gate และยังไม่เขียน Stock ในขั้นตอนนี้</span></div>
+    <div className="product-production-banner" role="note"><span aria-hidden="true">ⓘ</span><span><strong>เชื่อมระบบจริงแล้ว</strong> — {structure === 'variant' ? 'Product และ SKU Variant สร้างพร้อมกันผ่าน Atomic command' : 'Product และ SKU แรกสร้างผ่าน Atomic command'}, รูปภาพไม่บังคับและจะผ่าน Image Gate เมื่อเลือกอัปโหลด · ยังไม่เขียน Stock ในขั้นตอนนี้</span></div>
     <div className="product-required-guide" role="note"><span aria-hidden="true">＊</span><span><strong>ช่องที่มีเครื่องหมาย * จำเป็นต้องกรอก</strong> · ระบบจะตรวจข้อมูลอีกครั้งก่อนสร้างสินค้า</span></div>
     {validationAttempted ? <div ref={validationSummaryRef} className={`product-validation-summary ${validationIssues.length ? 'danger' : 'success'}`} role={validationIssues.length ? 'alert' : 'status'} aria-live="assertive" tabIndex={-1}>
       <div className="product-validation-summary-heading"><span className="product-validation-summary-icon" aria-hidden="true">{validationIssues.length ? '!' : '✓'}</span><div><strong>{validationIssues.length ? `ตรวจพบ ${validationIssues.length} จุดที่ต้องแก้` : 'ข้อมูลผ่านการตรวจเบื้องต้นแล้ว'}</strong><p>{validationIssues.length ? 'เลือกแต่ละรายการเพื่อไปยังช่องที่ต้องแก้ ระบบจะไม่สร้างข้อมูลจนกว่าจะผ่านครบ' : 'กำลังส่งคำสั่งให้ Server ตรวจสิทธิ์ ความถูกต้อง และรหัสซ้ำก่อนบันทึกจริง'}</p></div></div>
@@ -3285,13 +3295,13 @@ export function UnifiedProductCreationForm({
         </section>
 
         <section id="images" className="product-creation-card">
-          <header><span>2</span><div><h2>รูปสินค้า</h2><p>เพิ่ม 1–9 ภาพ อัตราส่วน 1:1 จัดลำดับ และกำหนดภาพปก</p></div><div className="product-section-toggle-meta"><small className="product-section-status">{images.length} / {PRODUCT_IMAGE_MAX_FILES} ภาพ</small><label className="product-switch"><input type="checkbox" checked={imagesSectionOpen} onChange={(event) => setImagesSectionOpen(event.target.checked)} aria-label="เปิดหรือปิดส่วนรูปสินค้า" aria-expanded={imagesSectionOpen} /><span aria-hidden="true" /></label></div></header>
+          <header><span>2</span><div><h2>รูปสินค้า</h2><p>ไม่บังคับ · เพิ่มได้สูงสุด 9 ภาพ อัตราส่วน 1:1 หรือเพิ่มภายหลัง</p></div><div className="product-section-toggle-meta"><small className="product-section-status">{images.length} / {PRODUCT_IMAGE_MAX_FILES} ภาพ</small><label className="product-switch"><input type="checkbox" checked={imagesSectionOpen} onChange={(event) => setImagesSectionOpen(event.target.checked)} aria-label="เปิดหรือปิดส่วนรูปสินค้า" aria-expanded={imagesSectionOpen} /><span aria-hidden="true" /></label></div></header>
           {imagesSectionOpen ? <>
           <div className="product-image-toolbar">
             <label className="button compact secondary product-image-picker"><input type="file" accept={PRODUCT_IMAGE_ALLOWED_MIME_TYPES.join(',')} multiple onChange={(event) => { selectImages(event.target.files); event.currentTarget.value = '' }} /><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg><span>เลือกภาพจากเครื่อง</span></label>
             <span className="product-image-cover-note">ภาพแรกเป็นภาพปกโดยอัตโนมัติ</span>
           </div>
-          <div className="product-image-grid" aria-live="polite">{images.length ? images.map((image, index) => <article className="product-image-card" key={image.id}><div className="product-image-media"><Image src={image.previewUrl} alt={`ตัวอย่าง ${image.file.name}`} width={600} height={600} sizes="(max-width: 760px) 50vw, 180px" unoptimized />{index === 0 ? <span className="product-image-cover-label">ภาพปก</span> : null}</div><div className="product-image-name" title={image.file.name}>{image.file.name}</div><div className="product-image-actions"><button type="button" onClick={() => moveImage(index, -1)} disabled={index === 0 || isPending} aria-label="เลื่อนภาพไปซ้าย"><span aria-hidden="true">←</span></button><button className={index === 0 ? 'active' : ''} type="button" onClick={() => setCoverImage(index)} disabled={isPending} aria-label={index === 0 ? 'ภาพปกปัจจุบัน' : 'ตั้งเป็นภาพปก'} aria-pressed={index === 0}><span aria-hidden="true">★</span></button><button type="button" onClick={() => moveImage(index, 1)} disabled={index === images.length - 1 || isPending} aria-label="เลื่อนภาพไปขวา"><span aria-hidden="true">→</span></button><button type="button" onClick={() => removeImage(image.id)} disabled={isPending} aria-label="ลบภาพ"><span aria-hidden="true">×</span></button></div></article>) : <div className="product-image-empty"><div><strong>ยังไม่มีรูปสินค้า</strong><span>เลือกไฟล์ภาพจริงจากเครื่องเพื่อดูตัวอย่าง</span></div></div>}</div>
+          <div className="product-image-grid" aria-live="polite">{images.length ? images.map((image, index) => <article className="product-image-card" key={image.id}><div className="product-image-media"><Image src={image.previewUrl} alt={`ตัวอย่าง ${image.file.name}`} width={600} height={600} sizes="(max-width: 760px) 50vw, 180px" unoptimized />{index === 0 ? <span className="product-image-cover-label">ภาพปก</span> : null}</div><div className="product-image-name" title={image.file.name}>{image.file.name}</div><div className="product-image-actions"><button type="button" onClick={() => moveImage(index, -1)} disabled={index === 0 || isPending} aria-label="เลื่อนภาพไปซ้าย"><span aria-hidden="true">←</span></button><button className={index === 0 ? 'active' : ''} type="button" onClick={() => setCoverImage(index)} disabled={isPending} aria-label={index === 0 ? 'ภาพปกปัจจุบัน' : 'ตั้งเป็นภาพปก'} aria-pressed={index === 0}><span aria-hidden="true">★</span></button><button type="button" onClick={() => moveImage(index, 1)} disabled={index === images.length - 1 || isPending} aria-label="เลื่อนภาพไปขวา"><span aria-hidden="true">→</span></button><button type="button" onClick={() => removeImage(image.id)} disabled={isPending} aria-label="ลบภาพ"><span aria-hidden="true">×</span></button></div></article>) : <div className="product-image-empty"><div><strong>ยังไม่มีรูปสินค้า</strong><span>สร้างสินค้าได้ก่อน แล้วเพิ่มรูปภายหลังจากหน้ารายละเอียดสินค้า</span></div></div>}</div>
           <div className="product-image-policy" role="note"><span aria-hidden="true">ⓘ</span><span>รองรับ JPEG, PNG และ WebP · ไม่เกิน {Math.round(PRODUCT_IMAGE_MAX_BYTES / 1_048_576)} MB ต่อภาพ · แนะนำภาพสี่เหลี่ยม 1200 × 1200 px</span></div>
           <div className={`product-image-upload-status ${imageUploadStatus?.tone ?? ''}`} role="status" aria-live="polite">{imageUploadStatus?.text ?? ''}</div>
           </> : <p className="product-form-note product-collapsed-section-note">ส่วนรูปสินค้าถูกย่อไว้ · เลือกเปิดเพื่อเพิ่มหรือจัดการรูปภาพ</p>}
@@ -3308,6 +3318,7 @@ export function UnifiedProductCreationForm({
               setCombinations={setVariantCombinations}
               images={images.map((image) => ({ id: image.id, name: image.file.name }))}
               onIdentifierCheckChange={setVariantIdentifiersReady}
+              onSkuSequenceChange={setVariantSkuSequence}
               disabled={isPending}
             /></div> : null}
             {structure !== 'variant' ? <>
@@ -3350,7 +3361,7 @@ export function UnifiedProductCreationForm({
                     const queueImages = editingSkuDraftId === draft.id ? images : (skuDraftImages[draft.id] ?? [])
                     const queueImage = queueImages.find((image) => image.id === draft.imageId) ?? queueImages[0]
                     const draftProductName = draft.snapshot.fields.name || draft.name
-                    return <tr key={draft.id} data-sku-draft-id={draft.id}><td><div className="product-sku-staging-product">{queueImage ? <Image src={queueImage.previewUrl} alt={`รูปสินค้า ${draftProductName}`} width={44} height={44} unoptimized /> : <span className="product-sku-staging-image-missing" aria-label="ต้องเลือกรูปสินค้าใหม่">ไม่มีรูป</span>}<span><strong>{draftProductName}</strong><small>{queueImage ? draft.imageName : 'รูปจากเครื่องไม่ถูกเก็บหลัง F5'} · 1 SKU</small></span></div></td><td>{draft.skuCode}</td><td>{draft.salesCode || '—'}</td><td>{draft.barcode || '—'}</td><td>{draft.baseUnitCode}</td><td><div className="product-sku-staging-price-field"><span aria-hidden="true">฿</span><input type="number" inputMode="decimal" min="0" max="999999999.99" step="0.01" value={draft.salePrice} onChange={(event) => updateSkuDraftSalePrice(draft.id, event.currentTarget.value)} aria-label={`ราคาขาย ${draftProductName}`} placeholder="0.00" /></div></td><td><span className="product-quick-create-status">พร้อมตรวจสอบ</span></td><td className="product-sku-staging-actions-column"><div className="product-sku-staging-row-actions"><button className="product-sku-staging-icon-action" type="button" data-tooltip="แก้ไขสินค้า" aria-label={`แก้ไขสินค้า ${draftProductName}`} aria-describedby={skuDraftTooltip?.key === `${draft.id}:edit` ? "product-sku-staging-tooltip" : undefined} onMouseEnter={(event) => showSkuDraftTooltip(event.currentTarget, `${draft.id}:edit`, "แก้ไขสินค้า")} onMouseLeave={() => setSkuDraftTooltip(null)} onFocus={(event) => showSkuDraftTooltip(event.currentTarget, `${draft.id}:edit`, "แก้ไขสินค้า")} onBlur={() => setSkuDraftTooltip(null)} onClick={() => { setSkuDraftTooltip(null); editSkuDraft(draft.id) }} disabled={isSkuDraftChecking}><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m13.8 3.2 3 3L7 16H4v-3Z" /><path d="m12.3 4.7 3 3" /></svg></button><button className="product-sku-staging-icon-action danger" type="button" data-tooltip="นำออกจากคิว" aria-label={`นำสินค้า ${draftProductName} ออกจากคิว`} aria-describedby={skuDraftTooltip?.key === `${draft.id}:remove` ? "product-sku-staging-tooltip" : undefined} onMouseEnter={(event) => showSkuDraftTooltip(event.currentTarget, `${draft.id}:remove`, "นำออกจากคิว")} onMouseLeave={() => setSkuDraftTooltip(null)} onFocus={(event) => showSkuDraftTooltip(event.currentTarget, `${draft.id}:remove`, "นำออกจากคิว")} onBlur={() => setSkuDraftTooltip(null)} onClick={() => { setSkuDraftTooltip(null); removeSkuDraft(draft.id) }} disabled={isSkuDraftChecking}><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 6h12" /><path d="M8 3h4l1 3H7Z" /><path d="m6 6 1 11h6l1-11" /><path d="M9 9v5M11 9v5" /></svg></button></div></td></tr>
+                    return <tr key={draft.id} data-sku-draft-id={draft.id}><td><div className="product-sku-staging-product">{queueImage ? <Image src={queueImage.previewUrl} alt={`รูปสินค้า ${draftProductName}`} width={44} height={44} unoptimized /> : <span className="product-sku-staging-image-missing" aria-label="ยังไม่มีรูปสินค้า">ไม่มีรูป</span>}<span><strong>{draftProductName}</strong><small>{queueImage ? draft.imageName : 'ยังไม่ได้เพิ่มรูป'} · 1 SKU</small></span></div></td><td>{draft.skuCode}</td><td>{draft.salesCode || '—'}</td><td>{draft.barcode || '—'}</td><td>{draft.baseUnitCode}</td><td><div className="product-sku-staging-price-field"><span aria-hidden="true">฿</span><input type="number" inputMode="decimal" min="0" max="999999999.99" step="0.01" value={draft.salePrice} onChange={(event) => updateSkuDraftSalePrice(draft.id, event.currentTarget.value)} aria-label={`ราคาขาย ${draftProductName}`} placeholder="0.00" /></div></td><td><span className="product-quick-create-status">พร้อมตรวจสอบ</span></td><td className="product-sku-staging-actions-column"><div className="product-sku-staging-row-actions"><button className="product-sku-staging-icon-action" type="button" data-tooltip="แก้ไขสินค้า" aria-label={`แก้ไขสินค้า ${draftProductName}`} aria-describedby={skuDraftTooltip?.key === `${draft.id}:edit` ? "product-sku-staging-tooltip" : undefined} onMouseEnter={(event) => showSkuDraftTooltip(event.currentTarget, `${draft.id}:edit`, "แก้ไขสินค้า")} onMouseLeave={() => setSkuDraftTooltip(null)} onFocus={(event) => showSkuDraftTooltip(event.currentTarget, `${draft.id}:edit`, "แก้ไขสินค้า")} onBlur={() => setSkuDraftTooltip(null)} onClick={() => { setSkuDraftTooltip(null); editSkuDraft(draft.id) }} disabled={isSkuDraftChecking}><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m13.8 3.2 3 3L7 16H4v-3Z" /><path d="m12.3 4.7 3 3" /></svg></button><button className="product-sku-staging-icon-action danger" type="button" data-tooltip="นำออกจากคิว" aria-label={`นำสินค้า ${draftProductName} ออกจากคิว`} aria-describedby={skuDraftTooltip?.key === `${draft.id}:remove` ? "product-sku-staging-tooltip" : undefined} onMouseEnter={(event) => showSkuDraftTooltip(event.currentTarget, `${draft.id}:remove`, "นำออกจากคิว")} onMouseLeave={() => setSkuDraftTooltip(null)} onFocus={(event) => showSkuDraftTooltip(event.currentTarget, `${draft.id}:remove`, "นำออกจากคิว")} onBlur={() => setSkuDraftTooltip(null)} onClick={() => { setSkuDraftTooltip(null); removeSkuDraft(draft.id) }} disabled={isSkuDraftChecking}><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 6h12" /><path d="M8 3h4l1 3H7Z" /><path d="m6 6 1 11h6l1-11" /><path d="M9 9v5M11 9v5" /></svg></button></div></td></tr>
                   })}</tbody>
                 </table>
               </div>
@@ -3538,7 +3549,7 @@ export function UnifiedProductCreationForm({
         </div>
       </aside>
     </form>
-    {creationSuccess ? <div className="product-success-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeSuccessDialog() }}><section ref={successDialogRef} className="product-success-dialog" role="dialog" aria-modal="true" aria-labelledby="productSuccessTitle" aria-describedby="productSuccessMessage" onKeyDown={handleSuccessDialogKeyDown}><div className="product-success-body"><div className="product-success-mark" aria-hidden="true">✓</div><h2 id="productSuccessTitle">สร้างสินค้าเรียบร้อยแล้ว</h2><p id="productSuccessMessage">{creationSuccess.productCount ? `สินค้า ${creationSuccess.productCount} รายการ พร้อม ${creationSuccess.skuCount} SKU` : `${creationSuccess.productName} พร้อม ${creationSuccess.skuCount} SKU`} ถูกสร้างเป็นฉบับร่าง และอัปโหลดรูปสินค้าครบแล้ว</p><span>ระบบยังไม่เปิดใช้งานสินค้าและยังไม่เพิ่ม Stock จนกว่าจะผ่านขั้นตอนที่เกี่ยวข้อง</span></div><footer><div className="product-success-actions"><Link className="button secondary" href={productsHref}>กลับหน้ารายการสินค้า</Link><button className="button product-primary-action" type="button" onClick={createNextProduct}>สร้างสินค้ารายการถัดไป</button></div>{creationSuccess.productCount ? null : <Link className="product-success-detail-link" href={`${productsHref}?product=${creationSuccess.productId}`}>ดูรายละเอียดสินค้านี้ →</Link>}</footer></section></div> : null}
+    {creationSuccess ? <div className="product-success-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeSuccessDialog() }}><section ref={successDialogRef} className="product-success-dialog" role="dialog" aria-modal="true" aria-labelledby="productSuccessTitle" aria-describedby="productSuccessMessage" onKeyDown={handleSuccessDialogKeyDown}><div className="product-success-body"><div className="product-success-mark" aria-hidden="true">✓</div><h2 id="productSuccessTitle">สร้างสินค้าเรียบร้อยแล้ว</h2><p id="productSuccessMessage">{creationSuccess.productCount ? `สินค้า ${creationSuccess.productCount} รายการ พร้อม ${creationSuccess.skuCount} SKU` : `${creationSuccess.productName} พร้อม ${creationSuccess.skuCount} SKU`} ถูกสร้างเป็นฉบับร่าง{creationSuccess.imageCount ? ' และอัปโหลดรูปที่เลือกครบแล้ว' : ' โดยยังไม่มีรูปสินค้า สามารถเพิ่มรูปภายหลังได้'}</p><span>ระบบยังไม่เปิดใช้งานสินค้าและยังไม่เพิ่ม Stock จนกว่าจะผ่านขั้นตอนที่เกี่ยวข้อง</span></div><footer><div className="product-success-actions"><Link className="button secondary" href={productsHref}>กลับหน้ารายการสินค้า</Link><button className="button product-primary-action" type="button" onClick={createNextProduct}>สร้างสินค้ารายการถัดไป</button></div>{creationSuccess.productCount ? null : <Link className="product-success-detail-link" href={`${productsHref}?product=${creationSuccess.productId}`}>ดูรายละเอียดสินค้านี้ →</Link>}</footer></section></div> : null}
     <button className="product-back-to-top" type="button" aria-label="กลับด้านบน" title="กลับด้านบน" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>↑</button>
   </>
 }

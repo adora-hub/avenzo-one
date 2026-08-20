@@ -49,9 +49,11 @@ test('R7.2.4E owns validation presentation instead of browser-native bubbles', a
   assert.match(form, /aria-invalid/)
 })
 
-test('R7.2.4E validates required product, category, image, SKU, and price data', async () => {
+test('Product creation validates product, category, SKU, and price while keeping images optional', async () => {
   const form = await read(formPath)
-  for (const message of ['กรุณากรอกชื่อสินค้า', 'กรุณาเลือกหมวดหมู่สินค้า', 'กรุณาเลือกรูปสินค้าอย่างน้อย 1 ภาพ', 'SKU แรก', 'กรุณากรอกราคาขายเป็นตัวเลขตั้งแต่ 0 ขึ้นไป']) assert.match(form, new RegExp(message))
+  for (const message of ['กรุณากรอกชื่อสินค้า', 'กรุณาเลือกหมวดหมู่สินค้า', 'SKU แรก', 'กรุณากรอกราคาขายเป็นตัวเลขตั้งแต่ 0 ขึ้นไป']) assert.match(form, new RegExp(message))
+  assert.doesNotMatch(form, /กรุณาเลือกรูปสินค้าอย่างน้อย 1 ภาพ/)
+  assert.match(form, /\{ id: 'images', label: 'รูปสินค้า', optional: true \}/)
 })
 
 test('resolved standard price warning clears as soon as a valid sale price is entered', async () => {

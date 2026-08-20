@@ -20,6 +20,10 @@ import {
   type ProductIdentifierCheckResult,
   type VariantProductIdentifierCheckResult,
 } from '@/lib/foundation/product-identifier-check.server'
+import {
+  previewVariantSkuSequence,
+  type VariantSkuSequencePreview,
+} from '@/lib/foundation/variant-sku-sequence.server'
 
 export type ProductIdentifierCheckActionResult =
   | { ok: true; data: ProductIdentifierCheckResult }
@@ -27,6 +31,10 @@ export type ProductIdentifierCheckActionResult =
 
 export type VariantProductIdentifierCheckActionResult =
   | { ok: true; data: VariantProductIdentifierCheckResult }
+  | { ok: false; error: FoundationErrorCode; status: number }
+
+export type VariantSkuSequencePreviewActionResult =
+  | { ok: true; data: VariantSkuSequencePreview }
   | { ok: false; error: FoundationErrorCode; status: number }
 
 export type ProductsBulkEditContextActionResult =
@@ -203,6 +211,17 @@ export async function checkVariantProductIdentifiersAction(
 ): Promise<VariantProductIdentifierCheckActionResult> {
   try {
     return { ok: true, data: await checkVariantProductIdentifiers(input) }
+  } catch (error) {
+    const safeError = mapFoundationError(error)
+    return { ok: false, error: safeError.code, status: safeError.status }
+  }
+}
+
+export async function previewVariantSkuSequenceAction(
+  input: unknown,
+): Promise<VariantSkuSequencePreviewActionResult> {
+  try {
+    return { ok: true, data: await previewVariantSkuSequence(input) }
   } catch (error) {
     const safeError = mapFoundationError(error)
     return { ok: false, error: safeError.code, status: safeError.status }

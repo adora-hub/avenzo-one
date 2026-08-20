@@ -40,11 +40,13 @@ test('R7.2.4D renders the approved count, empty state, table, and row actions', 
   assert.match(form, /data-tooltip="นำออกจากคิว"/)
 })
 
-test('R7.2.4D requires and snapshots the cover image for every queued product row', async () => {
+test('Product queue snapshots an optional cover image without blocking rows that have no image', async () => {
   const form = await read(formPath)
   assert.match(form, /imageId: images\[0\]\?\.id \?\? ''/)
   assert.match(form, /imageName: images\[0\]\?\.file\.name/)
-  assert.match(form, /รูปสินค้าอย่างน้อย 1 ภาพ/)
+  assert.doesNotMatch(form, /errors\.push\('รูปสินค้าอย่างน้อย 1 ภาพ'\)/)
+  assert.match(form, /aria-label="ยังไม่มีรูปสินค้า"/)
+  assert.match(form, /ยังไม่ได้เพิ่มรูป/)
   assert.match(form, /alt=\{`รูปสินค้า \$\{draftProductName\}`\}/)
 })
 
