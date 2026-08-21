@@ -133,3 +133,7 @@ This document freezes the common contract direction only. Before changing the
 Database or production behavior, the Domain workstream must reconcile existing
 identifier migrations, historical codes and SKU-04/Rapid reservation behavior,
 then provide migration, compatibility and concurrency tests for Owner approval.
+
+The approved sequential implementation plan is
+`AVENZO_ONE_Global_Sales_Code_Implementation_Plan_V1.md`. Work begins at GSC-01
+and must stop for review after every Part.
