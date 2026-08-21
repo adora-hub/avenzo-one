@@ -21,10 +21,11 @@ type Props = {
 type EditableField = 'productName' | 'category' | 'price' | 'stock' | 'unit' | 'branch'
 type BulkAction = 'price' | 'stock' | 'unit' | 'category' | 'branch' | 'restore-name'
 type BulkTarget = 'selected' | 'all'
+type RapidStatusFilter = 'attention' | 'invalid' | 'ready' | 'all'
 type RapidImageDraft = { file: File; previewUrl: string }
 type RapidRowDraft = { index: number; salesCode: string; productName: string; category: string; price: string; stock: string; unit: string; branch: string; selected: boolean; nameOverridden: boolean; image: RapidImageDraft | null; imageFileName: string; imageError: string }
 type EditingCell = { rowIndex: number; field: EditableField; originalValue: string; originalNameOverridden: boolean }
-type PendingBulk = { action: BulkAction; target: BulkTarget; value: string; affectedCount: number }
+type PendingBulk = { action: BulkAction; target: BulkTarget; value: string; affectedCount: number; rowIndexes: number[]; includesHiddenSelection: boolean }
 type ResizableColumn = 'code' | 'image' | 'name' | 'category' | 'price' | 'stock' | 'unit' | 'branch' | 'status'
 type ValidationField = EditableField | 'image'
 type ValidationIssue = { rowIndex: number; salesCode: string; field: ValidationField; message: string }
@@ -152,12 +153,22 @@ function UndoIcon() {
   return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 7-5 5 5 5" /><path d="M5 12h8a6 6 0 0 1 6 6" /></svg>
 }
 
+function ReadyPlacementIcon({ direction }: { direction: 'up' | 'down' }) {
+  return direction === 'up'
+    ? <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M7 10l5-5 5 5" /></svg>
+    : <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14m-5-5 5 5 5-5" /></svg>
+}
+
 export function RapidEntryTable({ organizationId, actorUserId, selectedRange, namingTemplate, canManage, restoredDraft, onDraftRestored, onDraftSaved }: Props) {
   const [rows, setRows] = useState<RapidRowDraft[]>([])
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null)
   const [bulkAction, setBulkAction] = useState<BulkAction>('price')
   const [bulkValue, setBulkValue] = useState('')
   const [bulkTarget, setBulkTarget] = useState<BulkTarget>('selected')
+  const [includeHiddenSelected, setIncludeHiddenSelected] = useState(false)
+  const [statusFilter, setStatusFilter] = useState<RapidStatusFilter>('attention')
+  const [readyRowsAtBottom, setReadyRowsAtBottom] = useState(true)
+  const [rowOrderNotice, setRowOrderNotice] = useState('')
   const [pendingBulk, setPendingBulk] = useState<PendingBulk | null>(null)
   const [undoSnapshot, setUndoSnapshot] = useState<RapidRowDraft[] | null>(null)
   const [bulkNotice, setBulkNotice] = useState('')
@@ -176,6 +187,7 @@ export function RapidEntryTable({ organizationId, actorUserId, selectedRange, na
   const imageObjectUrlsRef = useRef(new Set<string>())
   const rangeIdentityRef = useRef('')
   const restoredReservationRef = useRef('')
+  const readyCodesRef = useRef<Set<string> | null>(null)
   const [draftHydrated, setDraftHydrated] = useState(false)
 
   useEffect(() => {
@@ -183,6 +195,12 @@ export function RapidEntryTable({ organizationId, actorUserId, selectedRange, na
     const timeout = window.setTimeout(() => setBulkNotice(''), 5000)
     return () => window.clearTimeout(timeout)
   }, [bulkNotice, bulkNoticeTone])
+
+  useEffect(() => {
+    if (!rowOrderNotice) return
+    const timeout = window.setTimeout(() => setRowOrderNotice(''), 7000)
+    return () => window.clearTimeout(timeout)
+  }, [rowOrderNotice])
 
   function revokeImageUrl(url: string) {
     if (!imageObjectUrlsRef.current.has(url)) return
@@ -205,6 +223,7 @@ export function RapidEntryTable({ organizationId, actorUserId, selectedRange, na
       setReviewOpen(false)
       setValidationNotice(null)
       setDraftHydrated(false)
+      readyCodesRef.current = null
       return
     }
     const generated = draftRows(selectedRange, namingTemplate)
@@ -227,6 +246,7 @@ export function RapidEntryTable({ organizationId, actorUserId, selectedRange, na
       setReviewOpen(false)
       setValidationNotice(null)
       setDraftHydrated(true)
+      readyCodesRef.current = null
       return
     }
     setRows((current) => current.map((row, index) => ({
@@ -283,6 +303,20 @@ export function RapidEntryTable({ organizationId, actorUserId, selectedRange, na
   }, [actorUserId, categoryOptions, columnWidths, draftHydrated, namingTemplate, onDraftSaved, organizationId, rows, selectedRange])
 
   useEffect(() => () => revokeAllImageUrls(), [])
+
+  useEffect(() => {
+    if (!draftHydrated || rows.length !== ROW_COUNT) return
+    const currentReadyCodes = new Set(rows.filter((row) => rowIsReady(row, categoryOptions)).map((row) => row.salesCode))
+    if (readyCodesRef.current === null) {
+      readyCodesRef.current = currentReadyCodes
+      return
+    }
+    const newlyReadyCodes = [...currentReadyCodes].filter((code) => !readyCodesRef.current?.has(code))
+    readyCodesRef.current = currentReadyCodes
+    if (!readyRowsAtBottom || !newlyReadyCodes.length) return
+    const subject = newlyReadyCodes.length === 1 ? newlyReadyCodes[0] : `${newlyReadyCodes.length} รายการ`
+    setRowOrderNotice(`${subject} พร้อมสร้างแล้ว — ย้ายออกจากงานที่ต้องทำและไว้ท้ายมุมมองทั้งหมด`)
+  }, [categoryOptions, draftHydrated, readyRowsAtBottom, rows])
 
   useEffect(() => {
     if (!editingCell) return
@@ -431,6 +465,18 @@ export function RapidEntryTable({ organizationId, actorUserId, selectedRange, na
     setRows((current) => current.map((row) => ({ ...row, selected })))
   }
 
+  function changeStatusFilter(filter: RapidStatusFilter) {
+    setStatusFilter(filter)
+    setIncludeHiddenSelected(false)
+  }
+
+  function clearHiddenSelection() {
+    setRows((current) => current.map((row) => visibleRowIndexes.has(row.index) ? row : { ...row, selected: false }))
+    setIncludeHiddenSelected(false)
+    setBulkNoticeTone('success')
+    setBulkNotice(`ล้างรายการที่เลือกจากสถานะอื่นแล้ว ${hiddenSelectedRows.length} รายการ`)
+  }
+
   function focusValidationIssue(issue: ValidationIssue) {
     setReviewOpen(false)
     const cellId = issue.field === 'image' ? `rapid-image-${issue.rowIndex}` : `rapid-cell-${issue.field}-${issue.rowIndex}`
@@ -480,18 +526,19 @@ export function RapidEntryTable({ organizationId, actorUserId, selectedRange, na
   }
 
   function requestBulkApply() {
-    const affectedCount = bulkTarget === 'all' ? rows.length : rows.filter((row) => row.selected).length
+    const targetRows = bulkTarget === 'all' ? rows : selectedBulkRows
+    const affectedCount = targetRows.length
     if (!affectedCount) { setBulkNoticeTone('error'); setBulkNotice('กรุณาเลือกอย่างน้อย 1 รายการก่อนใช้เครื่องมือแบบกลุ่ม'); return }
     if (!bulkValueIsValid(bulkAction, bulkValue)) { setBulkNoticeTone('error'); setBulkNotice('ค่าที่ต้องการใช้ยังไม่ถูกต้อง กรุณาตรวจอีกครั้ง'); return }
     setBulkNotice('')
-    setPendingBulk({ action: bulkAction, target: bulkTarget, value: bulkValue, affectedCount })
+    setPendingBulk({ action: bulkAction, target: bulkTarget, value: bulkValue, affectedCount, rowIndexes: targetRows.map((row) => row.index), includesHiddenSelection: bulkTarget === 'selected' && includeHiddenSelected && hiddenSelectedRows.length > 0 })
   }
 
   function confirmBulkApply() {
     if (!pendingBulk) return
     setUndoSnapshot(rows.map((row) => ({ ...row })))
     setRows((current) => current.map((row) => {
-      const affected = pendingBulk.target === 'all' || row.selected
+      const affected = pendingBulk.rowIndexes.includes(row.index)
       if (!affected) return row
       if (pendingBulk.action === 'restore-name') return { ...row, productName: productNameFor(namingTemplate, row.salesCode), nameOverridden: false }
       return { ...row, [pendingBulk.action]: pendingBulk.value }
@@ -585,17 +632,32 @@ export function RapidEntryTable({ organizationId, actorUserId, selectedRange, na
   const readyCount = readyRows.length
   const invalidRows = rows.filter((row) => rowHasEntry(row) && validationIssuesFor(row, categoryOptions).length > 0)
   const emptyRows = rows.filter((row) => !rowHasEntry(row))
+  const attentionRows = rows.filter((row) => !rowIsReady(row, categoryOptions))
+  const visibleRows = statusFilter === 'attention' ? attentionRows
+    : statusFilter === 'invalid' ? invalidRows
+      : statusFilter === 'ready' ? readyRows
+        : rows
+  const displayedRows = statusFilter === 'all'
+    ? readyRowsAtBottom
+      ? [...visibleRows.filter((row) => !rowIsReady(row, categoryOptions)), ...visibleRows.filter((row) => rowIsReady(row, categoryOptions))]
+      : [...visibleRows.filter((row) => rowIsReady(row, categoryOptions)), ...visibleRows.filter((row) => !rowIsReady(row, categoryOptions))]
+    : visibleRows
+  const visibleRowIndexes = new Set(visibleRows.map((row) => row.index))
+  const visibleSelectedRows = selectedRows.filter((row) => visibleRowIndexes.has(row.index))
+  const hiddenSelectedRows = selectedRows.filter((row) => !visibleRowIndexes.has(row.index))
+  const selectedBulkRows = includeHiddenSelected ? selectedRows : visibleSelectedRows
   const selectedReadyRows = selectedRows.filter((row) => rowIsReady(row, categoryOptions))
   const firstInvalidIssue = invalidRows.flatMap((row) => validationIssuesFor(row, categoryOptions))[0]
   const tableWidth = 84 + Object.values(columnWidths).reduce((total, width) => total + width, 0)
-  const bulkScopeCount = bulkTarget === 'all' ? rows.length : selectedCount
-  const bulkScopeUnavailable = bulkTarget === 'selected' && selectedCount === 0
+  const bulkScopeCount = bulkTarget === 'all' ? rows.length : selectedBulkRows.length
+  const bulkScopeUnavailable = bulkTarget === 'selected' && selectedBulkRows.length === 0
   const bulkScopeLabel: Record<BulkAction, string> = {
     price: 'ราคานี้', stock: 'จำนวนสต็อกนี้', unit: 'หน่วยนี้', category: 'หมวดหมู่นี้', branch: 'สาขานี้', 'restore-name': 'ชื่อจาก Template นี้',
   }
 
   return <section className="live-sale-rapid-table-card" aria-labelledby="rapidEntryTableTitle">
     {bulkNotice && bulkNoticeTone === 'success' ? <div className="live-sale-rapid-bulk-toast" role="status" aria-live="polite"><span aria-hidden="true">✓</span><span>{bulkNotice}</span></div> : null}
+    {rowOrderNotice ? <div className="live-sale-rapid-order-toast" role="status" aria-live="polite"><span aria-hidden="true">✓</span><span>{rowOrderNotice}</span><button type="button" onClick={() => { setReadyRowsAtBottom(false); changeStatusFilter('all'); setRowOrderNotice('') }}>ย้อนกลับ</button></div> : null}
     <datalist id="rapidUnitOptions">{UNIT_OPTIONS.map((unit) => <option key={unit} value={unit} />)}</datalist>
     <datalist id="rapidCategoryOptions">{categoryOptions.map((category) => <option key={category} value={category} />)}</datalist>
     <datalist id="rapidBranchOptions">{BRANCH_OPTIONS.map((branch) => <option key={branch} value={branch} />)}</datalist>
@@ -603,7 +665,7 @@ export function RapidEntryTable({ organizationId, actorUserId, selectedRange, na
       <div className="live-sale-rapid-table-summary" aria-label="สรุปจำนวนแถว"><span>ทั้งหมด <strong>{rows.length}</strong></span><span>เลือกแล้ว <strong>{selectedCount}</strong></span><span>พร้อมสร้าง <strong>{readyCount}</strong></span><span>ต้องแก้ <strong>{invalidRows.length}</strong></span></div></header>
 
     {selectedRange && <details className="live-sale-rapid-tools-disclosure">
-      <summary><span><strong>เครื่องมือปรับหลายรายการ</strong><small>ราคา · สต็อก · หน่วย · หมวดหมู่ · สาขา</small></span><span className="live-sale-rapid-tools-summary-actions"><span className="live-sale-rapid-tools-selection-count">{selectedCount} รายการที่เลือก</span><span className="live-sale-rapid-tools-switch" aria-hidden="true"><span className="is-off">ปิด</span><span className="is-on">เปิด</span></span></span></summary>
+      <summary><span><strong>เครื่องมือปรับหลายรายการ</strong><small>ราคา · สต็อก · หน่วย · หมวดหมู่ · สาขา</small></span><span className="live-sale-rapid-tools-summary-actions"><span className="live-sale-rapid-tools-selection-count">{visibleSelectedRows.length} รายการในสถานะนี้{hiddenSelectedRows.length ? ` · ซ่อน ${hiddenSelectedRows.length}` : ''}</span><span className="live-sale-rapid-tools-switch" aria-hidden="true"><span className="is-off">ปิด</span><span className="is-on">เปิด</span></span></span></summary>
       <section className="live-sale-rapid-bulk-toolbar" aria-labelledby="rapidBulkToolbarTitle">
       <header><div><h4 id="rapidBulkToolbarTitle">แก้ไขหลายรายการพร้อมกัน <small>(ใช้เฉพาะรายการที่เลือก และย้อนกลับคำสั่งล่าสุดได้)</small></h4></div>{bulkAction === 'category' ? <div className="live-sale-rapid-bulk-header-actions"><button type="button" onClick={() => { setCategoryManagerNotice(''); setCategoryManagerOpen(true) }} disabled={!canManage}>＋ จัดการหมวดหมู่</button></div> : null}</header>
       <div className="live-sale-rapid-bulk-controls">
@@ -614,10 +676,11 @@ export function RapidEntryTable({ organizationId, actorUserId, selectedRange, na
           : bulkAction !== 'restore-name' ? <label><span>{bulkAction === 'price' ? 'ราคาขาย' : 'จำนวนสต็อก'}</span><input value={bulkValue} onChange={(event) => setBulkValue(event.target.value.slice(0, bulkAction === 'price' ? 12 : 6))} inputMode="decimal" disabled={!canManage} placeholder={bulkAction === 'price' ? 'เช่น 390.00' : 'เช่น 12'} /></label>
           : <div className="live-sale-rapid-bulk-template-note"><span>ชื่อจะกลับไปใช้ Template ปัจจุบัน</span><code>{namingTemplate}</code></div>}
         <div className="live-sale-rapid-bulk-scope"><span id="rapidBulkScopeLabel">นำค่าไปใช้กับ</span><div className="live-sale-rapid-bulk-scope-group" role="group" aria-labelledby="rapidBulkScopeLabel">
-          <button type="button" className={bulkTarget === 'selected' ? 'is-active' : ''} onClick={() => setBulkTarget('selected')} disabled={!canManage || !selectedCount} aria-pressed={bulkTarget === 'selected'}>เฉพาะรายการที่เลือก ({selectedCount})</button>
+          <button type="button" className={bulkTarget === 'selected' ? 'is-active' : ''} onClick={() => setBulkTarget('selected')} disabled={!canManage || !visibleSelectedRows.length} aria-pressed={bulkTarget === 'selected'}>เฉพาะรายการที่เห็นและเลือก ({visibleSelectedRows.length})</button>
           <button type="button" className={bulkTarget === 'all' ? 'is-active' : ''} onClick={() => setBulkTarget('all')} disabled={!canManage} aria-pressed={bulkTarget === 'all'}>ทุก 50 รายการ</button>
-        </div><small className={bulkScopeUnavailable ? 'is-warning' : ''}>{bulkScopeUnavailable ? 'กรุณาเลือกรายการก่อน หรือเลือกทุก 50 รายการ' : `${bulkScopeLabel[bulkAction]}จะใช้กับ ${bulkScopeCount} รายการ`}</small></div>
+        </div><small className={bulkScopeUnavailable ? 'is-warning' : ''}>{bulkScopeUnavailable ? 'กรุณาเลือกรายการในสถานะนี้ก่อน หรือเลือกทุก 50 รายการ' : `${bulkScopeLabel[bulkAction]}จะใช้กับ ${bulkScopeCount} รายการ`}</small></div>
         <button className="button live-sale-rapid-bulk-review-button" type="button" onClick={requestBulkApply} disabled={!canManage || !rows.length || bulkScopeUnavailable}>ตรวจสอบก่อนใช้</button>
+        {bulkTarget === 'selected' && hiddenSelectedRows.length ? <div className="live-sale-rapid-hidden-selection" role="status"><span>มีรายการที่เลือกจากสถานะอื่น {hiddenSelectedRows.length} รายการ — ยังไม่รวมในการแก้ไขครั้งนี้</span><div><button type="button" className={includeHiddenSelected ? 'is-active' : ''} onClick={() => setIncludeHiddenSelected((current) => !current)} aria-pressed={includeHiddenSelected}>{includeHiddenSelected ? 'รวมรายการที่ซ่อนแล้ว' : `รวมรายการที่ซ่อนอีก ${hiddenSelectedRows.length}`}</button><button type="button" onClick={clearHiddenSelection}>ล้างรายการที่ซ่อน</button></div></div> : null}
       </div>
       <footer><div className="live-sale-rapid-bulk-secondary-actions" aria-label="คำสั่งรอง"><button type="button" onClick={() => toggleAll(true)} disabled={!canManage || allSelected} data-tooltip="เลือกสินค้าทั้ง 50 รายการ" aria-label="เลือกทั้งหมด"><SelectAllIcon /><span>เลือกทั้งหมด</span></button><button type="button" onClick={() => toggleAll(false)} disabled={!canManage || !selectedCount} data-tooltip="ล้างรายการที่เลือกทั้งหมด" aria-label="ล้างการเลือก"><ClearSelectionIcon /><span>ล้างการเลือก</span></button></div>
         <div className="live-sale-rapid-bulk-footer-end">{bulkNotice && bulkNoticeTone === 'error' ? <span className="live-sale-rapid-bulk-inline-error" role="alert">{bulkNotice}</span> : null}{undoSnapshot ? <button className="live-sale-rapid-bulk-undo" type="button" onClick={undoBulkApply} data-tooltip="ย้อนกลับการแก้ไขแบบกลุ่มครั้งล่าสุด" aria-label="ย้อนกลับการแก้ไขล่าสุด"><UndoIcon /><span>ย้อนกลับการแก้ไขล่าสุด</span></button> : null}</div></footer>
@@ -634,6 +697,15 @@ export function RapidEntryTable({ organizationId, actorUserId, selectedRange, na
 
     {!selectedRange ? <div className="live-sale-rapid-table-empty" role="status"><strong>ตารางจะสร้างหลังเลือกช่วงรหัส</strong>
       <span>กลับไปกด “ใช้ช่วงที่แนะนำ” แล้วระบบจะแสดงรหัสขายและชื่อสินค้าให้ครบ 50 แถว</span></div> : <div className="live-sale-rapid-table-shell">
+      <nav className="live-sale-rapid-status-filter" aria-label="กรองรายการตามสถานะ">
+        <div role="group" aria-label="สถานะที่ต้องการแสดง">
+          <button type="button" className={statusFilter === 'attention' ? 'is-active' : ''} onClick={() => changeStatusFilter('attention')} aria-pressed={statusFilter === 'attention'}><span>ต้องกรอก/ต้องแก้</span><strong>{attentionRows.length}</strong></button>
+          <button type="button" className={statusFilter === 'invalid' ? 'is-active' : ''} onClick={() => changeStatusFilter('invalid')} aria-pressed={statusFilter === 'invalid'}><span>ต้องแก้</span><strong>{invalidRows.length}</strong></button>
+          <button type="button" className={statusFilter === 'ready' ? 'is-active' : ''} onClick={() => changeStatusFilter('ready')} aria-pressed={statusFilter === 'ready'}><span>พร้อมสร้าง</span><strong>{readyCount}</strong></button>
+          <button type="button" className={statusFilter === 'all' ? 'is-active' : ''} onClick={() => changeStatusFilter('all')} aria-pressed={statusFilter === 'all'}><span>ทั้งหมด</span><strong>{rows.length}</strong></button>
+        </div>
+        <button type="button" className="live-sale-rapid-order-toggle" onClick={() => { setReadyRowsAtBottom((current) => !current); changeStatusFilter('all'); setRowOrderNotice('') }} aria-pressed={readyRowsAtBottom}><ReadyPlacementIcon direction={readyRowsAtBottom ? 'up' : 'down'} /><span>{readyRowsAtBottom ? 'สถานะพร้อมสร้างไว้ด้านบน' : 'สถานะพร้อมสร้างไว้ด้านล่าง'}</span></button>
+      </nav>
       <div className="live-sale-rapid-table-scroll" tabIndex={0} role="region" aria-label="ตารางเตรียมสินค้า 50 รายการ เลื่อนได้ทั้งแนวตั้งและแนวนอน">
         <table className="live-sale-rapid-table" style={{ width: tableWidth }}><colgroup><col className="row-column" /><col className="select-column" />
           <col className="code-column" style={{ width: columnWidths.code }} /><col className="image-column" style={{ width: columnWidths.image }} /><col className="name-column" style={{ width: columnWidths.name }} /><col className="category-column" style={{ width: columnWidths.category }} />
@@ -643,16 +715,16 @@ export function RapidEntryTable({ organizationId, actorUserId, selectedRange, na
             <th className="is-pinned-code is-resizable"><span>{COLUMN_CONFIG.code.label}</span><button type="button" className="live-sale-rapid-column-resizer" onPointerDown={(event) => beginColumnResize(event, 'code')}
               onDoubleClick={(event) => { event.preventDefault(); event.stopPropagation(); autoFitColumn('code') }} aria-label="ปรับขนาดคอลัมน์รหัสขาย ดับเบิลคลิกเพื่อพอดีข้อความ" /></th>
             {resizableHeader('image')}{resizableHeader('name')}{resizableHeader('category')}{resizableHeader('price', 'is-number')}{resizableHeader('stock', 'is-number')}{resizableHeader('unit')}{resizableHeader('branch')}{resizableHeader('status', 'is-pinned-status')}</tr></thead>
-          <tbody>{rows.map((row) => { const state = rowState(row, editingCell?.rowIndex === row.index, categoryOptions); return <tr key={row.salesCode} data-rapid-row-index={row.index} className={`${state.className}${row.selected ? ' is-selected' : ''}`}>
+          <tbody>{displayedRows.length ? displayedRows.map((row) => { const state = rowState(row, editingCell?.rowIndex === row.index, categoryOptions); return <tr key={row.salesCode} data-rapid-row-index={row.index} className={`${state.className}${row.selected ? ' is-selected' : ''}`}>
             <td className="is-pinned-row"><span className="live-sale-rapid-row-number">{row.index + 1}</span></td>
             <td className="is-pinned-select"><input type="checkbox" checked={row.selected} onChange={(event) => toggleRow(row.index, event.target.checked)} disabled={!canManage} aria-label={`เลือกรหัส ${row.salesCode}`} /></td>
             <td className="is-pinned-code"><strong>{row.salesCode}</strong></td>
             <td>{imageCell(row)}</td><td>{editableCell(row, 'productName')}</td><td>{editableCell(row, 'category')}</td>
             <td className="is-number">{editableCell(row, 'price')}</td><td className="is-number">{editableCell(row, 'stock')}</td>
             <td>{editableCell(row, 'unit')}</td><td>{editableCell(row, 'branch')}</td>
-            <td className="is-pinned-status"><span className={`live-sale-rapid-row-status ${state.className}`}>{state.label}</span></td></tr> })}</tbody>
+            <td className="is-pinned-status"><span className={`live-sale-rapid-row-status ${state.className}`}>{state.label}</span></td></tr> }) : <tr className="live-sale-rapid-filter-empty"><td colSpan={11}><strong>ไม่มีรายการในสถานะนี้</strong><span>เลือกสถานะอื่นเพื่อดูรายการที่เหลือ โดยข้อมูลและรายการที่เลือกไว้จะไม่ถูกล้าง</span></td></tr>}</tbody>
         </table>
-      </div><footer><span>แสดง 50 จาก 50 รายการ</span><span>รองรับการวางค่าในเซลล์เดียว · ยังไม่รองรับ Multi-cell paste</span></footer>
+      </div><footer><span className="live-sale-rapid-table-range"><strong>แสดงรายการ</strong><span>{displayedRows.length} จาก {rows.length} รายการ</span></span><span>การจัดลำดับไม่เปลี่ยนเลขแถว รหัสขาย หรือรายการที่เลือก · รองรับการวางค่าในเซลล์เดียว</span></footer>
     </div>}
 
     {reviewOpen && <div className="live-sale-rapid-bulk-dialog-backdrop" role="presentation"><section className="live-sale-rapid-bulk-dialog live-sale-rapid-review-dialog" role="dialog" aria-modal="true" aria-labelledby="rapidReviewTitle">
@@ -676,7 +748,7 @@ export function RapidEntryTable({ organizationId, actorUserId, selectedRange, na
 
     {pendingBulk && <div className="live-sale-rapid-bulk-dialog-backdrop" role="presentation"><section className="live-sale-rapid-bulk-dialog" role="dialog" aria-modal="true" aria-labelledby="rapidBulkConfirmTitle">
       <header><div><span className="live-sale-rapid-kicker">ยืนยันคำสั่งแบบกลุ่ม</span><h4 id="rapidBulkConfirmTitle">ใช้ค่ากับ {pendingBulk.affectedCount} รายการ?</h4></div><button type="button" onClick={() => setPendingBulk(null)} aria-label="ปิดหน้าต่างยืนยัน">×</button></header>
-      <div><p>{pendingBulk.target === 'all' ? 'คุณเลือกให้เปลี่ยนทุก 50 รายการ โปรดตรวจอีกครั้งก่อนยืนยัน' : `คำสั่งนี้จะเปลี่ยนเฉพาะ ${pendingBulk.affectedCount} รายการที่ติ๊กไว้`}</p>
+      <div><p>{pendingBulk.target === 'all' ? 'คุณเลือกให้เปลี่ยนทุก 50 รายการ โปรดตรวจอีกครั้งก่อนยืนยัน' : pendingBulk.includesHiddenSelection ? `คำสั่งนี้รวมรายการจากสถานะอื่นด้วย รวมทั้งหมด ${pendingBulk.affectedCount} รายการ` : `คำสั่งนี้จะเปลี่ยนเฉพาะ ${pendingBulk.affectedCount} รายการที่มองเห็นและติ๊กไว้`}</p>
         <dl><div><dt>ข้อมูล</dt><dd>{fieldLabel(pendingBulk.action === 'restore-name' ? 'productName' : pendingBulk.action)}</dd></div><div><dt>ค่าใหม่</dt><dd>{pendingBulk.action === 'restore-name' ? namingTemplate : pendingBulk.value}</dd></div><div><dt>จำนวน</dt><dd>{pendingBulk.affectedCount} รายการ</dd></div></dl></div>
       <footer><button className="button secondary" type="button" onClick={() => setPendingBulk(null)}>ยกเลิก</button><button className="button" type="button" onClick={confirmBulkApply}>ยืนยันและใช้ค่า</button></footer>
     </section></div>}
