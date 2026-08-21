@@ -63,7 +63,7 @@ export function RapidEntryWorkspaceShell({ organizationId, organizationName, act
 
         <ol className="live-sale-rapid-steps" aria-label="ขั้นตอนการเตรียมสินค้าแบบตาราง">
           <li className="is-complete"><span>1</span><div><strong>ตรวจและจองรหัส</strong><small>UI Simulation พร้อมทดสอบ</small></div></li>
-          <li className="is-complete"><span>2</span><div><strong>กำหนดชื่อสินค้า</strong><small>Template และตัวอย่างชื่อ</small></div></li>
+          <li className="is-complete"><span>2</span><div><strong>กำหนดชื่อสินค้า</strong><small>เลือกรูปแบบชื่อและรหัสขาย</small></div></li>
           <li className="is-current"><span>3</span><div><strong>กรอกข้อมูลในตาราง</strong><small>โครงสร้าง 50 แถวพร้อมตรวจ</small></div></li>
           <li><span>4</span><div><strong>ตรวจสอบก่อนสร้าง</strong><small>สร้างครบทั้งชุดหรือไม่สร้างเลย</small></div></li>
         </ol>

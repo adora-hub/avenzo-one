@@ -6,6 +6,7 @@ import type { ChangeEvent, DragEvent, FormEvent, KeyboardEvent, PointerEvent as 
 import { RAPID_BROWSER_DRAFT_VERSION, rapidBrowserDraftStorageKey, rapidReservationKey, serializeRapidBrowserDraft } from './rapid-entry-browser-draft'
 import type { RapidBrowserDraft } from './rapid-entry-browser-draft'
 import type { RapidRangeSelection } from './rapid-prefix-assistant'
+import { RapidSelectCombobox } from './rapid-select-combobox'
 
 type Props = {
   organizationId: string
@@ -139,6 +140,18 @@ function RemoveImageIcon() {
   return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17" /></svg>
 }
 
+function SelectAllIcon() {
+  return <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3" /><path d="m8 12 2.5 2.5L16 9" /></svg>
+}
+
+function ClearSelectionIcon() {
+  return <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3" /><path d="m9 9 6 6m0-6-6 6" /></svg>
+}
+
+function UndoIcon() {
+  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 7-5 5 5 5" /><path d="M5 12h8a6 6 0 0 1 6 6" /></svg>
+}
+
 export function RapidEntryTable({ organizationId, actorUserId, selectedRange, namingTemplate, canManage, restoredDraft, onDraftRestored, onDraftSaved }: Props) {
   const [rows, setRows] = useState<RapidRowDraft[]>([])
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null)
@@ -164,6 +177,12 @@ export function RapidEntryTable({ organizationId, actorUserId, selectedRange, na
   const rangeIdentityRef = useRef('')
   const restoredReservationRef = useRef('')
   const [draftHydrated, setDraftHydrated] = useState(false)
+
+  useEffect(() => {
+    if (!bulkNotice || bulkNoticeTone !== 'success') return
+    const timeout = window.setTimeout(() => setBulkNotice(''), 5000)
+    return () => window.clearTimeout(timeout)
+  }, [bulkNotice, bulkNoticeTone])
 
   function revokeImageUrl(url: string) {
     if (!imageObjectUrlsRef.current.has(url)) return
@@ -569,34 +588,39 @@ export function RapidEntryTable({ organizationId, actorUserId, selectedRange, na
   const selectedReadyRows = selectedRows.filter((row) => rowIsReady(row, categoryOptions))
   const firstInvalidIssue = invalidRows.flatMap((row) => validationIssuesFor(row, categoryOptions))[0]
   const tableWidth = 84 + Object.values(columnWidths).reduce((total, width) => total + width, 0)
+  const bulkScopeCount = bulkTarget === 'all' ? rows.length : selectedCount
+  const bulkScopeUnavailable = bulkTarget === 'selected' && selectedCount === 0
+  const bulkScopeLabel: Record<BulkAction, string> = {
+    price: 'ราคานี้', stock: 'จำนวนสต็อกนี้', unit: 'หน่วยนี้', category: 'หมวดหมู่นี้', branch: 'สาขานี้', 'restore-name': 'ชื่อจาก Template นี้',
+  }
 
   return <section className="live-sale-rapid-table-card" aria-labelledby="rapidEntryTableTitle">
+    {bulkNotice && bulkNoticeTone === 'success' ? <div className="live-sale-rapid-bulk-toast" role="status" aria-live="polite"><span aria-hidden="true">✓</span><span>{bulkNotice}</span></div> : null}
     <datalist id="rapidUnitOptions">{UNIT_OPTIONS.map((unit) => <option key={unit} value={unit} />)}</datalist>
     <datalist id="rapidCategoryOptions">{categoryOptions.map((category) => <option key={category} value={category} />)}</datalist>
     <datalist id="rapidBranchOptions">{BRANCH_OPTIONS.map((branch) => <option key={branch} value={branch} />)}</datalist>
-    <header className="live-sale-rapid-section-header"><div className="live-sale-rapid-section-title"><span aria-hidden="true">3</span><div><h3 id="rapidEntryTableTitle">เตรียมข้อมูลสินค้า 50 รายการ</h3>
-      <p>คลิกชื่อ ราคา หรือสต็อกเพื่อแก้ไข · Enter ลงแถวถัดไป · Tab เลื่อนไปขวา · Escape ยกเลิก</p></div></div>
+    <header className="live-sale-rapid-section-header live-sale-rapid-step-three-header"><div className="live-sale-rapid-section-title"><span aria-hidden="true">3</span><div><h3 id="rapidEntryTableTitle">เตรียมข้อมูลสินค้า 50 รายการ <small>(คลิกชื่อ ราคา หรือสต็อกเพื่อแก้ไข · Enter ลงแถวถัดไป · Tab เลื่อนไปขวา · Escape ยกเลิก)</small></h3></div></div>
       <div className="live-sale-rapid-table-summary" aria-label="สรุปจำนวนแถว"><span>ทั้งหมด <strong>{rows.length}</strong></span><span>เลือกแล้ว <strong>{selectedCount}</strong></span><span>พร้อมสร้าง <strong>{readyCount}</strong></span><span>ต้องแก้ <strong>{invalidRows.length}</strong></span></div></header>
 
     {selectedRange && <details className="live-sale-rapid-tools-disclosure">
-      <summary><span><strong>เครื่องมือปรับหลายรายการ</strong><small>ราคา · สต็อก · หน่วย · หมวดหมู่ · สาขา</small></span><span>{selectedCount} รายการที่เลือก</span></summary>
+      <summary><span><strong>เครื่องมือปรับหลายรายการ</strong><small>ราคา · สต็อก · หน่วย · หมวดหมู่ · สาขา</small></span><span className="live-sale-rapid-tools-summary-actions"><span className="live-sale-rapid-tools-selection-count">{selectedCount} รายการที่เลือก</span><span className="live-sale-rapid-tools-switch" aria-hidden="true"><span className="is-off">ปิด</span><span className="is-on">เปิด</span></span></span></summary>
       <section className="live-sale-rapid-bulk-toolbar" aria-labelledby="rapidBulkToolbarTitle">
-      <header><div><h4 id="rapidBulkToolbarTitle">แก้ไขหลายรายการพร้อมกัน</h4><p>ค่าเริ่มต้นกระทบเฉพาะรายการที่ติ๊ก และสามารถย้อนกลับคำสั่งล่าสุดได้</p></div><div className="live-sale-rapid-bulk-header-actions"><button type="button" onClick={() => { setCategoryManagerNotice(''); setCategoryManagerOpen(true) }} disabled={!canManage}>＋ จัดการหมวดหมู่</button><span>{selectedCount} รายการที่เลือก</span></div></header>
+      <header><div><h4 id="rapidBulkToolbarTitle">แก้ไขหลายรายการพร้อมกัน <small>(ใช้เฉพาะรายการที่เลือก และย้อนกลับคำสั่งล่าสุดได้)</small></h4></div>{bulkAction === 'category' ? <div className="live-sale-rapid-bulk-header-actions"><button type="button" onClick={() => { setCategoryManagerNotice(''); setCategoryManagerOpen(true) }} disabled={!canManage}>＋ จัดการหมวดหมู่</button></div> : null}</header>
       <div className="live-sale-rapid-bulk-controls">
-        <label><span>ข้อมูลที่ต้องการแก้ไข</span><select value={bulkAction} onChange={(event) => { setBulkAction(event.target.value as BulkAction); setBulkValue('') }} disabled={!canManage}>
-          <option value="price">ราคาขาย</option><option value="stock">สต็อกเริ่มต้น</option><option value="unit">หน่วย</option><option value="category">หมวดหมู่</option><option value="branch">สาขา</option><option value="restore-name">คืนชื่อจาก Template</option>
-        </select></label>
-        {bulkAction === 'unit' ? <label><span>หน่วยที่ต้องการใช้</span><select value={bulkValue} onChange={(event) => setBulkValue(event.target.value)} disabled={!canManage}><option value="">เลือกหน่วย</option>{UNIT_OPTIONS.map((unit) => <option key={unit} value={unit}>{unit}</option>)}</select></label>
-          : bulkAction === 'category' ? <label><span>หมวดหมู่ที่ต้องการใช้</span><select value={bulkValue} onChange={(event) => setBulkValue(event.target.value)} disabled={!canManage}><option value="">เลือกหมวดหมู่</option>{categoryOptions.map((category) => <option key={category} value={category}>{category}</option>)}</select></label>
-          : bulkAction === 'branch' ? <label><span>สาขาที่ต้องการใช้</span><select value={bulkValue} onChange={(event) => setBulkValue(event.target.value)} disabled={!canManage}><option value="">เลือกสาขา</option>{BRANCH_OPTIONS.map((branch) => <option key={branch} value={branch}>{branch}</option>)}</select></label>
+        <label><span>ข้อมูลที่ต้องการแก้ไข</span><RapidSelectCombobox id="rapidBulkAction" value={bulkAction} options={[{ value: 'price', label: 'ราคาขาย' }, { value: 'stock', label: 'สต็อกเริ่มต้น' }, { value: 'unit', label: 'หน่วย' }, { value: 'category', label: 'หมวดหมู่' }, { value: 'branch', label: 'สาขา' }, { value: 'restore-name', label: 'คืนชื่อจาก Template' }]} onChange={(value) => { setBulkAction(value as BulkAction); setBulkValue('') }} disabled={!canManage} /></label>
+        {bulkAction === 'unit' ? <label><span>หน่วยที่ต้องการใช้</span><RapidSelectCombobox id="rapidBulkUnit" value={bulkValue} options={[{ value: '', label: 'เลือกหน่วย' }, ...UNIT_OPTIONS.map((unit) => ({ value: unit, label: unit }))]} onChange={setBulkValue} disabled={!canManage} /></label>
+          : bulkAction === 'category' ? <label><span>หมวดหมู่ที่ต้องการใช้</span><RapidSelectCombobox id="rapidBulkCategory" value={bulkValue} options={[{ value: '', label: 'เลือกหมวดหมู่' }, ...categoryOptions.map((category) => ({ value: category, label: category }))]} onChange={setBulkValue} disabled={!canManage} /></label>
+          : bulkAction === 'branch' ? <label><span>สาขาที่ต้องการใช้</span><RapidSelectCombobox id="rapidBulkBranch" value={bulkValue} options={[{ value: '', label: 'เลือกสาขา' }, ...BRANCH_OPTIONS.map((branch) => ({ value: branch, label: branch }))]} onChange={setBulkValue} disabled={!canManage} /></label>
           : bulkAction !== 'restore-name' ? <label><span>{bulkAction === 'price' ? 'ราคาขาย' : 'จำนวนสต็อก'}</span><input value={bulkValue} onChange={(event) => setBulkValue(event.target.value.slice(0, bulkAction === 'price' ? 12 : 6))} inputMode="decimal" disabled={!canManage} placeholder={bulkAction === 'price' ? 'เช่น 390.00' : 'เช่น 12'} /></label>
           : <div className="live-sale-rapid-bulk-template-note"><span>ชื่อจะกลับไปใช้ Template ปัจจุบัน</span><code>{namingTemplate}</code></div>}
-        <fieldset disabled={!canManage}><legend>ใช้กับ</legend><label><input type="radio" name="rapidBulkTarget" checked={bulkTarget === 'selected'} onChange={() => setBulkTarget('selected')} />รายการที่เลือก ({selectedCount})</label>
-          <label><input type="radio" name="rapidBulkTarget" checked={bulkTarget === 'all'} onChange={() => setBulkTarget('all')} />ทุก 50 รายการ</label></fieldset>
-        <button className="button" type="button" onClick={requestBulkApply} disabled={!canManage || !rows.length}>ตรวจสอบก่อนใช้</button>
+        <div className="live-sale-rapid-bulk-scope"><span id="rapidBulkScopeLabel">นำค่าไปใช้กับ</span><div className="live-sale-rapid-bulk-scope-group" role="group" aria-labelledby="rapidBulkScopeLabel">
+          <button type="button" className={bulkTarget === 'selected' ? 'is-active' : ''} onClick={() => setBulkTarget('selected')} disabled={!canManage || !selectedCount} aria-pressed={bulkTarget === 'selected'}>เฉพาะรายการที่เลือก ({selectedCount})</button>
+          <button type="button" className={bulkTarget === 'all' ? 'is-active' : ''} onClick={() => setBulkTarget('all')} disabled={!canManage} aria-pressed={bulkTarget === 'all'}>ทุก 50 รายการ</button>
+        </div><small className={bulkScopeUnavailable ? 'is-warning' : ''}>{bulkScopeUnavailable ? 'กรุณาเลือกรายการก่อน หรือเลือกทุก 50 รายการ' : `${bulkScopeLabel[bulkAction]}จะใช้กับ ${bulkScopeCount} รายการ`}</small></div>
+        <button className="button live-sale-rapid-bulk-review-button" type="button" onClick={requestBulkApply} disabled={!canManage || !rows.length || bulkScopeUnavailable}>ตรวจสอบก่อนใช้</button>
       </div>
-      <footer><div><button type="button" onClick={() => toggleAll(true)} disabled={!canManage || allSelected}>เลือกทั้งหมด</button><button type="button" onClick={() => toggleAll(false)} disabled={!canManage || !selectedCount}>ล้างการเลือก</button></div>
-        <div>{bulkNotice && <span className={`is-${bulkNoticeTone}`} role="status">{bulkNotice}</span>}<button type="button" onClick={undoBulkApply} disabled={!undoSnapshot}>↶ ย้อนกลับล่าสุด</button></div></footer>
+      <footer><div className="live-sale-rapid-bulk-secondary-actions" aria-label="คำสั่งรอง"><button type="button" onClick={() => toggleAll(true)} disabled={!canManage || allSelected} data-tooltip="เลือกสินค้าทั้ง 50 รายการ" aria-label="เลือกทั้งหมด"><SelectAllIcon /><span>เลือกทั้งหมด</span></button><button type="button" onClick={() => toggleAll(false)} disabled={!canManage || !selectedCount} data-tooltip="ล้างรายการที่เลือกทั้งหมด" aria-label="ล้างการเลือก"><ClearSelectionIcon /><span>ล้างการเลือก</span></button></div>
+        <div className="live-sale-rapid-bulk-footer-end">{bulkNotice && bulkNoticeTone === 'error' ? <span className="live-sale-rapid-bulk-inline-error" role="alert">{bulkNotice}</span> : null}{undoSnapshot ? <button className="live-sale-rapid-bulk-undo" type="button" onClick={undoBulkApply} data-tooltip="ย้อนกลับการแก้ไขแบบกลุ่มครั้งล่าสุด" aria-label="ย้อนกลับการแก้ไขล่าสุด"><UndoIcon /><span>ย้อนกลับการแก้ไขล่าสุด</span></button> : null}</div></footer>
       </section>
     </details>}
 

@@ -220,6 +220,7 @@ Variant มาตรฐาน:
 - Use 34 px for dense desktop groups and 44 px for coarse-pointer/touch targets. The Button must use zero block padding and must never inherit a larger minimum height than its paired field.
 - Apply the reusable `input-action-group` pattern, or a feature group explicitly mapped to this contract. Do not reduce the global Compact Button height to solve a local mismatch.
 - Helper or error text may extend below a field, but it must not alter the paired controls' height.
+- Controls in one horizontal action row must share the same top and bottom edge (visual tolerance no more than 1px). Reserve a row-wide helper zone or position helper text below the control without letting one field's helper text push that control above adjacent controls.
 - การ์ดแบบฟอร์มที่อยู่ใน Grid แถวเดียวกันต้องวางปุ่มหลักที่แนวฐานเดียวกัน โดยใช้ Pattern `form-card-with-footer` เพื่อดัน Action สุดท้ายไว้ด้านล่างของการ์ด
 - ห้ามแก้ตำแหน่งปุ่มด้วย Margin เฉพาะหน้า หรือกำหนดความสูงการ์ดแบบ Hard-code
 - ขณะ Loading ให้กันการกดซ้ำและคงความกว้างของปุ่ม
@@ -227,6 +228,7 @@ Variant มาตรฐาน:
 - ปุ่มต้องมี Feedback ทางสายตาเมื่อ Hover เช่น เปลี่ยนสีเล็กน้อย ยกตัวเล็กน้อย หรือแสดง Shadow อย่างพอดี โดยไม่ทำให้ Layout กระโดด
 - Dialog มาตรฐานวาง Primary ด้านขวา และ Cancel ก่อนหน้า Primary
 - **Live Sale Accent Exception:** เฉพาะพื้นที่ทำงาน Live Sale ปุ่มหลักและ Badge ใช้พื้นหลัง `#AAE600`, Hover `#D6E600` และตัวอักษร `#000000`; ต้อง Scope ผ่าน Container ของ Live Sale และห้ามเปลี่ยน Primary Button หรือ Badge ส่วนกลางของระบบ
+- **Dense Secondary Utility Row:** แถบคำสั่งรองใต้เครื่องมือแบบกลุ่มใช้ `--surface-subtle` ต่อเนื่องกับพื้นของแผงและมีเส้นคั่นด้านบน ห้ามสร้างแถบพื้นขาวแยกชั้น; Ghost Button Group ทางซ้ายและ Outline Undo ทางขวาต้องสูง 34px ใช้ตัวอักษร 12px พร้อม Icon. Undo แสดงเฉพาะเมื่อย้อนกลับได้จริง และ Icon control ทุกตัวต้องมี Tooltip ด้านบน. ผลสำเร็จชั่วคราวแสดงเป็น Toast ด้านบนกึ่งกลาง ส่วน Error ที่ผู้ใช้ต้องแก้ยังคงอยู่ใกล้เครื่องมือ
 - Action ที่ย้อนกลับยากต้องมี Confirmation พร้อมชื่อรายการและผลที่จะเกิด
 
 ### 5.2 Form
@@ -261,6 +263,8 @@ Helper text หรือ Error message
 - Form Section ที่เป็นลำดับงานใช้ `เลขลำดับวงกลม 25×25px + Heading 18px + คำอธิบาย 13px` โดยวางเลข, Heading และคำอธิบายในแถวเดียวกัน รูปแบบ `หัวข้อ (คำอธิบาย)`; เมื่อพื้นที่ไม่พอจึงค่อยตัดคำอธิบายลงบรรทัดใหม่ และห้ามเพิ่ม Kicker ที่กล่าวซ้ำว่าเป็น “ขั้นตอนที่”
 - Label ใช้ขนาด 14px น้ำหนัก 500 และวางชื่อ Field, เครื่องหมาย `*` และ Info icon สำคัญไว้ในแถวเดียวกัน
 - Info icon ของ Form ใช้ขนาด 18px, เปิดได้ด้วย Hover, Focus และ Click, มี Accessible Label และ Tooltip ด้านบนเป็นค่าเริ่มต้น
+- Combobox ที่ต้องควบคุม Visual Parity ใช้ Custom listbox: เมนูพื้นขาว, Hover และรายการที่เลือกใช้ `--surface-subtle`, ตัวอักษรสีหลัก พร้อมเครื่องหมายถูก; ห้ามปล่อย Selected state เป็นสีน้ำเงินของ Native Select และต้องรองรับ Arrow keys, Home/End, Enter, Space, Escape และ Tab
+- Switch สำหรับเปิด–ปิด Section ใช้ Track ขนาด 62×28px และ Thumb 20px โดยแสดงคำว่า `ปิด` ภายใน Track เมื่อปิด และ `เปิด` เมื่อเปิด; สถานะปิดใช้พื้นกลาง สถานะเปิดใช้ Accent ของพื้นที่งาน และต้องคง Keyboard/Focus behavior ของ Control เดิม ห้ามใช้ลูกศรแทนสถานะ Switch
 
 ### 5.3 Data Table
 
