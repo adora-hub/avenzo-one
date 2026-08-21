@@ -1562,9 +1562,9 @@ html[data-theme="dark"] .inventory-data-table th { background: #f8fafc; color: #
   .product-grid-customize-row { grid-template-columns: 1fr 84px; }
   .product-grid-customize-pin, .product-grid-customize-order { justify-content: flex-start; }
 }
-.product-grid-wrap { border-right: 0; border-left: 0; border-radius: 0; background: var(--surface-elevated); }
+.product-grid-wrap { max-height: var(--product-grid-viewport-height, calc(100dvh - 340px)); overflow: auto; overscroll-behavior: contain; border-right: 0; border-left: 0; border-radius: 0; background: var(--surface-elevated); }
 .product-grid-table { table-layout: fixed; min-width: max-content; }
-.product-grid-table th { position: relative; z-index: 2; height: 48px; background: #0b0d10; color: #fff; white-space: nowrap; }
+.product-grid-table th { position: sticky; z-index: 8; top: 0; height: 48px; background: #0b0d10; color: #fff; white-space: nowrap; }
 .product-grid-header-content { display: block; overflow: hidden; text-overflow: ellipsis; }
 .product-grid-column-resizer { position: absolute; z-index: 7; top: 0; right: -4px; width: 9px; height: 100%; cursor: col-resize; touch-action: none; }
 .product-grid-column-resizer::after { position: absolute; top: 8px; bottom: 8px; left: 4px; width: 1px; background: #686868; content: ""; opacity: 0; }

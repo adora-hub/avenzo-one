@@ -16,10 +16,11 @@ test('Rapid-UI-01 provides an authenticated organization route without write int
   assert.doesNotMatch(page, /executeFoundationCommandAction|\.insert\(|\.update\(|\.delete\(|fetch\(/)
 })
 
-test('Rapid-UI-01 is reachable from the existing Live Sale workspace', async () => {
-  const liveSale = await read('src/app/organizations/[id]/products/live-sale/live-sale-reservation-ui.tsx')
-  assert.match(liveSale, /live-sale\/rapid-entry/)
-  assert.match(liveSale, /กรอกสินค้าแบบตาราง/)
+test('Rapid-UI-01 is the primary Live Sale destination from Products and legacy URLs', async () => {
+  const workspace = await read('src/app/organizations/[id]/products/product-sku-workspace.tsx')
+  const legacyPage = await read('src/app/organizations/[id]/products/live-sale/page.tsx')
+  assert.match(workspace, /products\/live-sale\/rapid-entry/)
+  assert.match(legacyPage, /products\/live-sale\/rapid-entry/)
 })
 
 test('Rapid-UI-01 shell states the 50-row scope and UI-only safety boundary', async () => {
