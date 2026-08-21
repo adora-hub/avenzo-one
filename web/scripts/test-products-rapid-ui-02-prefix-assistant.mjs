@@ -63,5 +63,16 @@ test('Rapid-UI-10A uses the approved numbered section header and inline required
   assert.match(styles, /\.live-sale-rapid-section-title h3 \{[^}]*font-size: 18px;/)
   assert.match(styles, /\.live-sale-prefix-control label \{[^}]*font-size: 14px;/)
   assert.match(styles, /\.live-sale-rapid-field-label > label[\s\S]*display: inline-flex;[\s\S]*white-space: nowrap;/)
-  assert.match(styles, /\.live-sale-prefix-result\.is-ready > \.button \{[^}]*grid-column: 2;[^}]*grid-row: 1 \/ 3;[^}]*align-self: end;/)
+  assert.match(styles, /\.live-sale-prefix-result\.is-ready > \.button \{[^}]*grid-column: 2;[^}]*grid-row: 1 \/ 3;[^}]*align-self: center;/)
+  assert.match(styles, /\.live-sale-rapid-section-title > div \{[^}]*display: flex;[^}]*align-items: baseline;[^}]*flex-wrap: wrap;/)
+  assert.match(styles, /\.live-sale-rapid-section-title p::before \{ content: '\('; \}/)
+  assert.match(styles, /\.live-sale-rapid-section-title p::after \{ content: '\)'; \}/)
+})
+
+test('Rapid-UI-10B keeps Step 1 compact without shrinking standard controls', async () => {
+  const styles = await read('src/app/globals.css')
+  assert.match(styles, /\.live-sale-prefix-layout \{[^}]*grid-template-columns: minmax\(260px, \.75fr\) minmax\(420px, 1\.25fr\);[^}]*gap: 12px;[^}]*padding: 12px 16px;/)
+  assert.match(styles, /\.live-sale-prefix-result \{[^}]*min-height: 94px;[^}]*padding: 10px 12px;/)
+  assert.match(styles, /\.live-sale-prefix-input-wrap input \{[^}]*height: 44px;[^}]*min-height: 44px;/)
+  assert.match(styles, /\.live-sale-prefix-result \.button \{[^}]*height: 34px;[^}]*min-height: 34px;/)
 })

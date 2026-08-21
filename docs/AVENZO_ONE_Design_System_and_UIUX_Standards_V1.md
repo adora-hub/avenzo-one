@@ -258,7 +258,7 @@ Helper text หรือ Error message
 - ห้ามใช้ Placeholder แทน Label
 - บันทึกสำเร็จต้องมี Feedback และป้องกัน Double Submit
 - ช่อง Tag/Token ใช้ `--font-size-control-compact` (13 px), น้ำหนัก 400 และ line-height 1.4 เป็นมาตรฐาน ทั้งข้อความที่กรอกและ Placeholder; ห้ามกำหนดขนาดเฉพาะหน้า
-- Form Section ที่เป็นลำดับงานใช้ `เลขลำดับวงกลม 25×25px + Heading 18px + คำอธิบาย 13px` โดยวางเลขและ Heading ในแถวเดียวกัน; ห้ามเพิ่ม Kicker ที่กล่าวซ้ำว่าเป็น “ขั้นตอนที่”
+- Form Section ที่เป็นลำดับงานใช้ `เลขลำดับวงกลม 25×25px + Heading 18px + คำอธิบาย 13px` โดยวางเลข, Heading และคำอธิบายในแถวเดียวกัน รูปแบบ `หัวข้อ (คำอธิบาย)`; เมื่อพื้นที่ไม่พอจึงค่อยตัดคำอธิบายลงบรรทัดใหม่ และห้ามเพิ่ม Kicker ที่กล่าวซ้ำว่าเป็น “ขั้นตอนที่”
 - Label ใช้ขนาด 14px น้ำหนัก 500 และวางชื่อ Field, เครื่องหมาย `*` และ Info icon สำคัญไว้ในแถวเดียวกัน
 - Info icon ของ Form ใช้ขนาด 18px, เปิดได้ด้วย Hover, Focus และ Click, มี Accessible Label และ Tooltip ด้านบนเป็นค่าเริ่มต้น
 
@@ -716,3 +716,4 @@ Design System ควรพัฒนาเท่าที่ Vertical Slice ต�
 - เพิ่มมาตรฐาน Numbered Form Section สำหรับหน้าที่มีลำดับงาน
 - กำหนด Label, Required indicator และ Info icon ให้อยู่ในแถวเดียวกัน
 - ล็อกขนาด Section number, Heading, Description, Label และ Form Info tooltip ตาม Product Creation ที่ผ่าน Owner review
+- กำหนดคำอธิบาย Section ให้อยู่ต่อจาก Heading ในวงเล็บ และตัดขึ้นบรรทัดใหม่ได้เฉพาะเมื่อพื้นที่แนวนอนไม่พอ
