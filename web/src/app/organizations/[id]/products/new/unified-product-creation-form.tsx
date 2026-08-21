@@ -1017,6 +1017,7 @@ export function UnifiedProductCreationForm({
   const [skuDraftImageProcessingId, setSkuDraftImageProcessingId] = useState<string | null>(null)
   const [skuDraftImageErrors, setSkuDraftImageErrors] = useState<Record<string, string>>({})
   const [feedback, setFeedback] = useState<Feedback | null>(null)
+  const [skuDraftFeedback, setSkuDraftFeedback] = useState<Feedback | null>(null)
   const [draftSaveNotice, setDraftSaveNotice] = useState('')
   const [draftSaveSeconds, setDraftSaveSeconds] = useState(0)
   const [draftSaveRevision, setDraftSaveRevision] = useState(0)
@@ -1870,7 +1871,14 @@ export function UnifiedProductCreationForm({
     const record = currentSkuDraft()
     const errors = skuDraftValidationErrors(record)
     if (errors.length) {
-      setIdentifierFeedback({ tone: 'danger', text: `ยังเก็บสินค้าไม่ได้: ${errors.join(' · ')}` })
+      const hasPriceError = errors.some((error) => error.includes('ราคาขาย'))
+      setSkuDraftFeedback({
+        tone: 'danger',
+        text: hasPriceError
+          ? `ยังเก็บสินค้าไม่ได้: ${errors.join(' · ')} · กรอกราคาแล้วกด “เก็บสินค้าและสร้างรายการถัดไป” อีกครั้ง`
+          : `ยังเก็บสินค้าไม่ได้: ${errors.join(' · ')}`,
+      })
+      setIdentifierFeedback({ tone: 'info', text: 'ตรวจรหัสผ่านแล้ว · กรุณาแก้ข้อมูลที่แจ้งในคิวสินค้า' })
       focusSkuDraftValidationError(errors[0])
       return
     }
@@ -1942,6 +1950,7 @@ export function UnifiedProductCreationForm({
       })
       requestAnimationFrame(() => saveBrowserDraft(false, selectedBranchIds, nextDrafts, nextOffset, true))
       setIdentifierFeedback({ tone: 'success', text: editingIndex >= 0 ? 'อัปเดตสินค้าในคิวแล้ว' : 'เก็บสินค้าทั้งรายการแล้ว พร้อมกรอกรายการถัดไป' })
+      setSkuDraftFeedback({ tone: 'success', text: editingIndex >= 0 ? 'อัปเดตสินค้าในคิวแล้ว' : 'เก็บสินค้าแล้ว · กรอกข้อมูลรายการถัดไปได้เลย' })
     })
   }
 
@@ -2019,6 +2028,15 @@ export function UnifiedProductCreationForm({
       ? { ...item, salePrice: value, snapshot: { ...item.snapshot, fields: { ...item.snapshot.fields, salePrice: value } } }
       : item)
     setSkuDrafts(nextDrafts)
+    const hasValidPrice = nextDrafts.every((item) => {
+      const price = optionalNumber(item.salePrice)
+      return price !== undefined && price >= 0
+    })
+    if (hasValidPrice) {
+      setSkuDraftFeedback({ tone: 'success', text: `ราคาครบแล้ว ${nextDrafts.length} รายการ · กด “ตรวจสอบและสร้าง ${nextDrafts.length} รายการ” ได้เลย` })
+    } else if (skuDraftFeedback?.tone === 'success') {
+      setSkuDraftFeedback(null)
+    }
     if (validationAttempted && value && optionalNumber(value) !== undefined) {
       setValidationIssues((current) => current.filter((issue) => issue.fieldName !== 'salePrice'))
     }
@@ -3465,7 +3483,15 @@ export function UnifiedProductCreationForm({
           target.value = target.value.toUpperCase()
           if (barcodeMode === 'internal-sales') setFormFieldValue('barcode', target.value)
         }
-        if (target.name === 'salePrice') clearResolvedSalePriceIssue(target.value)
+        if (target.name === 'salePrice') {
+          clearResolvedSalePriceIssue(target.value)
+          const currentErrors = skuDraftValidationErrors(currentSkuDraft())
+          if (!currentErrors.length) {
+            setSkuDraftFeedback({ tone: 'success', text: 'ข้อมูลราคาครบแล้ว · กด “เก็บสินค้าและสร้างรายการถัดไป” ได้เลย' })
+          } else if (!currentErrors.some((error) => error.includes('ราคาขาย')) && skuDraftFeedback?.tone === 'danger') {
+            setSkuDraftFeedback({ tone: 'danger', text: `ยังมีข้อมูลที่ต้องแก้: ${currentErrors.join(' · ')}` })
+          }
+        }
         if (['skuCode', 'salesCode', 'barcode'].includes(target.name)) markIdentifierCheckStale()
         if (['productWeightKg', 'productLengthCm', 'productWidthCm', 'productHeightCm', 'packageWeightKg', 'packageLengthCm', 'packageWidthCm', 'packageHeightCm'].includes(target.name)) setPhysicalFeedback(physicalValidationErrors(new FormData(event.currentTarget)))
         if (['safetyStock', 'reorderMin', 'reorderMax'].includes(target.name)) setInventoryFeedback(inventoryPolicyValidationErrors(new FormData(event.currentTarget)))
@@ -3541,6 +3567,7 @@ export function UnifiedProductCreationForm({
                   <button className="button compact product-primary-action" type="button" onClick={storeCurrentSkuDraft} disabled={!canManage || isSkuDraftChecking || (!editingSkuDraftId && skuDrafts.length >= SKU_DRAFT_MAX_ITEMS)} aria-busy={isSkuDraftChecking}>{isSkuDraftChecking ? 'กำลังตรวจและเก็บสินค้า…' : editingSkuDraftId ? 'บันทึกการแก้ไขสินค้า' : '＋ เก็บสินค้าและสร้างรายการถัดไป'}</button>
                 </div>
               </div>
+              {skuDraftFeedback ? <div className={`product-sku-staging-feedback ${skuDraftFeedback.tone}`} role={skuDraftFeedback.tone === 'danger' ? 'alert' : 'status'} aria-live="polite"><span aria-hidden="true">{skuDraftFeedback.tone === 'success' ? '✓' : '!'}</span><span>{skuDraftFeedback.text}</span></div> : null}
               <div className="product-quick-create-summary" role="status" aria-live="polite">
                 <span><small>รอสร้าง</small><strong>{skuDrafts.length} รายการ</strong></span>
                 <span><small>สถานะคิว</small><strong>{skuDrafts.length ? 'พร้อมตรวจสอบ' : 'ยังไม่มีรายการ'}</strong></span>
@@ -3554,7 +3581,7 @@ export function UnifiedProductCreationForm({
                     const queueImages = editingSkuDraftId === draft.id ? images : (skuDraftImages[draft.id] ?? [])
                     const queueImage = queueImages.find((image) => image.id === draft.imageId) ?? queueImages[0]
                     const draftProductName = draft.snapshot.fields.name || draft.name
-                    return <tr key={draft.id} data-sku-draft-id={draft.id}><td><div className="product-sku-staging-product"><label className={`product-sku-staging-image-picker${draggedSkuDraftImageId === draft.id ? ' drag-active' : ''}`} aria-label={`${queueImage ? 'เปลี่ยน' : 'เพิ่ม'}รูปสินค้า ${draftProductName}`} aria-busy={skuDraftImageProcessingId === draft.id} onDragEnter={(event) => { event.preventDefault(); setDraggedSkuDraftImageId(draft.id) }} onDragOver={(event) => event.preventDefault()} onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDraggedSkuDraftImageId(null) }} onDrop={(event) => dropSkuDraftCoverImage(event, draft.id)}><input type="file" accept={PRODUCT_IMAGE_ALLOWED_MIME_TYPES.join(',')} disabled={isPending || isSkuDraftChecking || skuDraftImageProcessingId === draft.id} onChange={(event) => { void selectSkuDraftCoverImage(draft.id, event.target.files); event.currentTarget.value = '' }} />{queueImage ? <Image src={queueImage.previewUrl} alt={`รูปสินค้า ${draftProductName}`} width={44} height={44} unoptimized /> : <span className="product-sku-staging-image-missing" aria-label="ยังไม่มีรูปสินค้า">ไม่มีรูป</span>}{skuDraftImageProcessingId === draft.id ? <span className="product-sku-staging-image-loading" role="status">กำลังเตรียมรูป</span> : null}</label><span><strong>{draftProductName}</strong><small>{queueImage ? draft.imageName : 'ยังไม่ได้เพิ่มรูป'} · 1 SKU</small>{skuDraftImageErrors[draft.id] ? <small className="product-field-error" role="alert">{skuDraftImageErrors[draft.id]}</small> : null}</span></div></td><td>{draft.skuCode}</td><td>{draft.salesCode || '—'}</td><td>{draft.barcode || '—'}</td><td>{draft.baseUnitCode}</td><td><div className="product-sku-staging-price-field"><span aria-hidden="true">฿</span><input type="number" inputMode="decimal" min="0" max="999999999.99" step="0.01" value={draft.salePrice} onChange={(event) => updateSkuDraftSalePrice(draft.id, event.currentTarget.value)} aria-label={`ราคาขาย ${draftProductName}`} placeholder="0.00" /></div></td><td><span className="product-quick-create-status">พร้อมตรวจสอบ</span></td><td className="product-sku-staging-actions-column"><div className="product-sku-staging-row-actions"><button className="product-sku-staging-icon-action" type="button" data-tooltip="แก้ไขสินค้า" aria-label={`แก้ไขสินค้า ${draftProductName}`} aria-describedby={skuDraftTooltip?.key === `${draft.id}:edit` ? "product-sku-staging-tooltip" : undefined} onMouseEnter={(event) => showSkuDraftTooltip(event.currentTarget, `${draft.id}:edit`, "แก้ไขสินค้า")} onMouseLeave={() => setSkuDraftTooltip(null)} onFocus={(event) => showSkuDraftTooltip(event.currentTarget, `${draft.id}:edit`, "แก้ไขสินค้า")} onBlur={() => setSkuDraftTooltip(null)} onClick={() => { setSkuDraftTooltip(null); editSkuDraft(draft.id) }} disabled={isSkuDraftChecking}><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m13.8 3.2 3 3L7 16H4v-3Z" /><path d="m12.3 4.7 3 3" /></svg></button><button className="product-sku-staging-icon-action danger" type="button" data-tooltip="นำออกจากคิว" aria-label={`นำสินค้า ${draftProductName} ออกจากคิว`} aria-describedby={skuDraftTooltip?.key === `${draft.id}:remove` ? "product-sku-staging-tooltip" : undefined} onMouseEnter={(event) => showSkuDraftTooltip(event.currentTarget, `${draft.id}:remove`, "นำออกจากคิว")} onMouseLeave={() => setSkuDraftTooltip(null)} onFocus={(event) => showSkuDraftTooltip(event.currentTarget, `${draft.id}:remove`, "นำออกจากคิว")} onBlur={() => setSkuDraftTooltip(null)} onClick={() => { setSkuDraftTooltip(null); removeSkuDraft(draft.id) }} disabled={isSkuDraftChecking}><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 6h12" /><path d="M8 3h4l1 3H7Z" /><path d="m6 6 1 11h6l1-11" /><path d="M9 9v5M11 9v5" /></svg></button></div></td></tr>
+                    return <tr key={draft.id} data-sku-draft-id={draft.id}><td><div className="product-sku-staging-product"><label className={`product-sku-staging-image-picker${draggedSkuDraftImageId === draft.id ? ' drag-active' : ''}`} aria-label={`${queueImage ? 'เปลี่ยน' : 'เพิ่ม'}รูปสินค้า ${draftProductName}`} aria-busy={skuDraftImageProcessingId === draft.id} onDragEnter={(event) => { event.preventDefault(); setDraggedSkuDraftImageId(draft.id) }} onDragOver={(event) => event.preventDefault()} onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDraggedSkuDraftImageId(null) }} onDrop={(event) => dropSkuDraftCoverImage(event, draft.id)}><input type="file" accept={PRODUCT_IMAGE_ALLOWED_MIME_TYPES.join(',')} disabled={isPending || isSkuDraftChecking || skuDraftImageProcessingId === draft.id} onChange={(event) => { void selectSkuDraftCoverImage(draft.id, event.target.files); event.currentTarget.value = '' }} />{queueImage ? <Image src={queueImage.previewUrl} alt={`รูปสินค้า ${draftProductName}`} width={44} height={44} unoptimized /> : <span className="product-sku-staging-image-missing" aria-label="ยังไม่มีรูปสินค้า">ไม่มีรูป</span>}{skuDraftImageProcessingId === draft.id ? <span className="product-sku-staging-image-loading" role="status">กำลังเตรียมรูป</span> : null}</label><span><strong>{draftProductName}</strong><small>{queueImage ? draft.imageName : 'ยังไม่ได้เพิ่มรูป'} · 1 SKU</small>{skuDraftImageErrors[draft.id] ? <small className="product-field-error" role="alert">{skuDraftImageErrors[draft.id]}</small> : null}</span></div></td><td>{draft.skuCode}</td><td>{draft.salesCode || '—'}</td><td>{draft.barcode || '—'}</td><td>{draft.baseUnitCode}</td><td><div className="product-sku-staging-price-field"><span aria-hidden="true">฿</span><input type="number" inputMode="decimal" min="0" max="999999999.99" step="0.01" value={draft.salePrice} onChange={(event) => updateSkuDraftSalePrice(draft.id, event.currentTarget.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); event.currentTarget.blur() } }} aria-label={`ราคาขาย ${draftProductName}`} placeholder="0.00" /></div></td><td><span className="product-quick-create-status">พร้อมตรวจสอบ</span></td><td className="product-sku-staging-actions-column"><div className="product-sku-staging-row-actions"><button className="product-sku-staging-icon-action" type="button" data-tooltip="แก้ไขสินค้า" aria-label={`แก้ไขสินค้า ${draftProductName}`} aria-describedby={skuDraftTooltip?.key === `${draft.id}:edit` ? "product-sku-staging-tooltip" : undefined} onMouseEnter={(event) => showSkuDraftTooltip(event.currentTarget, `${draft.id}:edit`, "แก้ไขสินค้า")} onMouseLeave={() => setSkuDraftTooltip(null)} onFocus={(event) => showSkuDraftTooltip(event.currentTarget, `${draft.id}:edit`, "แก้ไขสินค้า")} onBlur={() => setSkuDraftTooltip(null)} onClick={() => { setSkuDraftTooltip(null); editSkuDraft(draft.id) }} disabled={isSkuDraftChecking}><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m13.8 3.2 3 3L7 16H4v-3Z" /><path d="m12.3 4.7 3 3" /></svg></button><button className="product-sku-staging-icon-action danger" type="button" data-tooltip="นำออกจากคิว" aria-label={`นำสินค้า ${draftProductName} ออกจากคิว`} aria-describedby={skuDraftTooltip?.key === `${draft.id}:remove` ? "product-sku-staging-tooltip" : undefined} onMouseEnter={(event) => showSkuDraftTooltip(event.currentTarget, `${draft.id}:remove`, "นำออกจากคิว")} onMouseLeave={() => setSkuDraftTooltip(null)} onFocus={(event) => showSkuDraftTooltip(event.currentTarget, `${draft.id}:remove`, "นำออกจากคิว")} onBlur={() => setSkuDraftTooltip(null)} onClick={() => { setSkuDraftTooltip(null); removeSkuDraft(draft.id) }} disabled={isSkuDraftChecking}><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 6h12" /><path d="M8 3h4l1 3H7Z" /><path d="m6 6 1 11h6l1-11" /><path d="M9 9v5M11 9v5" /></svg></button></div></td></tr>
                   })}</tbody>
                 </table>
               </div>
@@ -3569,7 +3596,7 @@ export function UnifiedProductCreationForm({
           <div className={`product-form-grid ${structure === 'variant' ? 'two product-variant-shared-pricing-grid' : 'three product-pricing-grid'}`}>
                         {structure === 'variant' ? <div className="full product-variant-price-summary" role="status"><span aria-hidden="true">✓</span><span><strong>ราคาขายกำหนดในตาราง SKU Combination แล้ว</strong><small>{enabledVariantCombinations.length} SKU · {summaryPrice} · แก้ราคาแต่ละ SKU ได้จากตารางด้านบน</small></span></div> : <div className="product-form-field">
               <span className="product-label-with-info"><label htmlFor="salePrice">ราคาขาย *</label><ProductInfoGuide label="ราคาขาย" description="ราคาเริ่มต้นของ SKU; ระบบจริงอาจถูกแทนด้วยราคาตามสาขา ช่องทาง หรือช่วงเวลา" example="ตัวอย่าง: 1,290.00 THB" /></span>
-              <span className="product-input-with-suffix"><input id="salePrice" name="salePrice" type="number" min="0" max="999999999.99" step="0.01" inputMode="decimal" placeholder="0.00" required /><span>THB</span></span>
+              <span className="product-input-with-suffix"><input id="salePrice" name="salePrice" type="number" min="0" max="999999999.99" step="0.01" inputMode="decimal" placeholder="0.00" required onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); event.currentTarget.blur() } }} /><span>THB</span></span>
             </div>}
             <label>
               <span>{structure === 'variant' ? 'ราคาต้นทุนร่วม (ไม่บังคับ)' : 'ราคาต้นทุน'}</span>
