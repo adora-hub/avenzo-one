@@ -1,6 +1,6 @@
 # AVENZO ONE — Global Sales Code Standard V1
 
-**Status:** Owner Approved Contract Direction — Pending Domain/UI Implementation
+**Status:** Owner Approved Contract — GSC-01 Closed; Pending GSC-02 Implementation
 **Updated:** 21 August 2026
 **Authority:** Applies to every new Sales Code created by AVENZO ONE
 
@@ -42,8 +42,10 @@ Rules:
 - Canonical validation pattern is `^[A-Z]{1,3}(00[1-9]|0[1-9][0-9]|[1-9][0-9]{2})$`.
 - A Sales Code is unique inside its Organization and permanently resolves to
   exactly one `sku_id`.
-- Assignment is immutable. Archive, Trash or retirement does not release the
-  code for reuse.
+- Internal identity and historical identifier bindings are immutable. Archive,
+  Trash or retirement does not release an assigned code for another SKU.
+- The displayed Sales Code may change only through an audited Rotate Sales Code
+  command. The old code remains a non-reusable alias resolving to the same SKU.
 
 Existing historical Sales Codes that do not match V1 remain readable and
 searchable. They are grandfathered, must not be rewritten automatically and
@@ -61,6 +63,10 @@ When a Prefix reaches `999`, the allocator recommends `001` under the next
 Prefix. A reservation batch must stay inside one Prefix. If the requested
 quantity does not fit in the remaining range, the system recommends a complete
 range under the next available Prefix instead of splitting one batch.
+
+Rapid unassigned reservations expire after three hours. A code may return to
+the available pool only when it was reserved but never assigned or published.
+Any code previously assigned to a SKU remains unavailable to every other SKU.
 
 Examples:
 
@@ -89,6 +95,14 @@ the trusted server command remains authoritative.
 This mode is allowed only when the SKU Code itself matches the canonical Sales
 Code format and is available in the Organization. Otherwise the UI must explain
 why the mode cannot be used and offer Sequence mode.
+
+### Blank draft behavior
+
+A Draft may temporarily have no Sales Code. Before a SKU becomes Active, is
+received through Import or is submitted as a Rapid batch, every blank Sales
+Code is allocated automatically in one atomic batch after the UI shows the
+proposed range. A valid user-supplied code is preserved and claimed rather than
+silently overwritten.
 
 ## 5. Shared UI Behavior
 

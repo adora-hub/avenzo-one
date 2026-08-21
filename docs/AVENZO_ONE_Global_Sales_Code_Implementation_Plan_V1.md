@@ -1,6 +1,6 @@
 # AVENZO ONE — Global Sales Code Implementation Plan V1
 
-**Status:** Owner Approved Direction — Ready to execute sequentially
+**Status:** GSC-01 Owner Approved and Closed — GSC-02 Ready
 **Updated:** 21 August 2026
 **Source of Truth:** `AVENZO_ONE_Global_Sales_Code_Standard_V1.md`
 **Required before:** Rapid Backend production integration and any new Product
@@ -55,6 +55,16 @@ Only one Part may be in progress at a time. Every Part stops for PM/Owner review
 before the next Part begins.
 
 ### GSC-01 — Baseline Reconciliation and Contract Matrix
+
+Current result:
+
+- Baseline and Decision Matrix are documented in
+  `AVENZO_ONE_GSC-01_Baseline_Reconciliation_and_Contract_Matrix.md`.
+- No runtime code, Migration, RPC, API or UI was changed.
+- Owner approved decisions D1–D15, including three-hour reservation expiry,
+  automatic allocation before usable/imported state and audited Sales Code
+  rotation with a permanent historical alias.
+- GSC-02 may begin only after a new explicit Owner approval.
 
 Scope:
 
@@ -269,6 +279,7 @@ Acceptance gate:
 
 ## 6. Immediate Next Action
 
-Start **GSC-01 — Baseline Reconciliation and Contract Matrix**. Stop after the
-report and Decision Matrix are complete. Do not create Migration, RPC, API or UI
-code until the Owner approves GSC-01.
+GSC-01 is closed. The next Part is **GSC-02 — Shared Canonical Contract Library
+and UI Specification**. Do not start GSC-02 until the Owner explicitly approves
+it, and do not create a Database Migration or runtime allocator change before
+the later approved Parts.
