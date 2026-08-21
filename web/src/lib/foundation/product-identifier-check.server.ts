@@ -212,5 +212,46 @@ export async function checkVariantProductIdentifiers(
     `${collision.key}:${collision.field}:${collision.reason}`,
     collision,
   ])).values()]
-  return { checked: identifiers.length, collisions: uniqueCollisions }
+  const requestValues = new Set(normalizedValues)
+  const allocatedSuggestions = new Set<string>()
+  const suggestionByValue = new Map<string, string>()
+  for (const collision of uniqueCollisions) {
+    if (collision.reason !== 'already_exists') continue
+    const normalized = collision.value.toUpperCase()
+    if (suggestionByValue.has(normalized)) continue
+
+    for (let offset = 1; offset <= 10_000; offset += 100) {
+      const candidates = identifierSequenceCandidates(normalized, offset, 100)
+      const candidateResult = await supabase
+        .from('sku_identifier_registry')
+        .select('normalized_identifier')
+        .eq('organization_id', organizationId)
+        .in('normalized_identifier', candidates)
+      if (candidateResult.error) throw candidateResult.error
+
+      const unavailable = new Set(
+        candidateResult.data?.map((row) => String(row.normalized_identifier).toUpperCase()) ?? [],
+      )
+      const suggestion = candidates.find((candidate) => (
+        !unavailable.has(candidate)
+        && !requestValues.has(candidate)
+        && !allocatedSuggestions.has(candidate)
+      ))
+      if (!suggestion) continue
+
+      suggestionByValue.set(normalized, suggestion)
+      allocatedSuggestions.add(suggestion)
+      break
+    }
+  }
+
+  return {
+    checked: identifiers.length,
+    collisions: uniqueCollisions.map((collision) => ({
+      ...collision,
+      suggestion: collision.reason === 'already_exists'
+        ? suggestionByValue.get(collision.value.toUpperCase())
+        : undefined,
+    })),
+  }
 }

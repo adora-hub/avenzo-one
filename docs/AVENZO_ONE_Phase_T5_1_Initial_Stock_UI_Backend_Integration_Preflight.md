@@ -6,6 +6,7 @@
 **Git Baseline:** `382b2a6` — T4.4B Approved/Closed
 **ขอบเขตการเปลี่ยนแปลงรอบนี้:** T5.1 Contract approved; handed off to T5.2 Local Draft
 **ข้อห้าม:** T5.2 ห้ามแก้ Layout/Design, T4.4B Migration, Schema/RPC; ห้าม Apply PREVIEW/Production, Deploy, Commit หรือ Push
+**Release Status:** T5.3 PREVIEW Approved/Closed เมื่อ 21 สิงหาคม 2026; Contract D1–D8 ไม่เปลี่ยน และยังไม่มี Production apply/deploy
 
 ## 1. Source of Truth และ Locked Contract
 

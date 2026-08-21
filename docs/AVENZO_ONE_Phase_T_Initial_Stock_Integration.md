@@ -4,8 +4,8 @@
 **วันที่:** 20 สิงหาคม 2026  
 **PM Amendment:** 21 สิงหาคม 2026 — Batch cardinality เป็น 1–100 Items
 **ขอบเขต:** Product/SKU creation → Initial Stock → Warehouse/Location → Inventory Movement  
-**Implementation Status:** T4.4B Approved/Closed ที่ commit `382b2a6` เมื่อ 21 สิงหาคม 2026
-**ข้อจำกัดปัจจุบัน:** เอกสารนี้ยังเป็น Source of Truth; T5.1 เป็น Documentation/Integration Preflight เท่านั้น และห้าม Apply PREVIEW/Production, Deploy, Commit หรือ Push
+**Implementation Status:** T5.3 PREVIEW Approved/Closed เมื่อ 21 สิงหาคม 2026; T4.2C–T4.4B และ SKU-04 Corrective Migration Apply บน AVENZO ONE PREVIEW แล้ว
+**ข้อจำกัดปัจจุบัน:** เอกสารนี้ยังเป็น Source of Truth; การอนุมัติ T5.3 ครอบคลุม PREVIEW เท่านั้น ห้าม Apply Production หรือ Deploy จนกว่าจะได้รับอนุมัติแยกต่างหาก
 
 ## 1. เป้าหมาย
 

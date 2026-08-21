@@ -8,8 +8,8 @@
 
 **Baseline:** `382b2a6` — T4.4B Approved/Closed
 
-**Remote status:** Not connected; no PREVIEW/Production apply or deploy
-**Git status:** PM approved a scoped Commit/Push checkpoint
+**Remote status:** T5.3 PREVIEW Approved/Closed เมื่อ 21 August 2026; T4.2C–T4.4B และ SKU-04 corrective apply ผ่านบน AVENZO ONE PREVIEW; Production ไม่ถูกเชื่อมต่อหรือแก้ไข และไม่มี deploy
+**Git status:** PM approved T5.3 scoped Commit/Push checkpoint
 
 ## 1. Approved Scope
 

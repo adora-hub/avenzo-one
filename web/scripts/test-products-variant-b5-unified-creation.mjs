@@ -83,14 +83,22 @@ test('B5 real form renders the approved builder and submits all enabled variants
 })
 
 test('B5 variant identifiers are checked in batches against the permanent registry', async () => {
-  const [checker, actions] = await Promise.all([
+  const [checker, actions, builder] = await Promise.all([
     read('src/lib/foundation/product-identifier-check.server.ts'),
     read('src/app/actions/foundation.ts'),
+    read('src/app/organizations/[id]/products/new/variant-creation-builder.tsx'),
   ])
   assert.match(checker, /checkVariantProductIdentifiers/)
   assert.match(checker, /sku_identifier_registry/)
   assert.match(checker, /duplicate_in_form/)
   assert.match(checker, /already_exists/)
+  assert.match(checker, /identifierSequenceCandidates\(normalized, offset, 100\)/)
+  assert.match(checker, /suggestionByValue\.get\(collision\.value\.toUpperCase\(\)\)/)
+  assert.match(checker, /eq\('organization_id', organizationId\)/)
+  assert.match(builder, /suggestedIdentifierCollisions/)
+  assert.match(builder, /function useIdentifierSuggestion/)
+  assert.match(builder, /รหัสถัดไปที่ว่างจริง/)
+  assert.match(builder, /ระบบจะตรวจฐานข้อมูลซ้ำให้อัตโนมัติ/)
   assert.match(checker, /new Set\(entries\.map\(\(entry\) => entry\.key\)\)/)
   assert.match(checker, /variantKeys\.size > 1/)
   assert.match(checker, /value\.variants\.length > 100/)

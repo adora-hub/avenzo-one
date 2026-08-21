@@ -21,6 +21,7 @@ import {
   type PreparedProductImage,
 } from '@/lib/foundation/product-image-upload'
 import { identifierSequenceCandidates, nextIdentifierOutsideSet } from '@/lib/foundation/product-identifier-suggestion'
+import { formatInitialStockBatchId, resolveInitialStockBatchOutcome, type InitialStockBatchStatus } from '@/lib/foundation/initial-stock-batch-ui'
 import {
   DEFAULT_VARIANT_GROUPS,
   VariantCreationBuilder,
@@ -29,6 +30,7 @@ import {
   synchronizeVariantCombinations,
   type VariantCombinationDraft,
   type VariantOptionGroupDraft,
+  type VariantSkuSequenceDraft,
 } from './variant-creation-builder'
 export type ProductMasterOption = { id: string; name: string; status?: 'active' | 'archived'; version?: number }
 type ProductBranchOption = Pick<ProductMasterOption, 'id' | 'name'> & { code: string }
@@ -59,6 +61,8 @@ type BundleComponentDraft = { id: string; skuId: string; quantity: number }
 type InitialStockWarehouseOption = { id: string; branchId: string; code: string; name: string }
 type InitialStockLocationOption = { id: string; branchId: string; warehouseId: string; code: string; name: string; isDefault: boolean }
 type InitialStockDestinationStatus = 'idle' | 'loading' | 'ready' | 'error'
+type InitialStockBatchIssue = { rowKey: string; skuCode: string; field: 'skuCode' | 'baseUnitCode' | 'quantity'; message: string }
+type InitialStockBatchResultSummary = { batchId: string; skuCount: number; totalQuantity: number; unitLabel: string; destinationLabel: string }
 type ProductDraftSnapshot = {
   fields: Record<string, string>
   checkedFields: string[]
@@ -122,6 +126,7 @@ type CreationSuccess = {
   skuCount: number
   productCount?: number
   stockStatus?: 'completed' | 'not_requested'
+  imageCount?: number
 }
 type Feedback = { tone: 'info' | 'success' | 'danger'; text: string }
 type IdentifierStatusKey = 'skuCode' | 'salesCode' | 'barcode'
@@ -177,6 +182,7 @@ const errorLabels: Record<string, string> = {
   duplicate_sku_code: 'SKU Code นี้ถูกใช้แล้วใน Organization',
   duplicate_sales_code: 'Sales Code นี้ถูกใช้แล้วใน Organization',
   duplicate_barcode: 'Barcode นี้ถูกใช้แล้วใน Organization',
+  sku_sequence_conflict: 'เลขลำดับ Product นี้ถูกใช้แล้ว กรุณากด “ใช้เลขถัดไป” แล้วตรวจรหัสอีกครั้ง',
   command_payload_conflict: 'คำสั่งเดิมถูกใช้กับข้อมูลคนละชุด กรุณาลองใหม่',
   version_conflict: 'ข้อมูลอ้างอิงมีการเปลี่ยนแปลง กรุณาปิดหน้าต่างแล้วเปิดใหม่ก่อนลองอีกครั้ง',
   initial_stock_validation_failed: 'ข้อมูลสต็อกเริ่มต้นไม่ถูกต้อง กรุณาตรวจจำนวน คลัง และตำแหน่งจัดเก็บ',
@@ -543,6 +549,16 @@ function sanitizePendingDraft(value: unknown): PendingDraft | null {
 const PRODUCT_INFO_GUIDE_OPEN_EVENT = 'avenzo:product-info-guide-open'
 let activeProductInfoGuide: { id: string; pinned: boolean } | null = null
 
+function createProductInfoGuideId(label: string, description: string, example: string) {
+  const source = `${label}|${description}|${example}`
+  let hash = 2166136261
+  for (let index = 0; index < source.length; index += 1) {
+    hash ^= source.charCodeAt(index)
+    hash = Math.imul(hash, 16777619)
+  }
+  return `product-info-guide-${(hash >>> 0).toString(36)}`
+}
+
 function ProductInfoGuide({
   label,
   description,
@@ -552,7 +568,8 @@ function ProductInfoGuide({
   description: string
   example: string
 }) {
-  const popoverId = useId()
+  // Stable across server HTML and the first browser render, including restored drafts.
+  const popoverId = createProductInfoGuideId(label, description, example)
   const rootRef = useRef<HTMLSpanElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
   const popoverRef = useRef<HTMLElement>(null)
@@ -1096,6 +1113,8 @@ export function UnifiedProductCreationForm({
   const imageUrlsRef = useRef<string[]>([])
   const identifierCheckRequestRef = useRef(0)
   const initialStockLoadRequestRef = useRef(0)
+  const initialStockBatchTimerRef = useRef<number | null>(null)
+  const initialStockBatchInFlightRef = useRef(false)
   const identifierAutoCheckTimerRef = useRef<number | null>(null)
   const identifierAutoCheckLastSignatureRef = useRef('')
   const identifierAutoCheckLastStartedAtRef = useRef(0)
@@ -1131,6 +1150,7 @@ export function UnifiedProductCreationForm({
   const [variantGroups, setVariantGroups] = useState<VariantOptionGroupDraft[]>(() => sanitizeVariantGroups(structuredClone(DEFAULT_VARIANT_GROUPS)))
   const [variantCombinations, setVariantCombinations] = useState<VariantCombinationDraft[]>(() => synchronizeVariantCombinations(structuredClone(DEFAULT_VARIANT_GROUPS), [], 'TS'))
   const [variantIdentifiersReady, setVariantIdentifiersReady] = useState(false)
+  const [variantSkuSequence, setVariantSkuSequence] = useState<VariantSkuSequenceDraft>({ prefix: 'TS', sequence: 1, digits: 3 })
   const [salesCodeMode, setSalesCodeMode] = useState<SalesCodeMode>('manual')
   const [barcodeMode, setBarcodeMode] = useState<BarcodeMode>('manufacturer')
   const [salesSequencePrefix, setSalesSequencePrefix] = useState('A')
@@ -1149,7 +1169,7 @@ export function UnifiedProductCreationForm({
   const [bundleStockMode, setBundleStockMode] = useState<BundleStockMode>('virtual')
   const [bundleComponents, setBundleComponents] = useState<BundleComponentDraft[]>([])
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>(() => branches.map((branch) => branch.id))
-  const [imagesSectionOpen, setImagesSectionOpen] = useState(true)
+  const [imagesSectionOpen, setImagesSectionOpen] = useState(false)
   const [physicalSectionOpen, setPhysicalSectionOpen] = useState(false)
   const [metadataSectionOpen, setMetadataSectionOpen] = useState(false)
   const [initialStockEnabled, setInitialStockEnabled] = useState(false)
@@ -1163,6 +1183,17 @@ export function UnifiedProductCreationForm({
   const [initialStockQuantities, setInitialStockQuantities] = useState<Record<string, string>>({})
   const [initialStockBulkQuantity, setInitialStockBulkQuantity] = useState('')
   const [bundleInitialStockQuantity, setBundleInitialStockQuantity] = useState('')
+  const [initialStockBatchRevision, setInitialStockBatchRevision] = useState(1)
+  const [initialStockBatchStatus, setInitialStockBatchStatus] = useState<InitialStockBatchStatus>('idle')
+  const [initialStockBatchAttempted, setInitialStockBatchAttempted] = useState(false)
+  const [initialStockLastAttemptFailed, setInitialStockLastAttemptFailed] = useState(false)
+  const [initialStockConflictReviewed, setInitialStockConflictReviewed] = useState(false)
+  const [initialStockPermissionReason, setInitialStockPermissionReason] = useState<'receive' | 'destination' | 'changed'>('receive')
+  const [initialStockPermissionDenied, setInitialStockPermissionDenied] = useState(false)
+  const [initialStockBatchIssues, setInitialStockBatchIssues] = useState<InitialStockBatchIssue[]>([])
+  const [initialStockBatchErrors, setInitialStockBatchErrors] = useState<string[]>([])
+  const [initialStockLastSuccessfulFingerprint, setInitialStockLastSuccessfulFingerprint] = useState('')
+  const [initialStockLastSuccessfulResult, setInitialStockLastSuccessfulResult] = useState<InitialStockBatchResultSummary | null>(null)
   const [inventoryFeedback, setInventoryFeedback] = useState<string[]>([])
   const [identifierFeedback, setIdentifierFeedback] = useState<Feedback>({ tone: 'info', text: 'ยังไม่ได้ตรวจ SKU Code, Sales Code และ Barcode' })
   const [identifierStatuses, setIdentifierStatuses] = useState<IdentifierStatusMap>({
@@ -1180,6 +1211,11 @@ export function UnifiedProductCreationForm({
   const localDraftKey = `avenzo:product-create:v${DRAFT_SCHEMA_VERSION}:${organizationId}`
   const pendingDraftKey = `${localDraftKey}:pending`
   const queueRecoveryKey = `${localDraftKey}:queue-recovery`
+
+  useEffect(() => () => {
+    if (initialStockBatchTimerRef.current !== null) window.clearTimeout(initialStockBatchTimerRef.current)
+    initialStockBatchInFlightRef.current = false
+  }, [])
 
   useEffect(() => {
     if (!initialStockEnabled || !canLoadInitialStockDestinations || initialStockDestinationStatus !== 'idle') return
@@ -1701,7 +1737,6 @@ export function UnifiedProductCreationForm({
   function skuDraftValidationErrors(record: SkuDraft) {
     const errors: string[] = []
     if (!record.name) errors.push('ชื่อรุ่น / ตัวเลือกสินค้า')
-    if (!record.imageId || !images.some((image) => image.id === record.imageId)) errors.push('รูปสินค้าอย่างน้อย 1 ภาพ')
     if (FORBIDDEN_CONTROL_CHARACTERS.test(record.name)) errors.push('ชื่อ SKU มีอักขระควบคุมที่ไม่อนุญาต')
     if (structure === 'variant' && !editingSkuDraftId && !variantOptionOne.trim() && !variantOptionTwo.trim()) errors.push('Variant ต้องมีตัวเลือกอย่างน้อย 1 ค่า')
     if (!record.skuCode) errors.push('SKU Code')
@@ -1782,6 +1817,7 @@ export function UnifiedProductCreationForm({
     setTagInput('')
     setStructure('standard')
     setImages([])
+    setImagesSectionOpen(false)
     setImageFeedback(null)
     setVariantOptionOne('')
     setVariantOptionTwo('')
@@ -1806,6 +1842,17 @@ export function UnifiedProductCreationForm({
     setInitialStockQuantities({})
     setInitialStockBulkQuantity('')
     setBundleInitialStockQuantity('')
+    setInitialStockBatchRevision((current) => current + 1)
+    initialStockBatchInFlightRef.current = false
+    setInitialStockBatchStatus('idle')
+    setInitialStockBatchAttempted(false)
+    setInitialStockLastAttemptFailed(false)
+    setInitialStockConflictReviewed(false)
+    setInitialStockPermissionDenied(false)
+    setInitialStockBatchIssues([])
+    setInitialStockBatchErrors([])
+    setInitialStockLastSuccessfulFingerprint('')
+    setInitialStockLastSuccessfulResult(null)
     setPhysicalFeedback([])
     setInventoryFeedback([])
     setValidationIssues([])
@@ -1934,8 +1981,10 @@ export function UnifiedProductCreationForm({
     setBundleStockMode(snapshot.bundleStockMode)
     setBundleComponents(snapshot.bundleComponents)
     setSelectedBranchIds(snapshot.selectedBranchIds.filter((branchId) => allowedBranchIds.has(branchId)))
-    setImages(skuDraftImages[id] ?? [])
-    setImageFeedback(skuDraftImages[id]?.length ? { tone: 'info', text: `คืนรูปสินค้า ${skuDraftImages[id].length} ภาพจากคิวแล้ว` } : { tone: 'info', text: 'รูปจากเครื่องไม่อยู่หลัง F5 กรุณาเลือกอย่างน้อย 1 ภาพก่อนบันทึกการแก้ไข' })
+    const restoredImages = skuDraftImages[id] ?? []
+    setImages(restoredImages)
+    setImagesSectionOpen(restoredImages.length > 0)
+    setImageFeedback(restoredImages.length ? { tone: 'info', text: `คืนรูปสินค้า ${restoredImages.length} ภาพจากคิวแล้ว` } : { tone: 'info', text: 'รายการนี้ยังไม่มีรูปสินค้า สามารถบันทึกก่อนแล้วเพิ่มรูปภายหลังได้' })
     markIdentifierCheckStale()
     setIdentifierFeedback({ tone: 'info', text: `กำลังแก้ไขสินค้า ${snapshot.fields.name || record.name} · กด “บันทึกการแก้ไขสินค้า” เมื่อเสร็จ` })
 
@@ -2013,7 +2062,7 @@ export function UnifiedProductCreationForm({
       setImageFeedback({ tone: 'success', text: `เลือกภาพจากเครื่องแล้ว ${next.length} ภาพ` })
       setFeedback(null)
     } catch {
-      const message = 'เลือกได้ 1–9 ภาพ เฉพาะ JPEG, PNG หรือ WebP และไม่เกิน 5 MB ต่อภาพ'
+      const message = 'เลือกได้สูงสุด 9 ภาพ เฉพาะ JPEG, PNG หรือ WebP และไม่เกิน 5 MB ต่อภาพ'
       setImageFeedback({ tone: 'danger', text: message })
       setFeedback({ tone: 'danger', text: message })
     }
@@ -2027,7 +2076,7 @@ export function UnifiedProductCreationForm({
       return current.filter((image) => image.id !== id)
     })
     setVariantCombinations((current) => current.map((item) => item.imageId === id ? { ...item, imageId: '' } : item))
-    setImageFeedback({ tone: 'info', text: remaining ? `เหลือรูปสินค้า ${remaining} ภาพ` : 'นำรูปสินค้าออกแล้ว กรุณาเลือกอย่างน้อย 1 ภาพ' })
+    setImageFeedback({ tone: 'info', text: remaining ? `เหลือรูปสินค้า ${remaining} ภาพ` : 'นำรูปสินค้าออกแล้ว สามารถสร้างสินค้าโดยยังไม่มีรูปและเพิ่มภายหลังได้' })
   }
 
   function moveImage(index: number, direction: -1 | 1) {
@@ -2107,6 +2156,7 @@ export function UnifiedProductCreationForm({
   }
 
   function setImageStage(id: string, stage: UploadStage) {
+    if (stage === 'failed') setImagesSectionOpen(true)
     setImages((current) => current.map((image) => image.id === id ? { ...image, stage } : image))
   }
 
@@ -2364,6 +2414,9 @@ export function UnifiedProductCreationForm({
       return {
         ...commonPayload,
         structure_type: 'variant' as const,
+        sku_prefix: variantSkuSequence.prefix,
+        sku_product_sequence: variantSkuSequence.sequence,
+        sku_sequence_digits: variantSkuSequence.digits,
         option_groups: variantGroups.map((group) => ({
           name: group.name.trim(),
           kind: group.kind,
@@ -2445,7 +2498,6 @@ export function UnifiedProductCreationForm({
     const payload = buildPayload(data)
 
     if (pendingDraft) {
-      if (!pendingDraft.imagesCompleted && images.length < 1) add('images', 'รูปสินค้า', 'ข้อมูลหลักถูกสร้างแล้ว กรุณาเลือกภาพใหม่อย่างน้อย 1 ภาพเพื่ออัปโหลดต่อ')
       if (!pendingDraft.imagesCompleted && images.some((image) => image.stage === 'failed')) add('images', 'รูปสินค้า', 'มีรูปที่อัปโหลดไม่สำเร็จ กรุณาเลือกไฟล์ใหม่')
       return issues
     }
@@ -2456,7 +2508,6 @@ export function UnifiedProductCreationForm({
       add('general', 'ข้อความสินค้า', 'พบอักขระควบคุมที่ไม่อนุญาต กรุณาแก้ข้อความก่อนสร้าง', 'name')
     }
 
-    if (images.length < 1) add('images', 'รูปสินค้า', 'กรุณาเลือกรูปสินค้าอย่างน้อย 1 ภาพ')
     if (images.some((image) => image.stage === 'failed')) add('images', 'รูปสินค้า', 'มีรูปที่อัปโหลดไม่สำเร็จ กรุณาเลือกไฟล์ใหม่')
 
     if (structure === 'variant') {
@@ -2526,6 +2577,45 @@ export function UnifiedProductCreationForm({
     setValidationIssues((current) => current.filter((issue) => issue.fieldName !== 'salePrice'))
   }
 
+  useEffect(() => {
+    if (!validationAttempted) return
+
+    const frameId = window.requestAnimationFrame(() => {
+      const form = formRef.current
+      if (!form) return
+
+      clearValidationMarkers()
+      const issues = collectValidationIssues(new FormData(form))
+      setValidationIssues(issues)
+
+      for (const issue of issues) {
+        const target = validationTarget(issue)
+        target?.setAttribute('data-validation-invalid', 'true')
+        if (target?.matches('input, select, textarea')) target.setAttribute('aria-invalid', 'true')
+      }
+    })
+
+    return () => window.cancelAnimationFrame(frameId)
+  }, [
+    validationAttempted,
+    summaryFields,
+    categoryId,
+    images,
+    structure,
+    variantGroups,
+    variantCombinations,
+    variantIdentifiersReady,
+    identifierFeedback,
+    skuDrafts,
+    editingSkuDraftId,
+    packagingEnabled,
+    sellUnits,
+    bundleStockMode,
+    bundleComponents,
+    selectedBranchIds,
+    pendingDraft,
+  ])
+
   function validateBeforeCreate(data: FormData) {
     clearValidationMarkers()
     const issues = collectValidationIssues(data)
@@ -2589,7 +2679,6 @@ export function UnifiedProductCreationForm({
       issues.push({ id: `queue-${sectionId}-${issues.length + 1}`, sectionId, label, message })
     }
     if (!queueSectionCompletion.general) add('general', 'ข้อมูลทั่วไปในคิว', 'มีสินค้าที่ไม่มีชื่อหรือหมวดหมู่ กรุณากดแก้ไขรายการนั้น')
-    if (!queueSectionCompletion.images) add('images', 'รูปสินค้าในคิว', 'มีสินค้าที่ไม่มีรูปจากเครื่อง กรุณากดแก้ไขและเลือกภาพใหม่')
     if (!queueSectionCompletion.sku) add('sku', 'รหัสสินค้าในคิว', 'มี SKU ที่ชื่อ รหัสสินค้า หรือหน่วยนับไม่ครบ')
     if (!queueSectionCompletion.pricing) add('pricing', 'ราคาขายในคิว', 'มีสินค้าที่ยังไม่ได้กำหนดราคาขายตั้งแต่ 0 ขึ้นไป')
     if (!queueSectionCompletion.inventory) add('inventory', 'สาขาที่เปิดขาย', 'มีสินค้าที่ยังไม่ได้เลือกสาขาที่เปิดขาย')
@@ -2705,8 +2794,11 @@ export function UnifiedProductCreationForm({
         productName: `คิวสินค้า ${createdProducts.length} รายการ`,
         skuCount: createdProducts.length,
         productCount: createdProducts.length,
+        imageCount: queueImageCount,
       })
-      setFeedback({ tone: 'success', text: `สร้างสินค้า ${createdProducts.length} รายการและอัปโหลดรูปครบแล้ว โดยยังคงสถานะฉบับร่างเพื่อให้ตรวจสอบก่อนเปิดใช้งาน` })
+      setFeedback({ tone: 'success', text: queueImageCount > 0
+        ? `สร้างสินค้า ${createdProducts.length} รายการและอัปโหลดรูปที่เลือกครบแล้ว โดยยังคงสถานะฉบับร่างเพื่อให้ตรวจสอบก่อนเปิดใช้งาน`
+        : `สร้างสินค้า ${createdProducts.length} รายการเป็นฉบับร่างแล้ว สามารถเพิ่มรูปสินค้าในภายหลังได้` })
     })
   }
 
@@ -2877,11 +2969,13 @@ export function UnifiedProductCreationForm({
       setCompletedProductId(recovery.productId)
       setPendingDraft(null)
       const createdSkuCount = recovery.variantSkus?.length ?? 1
+      const completedImageCount = Object.keys(recovery.readyImageIdsByClientId ?? {}).length
       setCreationSuccess({
         productId: recovery.productId,
         productName: recovery.productName,
         skuCount: createdSkuCount,
         stockStatus,
+        imageCount: completedImageCount,
       })
       setFeedback({
         tone: 'success',
@@ -2917,7 +3011,7 @@ export function UnifiedProductCreationForm({
   )
   const queueReviewMode = structure !== 'variant' && skuDrafts.length > 0 && !hasUnqueuedProductChanges
   const queueDraftsWithImages = skuDrafts.map((draft) => ({ draft, images: skuDraftImages[draft.id] ?? [] }))
-  const queueCompleteCount = queueDraftsWithImages.filter(({ draft, images: draftImages }) => {
+  const queueCompleteCount = queueDraftsWithImages.filter(({ draft }) => {
     const salePrice = optionalNumber(draft.salePrice)
     return Boolean(
       draft.snapshot.fields.name?.trim()
@@ -2926,8 +3020,7 @@ export function UnifiedProductCreationForm({
         && draft.skuCode
         && BASE_UNIT_CODES.has(draft.baseUnitCode)
         && salePrice !== undefined
-        && salePrice >= 0
-        && draftImages.some((image) => image.id === draft.imageId),
+        && salePrice >= 0,
     )
   }).length
   const queueImageCount = queueDraftsWithImages.reduce((total, item) => total + item.images.length, 0)
@@ -2954,20 +3047,73 @@ export function UnifiedProductCreationForm({
     const quantity = Number(initialStockQuantities[row.key] ?? 0)
     return total + (Number.isFinite(quantity) && quantity > 0 ? quantity : 0)
   }, 0)
+  const initialStockBatchId = formatInitialStockBatchId(initialStockBatchRevision)
+  const initialStockAffectedSkuCount = initialStockRows.length
+  const markInitialStockBatchDirty = () => {
+    if (initialStockBatchStatus === 'loading') return
+    if (initialStockBatchStatus === 'conflict') {
+      setInitialStockConflictReviewed(false)
+      return
+    }
+    setInitialStockBatchStatus('idle')
+    setInitialStockBatchIssues([])
+    setInitialStockBatchErrors([])
+  }
   const filteredInitialStockWarehouses = initialStockWarehouses.filter((warehouse) => warehouse.branchId === initialStockBranchId)
   const filteredInitialStockLocations = initialStockLocations.filter((location) => location.warehouseId === initialStockWarehouse)
+  const initialStockMissingSku = structure === 'variant'
+    ? initialStockRows.length === 0 || initialStockRows.some((row) => row.skuCode === 'ยังไม่กำหนด SKU')
+    : !summaryFields.skuCode.trim()
+  const initialStockEmptyState = initialStockMissingSku
+    ? {
+        title: 'ยังไม่มี SKU สำหรับกำหนด Initial Stock',
+        reason: structure === 'variant' ? 'ยังไม่มี SKU Variant ที่เปิดใช้งาน จึงยังตรวจสอบ Batch ไม่ได้' : 'ยังไม่ได้กรอกรหัส SKU จึงยังตรวจสอบ Batch ไม่ได้',
+        nextAction: structure === 'variant' ? 'เพิ่มตัวเลือกและเปิดใช้งาน SKU Variant อย่างน้อย 1 รายการ' : 'กรอกรหัส SKU ในส่วน SKU ให้เรียบร้อย',
+        actionLabel: 'ไปที่ส่วน SKU',
+        focusSelector: structure === 'variant' ? '#sku .product-variant-matrix input[aria-label^="SKU Code "]:not(:disabled)' : '#skuCode',
+      }
+    : initialStockDestinationStatus !== 'ready'
+      ? null
+      : initialStockWarehouses.length === 0
+        ? {
+            title: 'ยังไม่มีคลังสำหรับ Initial Stock',
+            reason: 'ยังไม่มีคลังและตำแหน่งจัดเก็บที่พร้อมรับสต็อกเริ่มต้น',
+            nextAction: 'เพิ่มหรือเปิดใช้งานคลังและตำแหน่งจัดเก็บก่อน หรือปิด Initial Stock เพื่อสร้างสินค้าไว้ก่อน',
+            actionLabel: 'กลับไปปิด Initial Stock',
+            focusSelector: '#initialStockEnabledControl',
+          }
+        : initialStockBranchId && filteredInitialStockWarehouses.length === 0
+          ? {
+              title: 'สาขานี้ยังไม่มีคลังที่พร้อมใช้งาน',
+              reason: 'สาขาที่เลือกไม่มีคลังสำหรับรับ Initial Stock',
+              nextAction: 'เลือกสาขาอื่นที่มีคลัง หรือเพิ่มคลังให้สาขานี้ก่อนตรวจสอบ Batch',
+              actionLabel: 'เลือกสาขาอื่น',
+              focusSelector: '#initialStockBranchControl',
+            }
+          : initialStockWarehouse && filteredInitialStockLocations.length === 0
+            ? {
+                title: 'คลังนี้ยังไม่มีตำแหน่งจัดเก็บ',
+                reason: 'คลังที่เลือกไม่มีตำแหน่งจัดเก็บสำหรับรับ Initial Stock',
+                nextAction: 'เลือกคลังอื่นที่มีตำแหน่งจัดเก็บ หรือเพิ่มตำแหน่งให้คลังนี้ก่อนตรวจสอบ Batch',
+                actionLabel: 'เลือกคลังอื่น',
+                focusSelector: '#initialStockWarehouseControl',
+              }
+            : null
   const selectInitialStockWarehouse = (warehouseId: string) => {
+    markInitialStockBatchDirty()
     setInitialStockWarehouse(warehouseId)
     const defaultLocation = initialStockLocations.find((location) => location.warehouseId === warehouseId && location.isDefault)
       ?? initialStockLocations.find((location) => location.warehouseId === warehouseId)
     setInitialStockLocation(defaultLocation?.id ?? '')
   }
   const selectInitialStockBranch = (branchId: string) => {
+    markInitialStockBatchDirty()
     setInitialStockBranchId(branchId)
     const firstWarehouse = initialStockWarehouses.find((warehouse) => warehouse.branchId === branchId)
     selectInitialStockWarehouse(firstWarehouse?.id ?? '')
   }
   const reloadInitialStockDestinations = () => {
+    markInitialStockBatchDirty()
     setInitialStockWarehouses([])
     setInitialStockLocations([])
     setInitialStockWarehouse('')
@@ -2976,7 +3122,7 @@ export function UnifiedProductCreationForm({
     setInitialStockDestinationStatus('idle')
   }
   const standardInitialStockValue = initialStockQuantities.standard ?? ''
-  const standardInitialStockErrors = structure === 'standard' && initialStockEnabled
+  const standardInitialStockErrors = structure === 'standard' && initialStockEnabled && !initialStockMissingSku
     ? [
         initialStockDestinationStatus !== 'ready' ? 'กรุณารอโหลดคลังและตำแหน่งจัดเก็บ' : '',
         !initialStockBranchId ? 'กรุณาเลือกสาขารับสต็อก' : '',
@@ -2995,13 +3141,13 @@ export function UnifiedProductCreationForm({
     if (value.includes('.') && (value.split('.')[1]?.length ?? 0) > 6) return 'ทศนิยมไม่เกิน 6 ตำแหน่ง'
     return ''
   }
-  const variantInitialStockInvalidKeys = new Set(structure === 'variant' && initialStockEnabled
+  const variantInitialStockInvalidKeys = new Set(structure === 'variant' && initialStockEnabled && !initialStockMissingSku
     ? initialStockRows.filter((row) => initialStockQuantityError(initialStockQuantities[row.key] ?? '')).map((row) => row.key)
     : [])
   const variantInitialStockFilledCount = structure === 'variant'
     ? initialStockRows.filter((row) => !initialStockQuantityError(initialStockQuantities[row.key] ?? '')).length
     : 0
-  const variantInitialStockErrors = structure === 'variant' && initialStockEnabled
+  const variantInitialStockErrors = structure === 'variant' && initialStockEnabled && !initialStockMissingSku
     ? [
         initialStockDestinationStatus !== 'ready' ? 'กรุณารอโหลดคลังและตำแหน่งจัดเก็บ' : '',
         !initialStockBranchId ? 'กรุณาเลือกสาขารับสต็อก' : '',
@@ -3019,6 +3165,208 @@ export function UnifiedProductCreationForm({
         initialStockQuantityError(bundleInitialStockQuantity),
       ].filter(Boolean)
     : []
+  const createInitialStockBatchFingerprint = (batchId: string) => JSON.stringify({
+    batchId,
+    branchId: initialStockBranchId,
+    warehouseId: initialStockWarehouse,
+    locationId: initialStockLocation,
+    rows: initialStockRows.map((row) => ({ key: row.key, skuCode: row.skuCode, baseUnitCode: row.baseUnitCode, quantity: initialStockQuantities[row.key] ?? '' })),
+  })
+  const initialStockDestinationLabel = [
+    branches.find((branch) => branch.id === initialStockBranchId),
+    initialStockWarehouses.find((warehouse) => warehouse.id === initialStockWarehouse),
+    initialStockLocations.find((location) => location.id === initialStockLocation),
+  ].map((option) => option ? `${option.code} · ${option.name}` : '').filter(Boolean).join(' / ')
+  const initialStockCurrentResult: InitialStockBatchResultSummary = {
+    batchId: initialStockBatchId,
+    skuCount: initialStockRows.length,
+    totalQuantity: initialStockTotal,
+    unitLabel: BASE_UNIT_LABELS[initialStockRows[0]?.baseUnitCode ?? ''] ?? initialStockRows[0]?.baseUnitCode ?? 'หน่วย',
+    destinationLabel: initialStockDestinationLabel || 'ยังไม่ระบุปลายทาง',
+  }
+  const initialStockDuplicateResult = initialStockLastSuccessfulResult ?? initialStockCurrentResult
+  function collectInitialStockBatchIssues(): InitialStockBatchIssue[] {
+    return initialStockRows.flatMap((row) => {
+      const issues: InitialStockBatchIssue[] = []
+      if (row.skuCode === 'ยังไม่กำหนด SKU') issues.push({ rowKey: row.key, skuCode: row.skuCode, field: 'skuCode', message: 'กรุณากำหนด SKU Code' })
+      if (!BASE_UNIT_CODES.has(row.baseUnitCode)) issues.push({ rowKey: row.key, skuCode: row.skuCode, field: 'baseUnitCode', message: 'หน่วยนับไม่ถูกต้องหรือไม่รองรับ' })
+      const quantityError = initialStockQuantityError(initialStockQuantities[row.key] ?? '')
+      if (quantityError) issues.push({ rowKey: row.key, skuCode: row.skuCode, field: 'quantity', message: quantityError })
+      return issues
+    })
+  }
+  function collectInitialStockBatchErrors(rowIssues: InitialStockBatchIssue[]) {
+    return [
+      initialStockDestinationStatus !== 'ready' ? 'คลังและตำแหน่งจัดเก็บยังไม่พร้อม' : '',
+      !initialStockBranchId ? 'กรุณาเลือกสาขารับสต็อก' : '',
+      !initialStockWarehouse ? 'กรุณาเลือกคลังรับสต็อก' : '',
+      !initialStockLocation ? 'กรุณาเลือกตำแหน่งจัดเก็บ' : '',
+      initialStockRows.length === 0 ? 'ยังไม่มี SKU สำหรับ Batch นี้' : '',
+      rowIssues.length ? `พบรายการที่ต้องแก้ ${new Set(rowIssues.map((issue) => issue.rowKey)).size} SKU · ${rowIssues.length} จุด` : '',
+    ].filter(Boolean)
+  }
+  const initialStockLiveBatchIssues = initialStockBatchAttempted && initialStockBatchStatus !== 'loading'
+    ? collectInitialStockBatchIssues()
+    : initialStockBatchIssues
+  const initialStockLiveBatchErrors = initialStockBatchAttempted && initialStockBatchStatus !== 'loading'
+    ? collectInitialStockBatchErrors(initialStockLiveBatchIssues)
+    : initialStockBatchErrors
+  const initialStockBatchIssuesByKey = initialStockLiveBatchIssues.reduce((issuesByKey, issue) => {
+    const rowIssues = issuesByKey.get(issue.rowKey) ?? []
+    issuesByKey.set(issue.rowKey, [...rowIssues, issue])
+    return issuesByKey
+  }, new Map<string, InitialStockBatchIssue[]>())
+  const initialStockShowValidation = !initialStockEmptyState
+    && initialStockBatchAttempted
+    && initialStockBatchStatus !== 'loading'
+    && initialStockBatchStatus !== 'permission'
+    && initialStockBatchStatus !== 'conflict'
+    && (initialStockLiveBatchErrors.length > 0 || initialStockLiveBatchIssues.length > 0)
+  const initialStockBatchBusy = initialStockBatchStatus === 'loading' || initialStockBatchInFlightRef.current
+  const initialStockPermissionRestricted = initialStockPermissionDenied && (initialStockBatchStatus === 'permission' || initialStockBatchStatus === 'loading')
+  const initialStockDestinationPermissionLocked = initialStockPermissionRestricted && initialStockPermissionReason !== 'destination'
+  const initialStockBatchActionDisabled = initialStockBatchBusy || Boolean(initialStockEmptyState) || initialStockPermissionRestricted
+  const initialStockPermissionMessage = initialStockPermissionReason === 'destination' ? '\u0e04\u0e38\u0e13\u0e44\u0e21\u0e48\u0e21\u0e35\u0e2a\u0e34\u0e17\u0e18\u0e34\u0e4c\u0e43\u0e0a\u0e49\u0e2a\u0e32\u0e02\u0e32\u0e2b\u0e23\u0e37\u0e2d\u0e04\u0e25\u0e31\u0e07\u0e17\u0e35\u0e48\u0e40\u0e25\u0e37\u0e2d\u0e01' : initialStockPermissionReason === 'changed' ? '\u0e2a\u0e34\u0e17\u0e18\u0e34\u0e4c\u0e02\u0e2d\u0e07\u0e04\u0e38\u0e13\u0e16\u0e39\u0e01\u0e40\u0e1b\u0e25\u0e35\u0e48\u0e22\u0e19\u0e23\u0e30\u0e2b\u0e27\u0e48\u0e32\u0e07\u0e15\u0e23\u0e27\u0e08\u0e2a\u0e2d\u0e1a Batch' : '\u0e04\u0e38\u0e13\u0e44\u0e21\u0e48\u0e21\u0e35\u0e2a\u0e34\u0e17\u0e18\u0e34\u0e4c\u0e23\u0e31\u0e1a\u0e2a\u0e34\u0e19\u0e04\u0e49\u0e32\u0e40\u0e02\u0e49\u0e32\u0e2a\u0e15\u0e47\u0e2d\u0e01'
+  const initialStockPermissionCopy = {
+    title: initialStockPermissionMessage,
+    detail: initialStockPermissionReason === 'changed' ? '\u0e44\u0e21\u0e48\u0e21\u0e35 SKU \u0e43\u0e14\u0e16\u0e39\u0e01\u0e1a\u0e31\u0e19\u0e17\u0e36\u0e01 \u0e40\u0e1e\u0e23\u0e32\u0e30\u0e2a\u0e34\u0e17\u0e18\u0e34\u0e4c\u0e40\u0e1b\u0e25\u0e35\u0e48\u0e22\u0e19\u0e44\u0e1b\u0e01\u0e48\u0e2d\u0e19\u0e08\u0e1a Batch' : initialStockPermissionReason === 'destination' ? '\u0e2a\u0e32\u0e02\u0e32\u0e2b\u0e23\u0e37\u0e2d\u0e04\u0e25\u0e31\u0e07\u0e19\u0e35\u0e49\u0e2d\u0e22\u0e39\u0e48\u0e19\u0e2d\u0e01\u0e02\u0e2d\u0e1a\u0e40\u0e02\u0e15\u0e17\u0e35\u0e48\u0e1a\u0e31\u0e0d\u0e0a\u0e35\u0e02\u0e2d\u0e07\u0e04\u0e38\u0e13\u0e23\u0e31\u0e1a\u0e2a\u0e15\u0e47\u0e2d\u0e01\u0e44\u0e14\u0e49' : '\u0e1a\u0e31\u0e0d\u0e0a\u0e35\u0e19\u0e35\u0e49\u0e14\u0e39\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e44\u0e14\u0e49 \u0e41\u0e15\u0e48\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e44\u0e14\u0e49\u0e23\u0e31\u0e1a\u0e2a\u0e34\u0e17\u0e18\u0e34\u0e4c\u0e40\u0e1e\u0e34\u0e48\u0e21\u0e2a\u0e15\u0e47\u0e2d\u0e01',
+    nextAction: initialStockPermissionReason === 'destination' ? '\u0e40\u0e25\u0e37\u0e2d\u0e01\u0e2a\u0e32\u0e02\u0e32\u0e2b\u0e23\u0e37\u0e2d\u0e04\u0e25\u0e31\u0e07\u0e43\u0e2b\u0e21\u0e48\u0e17\u0e35\u0e48\u0e04\u0e38\u0e13\u0e21\u0e35\u0e2a\u0e34\u0e17\u0e18\u0e34\u0e4c' : '\u0e15\u0e23\u0e27\u0e08\u0e2a\u0e2d\u0e1a\u0e2a\u0e34\u0e17\u0e18\u0e34\u0e4c\u0e2d\u0e35\u0e01\u0e04\u0e23\u0e31\u0e49\u0e07 \u0e2b\u0e23\u0e37\u0e2d\u0e15\u0e34\u0e14\u0e15\u0e48\u0e2d Owner/Admin',
+  }
+  const initialStockBranchInvalid = initialStockShowValidation && !initialStockBranchId
+  const initialStockWarehouseInvalid = initialStockShowValidation && !initialStockWarehouse
+  const initialStockLocationInvalid = initialStockShowValidation && !initialStockLocation
+  function focusInitialStockCorrectionTarget() {
+    const firstIssue = initialStockLiveBatchIssues[0]
+    const firstIssueIndex = initialStockRows.findIndex((row) => row.key === firstIssue?.rowKey)
+    const quantityInputs = document.querySelectorAll<HTMLInputElement>('.product-initial-stock-table input[aria-label^="จำนวนสต็อกเริ่มต้น"]')
+    const variantSkuInputs = document.querySelectorAll<HTMLInputElement>('.product-variant-matrix input[aria-label^="SKU Code "]')
+    const issueTarget = firstIssue?.field === 'skuCode'
+      ? structure === 'variant' ? variantSkuInputs.item(firstIssueIndex) : document.getElementById('skuCode')
+      : firstIssue?.field === 'baseUnitCode'
+        ? document.getElementById('baseUnitCode')
+        : firstIssueIndex >= 0 ? quantityInputs.item(firstIssueIndex) : null
+    const target = initialStockDestinationStatus !== 'ready' || !initialStockBranchId
+      ? document.querySelector<HTMLElement>('[aria-label="สาขารับสต็อกเริ่มต้น"]')
+      : !initialStockWarehouse
+        ? document.querySelector<HTMLElement>('[aria-label="คลังรับสต็อกเริ่มต้น"]')
+        : !initialStockLocation
+          ? document.querySelector<HTMLElement>('[aria-label="ตำแหน่งรับสต็อกเริ่มต้น"]')
+          : issueTarget ?? document.getElementById('initialStockBatchTitle')
+    target?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    if (target instanceof HTMLElement && target.id !== 'initialStockBatchTitle') target.focus({ preventScroll: true })
+  }
+  function simulateInitialStockConflict() {
+    if (initialStockBatchInFlightRef.current || initialStockBatchStatus === 'loading') return
+    setInitialStockBatchAttempted(true)
+    setInitialStockLastAttemptFailed(true)
+    setInitialStockConflictReviewed(false)
+    setInitialStockBatchIssues([])
+    setInitialStockBatchErrors([])
+    setInitialStockBatchStatus('conflict')
+  }
+  function focusInitialStockPermissionState() {
+    window.requestAnimationFrame(() => {
+      document.getElementById('initialStockPermissionState')?.focus({ preventScroll: true })
+    })
+  }
+  function simulateInitialStockPermission(reason: 'receive' | 'destination' | 'changed' = 'receive') {
+    if (initialStockBatchInFlightRef.current || initialStockBatchStatus === 'loading') return
+    setInitialStockPermissionReason(reason)
+    setInitialStockBatchAttempted(true)
+    setInitialStockPermissionDenied(true)
+    setInitialStockLastAttemptFailed(true)
+    setInitialStockBatchIssues([])
+    setInitialStockBatchErrors([])
+    setInitialStockBatchStatus('permission')
+    focusInitialStockPermissionState()
+  }
+  function recheckInitialStockPermission() {
+    if (initialStockBatchInFlightRef.current || initialStockBatchStatus === 'loading') return
+    initialStockBatchInFlightRef.current = true
+    setInitialStockBatchStatus('loading')
+    if (initialStockBatchTimerRef.current !== null) window.clearTimeout(initialStockBatchTimerRef.current)
+    initialStockBatchTimerRef.current = window.setTimeout(() => {
+      initialStockBatchInFlightRef.current = false
+      initialStockBatchTimerRef.current = null
+      setInitialStockBatchStatus('permission')
+      focusInitialStockPermissionState()
+    }, 650)
+  }
+  function focusInitialStockDestinationChoice() {
+    const target = document.querySelector<HTMLElement>('[aria-label="สาขารับสต็อกเริ่มต้น"]')
+    target?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    target?.focus({ preventScroll: true })
+  }
+  function reviewInitialStockConflict() {
+    if (initialStockEmptyState) return
+    const rowIssues = collectInitialStockBatchIssues()
+    const batchErrors = collectInitialStockBatchErrors(rowIssues)
+    setInitialStockBatchAttempted(true)
+    if (batchErrors.length > 0 || rowIssues.length > 0) {
+      setInitialStockConflictReviewed(false)
+      setInitialStockBatchIssues(rowIssues)
+      setInitialStockBatchErrors(batchErrors)
+      setInitialStockBatchStatus('error')
+      return
+    }
+    setInitialStockBatchIssues([])
+    setInitialStockBatchErrors([])
+    setInitialStockConflictReviewed(true)
+  }
+  function retryInitialStockBatch() {
+    if (initialStockBatchInFlightRef.current || initialStockBatchStatus === 'loading' || initialStockEmptyState) return
+    if (initialStockBatchStatus === 'conflict' && !initialStockConflictReviewed) return
+    const nextBatchRevision = initialStockBatchRevision + 1
+    setInitialStockBatchRevision(nextBatchRevision)
+    setInitialStockConflictReviewed(false)
+    runInitialStockBatchValidation(nextBatchRevision)
+  }
+  function validateInitialStockBatch() {
+    if (initialStockEmptyState) return
+    runInitialStockBatchValidation(initialStockBatchRevision)
+  }
+  function focusInitialStockEmptyStateTarget() {
+    if (!initialStockEmptyState) return
+    const target = document.querySelector<HTMLElement>(initialStockEmptyState.focusSelector)
+    target?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    target?.focus({ preventScroll: true })
+  }
+  function runInitialStockBatchValidation(batchRevision: number) {
+    if (initialStockBatchInFlightRef.current || initialStockBatchStatus === 'loading') return
+    initialStockBatchInFlightRef.current = true
+    setInitialStockConflictReviewed(false)
+    const validationBatchId = formatInitialStockBatchId(batchRevision)
+    const validationBatchFingerprint = createInitialStockBatchFingerprint(validationBatchId)
+    const validationBatchResult = { ...initialStockCurrentResult, batchId: validationBatchId }
+    const rowIssues = collectInitialStockBatchIssues()
+    const batchErrors = collectInitialStockBatchErrors(rowIssues)
+    const outcome = resolveInitialStockBatchOutcome({
+      hasValidationErrors: batchErrors.length > 0 || rowIssues.length > 0,
+      isDuplicate: initialStockLastSuccessfulFingerprint === validationBatchFingerprint,
+    })
+    setInitialStockBatchAttempted(true)
+    setInitialStockBatchStatus('loading')
+    setInitialStockBatchIssues([])
+    setInitialStockBatchErrors([])
+    if (initialStockBatchTimerRef.current !== null) window.clearTimeout(initialStockBatchTimerRef.current)
+    initialStockBatchTimerRef.current = window.setTimeout(() => {
+      initialStockBatchInFlightRef.current = false
+      initialStockBatchTimerRef.current = null
+      if (outcome === 'error') {
+        setInitialStockLastAttemptFailed(true)
+        setInitialStockBatchIssues(rowIssues)
+        setInitialStockBatchErrors(batchErrors)
+        setInitialStockBatchStatus('error')
+        return
+      }
+      setInitialStockLastAttemptFailed(false)
+      if (outcome === 'success') {
+        setInitialStockLastSuccessfulFingerprint(validationBatchFingerprint)
+        setInitialStockLastSuccessfulResult(validationBatchResult)
+      }
+      setInitialStockBatchStatus(outcome)
+    }, 650)
+  }
   const variantPrices = enabledVariantCombinations
     .filter((combination) => combination.price.trim() !== '')
     .map((combination) => Number(combination.price))
@@ -3045,7 +3393,7 @@ export function UnifiedProductCreationForm({
   const summaryBundle = structure === 'bundle' ? `${bundleComponents.length} Components · ${bundleStockMode === 'assembled' ? 'Pre-assembled' : 'Virtual'}` : 'ไม่ใช่ Bundle'
   const queueSectionCompletion = {
     general: skuDrafts.length > 0 && skuDrafts.every((draft) => Boolean(draft.snapshot.fields.name?.trim() && draft.snapshot.categoryId)),
-    images: skuDrafts.length > 0 && queueDraftsWithImages.every(({ draft, images: draftImages }) => draftImages.some((image) => image.id === draft.imageId)),
+    images: true,
     sku: skuDrafts.length > 0 && skuDrafts.every((draft) => Boolean(draft.name && draft.skuCode && BASE_UNIT_CODES.has(draft.baseUnitCode))),
     pricing: skuDrafts.length > 0 && skuDrafts.every((draft) => { const value = optionalNumber(draft.salePrice); return value !== undefined && value >= 0 }),
     physical: true,
@@ -3055,7 +3403,7 @@ export function UnifiedProductCreationForm({
   }
   const currentFormSectionCompletion = {
     general: Boolean(summaryFields.name && categoryId),
-    images: images.length > 0,
+    images: true,
     sku: structure === 'variant'
       ? variantIdentifiersReady && enabledVariantCombinations.length > 0 && enabledVariantCombinations.every((combination) => combination.skuCode.trim() && combination.salesCode.trim())
       : Boolean(skuDrafts.length > 0 || (summaryFields.skuName && summaryFields.skuCode)),
@@ -3069,12 +3417,12 @@ export function UnifiedProductCreationForm({
   }
   const sectionCompletion = queueReviewMode ? queueSectionCompletion : currentFormSectionCompletion
   const completionChecks = queueReviewMode
-    ? [sectionCompletion.general, sectionCompletion.images, sectionCompletion.sku, sectionCompletion.pricing, sectionCompletion.inventory, queueCompleteCount === skuDrafts.length]
-    : [sectionCompletion.general, sectionCompletion.images, sectionCompletion.sku, Boolean(summaryFields.baseUnitCode), sectionCompletion.pricing, images.length > 0]
+    ? [sectionCompletion.general, sectionCompletion.sku, sectionCompletion.pricing, sectionCompletion.inventory, queueCompleteCount === skuDrafts.length]
+    : [sectionCompletion.general, sectionCompletion.sku, Boolean(summaryFields.baseUnitCode), sectionCompletion.pricing]
   const completionPercent = Math.round(completionChecks.filter(Boolean).length / completionChecks.length * 100)
   const summarySections = [
     { id: 'general', label: 'ข้อมูลทั่วไป', optional: false },
-    { id: 'images', label: 'รูปสินค้า', optional: false },
+    { id: 'images', label: 'รูปสินค้า', optional: true },
     { id: 'sku', label: structure === 'variant' ? 'SKU Variant' : 'SKU แรก', optional: false },
     { id: 'pricing', label: 'ราคาและภาษี', optional: false },
     { id: 'inventory', label: 'สาขาและสต๊อก', optional: false },
@@ -3084,7 +3432,7 @@ export function UnifiedProductCreationForm({
   ] as const
   const currentSectionId = validationAttempted && validationIssues.length
     ? validationIssues[0].sectionId
-    : summarySections.find((section) => !sectionCompletion[section.id])?.id ?? 'metadata'
+    : summarySections.find((section) => !section.optional && !sectionCompletion[section.id])?.id ?? 'metadata'
   const validationIssueCountForSection = (sectionId: ValidationSectionId) => validationIssues.filter((issue) => issue.sectionId === sectionId).length
   const failedImageCount = images.filter((image) => image.stage === 'failed').length
   const readyImageCount = images.filter((image) => image.stage === 'ready').length
@@ -3101,7 +3449,7 @@ export function UnifiedProductCreationForm({
   const primaryActionLabel = isPending
     ? 'กำลังบันทึก…'
     : pendingDraft
-      ? 'อัปโหลดต่อ'
+      ? images.length > 0 ? 'อัปโหลดต่อ' : 'เสร็จสิ้นโดยไม่มีรูป'
       : queueReviewMode
         ? `ตรวจสอบและสร้าง ${skuDrafts.length} รายการ`
         : skuDrafts.length > 0 && hasUnqueuedProductChanges
@@ -3125,7 +3473,7 @@ export function UnifiedProductCreationForm({
       </div>
     </header>
 
-    <div className="product-production-banner" role="note"><span aria-hidden="true">ⓘ</span><span><strong>เชื่อมระบบจริงแล้ว</strong> — {structure === 'variant' ? 'Product และ SKU Variant สร้างพร้อมกันผ่าน Atomic command' : 'Product และ SKU แรกสร้างผ่าน Atomic command'}, รูปภาพผ่าน Image Gate และยังไม่เขียน Stock ในขั้นตอนนี้</span></div>
+    <div className="product-production-banner" role="note"><span aria-hidden="true">ⓘ</span><span><strong>เชื่อมระบบจริงแล้ว</strong> — {structure === 'variant' ? 'Product และ SKU Variant สร้างพร้อมกันผ่าน Atomic command' : 'Product และ SKU แรกสร้างผ่าน Atomic command'}, รูปภาพไม่บังคับและจะผ่าน Image Gate เมื่อเลือกอัปโหลด · ยังไม่เขียน Stock ในขั้นตอนนี้</span></div>
     <div className="product-required-guide" role="note"><span aria-hidden="true">＊</span><span><strong>ช่องที่มีเครื่องหมาย * จำเป็นต้องกรอก</strong> · ระบบจะตรวจข้อมูลอีกครั้งก่อนสร้างสินค้า</span></div>
     {validationAttempted ? <div ref={validationSummaryRef} className={`product-validation-summary ${validationIssues.length ? 'danger' : 'success'}`} role={validationIssues.length ? 'alert' : 'status'} aria-live="assertive" tabIndex={-1}>
       <div className="product-validation-summary-heading"><span className="product-validation-summary-icon" aria-hidden="true">{validationIssues.length ? '!' : '✓'}</span><div><strong>{validationIssues.length ? `ตรวจพบ ${validationIssues.length} จุดที่ต้องแก้` : 'ข้อมูลผ่านการตรวจเบื้องต้นแล้ว'}</strong><p>{validationIssues.length ? 'เลือกแต่ละรายการเพื่อไปยังช่องที่ต้องแก้ ระบบจะไม่สร้างข้อมูลจนกว่าจะผ่านครบ' : 'กำลังส่งคำสั่งให้ Server ตรวจสิทธิ์ ความถูกต้อง และรหัสซ้ำก่อนบันทึกจริง'}</p></div></div>
@@ -3188,13 +3536,13 @@ export function UnifiedProductCreationForm({
         </section>
 
         <section id="images" className="product-creation-card">
-          <header><span>2</span><div><h2>รูปสินค้า</h2><p>เพิ่ม 1–9 ภาพ อัตราส่วน 1:1 จัดลำดับ และกำหนดภาพปก</p></div><div className="product-section-toggle-meta"><small className="product-section-status">{images.length} / {PRODUCT_IMAGE_MAX_FILES} ภาพ</small><label className="product-switch"><input type="checkbox" checked={imagesSectionOpen} onChange={(event) => setImagesSectionOpen(event.target.checked)} aria-label="เปิดหรือปิดส่วนรูปสินค้า" aria-expanded={imagesSectionOpen} /><span aria-hidden="true" /></label></div></header>
+          <header><span>2</span><div><h2>รูปสินค้า</h2><p>ไม่บังคับ · เพิ่มได้สูงสุด 9 ภาพ อัตราส่วน 1:1 หรือเพิ่มภายหลัง</p></div><div className="product-section-toggle-meta"><small className="product-section-status">{images.length} / {PRODUCT_IMAGE_MAX_FILES} ภาพ</small><label className="product-switch"><input type="checkbox" checked={imagesSectionOpen} onChange={(event) => setImagesSectionOpen(event.target.checked)} aria-label="เปิดหรือปิดส่วนรูปสินค้า" aria-expanded={imagesSectionOpen} /><span aria-hidden="true" /></label></div></header>
           {imagesSectionOpen ? <>
           <div className="product-image-toolbar">
             <label className="button compact secondary product-image-picker"><input type="file" accept={PRODUCT_IMAGE_ALLOWED_MIME_TYPES.join(',')} multiple onChange={(event) => { selectImages(event.target.files); event.currentTarget.value = '' }} /><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg><span>เลือกภาพจากเครื่อง</span></label>
             <span className="product-image-cover-note">ภาพแรกเป็นภาพปกโดยอัตโนมัติ</span>
           </div>
-          <div className="product-image-grid" aria-live="polite">{images.length ? images.map((image, index) => <article className="product-image-card" key={image.id}><div className="product-image-media"><Image src={image.previewUrl} alt={`ตัวอย่าง ${image.file.name}`} width={600} height={600} sizes="(max-width: 760px) 50vw, 180px" unoptimized />{index === 0 ? <span className="product-image-cover-label">ภาพปก</span> : null}</div><div className="product-image-name" title={image.file.name}>{image.file.name}</div><div className="product-image-actions"><button type="button" onClick={() => moveImage(index, -1)} disabled={index === 0 || isPending} aria-label="เลื่อนภาพไปซ้าย"><span aria-hidden="true">←</span></button><button className={index === 0 ? 'active' : ''} type="button" onClick={() => setCoverImage(index)} disabled={isPending} aria-label={index === 0 ? 'ภาพปกปัจจุบัน' : 'ตั้งเป็นภาพปก'} aria-pressed={index === 0}><span aria-hidden="true">★</span></button><button type="button" onClick={() => moveImage(index, 1)} disabled={index === images.length - 1 || isPending} aria-label="เลื่อนภาพไปขวา"><span aria-hidden="true">→</span></button><button type="button" onClick={() => removeImage(image.id)} disabled={isPending} aria-label="ลบภาพ"><span aria-hidden="true">×</span></button></div></article>) : <div className="product-image-empty"><div><strong>ยังไม่มีรูปสินค้า</strong><span>เลือกไฟล์ภาพจริงจากเครื่องเพื่อดูตัวอย่าง</span></div></div>}</div>
+          <div className="product-image-grid" aria-live="polite">{images.length ? images.map((image, index) => <article className="product-image-card" key={image.id}><div className="product-image-media"><Image src={image.previewUrl} alt={`ตัวอย่าง ${image.file.name}`} width={600} height={600} sizes="(max-width: 760px) 50vw, 180px" unoptimized />{index === 0 ? <span className="product-image-cover-label">ภาพปก</span> : null}</div><div className="product-image-name" title={image.file.name}>{image.file.name}</div><div className="product-image-actions"><button type="button" onClick={() => moveImage(index, -1)} disabled={index === 0 || isPending} aria-label="เลื่อนภาพไปซ้าย"><span aria-hidden="true">←</span></button><button className={index === 0 ? 'active' : ''} type="button" onClick={() => setCoverImage(index)} disabled={isPending} aria-label={index === 0 ? 'ภาพปกปัจจุบัน' : 'ตั้งเป็นภาพปก'} aria-pressed={index === 0}><span aria-hidden="true">★</span></button><button type="button" onClick={() => moveImage(index, 1)} disabled={index === images.length - 1 || isPending} aria-label="เลื่อนภาพไปขวา"><span aria-hidden="true">→</span></button><button type="button" onClick={() => removeImage(image.id)} disabled={isPending} aria-label="ลบภาพ"><span aria-hidden="true">×</span></button></div></article>) : <div className="product-image-empty"><div><strong>ยังไม่มีรูปสินค้า</strong><span>สร้างสินค้าได้ก่อน แล้วเพิ่มรูปภายหลังจากหน้ารายละเอียดสินค้า</span></div></div>}</div>
           <div className="product-image-policy" role="note"><span aria-hidden="true">ⓘ</span><span>รองรับ JPEG, PNG และ WebP · ไม่เกิน {Math.round(PRODUCT_IMAGE_MAX_BYTES / 1_048_576)} MB ต่อภาพ · แนะนำภาพสี่เหลี่ยม 1200 × 1200 px</span></div>
           <div className={`product-image-upload-status ${imageUploadStatus?.tone ?? ''}`} role="status" aria-live="polite">{imageUploadStatus?.text ?? ''}</div>
           </> : <p className="product-form-note product-collapsed-section-note">ส่วนรูปสินค้าถูกย่อไว้ · เลือกเปิดเพื่อเพิ่มหรือจัดการรูปภาพ</p>}
@@ -3211,6 +3559,7 @@ export function UnifiedProductCreationForm({
               setCombinations={setVariantCombinations}
               images={images.map((image) => ({ id: image.id, name: image.file.name }))}
               onIdentifierCheckChange={setVariantIdentifiersReady}
+              onSkuSequenceChange={setVariantSkuSequence}
               disabled={isPending}
             /></div> : null}
             {structure !== 'variant' ? <>
@@ -3253,7 +3602,7 @@ export function UnifiedProductCreationForm({
                     const queueImages = editingSkuDraftId === draft.id ? images : (skuDraftImages[draft.id] ?? [])
                     const queueImage = queueImages.find((image) => image.id === draft.imageId) ?? queueImages[0]
                     const draftProductName = draft.snapshot.fields.name || draft.name
-                    return <tr key={draft.id} data-sku-draft-id={draft.id}><td><div className="product-sku-staging-product">{queueImage ? <Image src={queueImage.previewUrl} alt={`รูปสินค้า ${draftProductName}`} width={44} height={44} unoptimized /> : <span className="product-sku-staging-image-missing" aria-label="ต้องเลือกรูปสินค้าใหม่">ไม่มีรูป</span>}<span><strong>{draftProductName}</strong><small>{queueImage ? draft.imageName : 'รูปจากเครื่องไม่ถูกเก็บหลัง F5'} · 1 SKU</small></span></div></td><td>{draft.skuCode}</td><td>{draft.salesCode || '—'}</td><td>{draft.barcode || '—'}</td><td>{draft.baseUnitCode}</td><td><div className="product-sku-staging-price-field"><span aria-hidden="true">฿</span><input type="number" inputMode="decimal" min="0" max="999999999.99" step="0.01" value={draft.salePrice} onChange={(event) => updateSkuDraftSalePrice(draft.id, event.currentTarget.value)} aria-label={`ราคาขาย ${draftProductName}`} placeholder="0.00" /></div></td><td><span className="product-quick-create-status">พร้อมตรวจสอบ</span></td><td className="product-sku-staging-actions-column"><div className="product-sku-staging-row-actions"><button className="product-sku-staging-icon-action" type="button" data-tooltip="แก้ไขสินค้า" aria-label={`แก้ไขสินค้า ${draftProductName}`} aria-describedby={skuDraftTooltip?.key === `${draft.id}:edit` ? "product-sku-staging-tooltip" : undefined} onMouseEnter={(event) => showSkuDraftTooltip(event.currentTarget, `${draft.id}:edit`, "แก้ไขสินค้า")} onMouseLeave={() => setSkuDraftTooltip(null)} onFocus={(event) => showSkuDraftTooltip(event.currentTarget, `${draft.id}:edit`, "แก้ไขสินค้า")} onBlur={() => setSkuDraftTooltip(null)} onClick={() => { setSkuDraftTooltip(null); editSkuDraft(draft.id) }} disabled={isSkuDraftChecking}><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m13.8 3.2 3 3L7 16H4v-3Z" /><path d="m12.3 4.7 3 3" /></svg></button><button className="product-sku-staging-icon-action danger" type="button" data-tooltip="นำออกจากคิว" aria-label={`นำสินค้า ${draftProductName} ออกจากคิว`} aria-describedby={skuDraftTooltip?.key === `${draft.id}:remove` ? "product-sku-staging-tooltip" : undefined} onMouseEnter={(event) => showSkuDraftTooltip(event.currentTarget, `${draft.id}:remove`, "นำออกจากคิว")} onMouseLeave={() => setSkuDraftTooltip(null)} onFocus={(event) => showSkuDraftTooltip(event.currentTarget, `${draft.id}:remove`, "นำออกจากคิว")} onBlur={() => setSkuDraftTooltip(null)} onClick={() => { setSkuDraftTooltip(null); removeSkuDraft(draft.id) }} disabled={isSkuDraftChecking}><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 6h12" /><path d="M8 3h4l1 3H7Z" /><path d="m6 6 1 11h6l1-11" /><path d="M9 9v5M11 9v5" /></svg></button></div></td></tr>
+                    return <tr key={draft.id} data-sku-draft-id={draft.id}><td><div className="product-sku-staging-product">{queueImage ? <Image src={queueImage.previewUrl} alt={`รูปสินค้า ${draftProductName}`} width={44} height={44} unoptimized /> : <span className="product-sku-staging-image-missing" aria-label="ยังไม่มีรูปสินค้า">ไม่มีรูป</span>}<span><strong>{draftProductName}</strong><small>{queueImage ? draft.imageName : 'ยังไม่ได้เพิ่มรูป'} · 1 SKU</small></span></div></td><td>{draft.skuCode}</td><td>{draft.salesCode || '—'}</td><td>{draft.barcode || '—'}</td><td>{draft.baseUnitCode}</td><td><div className="product-sku-staging-price-field"><span aria-hidden="true">฿</span><input type="number" inputMode="decimal" min="0" max="999999999.99" step="0.01" value={draft.salePrice} onChange={(event) => updateSkuDraftSalePrice(draft.id, event.currentTarget.value)} aria-label={`ราคาขาย ${draftProductName}`} placeholder="0.00" /></div></td><td><span className="product-quick-create-status">พร้อมตรวจสอบ</span></td><td className="product-sku-staging-actions-column"><div className="product-sku-staging-row-actions"><button className="product-sku-staging-icon-action" type="button" data-tooltip="แก้ไขสินค้า" aria-label={`แก้ไขสินค้า ${draftProductName}`} aria-describedby={skuDraftTooltip?.key === `${draft.id}:edit` ? "product-sku-staging-tooltip" : undefined} onMouseEnter={(event) => showSkuDraftTooltip(event.currentTarget, `${draft.id}:edit`, "แก้ไขสินค้า")} onMouseLeave={() => setSkuDraftTooltip(null)} onFocus={(event) => showSkuDraftTooltip(event.currentTarget, `${draft.id}:edit`, "แก้ไขสินค้า")} onBlur={() => setSkuDraftTooltip(null)} onClick={() => { setSkuDraftTooltip(null); editSkuDraft(draft.id) }} disabled={isSkuDraftChecking}><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m13.8 3.2 3 3L7 16H4v-3Z" /><path d="m12.3 4.7 3 3" /></svg></button><button className="product-sku-staging-icon-action danger" type="button" data-tooltip="นำออกจากคิว" aria-label={`นำสินค้า ${draftProductName} ออกจากคิว`} aria-describedby={skuDraftTooltip?.key === `${draft.id}:remove` ? "product-sku-staging-tooltip" : undefined} onMouseEnter={(event) => showSkuDraftTooltip(event.currentTarget, `${draft.id}:remove`, "นำออกจากคิว")} onMouseLeave={() => setSkuDraftTooltip(null)} onFocus={(event) => showSkuDraftTooltip(event.currentTarget, `${draft.id}:remove`, "นำออกจากคิว")} onBlur={() => setSkuDraftTooltip(null)} onClick={() => { setSkuDraftTooltip(null); removeSkuDraft(draft.id) }} disabled={isSkuDraftChecking}><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 6h12" /><path d="M8 3h4l1 3H7Z" /><path d="m6 6 1 11h6l1-11" /><path d="M9 9v5M11 9v5" /></svg></button></div></td></tr>
                   })}</tbody>
                 </table>
               </div>
@@ -3298,7 +3647,7 @@ export function UnifiedProductCreationForm({
           <div className="product-initial-stock-section">
             <div className="product-initial-stock-heading">
               <div><span className="product-initial-stock-title"><strong>สต็อกเริ่มต้น</strong><span className="product-initial-stock-prototype-badge">{structure === 'bundle' ? 'UI ทดลอง' : 'T5.2 · Atomic Backend'}</span></span><small>เตรียมยอดตั้งต้นสำหรับรับสินค้าเข้าคลังหลังสร้าง SKU</small></div>
-              {structure !== 'bundle' ? <label className="product-switch"><input type="checkbox" checked={initialStockEnabled} disabled={!canLoadInitialStockDestinations} onChange={(event) => setInitialStockEnabled(event.target.checked)} aria-label="กำหนดสต็อกเริ่มต้น" /><span aria-hidden="true" /></label> : null}
+              {structure !== 'bundle' ? <label className="product-switch"><input id="initialStockEnabledControl" type="checkbox" checked={initialStockEnabled} disabled={!canLoadInitialStockDestinations || initialStockBatchStatus === 'loading'} onChange={(event) => { markInitialStockBatchDirty(); setInitialStockEnabled(event.target.checked) }} aria-label="กำหนดสต็อกเริ่มต้น" /><span aria-hidden="true" /></label> : null}
             </div>
             {structure === 'bundle'
               ? bundleStockMode === 'virtual'
@@ -3318,16 +3667,27 @@ export function UnifiedProductCreationForm({
                 ? <>
                     {initialStockDestinationStatus === 'loading' ? <div className="product-inline-note" role="status">กำลังโหลดคลังและตำแหน่งจัดเก็บ…</div> : null}
                     {initialStockDestinationStatus === 'error' ? <div className="product-initial-stock-validation danger" role="alert"><span>{initialStockDestinationError}</span><button className="button compact secondary" type="button" onClick={reloadInitialStockDestinations}>ลองใหม่</button></div> : null}
-                    {initialStockDestinationStatus === 'ready' && !initialStockWarehouses.length ? <div className="product-inline-note warning" role="status">ยังไม่มีคลังและตำแหน่งจัดเก็บที่พร้อมใช้งาน</div> : null}
                     <div className="product-form-grid three product-initial-stock-destination">
-                      <label><span>สาขารับสต็อก</span><span className="product-select-control"><select value={initialStockBranchId} disabled={initialStockDestinationStatus !== 'ready'} onChange={(event) => selectInitialStockBranch(event.target.value)} aria-label="สาขารับสต็อกเริ่มต้น"><option value="">เลือกสาขา</option>{branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.code} · {branch.name}</option>)}</select></span><small>แสดงเฉพาะสาขาที่บัญชีนี้เข้าถึงได้</small></label>
-                      <label><span>คลังรับสต็อก</span><span className="product-select-control"><select value={initialStockWarehouse} disabled={initialStockDestinationStatus !== 'ready' || !initialStockBranchId} onChange={(event) => selectInitialStockWarehouse(event.target.value)} aria-label="คลังรับสต็อกเริ่มต้น"><option value="">เลือกคลัง</option>{filteredInitialStockWarehouses.map((warehouse) => <option key={warehouse.id} value={warehouse.id}>{warehouse.code} · {warehouse.name}</option>)}</select></span><small>{initialStockBranchId && !filteredInitialStockWarehouses.length ? 'สาขานี้ยังไม่มีคลังที่พร้อมใช้งาน' : 'เลือกคลังปลายทางจริง'}</small></label>
-                      <label><span>ตำแหน่งจัดเก็บ</span><span className="product-select-control"><select value={initialStockLocation} disabled={initialStockDestinationStatus !== 'ready' || !initialStockWarehouse} onChange={(event) => setInitialStockLocation(event.target.value)} aria-label="ตำแหน่งรับสต็อกเริ่มต้น"><option value="">เลือกตำแหน่ง</option>{filteredInitialStockLocations.map((location) => <option key={location.id} value={location.id}>{location.code} · {location.name}{location.isDefault ? ' · ค่าเริ่มต้น' : ''}</option>)}</select></span><small>{initialStockWarehouse && !filteredInitialStockLocations.length ? 'คลังนี้ยังไม่มีตำแหน่งที่พร้อมใช้งาน' : 'ระบบเลือกตำแหน่งค่าเริ่มต้นให้อัตโนมัติ'}</small></label>
+                      <label><span>สาขารับสต็อก</span><span className="product-select-control"><select id="initialStockBranchControl" value={initialStockBranchId} disabled={initialStockDestinationStatus !== 'ready' || initialStockBatchStatus === 'loading' || initialStockDestinationPermissionLocked} onChange={(event) => selectInitialStockBranch(event.target.value)} aria-label="สาขารับสต็อกเริ่มต้น" aria-invalid={initialStockBranchInvalid} aria-describedby={initialStockBranchInvalid ? "initialStockBranchError" : undefined}><option value="">เลือกสาขา</option>{branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.code} · {branch.name}</option>)}</select></span>{initialStockBranchInvalid ? <small id="initialStockBranchError" className="product-field-error">กรุณาเลือกสาขารับสต็อก</small> : null}<small>แสดงเฉพาะสาขาที่บัญชีนี้เข้าถึงได้</small></label>
+                      <label><span>คลังรับสต็อก</span><span className="product-select-control"><select id="initialStockWarehouseControl" value={initialStockWarehouse} disabled={initialStockDestinationStatus !== 'ready' || !initialStockBranchId || initialStockBatchStatus === 'loading' || initialStockDestinationPermissionLocked} onChange={(event) => selectInitialStockWarehouse(event.target.value)} aria-label="คลังรับสต็อกเริ่มต้น" aria-invalid={initialStockWarehouseInvalid} aria-describedby={initialStockWarehouseInvalid ? "initialStockWarehouseError" : undefined}><option value="">เลือกคลัง</option>{filteredInitialStockWarehouses.map((warehouse) => <option key={warehouse.id} value={warehouse.id}>{warehouse.code} · {warehouse.name}</option>)}</select></span>{initialStockWarehouseInvalid ? <small id="initialStockWarehouseError" className="product-field-error">กรุณาเลือกคลังรับสต็อก</small> : null}<small>{initialStockBranchId && !filteredInitialStockWarehouses.length ? 'สาขานี้ยังไม่มีคลังที่พร้อมใช้งาน' : 'เลือกคลังปลายทางจริง'}</small></label>
+                      <label><span>ตำแหน่งจัดเก็บ</span><span className="product-select-control"><select value={initialStockLocation} disabled={initialStockDestinationStatus !== 'ready' || !initialStockWarehouse || initialStockBatchStatus === 'loading' || initialStockDestinationPermissionLocked} onChange={(event) => { markInitialStockBatchDirty(); setInitialStockLocation(event.target.value) }} aria-label="ตำแหน่งรับสต็อกเริ่มต้น" aria-invalid={initialStockLocationInvalid} aria-describedby={initialStockLocationInvalid ? "initialStockLocationError" : undefined}><option value="">เลือกตำแหน่ง</option>{filteredInitialStockLocations.map((location) => <option key={location.id} value={location.id}>{location.code} · {location.name}{location.isDefault ? ' · ค่าเริ่มต้น' : ''}</option>)}</select></span>{initialStockLocationInvalid ? <small id="initialStockLocationError" className="product-field-error">กรุณาเลือกตำแหน่งจัดเก็บ</small> : null}<small>{initialStockWarehouse && !filteredInitialStockLocations.length ? 'คลังนี้ยังไม่มีตำแหน่งที่พร้อมใช้งาน' : 'ระบบเลือกตำแหน่งค่าเริ่มต้นให้อัตโนมัติ'}</small></label>
                     </div>
-                    {structure === 'variant' && initialStockRows.length ? <div className="product-initial-stock-bulk"><label><span>ใส่จำนวนเดียวกันทุก SKU</span><input type="number" min="0" max="999999999" step="0.000001" inputMode="decimal" value={initialStockBulkQuantity} onChange={(event) => setInitialStockBulkQuantity(event.target.value)} placeholder="0" aria-label="จำนวนสต็อกเริ่มต้นสำหรับทุก SKU" aria-invalid={Boolean(initialStockBulkError)} />{initialStockBulkError ? <small className="product-field-error">{initialStockBulkError}</small> : null}</label><button className="button compact product-primary-action" type="button" disabled={!initialStockBulkQuantity.trim() || Boolean(initialStockBulkError)} onClick={() => setInitialStockQuantities((current) => ({ ...current, ...Object.fromEntries(initialStockRows.map((row) => [row.key, initialStockBulkQuantity])) }))}>ใส่ให้ทุก SKU</button><span className="product-initial-stock-progress">กรอกแล้ว <strong>{variantInitialStockFilledCount}/{initialStockRows.length}</strong> SKU</span></div> : null}                    {initialStockRows.length ? <div className="product-editor-scroll product-initial-stock-scroll"><table className="product-editor-table product-initial-stock-table"><thead><tr><th>SKU</th><th>สินค้า / ตัวเลือก</th><th>หน่วยนับ</th><th>จำนวนตั้งต้น</th></tr></thead><tbody>{initialStockRows.map((row) => <tr key={row.key}><td><code className="product-code">{row.skuCode}</code></td><td>{row.name}</td><td><span className="product-initial-stock-unit"><strong>{BASE_UNIT_LABELS[row.baseUnitCode] ?? row.baseUnitCode}</strong><small>{row.baseUnitCode}</small></span></td><td><div className="product-initial-stock-quantity"><input type="number" min="0" max="999999999" step="0.000001" inputMode="decimal" value={initialStockQuantities[row.key] ?? ''} aria-invalid={(structure === 'standard' && row.key === 'standard' && standardInitialStockErrors.length > 0) || (structure === 'variant' && variantInitialStockInvalidKeys.has(row.key))} onChange={(event) => setInitialStockQuantities((current) => ({ ...current, [row.key]: event.target.value }))} placeholder="0" aria-label={`จำนวนสต็อกเริ่มต้น ${row.skuCode}`} />{structure === 'variant' && variantInitialStockInvalidKeys.has(row.key) ? <small className="product-field-error">{initialStockQuantityError(initialStockQuantities[row.key] ?? '')}</small> : null}</div></td></tr>)}</tbody></table></div> : <p className="product-form-note">เพิ่มตัวเลือกและสร้าง SKU Combination ในส่วนที่ 3 ก่อนกำหนดสต็อกเริ่มต้น</p>}
+                    {initialStockEmptyState ? <div id="initialStockEmptyState" className="product-inline-note warning product-initial-stock-empty-state" role="status" aria-live="polite" aria-atomic="true"><span aria-hidden="true">ⓘ</span><div className="product-initial-stock-empty-content"><strong>{initialStockEmptyState.title}</strong><span>{initialStockEmptyState.reason}</span><small><strong>ขั้นตอนถัดไป:</strong> {initialStockEmptyState.nextAction}</small><small>UI Simulation เท่านั้น · ไม่มี Stock write จริง</small></div><button className="button compact secondary" type="button" onClick={focusInitialStockEmptyStateTarget} aria-describedby="initialStockEmptyState">{initialStockEmptyState.actionLabel}</button></div> : null}
+                    {structure === 'variant' && initialStockRows.length ? <div className="product-initial-stock-bulk"><label><span>ใส่จำนวนเดียวกันทุก SKU</span><input type="number" min="0" max="999999999" step="0.000001" inputMode="decimal" value={initialStockBulkQuantity} disabled={initialStockBatchStatus === 'loading' || Boolean(initialStockEmptyState) || initialStockPermissionRestricted} onChange={(event) => { markInitialStockBatchDirty(); setInitialStockBulkQuantity(event.target.value) }} placeholder="0" aria-label="จำนวนสต็อกเริ่มต้นสำหรับทุก SKU" aria-invalid={Boolean(initialStockBulkError)} />{initialStockBulkError ? <small className="product-field-error">{initialStockBulkError}</small> : null}</label><button className="button compact product-primary-action" type="button" disabled={initialStockBatchStatus === 'loading' || Boolean(initialStockEmptyState) || initialStockPermissionRestricted || !initialStockBulkQuantity.trim() || Boolean(initialStockBulkError)} onClick={() => { markInitialStockBatchDirty(); setInitialStockQuantities((current) => ({ ...current, ...Object.fromEntries(initialStockRows.map((row) => [row.key, initialStockBulkQuantity])) })) }}>ใส่ให้ทุก SKU</button><span className="product-initial-stock-progress">กรอกแล้ว <strong>{variantInitialStockFilledCount}/{initialStockRows.length}</strong> SKU</span></div> : null}                    {initialStockRows.length ? <div className="product-editor-scroll product-initial-stock-scroll"><table className="product-editor-table product-initial-stock-table"><thead><tr><th>SKU</th><th>สินค้า / ตัวเลือก</th><th>หน่วยนับ</th><th>จำนวนตั้งต้น</th></tr></thead><tbody>{initialStockRows.map((row) => { const batchIssues = initialStockBatchIssuesByKey.get(row.key) ?? []; const skuIssue = batchIssues.find((issue) => issue.field === 'skuCode'); const unitIssue = batchIssues.find((issue) => issue.field === 'baseUnitCode'); const quantityIssue = batchIssues.find((issue) => issue.field === 'quantity'); return <tr key={row.key} data-batch-invalid={batchIssues.length ? 'true' : 'false'}><td data-field-invalid={skuIssue ? 'true' : 'false'}><code className="product-code">{row.skuCode}</code>{skuIssue ? <small className="product-field-error product-initial-stock-row-batch-error">{skuIssue.message}</small> : null}</td><td>{row.name}</td><td data-field-invalid={unitIssue ? 'true' : 'false'}><span className="product-initial-stock-unit"><strong>{BASE_UNIT_LABELS[row.baseUnitCode] ?? row.baseUnitCode}</strong><small>{row.baseUnitCode}</small>{unitIssue ? <small className="product-field-error product-initial-stock-row-batch-error">{unitIssue.message}</small> : null}</span></td><td><div className="product-initial-stock-quantity"><input type="number" min="0" max="999999999" step="0.000001" inputMode="decimal" value={initialStockQuantities[row.key] ?? ''} disabled={initialStockBatchStatus === 'loading' || Boolean(initialStockEmptyState) || initialStockPermissionRestricted} aria-invalid={Boolean(quantityIssue) || (structure === 'standard' && row.key === 'standard' && standardInitialStockErrors.length > 0) || (structure === 'variant' && variantInitialStockInvalidKeys.has(row.key))} onChange={(event) => { markInitialStockBatchDirty(); setInitialStockQuantities((current) => ({ ...current, [row.key]: event.target.value })) }} placeholder="0" aria-label={`จำนวนสต็อกเริ่มต้น ${row.skuCode}`} />{structure === 'variant' && variantInitialStockInvalidKeys.has(row.key) && !quantityIssue ? <small className="product-field-error">{initialStockQuantityError(initialStockQuantities[row.key] ?? '')}</small> : null}{quantityIssue ? <small className="product-field-error product-initial-stock-row-batch-error">{quantityIssue.message}</small> : null}</div></td></tr> })}</tbody></table></div> : null}
                     {structure === 'standard' && standardInitialStockErrors.length ? <div className="product-initial-stock-validation danger" role="alert"><strong>กรุณาตรวจข้อมูลสต็อกเริ่มต้น</strong><ul>{standardInitialStockErrors.map((error) => <li key={error}>{error}</li>)}</ul></div> : null}
                     {structure === 'variant' && variantInitialStockErrors.length ? <div className="product-initial-stock-validation danger" role="alert"><strong>กรุณาตรวจสต็อกของ SKU Combination</strong><ul>{variantInitialStockErrors.map((error) => <li key={error}>{error}</li>)}</ul></div> : null}
                     <div className="product-initial-stock-summary"><span>รวมยอดตั้งต้น</span><strong>{new Intl.NumberFormat('th-TH', { maximumFractionDigits: 6 }).format(initialStockTotal)} {BASE_UNIT_LABELS[summaryFields.baseUnitCode] ?? (summaryFields.baseUnitCode || 'หน่วย')}</strong></div>
+                    <section className="product-initial-stock-batch-panel" data-state={initialStockBatchStatus} aria-labelledby="initialStockBatchTitle" aria-busy={initialStockBatchStatus === 'loading'}>
+                      <header><div><strong id="initialStockBatchTitle">ตรวจสอบ Initial Stock แบบ Batch เดียว</strong><small>{initialStockBatchId} · UI Simulation</small></div><span className="product-status-pill draft"><i aria-hidden="true" />ไม่ส่ง Backend</span></header>
+                      {initialStockBatchStatus === 'loading' ? <div className="product-initial-stock-batch-state info loading" role="status" aria-live="polite" aria-atomic="true"><span className="product-loading-spinner" aria-hidden="true" /><div><strong>{initialStockPermissionDenied ? 'กำลังตรวจสอบสิทธิ์อีกครั้ง…' : initialStockLastAttemptFailed ? 'กำลังลองอีกครั้งด้วย Batch ใหม่…' : 'กำลังตรวจสอบทั้ง Batch…'}</strong><span>ปุ่มยืนยันและข้อมูลใน Batch ถูกปิดชั่วคราวเพื่อป้องกันการกดซ้ำ</span></div></div> : null}
+                      {initialStockBatchStatus === 'conflict' ? <div className="product-initial-stock-batch-state danger conflict" role="alert" aria-live="assertive"><strong>พบข้อมูล Initial Stock เปลี่ยนแปลงพร้อมกัน — Rollback ทั้ง Batch</strong><span>ไม่มี SKU ใดถูกเพิ่มสต็อก กรุณาตรวจสอบข้อมูลล่าสุดก่อนลองอีกครั้ง</span><div className="product-initial-stock-rollback-impact" aria-label="ผลกระทบจาก concurrent conflict"><span><strong>{initialStockAffectedSkuCount}</strong> SKU ใน Batch</span><span><strong>0</strong> SKU ที่บันทึก</span></div><div className="product-initial-stock-rollback-reasons"><strong>สาเหตุ</strong><ul><li>ข้อมูลปลายทางหรือยอดอ้างอิงถูกแก้ไขระหว่างการตรวจสอบ Batch</li></ul></div><div id="initialStockConflictReviewStatus" className={`product-initial-stock-conflict-review ${initialStockConflictReviewed ? 'reviewed' : ''}`} role="status"><strong>{initialStockConflictReviewed ? 'ตรวจสอบข้อมูลล่าสุดแล้ว' : 'ต้องตรวจสอบก่อน Retry'}</strong><span>{initialStockConflictReviewed ? 'ข้อมูลปัจจุบันผ่าน Validation พร้อมลองใหม่ด้วย Batch ID ใหม่' : 'Retry จะยังปิดอยู่จนกว่าจะตรวจข้อมูลปลายทางและทุก SKU อีกครั้ง'}</span></div><div className="product-initial-stock-rollback-actions"><button className="button compact secondary" type="button" onClick={reviewInitialStockConflict} disabled={initialStockConflictReviewed || Boolean(initialStockEmptyState)} aria-describedby={initialStockEmptyState ? "initialStockEmptyState" : "initialStockConflictReviewStatus"}>{initialStockConflictReviewed ? 'ตรวจสอบแล้ว' : 'ตรวจสอบข้อมูลอีกครั้ง'}</button><button className="button compact product-primary-action" type="button" onClick={retryInitialStockBatch} disabled={initialStockBatchActionDisabled || !initialStockConflictReviewed} aria-busy={initialStockBatchBusy} aria-describedby={initialStockEmptyState ? "initialStockEmptyState" : "initialStockConflictReviewStatus"}>ลองอีกครั้ง</button></div></div> : null}
+                      {initialStockShowValidation ? <div className="product-initial-stock-batch-state danger" role="alert" aria-live="assertive"><strong>{initialStockBatchStatus === 'error' ? 'บันทึก Initial Stock ไม่สำเร็จ — Rollback ทั้ง Batch' : 'ข้อมูล Batch ยังไม่ครบ — แก้ไขต่อได้ทันที'}</strong><span>{initialStockBatchStatus === 'error' ? 'ไม่มี SKU ใดถูกเพิ่มสต็อก ข้อมูลที่กรอกยังอยู่ครบเพื่อให้แก้ไขได้' : 'ระบบตรวจใหม่จากข้อมูลปัจจุบัน จุดที่แก้ถูกแล้วจะหายจากรายการโดยอัตโนมัติ'}</span><div className="product-initial-stock-rollback-impact" aria-label="ผลกระทบจากการย้อนกลับทั้ง Batch"><span><strong>{initialStockAffectedSkuCount}</strong> SKU ใน Batch</span><span><strong>0</strong> SKU ที่บันทึก</span></div>{initialStockLiveBatchErrors.length ? <div className="product-initial-stock-rollback-reasons"><strong>สาเหตุที่ต้องแก้</strong><ul>{initialStockLiveBatchErrors.map((error) => <li key={error}>{error}</li>)}</ul></div> : null}{initialStockLiveBatchIssues.length ? <div className="product-initial-stock-rollback-reasons"><strong>รายการ SKU ที่พบปัญหา</strong><ul>{initialStockLiveBatchIssues.map((issue) => <li key={`${issue.rowKey}-${issue.message}`}><code>{issue.skuCode}</code> — {issue.message}</li>)}</ul></div> : null}<div className="product-initial-stock-rollback-actions"><button className="button compact secondary" type="button" onClick={focusInitialStockCorrectionTarget}>แก้ไขข้อมูล</button><button className="button compact product-primary-action" type="button" onClick={retryInitialStockBatch} disabled={initialStockBatchActionDisabled} aria-busy={initialStockBatchBusy} aria-describedby={initialStockEmptyState ? "initialStockEmptyState" : undefined}>ลองอีกครั้ง</button></div></div> : null}
+                      {initialStockBatchStatus === 'permission' ? <div id="initialStockPermissionState" className="product-initial-stock-batch-state permission" role="alert" aria-live="assertive" tabIndex={-1}><strong>{initialStockPermissionCopy.title}</strong><span>{initialStockPermissionCopy.detail}</span><div className="product-initial-stock-rollback-impact" aria-label={'\u0e1c\u0e25\u0e01\u0e23\u0e30\u0e17\u0e1a\u0e08\u0e32\u0e01\u0e2a\u0e34\u0e17\u0e18\u0e34\u0e4c\u0e44\u0e21\u0e48\u0e40\u0e1e\u0e35\u0e22\u0e07\u0e1e\u0e2d'}><span><strong>{initialStockAffectedSkuCount}</strong> SKU {'\u0e43\u0e19 Batch'}</span><span><strong>0</strong> SKU {'\u0e17\u0e35\u0e48\u0e1a\u0e31\u0e19\u0e17\u0e36\u0e01'}</span></div><div className="product-initial-stock-permission-guidance"><strong>{'\u0e02\u0e31\u0e49\u0e19\u0e15\u0e2d\u0e19\u0e16\u0e31\u0e14\u0e44\u0e1b'}</strong><span>{initialStockPermissionCopy.nextAction}</span><small>{'UI Simulation \u0e40\u0e17\u0e48\u0e32\u0e19\u0e31\u0e49\u0e19 \u00b7 \u0e44\u0e21\u0e48\u0e21\u0e35 Stock write \u0e2b\u0e23\u0e37\u0e2d Stock Movement \u0e08\u0e23\u0e34\u0e07'}</small></div><div className="product-initial-stock-rollback-actions">{initialStockPermissionReason === 'destination' ? <button className="button compact secondary" type="button" onClick={focusInitialStockDestinationChoice}>{'\u0e40\u0e25\u0e37\u0e2d\u0e01\u0e2a\u0e32\u0e02\u0e32\u0e2b\u0e23\u0e37\u0e2d\u0e04\u0e25\u0e31\u0e07\u0e43\u0e2b\u0e21\u0e48'}</button> : null}<button className="button compact product-primary-action" type="button" onClick={recheckInitialStockPermission} disabled={initialStockBatchBusy} aria-busy={initialStockBatchBusy}>{'\u0e15\u0e23\u0e27\u0e08\u0e2a\u0e2d\u0e1a\u0e2a\u0e34\u0e17\u0e18\u0e34\u0e4c\u0e2d\u0e35\u0e01\u0e04\u0e23\u0e31\u0e49\u0e07'}</button></div></div> : null}
+                      {initialStockBatchStatus === 'success' ? <div id="initialStockBatchSuccess" className="product-initial-stock-batch-state success" role="status" aria-live="polite" aria-atomic="true" tabIndex={-1}><div className="product-initial-stock-success-heading"><span className="product-status-pill active"><i aria-hidden="true" />ตรวจครบทั้ง Batch</span><strong>ทุก SKU ผ่านการตรวจสอบทั้ง Batch</strong></div><span>ข้อมูลครบและพร้อมใช้เมื่อเชื่อม Backend โดยผลตรวจนี้ไม่มีการบันทึกสำเร็จเพียงบางรายการ</span><dl className="product-initial-stock-success-summary"><div><dt>Reference</dt><dd>{initialStockCurrentResult.batchId}</dd></div><div><dt>SKU ที่ผ่าน</dt><dd>{initialStockCurrentResult.skuCount}/{initialStockCurrentResult.skuCount} รายการ</dd></div><div><dt>จำนวนรวม</dt><dd>{new Intl.NumberFormat('th-TH', { maximumFractionDigits: 6 }).format(initialStockCurrentResult.totalQuantity)} {initialStockCurrentResult.unitLabel}</dd></div><div><dt>ปลายทาง</dt><dd>{initialStockCurrentResult.destinationLabel}</dd></div></dl><div className="product-initial-stock-success-safety"><strong>ตรวจผ่านเท่านั้น — ยังไม่ได้เพิ่มสต็อกจริง</strong><span>เป็นผลจาก UI Simulation เท่านั้น ยังไม่มีการเพิ่ม Stock หรือสร้าง Stock Movement จริง จนกว่า Backend Phase T จะเชื่อมต่อ</span></div></div> : null}
+                      {initialStockBatchStatus === 'duplicate' ? <div className="product-initial-stock-batch-state info duplicate" role="status" aria-live="polite" aria-atomic="true"><div className="product-initial-stock-duplicate-heading"><span className="product-status-pill"><i aria-hidden="true" />ผลตรวจเดิม</span><strong>พบคำสั่งซ้ำ — แสดงผลลัพธ์เดิม</strong></div><span>ข้อมูลชุดนี้ตรงกับ Batch ที่เคยตรวจผ่านใน Browser session นี้ ระบบจึงไม่เริ่มรายการใหม่</span><dl className="product-initial-stock-duplicate-summary"><div><dt>Reference</dt><dd>{initialStockDuplicateResult.batchId}</dd></div><div><dt>SKU</dt><dd>{initialStockDuplicateResult.skuCount} รายการ</dd></div><div><dt>จำนวนรวม</dt><dd>{new Intl.NumberFormat('th-TH', { maximumFractionDigits: 6 }).format(initialStockDuplicateResult.totalQuantity)} {initialStockDuplicateResult.unitLabel}</dd></div><div><dt>ปลายทาง</dt><dd>{initialStockDuplicateResult.destinationLabel}</dd></div></dl><div className="product-initial-stock-duplicate-safety"><strong>ไม่มีการเพิ่มสต็อกซ้ำ</strong><span>เป็น Duplicate UI Simulation เท่านั้น ยังไม่มี Stock write หรือ Stock Movement จริง</span></div></div> : null}
+                      {initialStockBatchStatus === 'idle' ? <p>ระบบจะตรวจปลายทางและทุก SKU พร้อมกัน หากแถวใดผิดจะถือว่า Batch ทั้งชุดไม่ผ่าน</p> : null}
+                      <footer><span className="product-initial-stock-footer-note">การลองอีกครั้งจะสร้าง Batch ID ใหม่ โดยเก็บค่าจำนวน สาขา คลัง และตำแหน่งเดิมไว้</span>{initialStockBatchStatus === 'success' || initialStockBatchStatus === 'duplicate' ? <button className="button compact secondary" type="button" onClick={simulateInitialStockConflict}>จำลอง Conflict</button> : null}{initialStockBatchStatus === 'success' || initialStockBatchStatus === 'duplicate' || initialStockBatchStatus === 'permission' ? <span className="product-initial-stock-permission-simulations" aria-label={'จำลองสถานะสิทธิ์'}><button className="button compact secondary" type="button" onClick={() => simulateInitialStockPermission('receive')}>{'ไม่มีสิทธิ์รับสต็อก'}</button><button className="button compact secondary" type="button" onClick={() => simulateInitialStockPermission('destination')}>{'ไม่มีสิทธิ์ปลายทาง'}</button><button className="button compact secondary" type="button" onClick={() => simulateInitialStockPermission('changed')}>{'สิทธิ์เปลี่ยนระหว่างตรวจ'}</button></span> : null}{!initialStockShowValidation && initialStockBatchStatus !== 'conflict' && initialStockBatchStatus !== 'permission' ? <button className="button compact product-primary-action" type="button" onClick={initialStockLastAttemptFailed ? retryInitialStockBatch : validateInitialStockBatch} disabled={initialStockBatchActionDisabled} aria-busy={initialStockBatchStatus === 'loading'} aria-describedby={initialStockEmptyState ? "initialStockEmptyState" : undefined}>{initialStockBatchStatus === 'loading' ? <><span className="product-loading-spinner compact" aria-hidden="true" />กำลังประมวลผล…</> : initialStockLastAttemptFailed ? 'ลองอีกครั้ง' : initialStockBatchStatus === 'success' || initialStockBatchStatus === 'duplicate' ? 'ตรวจ Batch เดิมอีกครั้ง' : 'ตรวจสอบ Batch ทั้งชุด'}</button> : null}</footer>
+                    </section>
                     <div className="product-inline-note">ค่าที่กรอกจะไม่หายเมื่อปิด–เปิดหรือสลับรูปแบบสินค้า และถูกล้างเมื่อเริ่มสินค้ารายการใหม่</div>
                   </>
                 : <p className="product-form-note">{initialStockHasDraftValues ? 'ปิดการแสดงผลไว้ · ค่าที่กรอกก่อนหน้ายังคงอยู่และจะแสดงเมื่อเปิดอีกครั้ง' : 'ยังไม่กำหนดสต็อกเริ่มต้น — สามารถสร้างสินค้าไว้ก่อน แล้วรับสินค้าเข้าคลังภายหลังได้'}</p>}
@@ -3336,7 +3696,7 @@ export function UnifiedProductCreationForm({
           </div>
           <div className="product-form-grid three product-inventory-policy-grid">
             <label><span>กันสต๊อกสินค้า (Safety Stock)</span><input name="safetyStock" type="number" min="0" max="999999999" step="0.000001" inputMode="decimal" defaultValue="0" /><small>จำนวน Buffer ที่ไม่ต้องการนำไปเสนอขาย</small></label>
-            <label><span>จำนวน Min ในการเติม</span><input name="reorderMin" type="number" min="0" max="999999999" step="0.000001" inputMode="decimal" placeholder="0" />{inventoryFeedback.includes('Min ต้องไม่น้อยกว่า Safety Stock') ? <small className="product-field-error">Min ต้องไม่น้อยกว่า Safety Stock</small> : null}</label>
+            <label><span>จำนวน Min ในการเติม</span><input name="reorderMin" type="number" min="0" max="999999999" step="0.000001" inputMode="decimal" placeholder="0" /><small>แจ้งเตือนเมื่อจำนวนพร้อมขายเหลือเท่ากับหรือต่ำกว่าค่านี้ เช่น ใส่ 3 ระบบจะเริ่มเตือนเมื่อเหลือ 3</small>{inventoryFeedback.includes('Min ต้องไม่น้อยกว่า Safety Stock') ? <small className="product-field-error">Min ต้องไม่น้อยกว่า Safety Stock</small> : null}</label>
             <label><span>จำนวน Max ในการเติม</span><input name="reorderMax" type="number" min="0" max="999999999" step="0.000001" inputMode="decimal" placeholder="0" />{inventoryFeedback.includes('Max ต้องไม่น้อยกว่า Min') ? <small className="product-field-error">Max ต้องไม่น้อยกว่า Min</small> : null}</label>
             <label><span>จำนวนที่ใช้ได้</span><input type="text" value="คำนวณหลังสร้าง SKU และรับ Stock" readOnly /><small>Derived value ห้ามกรอกหรือแก้โดยตรง</small></label>
           </div>
@@ -3430,7 +3790,7 @@ export function UnifiedProductCreationForm({
         </div>
       </aside>
     </form>
-    {creationSuccess ? <div className="product-success-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeSuccessDialog() }}><section ref={successDialogRef} className="product-success-dialog" role="dialog" aria-modal="true" aria-labelledby="productSuccessTitle" aria-describedby="productSuccessMessage" onKeyDown={handleSuccessDialogKeyDown}><div className="product-success-body"><div className="product-success-mark" aria-hidden="true">✓</div><h2 id="productSuccessTitle">สร้างสินค้าเรียบร้อยแล้ว</h2><p id="productSuccessMessage">{creationSuccess.productCount ? `สินค้า ${creationSuccess.productCount} รายการ พร้อม ${creationSuccess.skuCount} SKU ถูกสร้างเป็นฉบับร่าง และอัปโหลดรูปสินค้าครบแล้ว` : `${creationSuccess.productName} พร้อม ${creationSuccess.skuCount} SKU ถูกสร้างและเปิดใช้งานแล้ว`}</p><span>{creationSuccess.productCount ? 'Product Queue อยู่นอก T5.2 และยังไม่เปิดใช้งานหรือเพิ่ม Stock' : creationSuccess.stockStatus === 'completed' ? 'Initial Stock ถูกบันทึกครบทั้ง Batch และสร้าง Stock Movement แล้ว' : 'Initial Stock ถูกปิดไว้ จึงข้าม Receive โดยไม่สร้าง Stock Movement'}</span></div><footer><div className="product-success-actions"><Link className="button secondary" href={productsHref}>กลับหน้ารายการสินค้า</Link><button className="button product-primary-action" type="button" onClick={createNextProduct}>สร้างสินค้ารายการถัดไป</button></div>{creationSuccess.productCount ? null : <Link className="product-success-detail-link" href={`${productsHref}?product=${creationSuccess.productId}`}>ดูรายละเอียดสินค้านี้ →</Link>}</footer></section></div> : null}
+    {creationSuccess ? <div className="product-success-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeSuccessDialog() }}><section ref={successDialogRef} className="product-success-dialog" role="dialog" aria-modal="true" aria-labelledby="productSuccessTitle" aria-describedby="productSuccessMessage" onKeyDown={handleSuccessDialogKeyDown}><div className="product-success-body"><div className="product-success-mark" aria-hidden="true">✓</div><h2 id="productSuccessTitle">สร้างสินค้าเรียบร้อยแล้ว</h2><p id="productSuccessMessage">{creationSuccess.productCount ? `สินค้า ${creationSuccess.productCount} รายการ พร้อม ${creationSuccess.skuCount} SKU ถูกสร้างเป็นฉบับร่าง` : `${creationSuccess.productName} พร้อม ${creationSuccess.skuCount} SKU ถูกสร้างและเปิดใช้งานแล้ว`}{creationSuccess.imageCount ? ` และอัปโหลดรูปสำเร็จ ${creationSuccess.imageCount} รูป` : ' โดยยังไม่มีรูปสินค้า สามารถเพิ่มรูปภายหลังได้'}</p><span>{creationSuccess.productCount ? 'Product Queue อยู่นอก T5.2 และยังไม่เปิดใช้งานหรือเพิ่ม Stock' : creationSuccess.stockStatus === 'completed' ? 'Initial Stock ถูกบันทึกครบทั้ง Batch และสร้าง Stock Movement แล้ว' : 'Initial Stock ถูกปิดไว้ จึงข้าม Receive โดยไม่สร้าง Stock Movement'}</span></div><footer><div className="product-success-actions"><Link className="button secondary" href={productsHref}>กลับหน้ารายการสินค้า</Link><button className="button product-primary-action" type="button" onClick={createNextProduct}>สร้างสินค้ารายการถัดไป</button></div>{creationSuccess.productCount ? null : <Link className="product-success-detail-link" href={`${productsHref}?product=${creationSuccess.productId}`}>ดูรายละเอียดสินค้านี้ →</Link>}</footer></section></div> : null}
     <button className="product-back-to-top" type="button" aria-label="กลับด้านบน" title="กลับด้านบน" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>↑</button>
   </>
 }

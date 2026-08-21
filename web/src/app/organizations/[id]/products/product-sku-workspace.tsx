@@ -971,10 +971,7 @@ export function ProductSkuWorkspace({
           <summary className="button">＋ สร้างสินค้า <span aria-hidden="true">▾</span></summary>
           <div className="product-create-menu-panel" role="menu">
             <Link role="menuitem" href={`/organizations/${organizationId}/products/new`}><strong>สร้างสินค้าปกติ</strong><small>ข้อมูลครบสำหรับสินค้าขายประจำและเติม Stock ต่อเนื่อง</small></Link>
-            <button type="button" role="menuitem" onClick={(event) => {
-              event.currentTarget.closest('details')?.removeAttribute('open')
-              setFeedback({ tone: 'info', text: 'สร้างสินค้าขายด่วน / Live Sale อยู่ในแผนเชื่อมระบบจริงหลังสัญญา Atomic Sales Code พร้อมใช้งาน' })
-            }}><strong>สร้างสินค้าขายด่วน / Live Sale</strong><small>จอง Sales Code และเพิ่มสินค้ามาไว–ไปไวต่อเนื่อง</small></button>
+            <Link role="menuitem" href={`/organizations/${organizationId}/products/live-sale`}><strong>สร้างสินค้าขายด่วน / Live Sale</strong><small>จอง Sales Code และเพิ่มสินค้ามาไว–ไปไวต่อเนื่อง</small></Link>
           </div>
         </details> : <span className="product-readonly-note">อ่านอย่างเดียว</span>}
       </div>

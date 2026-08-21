@@ -34,7 +34,7 @@
 
 | ชนิดรหัส | ตัวอย่าง | ขอบเขต | หน้าที่ |
 |---|---|---|---|
-| SKU Code | `TS-BLU-S` | Unique ภายใน Organization | รหัสถาวรภายในของ SKU แต่ละตัวเลือก |
+| SKU Code | `TS-001-BLU-S` | Unique ภายใน Organization | รหัสถาวรภายในของ SKU แต่ละตัวเลือก |
 | Sales Code / รหัส CF ประจำสินค้า | `A001` | Unique ภายใน Organization และชี้ไปยัง SKU เดียว | ค้นหา สแกน รับ CF หรือเปิดบิลแบบถาวร |
 | Barcode | `8851234567890` | ตาม Identifier Contract และต้อง resolve เป็น SKU เดียว | สแกนสินค้า |
 | Live Code | `B001` | Unique ภายใน Live Session หรือชุดจองรหัส | รหัสชั่วคราวที่ใช้ร่วมกับสี/ไซซ์ในรอบ Live |
@@ -52,10 +52,10 @@ Product หนึ่งรายการสามารถมี Option Group �
 
 | Product | Live Code | สี | ไซซ์ | SKU Code |
 |---|---|---|---|---|
-| เสื้อยืด Basic | B001 | สีฟ้า | S | `TS-BLU-S` |
-| เสื้อยืด Basic | B001 | สีฟ้า | M | `TS-BLU-M` |
-| เสื้อยืด Basic | B001 | สีฟ้า | L | `TS-BLU-L` |
-| เสื้อยืด Basic | B001 | สีฟ้า | XL | `TS-BLU-XL` |
+| เสื้อยืด Basic | B001 | สีฟ้า | S | `TS-001-BLU-S` |
+| เสื้อยืด Basic | B001 | สีฟ้า | M | `TS-001-BLU-M` |
+| เสื้อยืด Basic | B001 | สีฟ้า | L | `TS-001-BLU-L` |
+| เสื้อยืด Basic | B001 | สีฟ้า | XL | `TS-001-BLU-XL` |
 
 แต่ละ SKU Combination ต้องกำหนดหรือสืบทอดข้อมูลต่อไปนี้ได้:
 
@@ -67,6 +67,22 @@ Product หนึ่งรายการสามารถมี Option Group �
 - ชื่อเรียกอื่นของ Option เช่น `ฟ้า`, `สีฟ้า`, `Blue`
 
 สี/ไซซ์เป็น Variant Option ส่วนคู่/ชิ้น/แพ็ค/กล่องเป็นหน่วยนับหรือหน่วยขาย ห้ามนำสองแนวคิดนี้มารวมเป็นข้อมูลเดียว
+
+### 4.1 SKU-01 Owner-approved SKU Code Standard
+
+Authority: `AVENZO_ONE_SKU-01_Variant_SKU_Code_Standard.md`
+
+รูปแบบมาตรฐานสำหรับ Product ใหม่:
+
+```text
+{PRODUCT_PREFIX}-{PRODUCT_SEQUENCE}-{OPTION_CODE_1}[-{OPTION_CODE_2}...]
+```
+
+- สีทอง: `TS-001-GLD`
+- สีเงิน: `TS-001-SLV`
+- สีทอง ไซซ์ S: `TS-001-GLD-S`
+- Product ถัดไปภายใต้ Prefix TS: `TS-002-...`
+- ห้ามเปลี่ยน SKU เดิมอัตโนมัติ; Client เป็น Preview และ Database transaction เป็นผู้ยืนยัน Unique ขั้นสุดท้าย
 
 ## 5. Live CF Resolution Contract
 
@@ -227,9 +243,18 @@ Stop gate: **หยุดให้ Owner ทดสอบ UI และข้อ�
 
 นำ Mockup ชุดรหัสขายด่วนมาเชื่อมระบบจริง โดยสร้าง Live Session และผูก Live Code กับ Product/Variant
 
+แนวทาง Rapid Entry Table รุ่นใหม่ถูกล็อกไว้ใน
+`AVENZO_ONE_Live_Sale_Rapid_Entry_Table_Development_Guide_V1.md` โดยเปลี่ยนจาก
+การกรอกทีละสินค้าเป็นตารางสูงสุด 50 แถว, รองรับคอม/Tablet แนวนอนตั้งแต่
+1,024 CSS pixels, Naming Template ที่มี `{code}`, Inline edit, รูปต่อแถว,
+Bulk price/stock/unit/Branch และแยก UI approval ออกจาก Backend integration
+อย่างชัดเจน
+
 เกณฑ์ผ่าน:
 
-- จอง `B001–B070` ได้แบบ Atomic
+- จองช่วงต่อเนื่องสูงสุด 50 รหัส เช่น `B001–B050` ได้แบบ Atomic
+- ตรวจ Prefix แบบ Advisory และแนะนำช่วงว่างถัดไป ก่อนยืนยันด้วย Atomic claim
+- สร้างชื่อพร้อมใช้จาก Naming Template เช่น `PayDay-{code}` และแก้เฉพาะแถวได้
 - กำหนดสาขา ผู้รับผิดชอบ เวลาเริ่ม/จบ และสถานะได้
 - Live Code เดิมใช้ซ้ำต่าง Session ได้ตาม Contract
 - ปิด/หมดอายุ Session แล้วจัดการรหัสอย่างปลอดภัย
@@ -305,7 +330,7 @@ Stop gate: **หยุดให้ Owner ทดสอบ UI และข้อ�
 | 4. Atomic Sales Code Allocator | Completed locally | Registry + sequence/reservation + idempotency/audit + concurrency ผ่าน |
 | 5. Unified Variant Creation | Completed locally | Atomic graph + Variant image recovery + UI/F5 + SQL/TS/build ผ่าน · `AVENZO_ONE_Product_Variant_B5_Unified_Variant_Creation.md` |
 | 6. Products Workspace Alignment | Not started | รักษา Approved Products UI |
-| 7. Live Sale Reservation | Not started | ใช้ Approved Live Sale concept |
+| 7. Live Sale Reservation | UI planning in progress | Live-UI-01–04 completed locally; Rapid Entry Table V1 requirements frozen in `AVENZO_ONE_Live_Sale_Rapid_Entry_Table_Development_Guide_V1.md` |
 | 8. Deterministic Live CF Parser | Not started | ไม่ใช้ AI เป็น Authority |
 | 9. Reservation, Stock & Billing | Not started | ทุกคำสั่ง resolve เป็น sku_id |
 | 10. Migration, Rollout & E2E | Not started | ต้องหยุดให้ Owner ทดสอบ |
@@ -503,6 +528,7 @@ Stop Gate: Phase V เป็น Future Plan เท่านั้น ห้า�
 | 16 ส.ค. 2026 | ทำ Mockup ก่อนระบบจริง และพัฒนาทีละ Part พร้อม Stop Gate |
 | 16 ส.ค. 2026 | Variant ใช้ Base Unit ร่วม, Sales Code/CF และราคาขายต่อ Combination; Tax Category/ต้นทุนเป็นค่าร่วมเริ่มต้น |
 | 18 ส.ค. 2026 | Initial Stock ในหน้าสร้างสินค้าเป็น Optional UX แต่ต้องสร้าง Inventory Movement ต่อ SKU/Location ห้ามแก้ Balance โดยตรง |
+| 20 ส.ค. 2026 | รูปสินค้าใน Product Creation เป็น Optional และปิด Section เป็นค่าเริ่มต้น: ผู้ใช้สร้าง Product/SKU แบบ Draft โดยไม่มีรูปได้ แล้วเพิ่มรูปภายหลัง; Section เปิดอัตโนมัติเมื่อมีรูปใน Draft หรือเกิดข้อผิดพลาด และรูปที่เลือกยังคงผ่าน Image Gate สูงสุด 9 ภาพ |
 | 18 ส.ค. 2026 | เลือกสินค้าเข้ารอบ Live ไม่ลด on_hand; CF ต้องสร้าง Reservation ก่อน และขายออกเมื่อถึง Fulfillment milestone ที่อนุมัติ |
 | 18 ส.ค. 2026 | Live Session ระยะแรกใช้ Fulfillment Warehouse/Location ที่ชัดเจน ไม่ตัด Stock กลางระดับ Organization |
 | 18 ส.ค. 2026 | T1 ล็อก Initial Stock เป็น recoverable two-stage workflow: สร้าง/activate Product+SKU ก่อน แล้วใช้ idempotent `receive` ต่อ SKU/Location; draft ไม่ post stock, Virtual Bundle ไม่รับยอด และ Preassembled Bundle รอ Assembly contract |
@@ -516,3 +542,4 @@ Stop Gate: Phase V เป็น Future Plan เท่านั้น ห้า�
 | 19 ส.ค. 2026 | เพิ่ม C14 Connected Commerce Intelligence เป็น Future Plan: เชื่อม intent/timing กับ Stock/Price Authority, Notification, Live, Order, Review และ Attribution โดยต้องผ่าน Consent/KPI/Frequency Gate |
 | 19 ส.ค. 2026 | เพิ่ม C15 Customer Transaction Standing & Fair Recovery เป็น Future Plan: แสดงสถานะการทำรายการแบบข้อเท็จจริง ใช้ progressive friction/time decay/recovery และ human review/appeal ก่อนจำกัดสิทธิ์ โดยแยกข้อมูลตาม Organization |
 | 19 ส.ค. 2026 | เพิ่ม C16 Customer Benefits & Loyalty Layer เป็น Future Plan: แยกสิทธิ์ร้านค้าและสิทธิ์แพลตฟอร์ม มี eligibility/expiry/re-evaluation, fairness, privacy และ appeal โดยไม่จัดอันดับคุณค่าลูกค้า |
+| 20 ส.ค. 2026 | SKU-04 Completed: เพิ่ม Server Preview และ Organization+Prefix high-water allocator; จอง Product Sequence พร้อม Product+SKU Variant ใน Transaction เดียว ใช้ advisory lock, idempotency และ rollback ทั้งชุด; ผ่าน isolated database/concurrency tests และ Apply Migration `20260820134813` เฉพาะ AVENZO ONE PREVIEW แล้ว โดย Production ไม่ถูกแตะ |

@@ -39,7 +39,10 @@ test('R3 renders the approved real-data default columns and R7.4.3 price read mo
   for (const label of ['สินค้า', 'รหัส CF', 'SKU / ตัวเลือก', 'สต็อก', 'หน่วยนับ', 'ราคาขาย', 'สถานะ', 'แก้ไขล่าสุด']) {
     assert.match(grid, new RegExp(label.replace('/', '\\/')))
   }
-  assert.doesNotMatch(grid, /costPrice/)
+  assert.match(grid, /quickEdit\.kind === 'cost'/)
+  assert.match(grid, /name="costPrice"/)
+  assert.match(grid, /canManage && canReadCost/)
+  assert.match(grid, /ข้อมูลจำกัดสิทธิ์และบันทึก Audit Log เมื่อแก้ไข/)
   assert.match(grid, /row\.price\.mode/)
   assert.match(grid, /product-grid-placeholder/)
 })

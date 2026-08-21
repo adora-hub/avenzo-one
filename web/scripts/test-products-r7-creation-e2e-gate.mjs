@@ -26,7 +26,7 @@ test('R7.3 restores valid recovery state and removes an unsafe record', async ()
 test('R7.3 retries image recovery without repeating atomic Product creation', async () => {
   const form = await read(formPath)
   assert.match(form, /let recovery = pendingDraft/)
-  assert.match(form, /if \(!recovery\) \{[\s\S]*const isVariantCreation = structure === 'variant'/)
+  assert.match(form, /if \(!recovery\) \{[\s\S]*const isVariantCreation = creationStructure === 'variant'/)
   assert.match(form, /commandType: isVariantCreation \? 'product\.create_with_variants' : 'product\.create_with_initial_sku'/)
   assert.match(form, /uploadImages\(recovery\.productId, recovery\.productName, recovery\.readyImageIdsByClientId\)/)
 })
@@ -42,7 +42,7 @@ test('R7.3 opens success only after every selected image finishes', async () => 
   const form = await read(formPath)
   assert.ok(form.indexOf('if (failedCount > 0)') < form.indexOf('setCreationSuccess({'))
   assert.match(form, /setPendingDraft\(null\)/)
-  assert.match(form, /setCreationSuccess\(\{ productId: recovery\.productId/)
+  assert.match(form, /setCreationSuccess\(\{\s*productId: recovery\.productId,\s*productName: recovery\.productName,\s*skuCount: createdSkuCount,\s*stockStatus,\s*imageCount: completedImageCount,\s*\}\)/)
 })
 
 test('R7.3 keeps the success dialog accessible and truthful about stock', async () => {

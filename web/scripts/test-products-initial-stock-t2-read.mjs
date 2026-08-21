@@ -41,7 +41,7 @@ test('T2 uses real cascading warehouse and location identifiers', async () => {
 
 test('T2 selector states remain and T5.2 adds only the approved trusted write boundary', async () => {
   const form = await read(formPath)
-  for (const text of ['กำลังโหลดคลังและตำแหน่งจัดเก็บ', 'ลองใหม่', 'ยังไม่มีคลังและตำแหน่งจัดเก็บที่พร้อมใช้งาน', 'ต้องมีสิทธิ์ดูคลังและรับสต็อก']) {
+  for (const text of ['กำลังโหลดคลังและตำแหน่งจัดเก็บ', 'ลองใหม่', 'ยังไม่มีคลังและตำแหน่งจัดเก็บที่พร้อมรับสต็อกเริ่มต้น', 'ต้องมีสิทธิ์ดูคลังและรับสต็อก']) {
     assert.match(form, new RegExp(text))
   }
   assert.match(form, /T5\.2 · Atomic Backend/)

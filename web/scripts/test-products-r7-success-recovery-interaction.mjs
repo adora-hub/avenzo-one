@@ -22,9 +22,12 @@ test('R7.2.4F restores only a valid recovery record and removes unsafe storage',
   assert.match(form, /else window\.localStorage\.removeItem\(pendingDraftKey\)/)
 })
 
-test('R7.2.4F recovery validates only replacement images instead of stale creation fields', async () => {
+test('Recovery can finish without an image after the user removes failed files', async () => {
   const form = await read(formPath)
-  assert.match(form, /if \(pendingDraft\) \{[\s\S]*กรุณาเลือกภาพใหม่อย่างน้อย 1 ภาพเพื่ออัปโหลดต่อ[\s\S]*return issues/)
+  assert.match(form, /if \(pendingDraft\) \{[\s\S]*images\.some\(\(image\) => image\.stage === 'failed'\)[\s\S]*return issues/)
+  assert.doesNotMatch(form, /กรุณาเลือกภาพใหม่อย่างน้อย 1 ภาพเพื่ออัปโหลดต่อ/)
+  assert.match(form, /เสร็จสิ้นโดยไม่มีรูป/)
+  assert.match(form, /completedImageCount = Object\.keys\(recovery\.readyImageIdsByClientId \?\? \{\}\)\.length/)
   assert.ok(form.indexOf('if (pendingDraft) {') < form.indexOf("if (!payload.name) add('general'"))
 })
 
@@ -37,6 +40,7 @@ test('R7.2.4F reuses the original Product without repeating the atomic command',
 
 test('R7.2.4F preserves pending recovery when any image upload fails', async () => {
   const form = await read(formPath)
+  assert.match(form, /images\.some\(\(image\) => image\.stage === 'failed'\)/)
   assert.match(form, /setPendingDraft\(recovery\)/)
   assert.match(form, /window\.localStorage\.setItem\(pendingDraftKey, JSON\.stringify\(recovery\)\)/)
   assert.match(form, /ข้อมูลหลักถูกบันทึกเป็น Draft แล้ว แต่อัปโหลดรูปไม่สำเร็จ/)
@@ -51,13 +55,17 @@ test('R7.2.4F renders an explicit recovery state with retry and safe Product acc
   assert.match(form, /เปิด Product/)
 })
 
-test('R7.2.4F opens success only after image and approved activation/stock workflow completion', async () => {
+test('R7.2.4F opens success only after backend workflow and reports optional image state', async () => {
   const form = await read(formPath)
   assert.ok(form.indexOf('if (failedCount > 0)') < form.indexOf('setCreationSuccess({'))
   assert.ok(form.indexOf('executeInitialStockWorkflowAction(recovery.initialStockWorkflow)') < form.lastIndexOf('setCreationSuccess({'))
+  assert.ok(form.indexOf('executeInitialStockWorkflowAction(recovery.initialStockWorkflow)') < form.lastIndexOf('setPendingDraft(null)'))
   assert.match(form, /สร้างสินค้าเรียบร้อยแล้ว/)
   assert.match(form, /พร้อม \$\{creationSuccess\.skuCount\} SKU ถูกสร้างและเปิดใช้งานแล้ว/)
   assert.match(form, /Initial Stock ถูกบันทึกครบทั้ง Batchและสร้าง Stock Movement แล้ว|Initial Stock ถูกบันทึกครบทั้ง Batch และสร้าง Stock Movement แล้ว/)
+  assert.match(form, /imageCount: completedImageCount/)
+  assert.doesNotMatch(form, /imageCount: images\.length/)
+  assert.match(form, /creationSuccess\.imageCount \? ` และอัปโหลดรูปสำเร็จ \$\{creationSuccess\.imageCount\} รูป` : ' โดยยังไม่มีรูปสินค้า สามารถเพิ่มรูปภายหลังได้'/)
   assert.match(form, /role="dialog" aria-modal="true"/)
 })
 

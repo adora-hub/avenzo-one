@@ -472,6 +472,26 @@ Navigation contract ที่อนุมัติสำหรับ Prototype:
 
 ขอบเขตรอบนี้ยังเป็น Standalone Interaction Prototype เท่านั้น ไม่จองรหัสจริง ไม่สร้าง Product/SKU ไม่เขียน Inventory และไม่แก้ Database/RLS
 
+### Approved Rapid Entry Table Direction — 21 August 2026
+
+หลังทดสอบ Live-UI-01–04 เจ้าของระบบอนุมัติให้วางแผนปรับ Workflow จากฟอร์ม
+ทีละสินค้าเป็น Rapid Entry Table รุ่น 50 แถว เพื่อให้โหมด Live Sale เร็วกว่าการ
+สร้างสินค้าปกติอย่างชัดเจน ข้อกำหนดที่ล็อกแล้วประกอบด้วย:
+
+- ตรวจ Prefix แบบ Advisory และแนะนำช่วงต่อเนื่องที่ว่าง เช่น `A120–A169`
+- จำกัด 50 Sales Codes/แถวต่อรอบ และยืนยันช่วงจริงแบบ Atomic ใน Backend ภายหลัง
+- รองรับเฉพาะ Desktop/Tablet แนวนอนตั้งแต่ 1,024 CSS pixels; ไม่ทำ Mobile card fallback
+- คลิก Cell เพื่อแก้เหมือน Spreadsheet พร้อม Keyboard navigation
+- คลิกหรือลากภาพปก 1:1 ลงแต่ละแถว
+- Unit เป็น Combobox และ Bulk toolbar ใช้ราคา, Stock, Unit และ Branch กับแถวที่เลือก
+- Naming Template รองรับ `{code}`, `{campaign}`, `{date}`, `{branch}` และ `{seller}`
+- ค่าเริ่มต้นแนะนำ `{campaign}-{code}`; ชื่อที่แก้เฉพาะแถวจะไม่ถูกเขียนทับเงียบ ๆ
+- แถวว่างไม่ถูกสร้าง; แถวที่เลือกต้องสร้างสำเร็จทั้งหมดหรือ Rollback ทั้งชุด
+- ทำ UI บน localhost ให้ Owner อนุมัติครบก่อนเริ่ม API/Database/Storage
+
+Source of Truth และแผน Part-by-Part อยู่ที่
+`AVENZO_ONE_Live_Sale_Rapid_Entry_Table_Development_Guide_V1.md`
+
 ## Product Image Dependency Gate
 
 Product Image ยังไม่มีใน Domain/Data contract ปัจจุบัน การนำ 2.1.3 และ 2.1.4 ไปพัฒนาจริงจึงต้องผ่าน Gate นี้ก่อน โดยไม่ถือว่าเป็นเพียงการตกแต่ง UI:
