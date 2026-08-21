@@ -9,7 +9,7 @@ test('Rapid-UI-03 connects the selected Prefix range to the Naming Template Buil
   const setup = await read('src/app/organizations/[id]/products/live-sale/rapid-entry/rapid-entry-setup-workspace.tsx')
   const prefix = await read('src/app/organizations/[id]/products/live-sale/rapid-entry/rapid-prefix-assistant.tsx')
   assert.match(setup, /useState<RapidRangeSelection \| null>/)
-  assert.match(setup, /onRangeSelect=\{setSelectedRange\}/)
+  assert.match(setup, /<RapidPrefixAssistant canManage=\{editorEnabled\} onRangeSelect=\{handleRangeSelect\}/)
   assert.match(setup, /<RapidNamingTemplateBuilder selectedRange=\{selectedRange\}/)
   assert.match(prefix, /onRangeSelect\?\.\(suggestion\)/)
 })
@@ -46,4 +46,12 @@ test('Rapid-UI-03 follows accessible radio and semantic Design System states', a
   assert.match(builder, /role="alert"/)
   assert.match(styles, /\.live-sale-naming-presets label\.is-selected \{[^}]*var\(--focus-ring\)/)
   assert.match(styles, /\.live-sale-naming-error \{[^}]*var\(--status-danger-border\)/)
+})
+
+test('Rapid-UI-10A keeps naming labels and important guidance on one line', async () => {
+  const builder = await read('src/app/organizations/[id]/products/live-sale/rapid-entry/rapid-naming-template-builder.tsx')
+  assert.match(builder, /live-sale-rapid-section-title[\s\S]*aria-hidden="true">2<[\s\S]*ตั้งชื่อสินค้า/)
+  assert.match(builder, /<legend><span>รูปแบบชื่อสินค้า <b>\*<\/b><\/span><RapidInfoHint/)
+  assert.match(builder, /live-sale-rapid-field-label[\s\S]*ชื่อ Live \/ Campaign <b>\*<\/b>[\s\S]*RapidInfoHint/)
+  assert.doesNotMatch(builder, /ขั้นตอนที่ 2 · ตั้งชื่อสินค้า/)
 })

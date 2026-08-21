@@ -38,6 +38,7 @@ export default async function LiveSaleRapidEntryPage({ params }: Props) {
       <RapidEntryWorkspaceShell
         organizationId={organizationId}
         organizationName={organization.name}
+        actorUserId={user.id}
         canManage={permissions.has('product.create') || permissions.has('product.manage')}
       />
     </section>

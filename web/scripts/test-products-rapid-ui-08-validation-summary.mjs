@@ -25,7 +25,7 @@ test('Rapid-UI-08 exposes clear empty, invalid, ready and selected-ready row sta
 test('Rapid-UI-08 provides validation counters and error navigation', async () => {
   const source = await readFile(tablePath, 'utf8')
   const styles = await readFile(stylesPath, 'utf8')
-  assert.match(source, /ตรวจความพร้อมของรายการ/)
+  assert.match(source, /live-sale-rapid-section-title[\s\S]*aria-hidden="true">4<\/span>[\s\S]*ตรวจสอบก่อนสร้าง/)
   assert.match(source, /เลือกเฉพาะรายการพร้อมสร้าง/)
   assert.match(source, /ตรวจรายการที่เลือก/)
   assert.match(source, /ไปยังจุดแรกที่ต้องแก้/)

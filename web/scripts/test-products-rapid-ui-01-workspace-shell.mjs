@@ -25,7 +25,8 @@ test('Rapid-UI-01 shell states the 50-row scope and UI-only safety boundary', as
   assert.match(shell, /สูงสุด 50 รายการ/)
   assert.match(shell, /Viewport ขั้นต่ำ 1,024px/)
   assert.match(shell, /ไม่จองรหัส ไม่สร้าง Product\/SKU ไม่อัปโหลดรูป และไม่เปลี่ยนแปลง Stock จริง/)
-  assert.match(shell, /<RapidEntrySetupWorkspace canManage=\{canManage\}/)
+  assert.match(shell, /<RapidEntrySetupWorkspace organizationId=\{organizationId\} actorUserId=\{actorUserId\} canManage=\{canManage\}/)
+  assert.doesNotMatch(shell, /ขอบเขต V1|live-sale-rapid-scope-card/)
   assert.doesNotMatch(shell, /<table|fetch\(|supabase|executeFoundationCommandAction/)
 })
 

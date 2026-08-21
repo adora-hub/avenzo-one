@@ -19,7 +19,7 @@ test('Rapid-UI-07 supports click selection and drag-drop on an individual row', 
   assert.match(source, /onDragEnter=/)
   assert.match(source, /onDragOver=/)
   assert.match(source, /onDrop=\{\(event\) => dropRowImage\(event, row\.index\)\}/)
-  assert.match(source, /setRowImage\(row\.index, event\.currentTarget\.files\?\.\[0\]\)/)
+  assert.match(source, /onChange=\{\(event\) => handleRowImageChange\(event, row\.index\)\}/)
 })
 
 test('Rapid-UI-07 provides a square preview with icon-only replace and remove actions', async () => {
@@ -47,6 +47,14 @@ test('Rapid-UI-07 revokes replaced, removed, range-reset and unmounted previews'
   assert.match(source, /if \(row\.image\) revokeImageUrl\(row\.image\.previewUrl\)/)
   assert.match(source, /useEffect\(\(\) => \(\) => revokeAllImageUrls\(\), \[\]\)/)
   assert.match(source, /rangeIdentityRef\.current !== rangeIdentity/)
+})
+
+test('Rapid-UI-07 releases the image action after selection and continues keyboard flow', async () => {
+  const source = await readFile(tablePath, 'utf8')
+  assert.match(source, /function handleRowImageChange\(event: ChangeEvent<HTMLInputElement>, rowIndex: number\)/)
+  assert.match(source, /input\.blur\(\)/)
+  assert.match(source, /rapid-cell-productName-\$\{rowIndex\}/)
+  assert.match(source, /requestAnimationFrame/)
 })
 
 test('Rapid-UI-07 remains a browser preview and does not upload to a backend', async () => {

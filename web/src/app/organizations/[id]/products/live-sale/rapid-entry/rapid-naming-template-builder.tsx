@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import type { RapidRangeSelection } from './rapid-prefix-assistant'
+import { RapidInfoHint } from './rapid-info-hint'
 
 type Props = {
   selectedRange: RapidRangeSelection | null
@@ -50,10 +51,6 @@ function renderName(template: string, code: string) {
     .trim()
 }
 
-function TemplateIcon() {
-  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4zM8 9h8M8 13h5M8 17h8" /></svg>
-}
-
 export function RapidNamingTemplateBuilder({ selectedRange, canManage, onTemplateChange }: Props) {
   const [preset, setPreset] = useState<NamingPreset>('campaign-code')
   const [campaign, setCampaign] = useState('PayDay')
@@ -84,12 +81,11 @@ export function RapidNamingTemplateBuilder({ selectedRange, canManage, onTemplat
   }
 
   return <section className="live-sale-naming-builder" aria-labelledby="rapidNamingTitle">
-    <header>
-      <div className="live-sale-naming-title">
-        <span><TemplateIcon /></span>
+    <header className="live-sale-rapid-section-header">
+      <div className="live-sale-rapid-section-title">
+        <span aria-hidden="true">2</span>
         <div>
-          <span className="live-sale-rapid-kicker">ขั้นตอนที่ 2 · ตั้งชื่อสินค้า</span>
-          <h3 id="rapidNamingTitle">กำหนดรูปแบบชื่ออัตโนมัติ</h3>
+          <h3 id="rapidNamingTitle">ตั้งชื่อสินค้า</h3>
           <p>ชื่อทุกแถวมีรหัสขายกำกับ เพื่อให้นำไปใช้จริงได้ทันทีและไม่ต้องกลับมาแก้ซ้ำ</p>
         </div>
       </div>
@@ -101,7 +97,7 @@ export function RapidNamingTemplateBuilder({ selectedRange, canManage, onTemplat
       <span>กด “ใช้ช่วงที่แนะนำ” ในขั้นตอนที่ 1 แล้วตัวอย่างชื่อ 50 รายการจะแสดงที่นี่</span>
     </div> : <div className="live-sale-naming-body">
       <fieldset className="live-sale-naming-presets" disabled={!canManage}>
-        <legend>รูปแบบชื่อสินค้า</legend>
+        <legend><span>รูปแบบชื่อสินค้า <b>*</b></span><RapidInfoHint label=" รูปแบบชื่อสินค้า" description="เลือกรูปแบบชื่อที่เหมาะกับ Live นี้ ระบบจะเติมรหัสขายให้แต่ละรายการโดยอัตโนมัติ" /></legend>
         <div>
           {PRESETS.map((item) => <label key={item.id} className={preset === item.id ? 'is-selected' : ''}>
             <input type="radio" name="rapidNamingPreset" value={item.id} checked={preset === item.id} onChange={() => setPreset(item.id)} />
@@ -112,12 +108,12 @@ export function RapidNamingTemplateBuilder({ selectedRange, canManage, onTemplat
 
       <div className="live-sale-naming-fields">
         {preset !== 'code-only' && preset !== 'custom' && <label>
-          <span>ชื่อ Live / Campaign <b>*</b></span>
+          <span className="live-sale-rapid-field-label"><span>ชื่อ Live / Campaign <b>*</b></span><RapidInfoHint label=" ชื่อ Live หรือ Campaign" description="ชื่อที่ช่วยแยกงาน Live หรือแคมเปญ เช่น PayDay หรือ เทศกาล Live" /></span>
           <input value={campaign} onChange={updateCampaign} disabled={!canManage} maxLength={60} placeholder="เช่น PayDay หรือ เทศกาล Live" />
           <small>{campaign.length}/60 ตัวอักษร</small>
         </label>}
         {preset === 'custom' && <label>
-          <span>รูปแบบที่กำหนดเอง <b>*</b></span>
+          <span className="live-sale-rapid-field-label"><span>รูปแบบที่กำหนดเอง <b>*</b></span><RapidInfoHint label=" รูปแบบที่กำหนดเอง" description="กำหนดชื่อได้เอง โดยระบบจะเติมรหัสขายเพื่อป้องกันชื่อซ้ำ" /></span>
           <input value={customPattern} onChange={updateCustomPattern} disabled={!canManage} maxLength={100} aria-describedby="rapidCustomTemplateHelp" placeholder="เช่น ต่างหูรอบค่ำ-{code}" />
           <small id="rapidCustomTemplateHelp">ใช้ Token เช่น {'{code}'}, {'{campaign}'}, {'{date}'}, {'{branch}'} หรือ {'{seller}'}</small>
         </label>}

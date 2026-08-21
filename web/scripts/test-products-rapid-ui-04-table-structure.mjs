@@ -10,7 +10,7 @@ test('Rapid-UI-04 connects the approved range and naming template to the table',
   const naming = await read('src/app/organizations/[id]/products/live-sale/rapid-entry/rapid-naming-template-builder.tsx')
   assert.match(setup, /useState\('PayDay-\{code\}'\)/)
   assert.match(setup, /onTemplateChange=\{setNamingTemplate\}/)
-  assert.match(setup, /<RapidEntryTable selectedRange=\{selectedRange\} namingTemplate=\{namingTemplate\}/)
+  assert.match(setup, /<RapidEntryTable organizationId=\{organizationId\} actorUserId=\{actorUserId\} selectedRange=\{selectedRange\} namingTemplate=\{namingTemplate\}/)
   assert.match(naming, /onTemplateChange\?\.\(normalizedTemplate\)/)
 })
 
@@ -22,6 +22,11 @@ test('Rapid-UI-04 creates exactly 50 display rows and all approved columns', asy
     assert.match(table, new RegExp(heading))
   }
   assert.match(table, /แสดง 50 จาก 50 รายการ/)
+})
+
+test('Rapid-UI shows table entry as numbered step 3', async () => {
+  const table = await read('src/app/organizations/[id]/products/live-sale/rapid-entry/rapid-entry-table.tsx')
+  assert.match(table, /live-sale-rapid-section-title[\s\S]*aria-hidden="true">3<\/span>[\s\S]*เตรียมข้อมูลสินค้า 50 รายการ/)
 })
 
 test('Rapid-UI-04 preserves the table structure while later approved parts add row actions', async () => {

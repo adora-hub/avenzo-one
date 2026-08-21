@@ -8,7 +8,7 @@ const read = (path) => readFile(new URL(path, root), 'utf8')
 test('Rapid-UI-06 enables row selection with the permission boundary intact', async () => {
   const setup = await read('src/app/organizations/[id]/products/live-sale/rapid-entry/rapid-entry-setup-workspace.tsx')
   const table = await read('src/app/organizations/[id]/products/live-sale/rapid-entry/rapid-entry-table.tsx')
-  assert.match(setup, /canManage=\{canManage\}/)
+  assert.match(setup, /canManage=\{editorEnabled\}/)
   assert.match(table, /checked=\{row\.selected\}/)
   assert.match(table, /toggleRow\(row\.index, event\.target\.checked\)/)
   assert.match(table, /disabled=\{!canManage\}/)

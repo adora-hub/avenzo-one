@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
+import { RapidInfoHint } from './rapid-info-hint'
 
 type Props = {
   canManage: boolean
@@ -120,18 +121,23 @@ export function RapidPrefixAssistant({ canManage, onRangeSelect }: Props) {
   const prefixError = prefix && !PREFIX_PATTERN.test(prefix)
 
   return <section className="live-sale-prefix-assistant" aria-labelledby="rapidPrefixTitle">
-    <header>
-      <div>
-        <span className="live-sale-rapid-kicker">ขั้นตอนที่ 1 · ตรวจช่วงรหัสขาย</span>
-        <h3 id="rapidPrefixTitle">ค้นหาช่วงรหัสว่างจาก Prefix</h3>
+    <header className="live-sale-rapid-section-header">
+      <div className="live-sale-rapid-section-title">
+        <span aria-hidden="true">1</span>
+        <div>
+        <h3 id="rapidPrefixTitle">ค้นหาช่วงรหัสขาย</h3>
         <p>ระบบจะเริ่มตรวจอัตโนมัติหลังหยุดพิมพ์ 450ms และแนะนำรหัสว่างต่อเนื่อง 50 รายการ</p>
+        </div>
       </div>
       <span className="live-sale-prefix-simulation-badge">UI Simulation</span>
     </header>
 
     <div className="live-sale-prefix-layout">
       <div className="live-sale-prefix-control">
-        <label htmlFor="rapidSalesCodePrefix">Prefix รหัสขาย <b>*</b></label>
+        <span className="live-sale-rapid-field-label">
+          <label htmlFor="rapidSalesCodePrefix">Prefix รหัสขาย <b>*</b></label>
+          <RapidInfoHint label=" Prefix รหัสขาย" description="ใช้ A–Z, 0–9 หรือขีดกลาง สูงสุด 8 ตัวอักษร ระบบจะแปลงเป็นตัวพิมพ์ใหญ่อัตโนมัติ" />
+        </span>
         <div className="live-sale-prefix-input-wrap">
           <SearchIcon />
           <input

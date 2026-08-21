@@ -258,6 +258,9 @@ Helper text หรือ Error message
 - ห้ามใช้ Placeholder แทน Label
 - บันทึกสำเร็จต้องมี Feedback และป้องกัน Double Submit
 - ช่อง Tag/Token ใช้ `--font-size-control-compact` (13 px), น้ำหนัก 400 และ line-height 1.4 เป็นมาตรฐาน ทั้งข้อความที่กรอกและ Placeholder; ห้ามกำหนดขนาดเฉพาะหน้า
+- Form Section ที่เป็นลำดับงานใช้ `เลขลำดับวงกลม 25×25px + Heading 18px + คำอธิบาย 13px` โดยวางเลขและ Heading ในแถวเดียวกัน; ห้ามเพิ่ม Kicker ที่กล่าวซ้ำว่าเป็น “ขั้นตอนที่”
+- Label ใช้ขนาด 14px น้ำหนัก 500 และวางชื่อ Field, เครื่องหมาย `*` และ Info icon สำคัญไว้ในแถวเดียวกัน
+- Info icon ของ Form ใช้ขนาด 18px, เปิดได้ด้วย Hover, Focus และ Click, มี Accessible Label และ Tooltip ด้านบนเป็นค่าเริ่มต้น
 
 ### 5.3 Data Table
 
@@ -707,3 +710,9 @@ Design System ควรพัฒนาเท่าที่ Vertical Slice ต�
 - กำหนดสีแบบ deterministic, ไม่ซ้ำภายในแถวจนกว่าชุดสีจะครบ และรองรับ Light/Dark Mode ผ่าน Semantic Tokens
 - กำหนดให้ Badge เรียงแถวเดียว คงความกว้างตามข้อความ และไม่ถูกบีบเมื่อ Column แคบ
 - กำหนด Density, Overflow และ Accessibility contract สำหรับ Tag Badge
+
+### V1.7 — 21 สิงหาคม 2026
+
+- เพิ่มมาตรฐาน Numbered Form Section สำหรับหน้าที่มีลำดับงาน
+- กำหนด Label, Required indicator และ Info icon ให้อยู่ในแถวเดียวกัน
+- ล็อกขนาด Section number, Heading, Description, Label และ Form Info tooltip ตาม Product Creation ที่ผ่าน Owner review

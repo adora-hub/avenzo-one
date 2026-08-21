@@ -4,6 +4,7 @@ import { RapidEntrySetupWorkspace } from './rapid-entry-setup-workspace'
 type Props = {
   organizationId: string
   organizationName: string
+  actorUserId: string
   canManage: boolean
 }
 
@@ -19,7 +20,7 @@ function MonitorIcon() {
   return <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2" /><path d="M8 21h8M12 17v4" /></svg>
 }
 
-export function RapidEntryWorkspaceShell({ organizationId, organizationName, canManage }: Props) {
+export function RapidEntryWorkspaceShell({ organizationId, organizationName, actorUserId, canManage }: Props) {
   const productsHref = `/organizations/${organizationId}/products`
   const liveSaleHref = `${productsHref}/live-sale`
 
@@ -68,16 +69,7 @@ export function RapidEntryWorkspaceShell({ organizationId, organizationName, can
         </ol>
 
         <div className="live-sale-rapid-stage-grid">
-          <RapidEntrySetupWorkspace canManage={canManage} />
-          <aside className="live-sale-rapid-scope-card" aria-label="ขอบเขต Rapid Entry รุ่นแรก">
-            <h3>ขอบเขต V1</h3>
-            <ul>
-              <li>ใช้บนจอกว้างอย่างน้อย 1,024px</li>
-              <li>ตรวจและแนะนำช่วงต่อเนื่อง 50 รหัส</li>
-              <li>รองรับ Mouse และ Keyboard workflow</li>
-              <li>ไม่มี Mobile Card fallback</li>
-            </ul>
-          </aside>
+          <RapidEntrySetupWorkspace organizationId={organizationId} actorUserId={actorUserId} canManage={canManage} />
         </div>
       </section>
     </div>
