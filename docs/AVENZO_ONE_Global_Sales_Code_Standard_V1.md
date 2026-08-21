@@ -133,4 +133,3 @@ This document freezes the common contract direction only. Before changing the
 Database or production behavior, the Domain workstream must reconcile existing
 identifier migrations, historical codes and SKU-04/Rapid reservation behavior,
 then provide migration, compatibility and concurrency tests for Owner approval.
-
