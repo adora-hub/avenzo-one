@@ -10,7 +10,11 @@ const css = await readFile(new URL('../src/app/globals.css', import.meta.url), '
 test('R1 uses the production route, shell and permission boundary', () => {
   assert.match(page, /<ApplicationShell/)
   assert.match(page, /permissions\.has\('product\.read'\)/)
-  assert.match(page, /permissions\.has\('product\.manage'\)/)
+  assert.match(page, /const canCreate = permissions\.has\('product\.create'\)/)
+  assert.match(page, /const canManage = permissions\.has\('product\.update'\)/)
+  assert.match(page, /canCreate=\{canCreate\}/)
+  assert.match(workspace, /\{canCreate \? <details className="product-create-menu"/)
+  assert.doesNotMatch(page, /permissions\.has\('product\.manage'\)/)
   assert.match(page, /className="content product-workspace-page"/)
 })
 

@@ -44,6 +44,17 @@ test('R7.2.2 summary mirrors the approved progress, facts, timeline and action o
   assert.match(form, /product-summary-actions[\s\S]*\{primaryActionLabel\}[\s\S]*บันทึกร่าง[\s\S]*ยกเลิก/)
 })
 
+test('optional and system-managed timeline sections do not claim user completion', async () => {
+  const form = await read(formPath)
+  assert.match(form, /const timelineOptionalState = \(sectionId: ValidationSectionId\)/)
+  assert.match(form, /sectionId === 'packaging'[\s\S]*return 'ไม่ได้เปิดใช้'/)
+  assert.match(form, /sectionId === 'physical'[\s\S]*return 'ไม่ได้กรอก'/)
+  assert.match(form, /sectionId === 'metadata'[\s\S]*return 'ระบบจัดการ'/)
+  assert.match(form, /data-optional-state=\{optionalState \|\| undefined\}/)
+  assert.match(form, /optionalState \? '–' : complete \? '✓'/)
+  assert.match(form, /incompleteOptional \? 'กรอกไม่ครบ'/)
+})
+
 test('R7.2.2 uses the approved responsive canvas and action hierarchy', async () => {
   const styles = await read('../src/app/globals.css')
   assert.match(styles, /product-workspace-page\.product-creation-page \{ width: 100%; max-width: 1280px; \}/)

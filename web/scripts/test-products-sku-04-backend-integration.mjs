@@ -30,7 +30,8 @@ test('SKU-04 UI previews the database next sequence without reserving it', async
   assert.match(builder, /ฐานข้อมูลแนะนำเลขที่ว่างถัดไป · ยังไม่จองจนกดสร้าง/)
   assert.match(builder, /setSkuProductSequence\(recommendedProductSequence\)/)
   assert.match(actions, /previewVariantSkuSequenceAction/)
-  assert.match(service, /requireFoundationPermission\(actor, 'product\.manage'\)/)
+  assert.match(service, /requireFoundationPermission\(actor, 'product\.create'\)/)
+  assert.doesNotMatch(service, /requireFoundationPermission\(actor, 'product\.manage'\)/)
   assert.match(service, /server_preview_variant_sku_sequence/)
 })
 

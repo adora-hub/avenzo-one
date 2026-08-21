@@ -39,7 +39,7 @@ export default async function LiveSaleRapidEntryPage({ params }: Props) {
         organizationId={organizationId}
         organizationName={organization.name}
         actorUserId={user.id}
-        canManage={permissions.has('product.create') || permissions.has('product.manage')}
+        canManage={permissions.has('product.create')}
       />
     </section>
   </ApplicationShell>

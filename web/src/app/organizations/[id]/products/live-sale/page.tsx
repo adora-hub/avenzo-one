@@ -38,7 +38,7 @@ export default async function LiveSalePage({ params }: Props) {
       <LiveSalePageShell
         organizationId={organizationId}
         organizationName={organization.name}
-        canManage={permissions.has('product.create') || permissions.has('product.manage')}
+        canManage={permissions.has('product.create')}
       />
     </section>
   </ApplicationShell>

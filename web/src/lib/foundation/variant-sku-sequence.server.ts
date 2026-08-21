@@ -31,7 +31,7 @@ export async function previewVariantSkuSequence(input: unknown): Promise<Variant
   }
 
   const actor = await getFoundationActor(organizationId)
-  requireFoundationPermission(actor, 'product.manage')
+  requireFoundationPermission(actor, 'product.create')
   const admin = createAdminClient()
   const { data, error } = await admin.rpc('server_preview_variant_sku_sequence', {
     p_organization_id: organizationId,

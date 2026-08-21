@@ -20,7 +20,7 @@ test('R7.2.4D persists staged rows and sequence offset in the versioned Browser 
   assert.match(form, /skuDrafts: stagedSkus, salesSequenceOffset: sequenceOffset/)
   assert.match(form, /setSkuDrafts\(sanitizeSkuDrafts\(saved\.skuDrafts, bundleSkus\)\)/)
   assert.match(form, /setSalesSequenceOffset\(Number\(saved\.salesSequenceOffset\)\)/)
-  assert.match(form, /DRAFT_MAX_BYTES = 1024 \* 1024/)
+  assert.match(form, /DRAFT_MAX_BYTES = 256 \* 1024/)
 })
 
 test('R7.2.4D renders the approved count, empty state, table, and row actions', async () => {
@@ -48,6 +48,29 @@ test('Product queue snapshots an optional cover image without blocking rows that
   assert.match(form, /aria-label="ยังไม่มีรูปสินค้า"/)
   assert.match(form, /ยังไม่ได้เพิ่มรูป/)
   assert.match(form, /alt=\{`รูปสินค้า \$\{draftProductName\}`\}/)
+})
+
+test('queued product cover supports click selection and drag-drop per row', async () => {
+  const form = await read(formPath)
+  const styles = await read(stylesPath)
+  assert.match(form, /function selectSkuDraftCoverImage\(draftId: string, files: FileList \| null\)/)
+  assert.match(form, /function dropSkuDraftCoverImage\(event: DragEvent<HTMLElement>, draftId: string\)/)
+  assert.match(form, /onDrop=\{\(event\) => dropSkuDraftCoverImage\(event, draft\.id\)\}/)
+  assert.match(form, /selectSkuDraftCoverImage\(draft\.id, event\.target\.files\)/)
+  assert.match(styles, /\.product-sku-staging-image-picker \{[^}]*cursor: pointer;/)
+})
+
+test('queued product cover validates, reports progress, and replaces only that row cover', async () => {
+  const form = await read(formPath)
+  const styles = await read(stylesPath)
+  assert.match(form, /validateProductImageFile\(file\)/)
+  assert.match(form, /setSkuDraftImageProcessingId\(draftId\)/)
+  assert.match(form, /role="status">กำลังเตรียมรูป/)
+  assert.match(form, /setSkuDraftImageErrors/)
+  assert.match(form, /\[nextImage, \.\.\.currentImages\.slice\(1\)\]/)
+  assert.match(form, /hadCoverImage \? 'เปลี่ยนภาพปกของสินค้าในคิวแล้ว'/)
+  assert.match(form, /saveBrowserDraft\(false, selectedBranchIds, nextDrafts, salesSequenceOffset, true\)/)
+  assert.match(styles, /\.product-sku-staging-image-loading \{[^}]*position: absolute;/)
 })
 
 test('R7.2.4D validates local identifiers against every other staged SKU', async () => {
@@ -178,4 +201,26 @@ test('queue review warns when a new product is still being edited outside the qu
   const form = await read(formPath)
   assert.match(form, /const hasUnqueuedProductChanges = Boolean\(/)
   assert.match(form, /เก็บรายการที่กำลังกรอกก่อนตรวจคิว \$\{skuDrafts\.length\} รายการ/)
+})
+
+test('successful queue creation keeps the completed queue visible until explicit navigation', async () => {
+  const form = await read(formPath)
+  const queueHandler = form.slice(form.indexOf('function createQueuedProducts()'), form.indexOf('function submit('))
+  const successPath = queueHandler.slice(queueHandler.indexOf("if (failureText)"), queueHandler.indexOf('function submit('))
+  assert.match(queueHandler, /setProgress\(`กำลังสร้างสินค้า \$\{index \+ 1\} จาก \$\{total\}/)
+  assert.match(queueHandler, /if \(failureText\) \{[\s\S]*setSkuDrafts\(remainingDrafts\)/)
+  assert.doesNotMatch(successPath.slice(successPath.indexOf('window.localStorage.removeItem(localDraftKey)')), /setSkuDrafts\(/)
+  assert.match(form, /if \(creationSuccess\?\.productCount\) return/)
+  assert.match(form, /event\.target === event\.currentTarget && !creationSuccess\.productCount/)
+})
+
+test('queue validation never falls back to the blank next-product form', async () => {
+  const form = await read(formPath)
+  assert.match(form, /function collectQueuedProductValidationIssues\(\)/)
+  assert.match(form, /const issues = queueReviewMode \? collectQueuedProductValidationIssues\(\) : collectValidationIssues\(new FormData\(form\)\)/)
+  assert.match(form, /setValidationNoticeVisible\(issues\.length > 0\)/)
+  const successPath = form.slice(form.indexOf('// Keep the completed queue visible behind the modal'), form.indexOf('setCreationSuccess({', form.indexOf('// Keep the completed queue visible behind the modal')))
+  assert.match(successPath, /setValidationAttempted\(false\)/)
+  assert.match(successPath, /setValidationIssues\(\[\]\)/)
+  assert.match(successPath, /setValidationNoticeVisible\(false\)/)
 })

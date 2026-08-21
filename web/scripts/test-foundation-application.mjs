@@ -7,11 +7,12 @@ const read = (path) => readFile(new URL(path, import.meta.url), 'utf8')
 const migrationPath = '../../supabase/migrations/20260813135745_phase_2_0_4_server_application_foundation.sql'
 
 test('server command boundary re-authenticates and does not trust a client session', async () => {
-  const [action, context, service, repository] = await Promise.all([
+  const [action, context, service, repository, core] = await Promise.all([
     read('../src/app/actions/foundation.ts'),
     read('../src/lib/foundation/server-context.ts'),
     read('../src/lib/foundation/server-service.ts'),
     read('../src/lib/foundation/supabase-repository.ts'),
+    read('../src/lib/foundation/service-core.ts'),
   ])
 
   assert.match(action, /^'use server'/)
@@ -29,6 +30,10 @@ test('server command boundary re-authenticates and does not trust a client sessi
   assert.match(service, /executeFoundationCommand/)
   assert.match(repository, /server_execute_foundation_command/)
   assert.match(repository, /server_post_inventory_command/)
+  assert.match(core, /commandType === 'product\.create_with_initial_sku'[\s\S]*return 'product\.create'/)
+  assert.match(core, /commandType\.startsWith\('product\.'\)[\s\S]*return 'product\.update'/)
+  assert.match(core, /commandType === 'product\.archive'[\s\S]*return 'product\.archive'/)
+  assert.doesNotMatch(core, /return 'product\.manage'/)
 })
 
 test('reads use the user-scoped RLS client and keyset cursors', async () => {

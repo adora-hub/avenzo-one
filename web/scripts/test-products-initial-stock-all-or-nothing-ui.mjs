@@ -225,8 +225,7 @@ test('UI-01.4E uses semantic conflict tokens and existing responsive actions', a
 })
 test('UI-01.4F covers missing SKU, warehouse, branch warehouse, and location empty states', async () => {
   const form = await read(formPath)
-  assert.ok(form.includes("const initialStockMissingSku = structure === 'variant'"))
-  assert.ok(form.includes("initialStockRows.length === 0 || initialStockRows.some((row) => row.skuCode === 'ยังไม่กำหนด SKU')"))
+  assert.ok(form.includes("const initialStockMissingSku = initialStockRows.length === 0 || initialStockRows.some((row) => row.skuCode === 'ยังไม่กำหนด SKU')"))
   assert.ok(form.includes('ยังไม่มี SKU สำหรับกำหนด Initial Stock'))
   assert.ok(form.includes('initialStockWarehouses.length === 0'))
   assert.ok(form.includes('ยังไม่มีคลังสำหรับ Initial Stock'))
@@ -255,12 +254,24 @@ test('UI-01.4F disables Batch actions and provides accessible keyboard focus gui
 
 test('UI-01.4F gives Empty State priority over quantity and Batch validation', async () => {
   const form = await read(formPath)
-  assert.ok(form.includes("structure === 'standard' && initialStockEnabled && !initialStockMissingSku"))
-  assert.ok(form.includes("structure === 'variant' && initialStockEnabled && !initialStockMissingSku"))
+  assert.ok(form.includes("structure === 'standard' && !queueReviewMode && initialStockEnabled && !initialStockMissingSku"))
+  assert.ok(form.includes('isMultiInitialStock && initialStockEnabled && !initialStockMissingSku'))
   assert.ok(form.includes('const initialStockShowValidation = !initialStockEmptyState'))
   assert.ok(form.includes("value={initialStockBulkQuantity} disabled={initialStockBatchStatus === 'loading' || Boolean(initialStockEmptyState) || initialStockPermissionRestricted}"))
   assert.ok(form.includes("disabled={initialStockBatchStatus === 'loading' || Boolean(initialStockEmptyState) || initialStockPermissionRestricted || !initialStockBulkQuantity.trim()"))
   assert.ok(form.includes("value={initialStockQuantities[row.key] ?? ''} disabled={initialStockBatchStatus === 'loading' || Boolean(initialStockEmptyState) || initialStockPermissionRestricted}"))
+})
+
+test('Queued standard products become the Initial Stock batch rows instead of the next blank SKU', async () => {
+  const form = await read(formPath)
+  const rowsModel = form.slice(form.indexOf('const initialStockRows ='), form.indexOf('const initialStockTotal ='))
+  assert.ok(rowsModel.includes('queueReviewMode'))
+  assert.ok(rowsModel.includes('skuDrafts.map((draft)'))
+  assert.ok(rowsModel.includes('key: `queue:${draft.id}`'))
+  assert.ok(rowsModel.includes("skuCode: draft.skuCode.trim() || 'ยังไม่กำหนด SKU'"))
+  assert.ok(rowsModel.includes("name: draft.snapshot.fields.name?.trim() || draft.name.trim() || 'สินค้าในคิว'"))
+  assert.ok(rowsModel.indexOf('queueReviewMode') < rowsModel.indexOf("structure === 'variant'"))
+  assert.ok(form.includes("const isMultiInitialStock = structure === 'variant' || queueReviewMode"))
 })
 
 test('UI-01.4F remains client-only, preserves values and Owner section order, and has no partial success', async () => {

@@ -1,6 +1,6 @@
 # AVENZO ONE — Global Sales Code Implementation Plan V1
 
-**Status:** GSC-07 Local Import/API Compatibility Complete — Pending Owner Test
+**Status:** GSC-08 Local Gate Passed — PREVIEW Owner Closure Pending
 **Updated:** 21 August 2026
 **Source of Truth:** `AVENZO_ONE_Global_Sales_Code_Standard_V1.md`
 **Required before:** Rapid Backend production integration and any new Product
@@ -391,7 +391,8 @@ Acceptance gate:
 
 ## 6. Immediate Next Action
 
-GSC-07 is locally implemented and awaits Owner testing of Excel dry-run,
-automatic blank-code allocation, conflict blocking and one 1–50 row atomic
-group. Do not begin **GSC-08 — Security, Concurrency, PREVIEW and Closure Gate**
-until the Owner explicitly approves GSC-07.
+The Local GSC-08 gate passed with isolated replay, security/concurrency
+coverage, TypeScript and a 39/39-page Production Build. The next step is the
+separate PREVIEW Owner closure gate: SELECT-only schema reconciliation and
+authenticated E2E for Normal, Multiple Options, Rapid Entry and Excel Import.
+Production migration and deployment remain prohibited.

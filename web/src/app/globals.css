@@ -2114,10 +2114,16 @@ html[data-theme="dark"] .product-grid-table th:hover .product-grid-column-resize
 .product-image-actions button:hover:not(:disabled), .product-image-actions button:focus-visible, .product-image-actions button.active { color: var(--text-primary); background: var(--surface-hover); }
 .product-image-actions button.active { color: #a56b00; }
 .product-image-actions button:disabled { opacity: .35; cursor: not-allowed; }
-.product-image-empty { display: grid; min-height: 150px; grid-column: 1 / -1; place-items: center; border: 1px dashed var(--border-default); border-radius: 10px; color: var(--text-secondary); text-align: center; }
+.product-image-empty { display: grid; min-height: 150px; grid-column: 1 / -1; place-items: center; align-content: center; gap: 8px; border: 1px dashed var(--status-success-border); border-radius: 10px; color: var(--text-secondary); background: var(--status-success-surface); text-align: center; }
 .product-image-empty div { display: grid; gap: 4px; }
 .product-image-empty strong { color: var(--text-primary); }
 .product-image-empty span { font-size: 12px; }
+.product-image-empty-icon { width: 34px; height: 34px; color: var(--status-success-text); }
+.product-image-grid.has-images .product-image-empty { min-height: 0; grid-column: auto; aspect-ratio: 1; padding: 12px; }
+.product-image-empty-interactive { position: relative; cursor: pointer; transition: border-color .16s ease, background-color .16s ease; }
+.product-image-empty-interactive:hover, .product-image-empty-interactive:focus-within, .product-image-empty-interactive.drag-active { border-color: var(--status-success-text); background: var(--surface-hover); }
+.product-image-empty-interactive:focus-within { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+.product-image-empty-interactive input { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; }
 .product-image-policy { display: flex; align-items: flex-start; gap: 8px; color: var(--text-secondary); font-size: 11px; }
 .product-image-upload-status { min-height: 16px; color: var(--text-secondary); font-size: 11px; }
 .product-image-upload-status.danger { color: var(--status-danger-text); }
@@ -2258,10 +2264,15 @@ html[data-theme="dark"] .product-grid-table th:hover .product-grid-column-resize
 .product-sku-staging-table td strong { display: block; }
 .product-sku-staging-table td small { color: var(--text-secondary); }
 .product-sku-staging-product { display: flex; min-width: 215px; align-items: center; gap: 9px; }
-.product-sku-staging-product > img, .product-sku-staging-image-missing { width: 44px; height: 44px; flex: 0 0 44px; border: 1px solid var(--border-default); border-radius: 8px; object-fit: cover; }
+.product-sku-staging-image-picker { position: relative; display: grid; width: 44px; height: 44px; flex: 0 0 44px; place-items: center; border-radius: 8px; cursor: pointer; transition: outline-color .16s ease, background-color .16s ease; }
+.product-sku-staging-image-picker input { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; }
+.product-sku-staging-image-picker:hover, .product-sku-staging-image-picker:focus-within, .product-sku-staging-image-picker.drag-active { outline: 2px solid var(--focus-color); outline-offset: 2px; background: var(--surface-hover); }
+.product-sku-staging-image-picker > img, .product-sku-staging-image-missing { width: 44px; height: 44px; flex: 0 0 44px; border: 1px solid var(--border-default); border-radius: 8px; object-fit: cover; }
+.product-sku-staging-image-loading { position: absolute; inset: 0; display: grid; place-items: center; padding: 4px; border-radius: 8px; color: #fff; background: rgb(15 23 42 / 78%); font-size: 9px; font-weight: 700; line-height: 1.2; text-align: center; }
 .product-sku-staging-image-missing { display: grid; place-items: center; padding: 4px; color: var(--text-secondary); background: var(--surface-subtle); font-size: 9px; line-height: 1.15; text-align: center; }
 .product-sku-staging-product > span:last-child { min-width: 0; }
 .product-sku-staging-product strong, .product-sku-staging-product small { overflow: hidden; max-width: 210px; text-overflow: ellipsis; white-space: nowrap; }
+.product-sku-staging-product .product-field-error { display: block; margin-top: 2px; color: var(--status-danger-text); white-space: normal; }
 .product-quick-create-status { display: inline-flex; align-items: center; padding: 4px 8px; border-radius: 999px; color: var(--status-success-text); background: var(--status-success-surface); white-space: nowrap; }
 .product-sku-staging-actions-column { position: sticky !important; right: 0; z-index: 8; width: 82px; min-width: 82px; max-width: 82px; background: var(--surface-elevated); box-shadow: -12px 0 18px -18px rgb(15 23 42 / 72%); }
 .product-sku-staging-table th.product-sku-staging-actions-column { z-index: 9; background: var(--surface-subtle); }

@@ -21,7 +21,7 @@ export async function executeProductImageCleanupCommand(
   command: ProductImageCleanupCommand,
 ): Promise<FoundationCommandOutcome> {
   const actor = await getFoundationActor(command.organizationId)
-  requireFoundationPermission(actor, 'product.manage')
+  requireFoundationPermission(actor, 'product.create')
 
   const admin = createAdminClient()
   const { data: image, error: imageError } = await admin.from('product_images')

@@ -63,6 +63,7 @@ type Props = {
   productAction: '' | 'edit' | 'skus' | 'price'
   selectedSku: (ProductWorkspaceSkuDetail & { productName: string }) | null
   nextCursor: string | null
+  canCreate: boolean
   canManage: boolean
   canAdjustInventory: boolean
   inventoryLocationOptions: Array<{ id: string; name: string; code: string; warehouseName: string }>
@@ -172,6 +173,7 @@ export function ProductSkuWorkspace({
   productAction,
   selectedSku,
   nextCursor,
+  canCreate,
   canManage,
   canAdjustInventory,
   inventoryLocationOptions,
@@ -967,7 +969,7 @@ export function ProductSkuWorkspace({
         <p>{view === 'products'
           ? `จัดการสินค้า รหัสสินค้า (SKU) รหัสขาย / รหัส CF และบาร์โค้ดของ ${organizationName}`
           : `จัดการรหัสสินค้า (SKU) รหัสขาย / รหัส CF และบาร์โค้ดของ ${organizationName}`}</p>
-        {canManage ? <details className="product-create-menu" ref={createMenuRef}>
+        {canCreate ? <details className="product-create-menu" ref={createMenuRef}>
           <summary className="button">＋ สร้างสินค้า <span aria-hidden="true">▾</span></summary>
           <div className="product-create-menu-panel" role="menu">
             <Link role="menuitem" href={`/organizations/${organizationId}/products/new`}><strong>สร้างสินค้าปกติ</strong><small>ข้อมูลครบสำหรับสินค้าขายประจำและเติม Stock ต่อเนื่อง</small></Link>
@@ -1009,7 +1011,7 @@ export function ProductSkuWorkspace({
         description: 'ลองเปลี่ยนคำค้นหา สถานะ หรือช่วงวันที่',
       } : {
         title: 'ยังไม่มี Product',
-        description: canManage ? 'เริ่มเพิ่มข้อมูลด้วยปุ่มสร้างสินค้า' : 'ติดต่อผู้ดูแล Organization เพื่อเพิ่มข้อมูล',
+        description: canCreate ? 'เริ่มเพิ่มข้อมูลด้วยปุ่มสร้างสินค้า' : 'ติดต่อผู้ดูแล Organization เพื่อเพิ่มข้อมูล',
       }}
       canManage={canManage}
       canAdjustInventory={canAdjustInventory}
@@ -1025,7 +1027,7 @@ export function ProductSkuWorkspace({
       {!rows.length ? <OperationsEmptyState
       icon="＋"
       title={search || status ? 'ไม่พบรายการตามตัวกรอง' : 'ยังไม่มี SKU'}
-      description={search || status ? 'ลองเปลี่ยนคำค้นหาหรือสถานะ' : canManage ? 'เริ่มเพิ่มข้อมูลด้วยปุ่มด้านบน' : 'ติดต่อผู้ดูแล Organization เพื่อเพิ่มข้อมูล'}
+      description={search || status ? 'ลองเปลี่ยนคำค้นหาหรือสถานะ' : canCreate ? 'เริ่มเพิ่มข้อมูลด้วยปุ่มด้านบน' : 'ติดต่อผู้ดูแล Organization เพื่อเพิ่มข้อมูล'}
     /> : <>
       <div className="product-table-wrap">
         <table className="product-data-table">

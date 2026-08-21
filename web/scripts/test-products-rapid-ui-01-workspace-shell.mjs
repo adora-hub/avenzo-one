@@ -9,6 +9,8 @@ test('Rapid-UI-01 provides an authenticated organization route without write int
   const page = await read('src/app/organizations/[id]/products/live-sale/rapid-entry/page.tsx')
   assert.match(page, /current_user_organization_access/)
   assert.match(page, /permissions\.has\('product\.read'\)/)
+  assert.match(page, /canManage=\{permissions\.has\('product\.create'\)\}/)
+  assert.doesNotMatch(page, /permissions\.has\('product\.manage'\)/)
   assert.match(page, /currentPage="live-sale-rapid-entry"/)
   assert.match(page, /<RapidEntryWorkspaceShell/)
   assert.doesNotMatch(page, /executeFoundationCommandAction|\.insert\(|\.update\(|\.delete\(|fetch\(/)
