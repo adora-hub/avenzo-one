@@ -1,6 +1,6 @@
 # AVENZO ONE — Live Sale Rapid Entry Table Development Guide V1
 
-**Status:** Rapid-UI-01–07 Owner Approved · Rapid-UI-08 Pending
+**Status:** Rapid-UI-01–08 Owner Approved · Next: Rapid-UI-09
 **Updated:** 21 August 2026
 **Authority:** Owner-approved direction after Live-UI-04
 **Scope:** Live Sale product preparation only; normal Product Creation remains unchanged
@@ -191,8 +191,8 @@ Stock.
 | Rapid-UI-05 | Inline editing and keyboard navigation | Owner approved |
 | Rapid-UI-06 | Unit Combobox and selected-row bulk price/stock/unit/Branch tools | Owner approved |
 | Rapid-UI-07 | Per-row click/drag cover image, preview, replace and remove | Owner approved — image flow and alignment passed |
-| Rapid-UI-07B | Optional searchable Category column and bulk Category apply | Implemented locally; pending Owner visual approval |
-| Rapid-UI-08 | Validation summary, row status, selected-ready submit preview and error navigation | Empty rows ignored; invalid cell focus; no partial-success language |
+| Rapid-UI-07B | Optional searchable Category column and bulk Category apply | Owner approved |
+| Rapid-UI-08 | Validation summary, row status, selected-ready submit preview and error navigation | Owner approved — empty rows ignored, invalid cell focus and no partial-success language |
 | Rapid-UI-09 | Browser Draft recovery, discard/restore and 50-row performance pass | Refresh recovery, version/size bounds and responsive desktop/tablet check |
 | Rapid-UI-10 | Visual parity, accessibility, regression and Owner acceptance | TypeScript/build/tests pass; Owner explicitly approves UI freeze |
 

@@ -1051,6 +1051,35 @@ input:focus, select:focus, textarea:focus { border-color: var(--focus-color); bo
 .live-sale-rapid-bulk-toolbar > footer button:disabled { opacity: .5; cursor: not-allowed; }
 .live-sale-rapid-bulk-toolbar > footer [role="status"] { color: var(--status-success-text); font-size: 8px; }
 .live-sale-rapid-bulk-toolbar > footer [role="status"].is-error { color: var(--status-danger-text); }
+.live-sale-rapid-validation-summary { display: grid; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--border-default); background: var(--surface-elevated); }
+.live-sale-rapid-validation-summary > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.live-sale-rapid-validation-summary h4, .live-sale-rapid-validation-summary p { margin: 0; }
+.live-sale-rapid-validation-summary h4 { margin-top: 2px; font-size: 11px; }
+.live-sale-rapid-validation-summary p { margin-top: 2px; color: var(--text-secondary); font-size: 8px; line-height: 1.45; }
+.live-sale-rapid-validation-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 7px; }
+.live-sale-rapid-validation-actions > button { height: 34px; min-height: 34px; padding: 0 10px; border: 1px solid var(--border-default); border-radius: 8px; color: var(--text-primary); background: var(--surface-elevated); font: inherit; font-size: 9px; font-weight: 650; cursor: pointer; }
+.live-sale-rapid-validation-actions > button:not(.button):hover:not(:disabled) { background: var(--surface-subtle); }
+.live-sale-rapid-validation-actions > .button { border-color: #aae600; color: #000; background: #aae600; }
+.live-sale-rapid-validation-actions > .button:hover:not(:disabled) { border-color: #d6e600; background: #d6e600; }
+.live-sale-rapid-validation-actions > button:disabled { opacity: .5; cursor: not-allowed; }
+.live-sale-rapid-validation-counters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); overflow: hidden; border: 1px solid var(--border-default); border-radius: 9px; }
+.live-sale-rapid-validation-counters > span { display: flex; min-height: 36px; align-items: center; justify-content: center; gap: 5px; padding: 7px 9px; border-right: 1px solid var(--border-default); color: var(--text-secondary); background: var(--surface-subtle); font-size: 8px; white-space: nowrap; }
+.live-sale-rapid-validation-counters > span:last-child { border-right: 0; }
+.live-sale-rapid-validation-counters strong { color: var(--text-primary); font-size: 11px; }
+.live-sale-rapid-validation-counters .is-danger strong { color: var(--status-danger-text); }
+.live-sale-rapid-validation-counters .is-accent { color: #000; background: color-mix(in srgb, #aae600 24%, var(--surface-elevated)); }
+.live-sale-rapid-validation-notice { display: flex; min-height: 36px; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 10px; border: 1px solid var(--border-default); border-radius: 8px; color: var(--text-secondary); background: var(--surface-subtle); font-size: 9px; }
+.live-sale-rapid-validation-notice.is-error { border-color: var(--status-danger-border); color: var(--status-danger-text); background: var(--status-danger-surface); }
+.live-sale-rapid-validation-notice.is-success { border-color: var(--status-success-border); color: var(--status-success-text); background: var(--status-success-surface); }
+.live-sale-rapid-validation-notice > button { height: 28px; min-height: 28px; flex: 0 0 auto; padding: 0 8px; border: 1px solid currentColor; border-radius: 7px; color: inherit; background: transparent; font: inherit; font-size: 8px; font-weight: 700; cursor: pointer; }
+.live-sale-rapid-validation-issues { display: grid; gap: 6px; }
+.live-sale-rapid-validation-issues > strong, .live-sale-rapid-validation-issues > small { font-size: 8px; }
+.live-sale-rapid-validation-issues > small { color: var(--text-secondary); }
+.live-sale-rapid-validation-issues > div { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.live-sale-rapid-validation-issues button { display: grid; min-width: 0; gap: 1px; padding: 7px 8px; border: 1px solid var(--status-danger-border); border-radius: 7px; color: var(--status-danger-text); background: var(--status-danger-surface); font: inherit; text-align: left; cursor: pointer; }
+.live-sale-rapid-validation-issues button:hover, .live-sale-rapid-validation-issues button:focus-visible { outline: 2px solid color-mix(in srgb, var(--status-danger-border) 24%, transparent); }
+.live-sale-rapid-validation-issues button span { font-size: 8px; font-weight: 750; }
+.live-sale-rapid-validation-issues button small { overflow: hidden; font-size: 7px; text-overflow: ellipsis; white-space: nowrap; }
 .live-sale-rapid-table-empty { display: grid; min-height: 130px; place-items: center; align-content: center; gap: 5px; padding: 20px; color: var(--text-secondary); background: var(--surface-subtle); text-align: center; }
 .live-sale-rapid-table-empty strong { color: var(--text-primary); font-size: 12px; }
 .live-sale-rapid-table-empty span { max-width: 560px; font-size: 9px; line-height: 1.55; }
@@ -1129,6 +1158,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--focus-color); bo
 .live-sale-rapid-editor.is-invalid input { border-color: var(--status-danger-border); outline-color: color-mix(in srgb, var(--status-danger-border) 22%, transparent); }
 .live-sale-rapid-table .live-sale-rapid-editor input { text-align: center; }
 .live-sale-rapid-row-status.is-ready { border-color: var(--status-success-border); color: var(--status-success-text); background: var(--status-success-surface); }
+.live-sale-rapid-row-status.is-selected-ready { border-color: #aae600; color: #000; background: #aae600; }
 .live-sale-rapid-row-status.is-editing { border-color: var(--focus-ring); color: var(--text-primary); background: color-mix(in srgb, var(--focus-ring) 9%, var(--surface-elevated)); }
 .live-sale-rapid-row-status.is-invalid { border-color: var(--status-danger-border); color: var(--status-danger-text); background: var(--status-danger-surface); }
 .live-sale-rapid-table-shell > footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 10px; border: 1px solid var(--border-default); border-top: 0; border-radius: 0 0 10px 10px; color: var(--text-secondary); background: var(--surface-elevated); font-size: 8px; }
@@ -1161,6 +1191,14 @@ input:focus, select:focus, textarea:focus { border-color: var(--focus-color); bo
 .live-sale-category-manager-list > div { display: flex; max-height: 160px; overflow: auto; flex-wrap: wrap; gap: 6px; padding: 10px; }
 .live-sale-category-manager-list > div > span { display: inline-flex; min-height: 25px; align-items: center; padding: 3px 8px; border: 1px solid var(--border-default); border-radius: 999px; color: var(--text-primary); background: var(--surface-elevated); font-size: 9px; }
 .live-sale-category-manager-dialog aside { padding: 8px 10px; border-radius: 8px; color: var(--status-warning-text); background: var(--status-warning-surface); font-size: 8px; line-height: 1.45; }
+.live-sale-rapid-review-dialog { width: min(620px, 100%); }
+.live-sale-rapid-review-list { display: grid; max-height: 290px; overflow: auto; border: 1px solid var(--border-default); border-radius: 9px; }
+.live-sale-rapid-review-list > div { display: grid; grid-template-columns: 80px minmax(0, 1fr); align-items: center; gap: 2px 10px; padding: 8px 10px; border-bottom: 1px solid var(--border-default); }
+.live-sale-rapid-review-list > div:last-child { border-bottom: 0; }
+.live-sale-rapid-review-list strong { grid-row: 1 / span 2; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 9px; }
+.live-sale-rapid-review-list span { overflow: hidden; font-size: 9px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.live-sale-rapid-review-list small { color: var(--text-secondary); font-size: 8px; }
+.live-sale-rapid-review-dialog aside { padding: 8px 10px; border: 1px solid var(--status-warning-border); border-radius: 8px; color: var(--status-warning-text); background: var(--status-warning-surface); font-size: 8px; line-height: 1.45; }
 @media (prefers-reduced-motion: reduce) { .live-sale-prefix-spinner { animation-duration: 1.5s; } }
 @media (max-width: 1179px) and (min-width: 1024px) {
   .live-sale-rapid-stage-grid { grid-template-columns: minmax(0, 1fr) 260px; }
@@ -1169,6 +1207,11 @@ input:focus, select:focus, textarea:focus { border-color: var(--focus-color); bo
   .live-sale-naming-presets > div { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .live-sale-naming-fields { grid-template-columns: 1fr; }
   .live-sale-rapid-bulk-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .live-sale-rapid-validation-summary > header { align-items: stretch; flex-direction: column; }
+  .live-sale-rapid-validation-actions { justify-content: flex-end; }
+  .live-sale-rapid-validation-counters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .live-sale-rapid-validation-counters > span:nth-child(2) { border-right: 0; }
+  .live-sale-rapid-validation-counters > span:nth-child(-n+2) { border-bottom: 1px solid var(--border-default); }
 }
 @media (max-width: 1023px) {
   .live-sale-rapid-supported { display: none; }

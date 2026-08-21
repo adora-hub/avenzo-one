@@ -14,6 +14,8 @@ type RapidRowDraft = { index: number; salesCode: string; productName: string; ca
 type EditingCell = { rowIndex: number; field: EditableField; originalValue: string; originalNameOverridden: boolean }
 type PendingBulk = { action: BulkAction; target: BulkTarget; value: string; affectedCount: number }
 type ResizableColumn = 'code' | 'image' | 'name' | 'category' | 'price' | 'stock' | 'unit' | 'branch' | 'status'
+type ValidationField = EditableField | 'image'
+type ValidationIssue = { rowIndex: number; salesCode: string; field: ValidationField; message: string }
 
 const ROW_COUNT = 50
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024
@@ -69,11 +71,40 @@ function errorFor(row: RapidRowDraft, field: EditableField, categoryOptions = CA
   return BRANCH_OPTIONS.includes(row.branch) ? '' : 'ไม่มีสิทธิ์ใช้สาขานี้'
 }
 
+function rowHasEntry(row: RapidRowDraft) {
+  return Boolean(row.price || row.stock || row.image || row.imageError || row.nameOverridden
+    || row.category !== 'ไม่ระบุหมวดหมู่' || row.unit !== 'ชิ้น' || row.branch !== 'BKK-01')
+}
+
+function fieldErrorFor(row: RapidRowDraft, field: EditableField, categoryOptions = CATEGORY_OPTIONS) {
+  const formatError = errorFor(row, field, categoryOptions)
+  if (formatError) return formatError
+  if (!rowHasEntry(row)) return ''
+  if (field === 'price' && !row.price) return 'กรุณากรอกราคาขาย'
+  if (field === 'stock' && !row.stock) return 'กรุณากรอกสต็อกเริ่มต้น'
+  return ''
+}
+
+function validationIssuesFor(row: RapidRowDraft, categoryOptions = CATEGORY_OPTIONS): ValidationIssue[] {
+  if (!rowHasEntry(row)) return []
+  const issues: ValidationIssue[] = EDITABLE_FIELDS.flatMap((field): ValidationIssue[] => {
+    const message = fieldErrorFor(row, field, categoryOptions)
+    return message ? [{ rowIndex: row.index, salesCode: row.salesCode, field, message }] : []
+  })
+  if (row.imageError) issues.push({ rowIndex: row.index, salesCode: row.salesCode, field: 'image', message: row.imageError })
+  return issues
+}
+
+function rowIsReady(row: RapidRowDraft, categoryOptions = CATEGORY_OPTIONS) {
+  return rowHasEntry(row) && validationIssuesFor(row, categoryOptions).length === 0
+}
+
 function rowState(row: RapidRowDraft, isEditing: boolean, categoryOptions = CATEGORY_OPTIONS) {
-  if (EDITABLE_FIELDS.some((field) => Boolean(errorFor(row, field, categoryOptions)))) return { label: 'ข้อมูลไม่ถูกต้อง', className: 'is-invalid' }
+  if (!rowHasEntry(row)) return { label: 'ยังไม่กรอก', className: 'is-empty' }
+  if (validationIssuesFor(row, categoryOptions).length) return { label: 'ต้องแก้ไข', className: 'is-invalid' }
   if (isEditing) return { label: 'กำลังแก้ไข', className: 'is-editing' }
-  if (row.price && row.stock) return { label: 'พร้อมตรวจ', className: 'is-ready' }
-  return { label: 'ยังไม่ครบ', className: 'is-empty' }
+  if (row.selected) return { label: 'เลือกพร้อมสร้าง', className: 'is-selected-ready' }
+  return { label: 'พร้อมสร้าง', className: 'is-ready' }
 }
 
 function fieldLabel(field: EditableField) {
@@ -112,6 +143,8 @@ export function RapidEntryTable({ selectedRange, namingTemplate, canManage }: Pr
   const [newCategoryName, setNewCategoryName] = useState('')
   const [categoryManagerNotice, setCategoryManagerNotice] = useState('')
   const [dragImageRow, setDragImageRow] = useState<number | null>(null)
+  const [reviewOpen, setReviewOpen] = useState(false)
+  const [validationNotice, setValidationNotice] = useState<{ tone: 'success' | 'error' | 'info'; message: string } | null>(null)
   const [columnWidths, setColumnWidths] = useState<Record<ResizableColumn, number>>(() => Object.fromEntries(
     Object.entries(COLUMN_CONFIG).map(([key, config]) => [key, config.width]),
   ) as Record<ResizableColumn, number>)
@@ -137,6 +170,8 @@ export function RapidEntryTable({ selectedRange, namingTemplate, canManage }: Pr
       rangeIdentityRef.current = ''
       setRows([])
       setEditingCell(null)
+      setReviewOpen(false)
+      setValidationNotice(null)
       return
     }
     const generated = draftRows(selectedRange, namingTemplate)
@@ -145,6 +180,8 @@ export function RapidEntryTable({ selectedRange, namingTemplate, canManage }: Pr
       rangeIdentityRef.current = rangeIdentity
       setRows(generated)
       setEditingCell(null)
+      setReviewOpen(false)
+      setValidationNotice(null)
       return
     }
     setRows((current) => current.map((row, index) => ({
@@ -216,7 +253,7 @@ export function RapidEntryTable({ selectedRange, namingTemplate, canManage }: Pr
   function imageCell(row: RapidRowDraft) {
     const input = <input type="file" accept="image/jpeg,image/png,image/webp" disabled={!canManage} aria-label={`เลือกภาพปกรหัส ${row.salesCode}`}
       onChange={(event) => { setRowImage(row.index, event.currentTarget.files?.[0]); event.currentTarget.value = '' }} />
-    return <div className={`live-sale-rapid-image-cell${dragImageRow === row.index ? ' is-dragging' : ''}${row.imageError ? ' is-invalid' : ''}`}
+    return <div id={`rapid-image-${row.index}`} tabIndex={row.imageError ? 0 : -1} className={`live-sale-rapid-image-cell${dragImageRow === row.index ? ' is-dragging' : ''}${row.imageError ? ' is-invalid' : ''}`}
       onDragEnter={(event) => { event.preventDefault(); if (canManage) setDragImageRow(row.index) }}
       onDragOver={(event) => { event.preventDefault(); if (canManage) event.dataTransfer.dropEffect = 'copy' }}
       onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragImageRow(null) }}
@@ -265,11 +302,11 @@ export function RapidEntryTable({ selectedRange, namingTemplate, canManage }: Pr
 
   function editableCell(row: RapidRowDraft, field: EditableField) {
     const isEditing = editingCell?.rowIndex === row.index && editingCell.field === field
-    const error = errorFor(row, field, categoryOptions)
+    const error = fieldErrorFor(row, field, categoryOptions)
     const value = row[field] ?? ''
     const errorId = `rapid-${field}-${row.index}-error`
     if (isEditing) return <div className={`live-sale-rapid-editor${error ? ' is-invalid' : ''}`}>
-      <input ref={activeInputRef} value={value} onChange={(event) => updateCell(row.index, field, event)}
+      <input id={`rapid-cell-${field}-${row.index}`} ref={activeInputRef} value={value} onChange={(event) => updateCell(row.index, field, event)}
         onKeyDown={(event) => handleEditorKey(event, row.index, field)}
         onBlur={() => setEditingCell((current) => current?.rowIndex === row.index && current.field === field ? null : current)}
         inputMode={field === 'price' || field === 'stock' ? 'decimal' : 'text'}
@@ -279,7 +316,7 @@ export function RapidEntryTable({ selectedRange, namingTemplate, canManage }: Pr
       {error && <small id={errorId}>{error}</small>}
     </div>
 
-    return <button className={`live-sale-rapid-editable-cell${error ? ' is-invalid' : ''}`} type="button"
+    return <button id={`rapid-cell-${field}-${row.index}`} className={`live-sale-rapid-editable-cell${error ? ' is-invalid' : ''}`} type="button"
       onClick={() => beginEditing(row.index, field)} aria-label={`แก้ไข${fieldLabel(field)} รหัส ${row.salesCode}`}>
       <span title={value}>{value || 'คลิกเพื่อกรอก'}</span>
       {field === 'productName' && row.nameOverridden && <small>แก้ไขเฉพาะรายการ</small>}
@@ -293,6 +330,45 @@ export function RapidEntryTable({ selectedRange, namingTemplate, canManage }: Pr
 
   function toggleAll(selected: boolean) {
     setRows((current) => current.map((row) => ({ ...row, selected })))
+  }
+
+  function focusValidationIssue(issue: ValidationIssue) {
+    setReviewOpen(false)
+    const cellId = issue.field === 'image' ? `rapid-image-${issue.rowIndex}` : `rapid-cell-${issue.field}-${issue.rowIndex}`
+    if (issue.field !== 'image') beginEditing(issue.rowIndex, issue.field)
+    requestAnimationFrame(() => {
+      const element = document.getElementById(cellId)
+      element?.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' })
+      element?.focus({ preventScroll: true })
+    })
+  }
+
+  function selectReadyRows() {
+    const readyRows = rows.filter((row) => rowIsReady(row, categoryOptions))
+    setRows((current) => current.map((row) => ({ ...row, selected: rowIsReady(row, categoryOptions) })))
+    setValidationNotice({ tone: 'success', message: `เลือกเฉพาะรายการที่พร้อมสร้างแล้ว ${readyRows.length} รายการ` })
+  }
+
+  function reviewSelectedRows() {
+    const selectedRows = rows.filter((row) => row.selected)
+    if (!selectedRows.length) {
+      setValidationNotice({ tone: 'error', message: 'กรุณาเลือกรายการที่ต้องการตรวจสอบอย่างน้อย 1 รายการ' })
+      return
+    }
+    const selectedWithEntry = selectedRows.filter(rowHasEntry)
+    const issues = selectedWithEntry.flatMap((row) => validationIssuesFor(row, categoryOptions))
+    if (issues.length) {
+      setValidationNotice({ tone: 'error', message: `พบข้อมูลที่ต้องแก้ ${issues.length} จุดในรายการที่เลือก` })
+      focusValidationIssue(issues[0])
+      return
+    }
+    const readySelected = selectedWithEntry.filter((row) => rowIsReady(row, categoryOptions))
+    if (!readySelected.length) {
+      setValidationNotice({ tone: 'info', message: 'รายการที่เลือกยังเป็นแถวว่าง จึงยังไม่มีรายการสำหรับตรวจสอบ' })
+      return
+    }
+    setValidationNotice(null)
+    setReviewOpen(true)
   }
 
   function bulkValueIsValid(action: BulkAction, value: string) {
@@ -403,9 +479,15 @@ export function RapidEntryTable({ selectedRange, namingTemplate, canManage }: Pr
     </th>
   }
 
-  const selectedCount = rows.filter((row) => row.selected).length
+  const selectedRows = rows.filter((row) => row.selected)
+  const selectedCount = selectedRows.length
   const allSelected = rows.length > 0 && selectedCount === rows.length
-  const readyCount = rows.filter((row) => row.price && row.stock && !EDITABLE_FIELDS.some((field) => errorFor(row, field, categoryOptions))).length
+  const readyRows = rows.filter((row) => rowIsReady(row, categoryOptions))
+  const readyCount = readyRows.length
+  const invalidRows = rows.filter((row) => rowHasEntry(row) && validationIssuesFor(row, categoryOptions).length > 0)
+  const emptyRows = rows.filter((row) => !rowHasEntry(row))
+  const selectedReadyRows = selectedRows.filter((row) => rowIsReady(row, categoryOptions))
+  const firstInvalidIssue = invalidRows.flatMap((row) => validationIssuesFor(row, categoryOptions))[0]
   const tableWidth = 84 + Object.values(columnWidths).reduce((total, width) => total + width, 0)
 
   return <section className="live-sale-rapid-table-card" aria-labelledby="rapidEntryTableTitle">
@@ -414,7 +496,7 @@ export function RapidEntryTable({ selectedRange, namingTemplate, canManage }: Pr
     <datalist id="rapidBranchOptions">{BRANCH_OPTIONS.map((branch) => <option key={branch} value={branch} />)}</datalist>
     <header><div><span className="live-sale-rapid-kicker">ขั้นตอนที่ 3 · ตารางสินค้า</span><h3 id="rapidEntryTableTitle">เตรียมข้อมูลสินค้า 50 รายการ</h3>
       <p>คลิกชื่อ ราคา หรือสต็อกเพื่อแก้ไข · Enter ลงแถวถัดไป · Tab เลื่อนไปขวา · Escape ยกเลิก</p></div>
-      <div className="live-sale-rapid-table-summary" aria-label="สรุปจำนวนแถว"><span>ทั้งหมด <strong>{rows.length}</strong></span><span>เลือกแล้ว <strong>{selectedCount}</strong></span><span>พร้อมตรวจ <strong>{readyCount}</strong></span></div></header>
+      <div className="live-sale-rapid-table-summary" aria-label="สรุปจำนวนแถว"><span>ทั้งหมด <strong>{rows.length}</strong></span><span>เลือกแล้ว <strong>{selectedCount}</strong></span><span>พร้อมสร้าง <strong>{readyCount}</strong></span><span>ต้องแก้ <strong>{invalidRows.length}</strong></span></div></header>
 
     {selectedRange && <section className="live-sale-rapid-bulk-toolbar" aria-labelledby="rapidBulkToolbarTitle">
       <header><div><h4 id="rapidBulkToolbarTitle">แก้ไขหลายรายการพร้อมกัน</h4><p>ค่าเริ่มต้นกระทบเฉพาะรายการที่ติ๊ก และสามารถย้อนกลับคำสั่งล่าสุดได้</p></div><div className="live-sale-rapid-bulk-header-actions"><button type="button" onClick={() => { setCategoryManagerNotice(''); setCategoryManagerOpen(true) }} disabled={!canManage}>＋ จัดการหมวดหมู่</button><span>{selectedCount} รายการที่เลือก</span></div></header>
@@ -435,6 +517,14 @@ export function RapidEntryTable({ selectedRange, namingTemplate, canManage }: Pr
         <div>{bulkNotice && <span className={`is-${bulkNoticeTone}`} role="status">{bulkNotice}</span>}<button type="button" onClick={undoBulkApply} disabled={!undoSnapshot}>↶ ย้อนกลับล่าสุด</button></div></footer>
     </section>}
 
+    {selectedRange && <section className="live-sale-rapid-validation-summary" aria-labelledby="rapidValidationTitle">
+      <header><div><span className="live-sale-rapid-kicker">Rapid-UI-08 · ตรวจสอบก่อนสร้าง</span><h4 id="rapidValidationTitle">ตรวจความพร้อมของรายการ</h4><p>แถวที่ยังไม่กรอกจะถูกเว้นไว้ และจะส่งต่อเฉพาะรายการที่เลือกและข้อมูลครบเท่านั้น</p></div>
+        <div className="live-sale-rapid-validation-actions"><button type="button" onClick={selectReadyRows} disabled={!canManage || !readyCount}>เลือกเฉพาะรายการพร้อมสร้าง</button><button className="button" type="button" onClick={reviewSelectedRows} disabled={!canManage || !rows.length}>ตรวจรายการที่เลือก</button></div></header>
+      <div className="live-sale-rapid-validation-counters" aria-label="สถานะการตรวจรายการ"><span><strong>{readyCount}</strong> พร้อมสร้าง</span><span className="is-danger"><strong>{invalidRows.length}</strong> ต้องแก้ไข</span><span><strong>{emptyRows.length}</strong> ยังไม่กรอก</span><span className="is-accent"><strong>{selectedReadyRows.length}</strong> เลือกพร้อมสร้าง</span></div>
+      {validationNotice ? <div className={`live-sale-rapid-validation-notice is-${validationNotice.tone}`} role="status"><span>{validationNotice.message}</span>{validationNotice.tone === 'error' && firstInvalidIssue ? <button type="button" onClick={() => focusValidationIssue(firstInvalidIssue)}>ไปยังจุดแรกที่ต้องแก้</button> : null}</div> : null}
+      {invalidRows.length ? <div className="live-sale-rapid-validation-issues"><strong>รายการที่ต้องตรวจ</strong><div>{invalidRows.slice(0, 3).map((row) => { const issue = validationIssuesFor(row, categoryOptions)[0]; return <button key={row.salesCode} type="button" onClick={() => focusValidationIssue(issue)}><span>{row.salesCode}</span><small>{issue.message}</small></button> })}</div>{invalidRows.length > 3 ? <small>และอีก {invalidRows.length - 3} รายการ</small> : null}</div> : null}
+    </section>}
+
     {!selectedRange ? <div className="live-sale-rapid-table-empty" role="status"><strong>ตารางจะสร้างหลังเลือกช่วงรหัส</strong>
       <span>กลับไปกด “ใช้ช่วงที่แนะนำ” แล้วระบบจะแสดงรหัสขายและชื่อสินค้าให้ครบ 50 แถว</span></div> : <div className="live-sale-rapid-table-shell">
       <div className="live-sale-rapid-table-scroll" tabIndex={0} role="region" aria-label="ตารางเตรียมสินค้า 50 รายการ เลื่อนได้ทั้งแนวตั้งและแนวนอน">
@@ -446,7 +536,7 @@ export function RapidEntryTable({ selectedRange, namingTemplate, canManage }: Pr
             <th className="is-pinned-code is-resizable"><span>{COLUMN_CONFIG.code.label}</span><button type="button" className="live-sale-rapid-column-resizer" onPointerDown={(event) => beginColumnResize(event, 'code')}
               onDoubleClick={(event) => { event.preventDefault(); event.stopPropagation(); autoFitColumn('code') }} aria-label="ปรับขนาดคอลัมน์รหัสขาย ดับเบิลคลิกเพื่อพอดีข้อความ" /></th>
             {resizableHeader('image')}{resizableHeader('name')}{resizableHeader('category')}{resizableHeader('price', 'is-number')}{resizableHeader('stock', 'is-number')}{resizableHeader('unit')}{resizableHeader('branch')}{resizableHeader('status', 'is-pinned-status')}</tr></thead>
-          <tbody>{rows.map((row) => { const state = rowState(row, editingCell?.rowIndex === row.index, categoryOptions); return <tr key={row.salesCode} className={`${state.className}${row.selected ? ' is-selected' : ''}`}>
+          <tbody>{rows.map((row) => { const state = rowState(row, editingCell?.rowIndex === row.index, categoryOptions); return <tr key={row.salesCode} data-rapid-row-index={row.index} className={`${state.className}${row.selected ? ' is-selected' : ''}`}>
             <td className="is-pinned-row"><span className="live-sale-rapid-row-number">{row.index + 1}</span></td>
             <td className="is-pinned-select"><input type="checkbox" checked={row.selected} onChange={(event) => toggleRow(row.index, event.target.checked)} disabled={!canManage} aria-label={`เลือกรหัส ${row.salesCode}`} /></td>
             <td className="is-pinned-code"><strong>{row.salesCode}</strong></td>
@@ -457,6 +547,13 @@ export function RapidEntryTable({ selectedRange, namingTemplate, canManage }: Pr
         </table>
       </div><footer><span>แสดง 50 จาก 50 รายการ</span><span>รองรับการวางค่าในเซลล์เดียว · ยังไม่รองรับ Multi-cell paste</span></footer>
     </div>}
+
+    {reviewOpen && <div className="live-sale-rapid-bulk-dialog-backdrop" role="presentation"><section className="live-sale-rapid-bulk-dialog live-sale-rapid-review-dialog" role="dialog" aria-modal="true" aria-labelledby="rapidReviewTitle">
+      <header><div><span className="live-sale-rapid-kicker">ตัวอย่างก่อนส่งสร้าง</span><h4 id="rapidReviewTitle">พร้อมส่งต่อ {selectedReadyRows.length} รายการ</h4></div><button type="button" onClick={() => setReviewOpen(false)} aria-label="ปิดตัวอย่างรายการพร้อมสร้าง">×</button></header>
+      <div><p>ตรวจเฉพาะรายการที่เลือกและข้อมูลครบแล้ว แถวว่างจะไม่ถูกนำมารวมในขั้นตอนนี้</p><div className="live-sale-rapid-review-list" role="list">{selectedReadyRows.map((row) => <div key={row.salesCode} role="listitem"><strong>{row.salesCode}</strong><span>{row.productName}</span><small>{row.category} · ฿{row.price} · {row.stock} {row.unit} · {row.branch}</small></div>)}</div>
+        <aside>UI Preview เท่านั้น · ยังไม่มีการสร้าง Product, SKU, อัปโหลดภาพ หรือเพิ่ม Stock จริง</aside></div>
+      <footer><button className="button secondary" type="button" onClick={() => setReviewOpen(false)}>กลับไปแก้ไข</button><button className="button" type="button" onClick={() => { setReviewOpen(false); setValidationNotice({ tone: 'success', message: `ยืนยันรายการพร้อมสร้างแล้ว ${selectedReadyRows.length} รายการ — UI Preview` }) }}>ยืนยันรายการที่เลือก</button></footer>
+    </section></div>}
 
     {categoryManagerOpen && <div className="live-sale-rapid-bulk-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setCategoryManagerOpen(false) }}>
       <section className="live-sale-rapid-bulk-dialog live-sale-category-manager-dialog" role="dialog" aria-modal="true" aria-labelledby="rapidCategoryManagerTitle">
