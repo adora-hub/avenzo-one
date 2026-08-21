@@ -88,6 +88,8 @@
     "test:global-sales-code-gsc-04-replay": "node --test scripts/test-global-sales-code-gsc-04-replay.mjs",
     "test:global-sales-code-gsc-05": "node --test scripts/test-global-sales-code-gsc-05.mjs",
     "test:global-sales-code-gsc-05-replay": "node --test scripts/test-global-sales-code-gsc-05-replay.mjs",
+    "test:global-sales-code-gsc-06": "node --test scripts/test-global-sales-code-gsc-06-ui-integration.mjs scripts/test-products-rapid-ui-02-prefix-assistant.mjs",
+    "test:global-sales-code-gsc-07": "node --test scripts/test-global-sales-code-gsc-07-import-api.mjs scripts/test-products-excel-import-validation.mjs scripts/test-products-excel-import-duplicates.mjs scripts/test-products-excel-import-preview.mjs scripts/test-products-excel-import-execute.mjs scripts/test-products-excel-import-progress.mjs scripts/test-products-excel-import-security-e2e.mjs",
     "test:warehouse-stock-slice": "node --test scripts/test-warehouse-stock-vertical-slice.mjs",
     "test:foundation-release-gate": "node --test scripts/test-foundation-application.mjs scripts/test-product-sku-vertical-slice.mjs scripts/test-warehouse-stock-vertical-slice.mjs scripts/test-operations-ui-foundation.mjs scripts/test-foundation-release-gate.mjs"
   },

@@ -25,8 +25,10 @@ test('same identifier in different source rows is reported for every occurrence'
 
 test('organization duplicate checker is permissioned, tenant scoped and batched', async () => {
   const source = await readFile(new URL('../src/lib/foundation/product-import-check.server.ts', import.meta.url), 'utf8')
-  assert.match(source, /requireFoundationPermission\(actor, 'product\.manage'\)/)
+  assert.match(source, /requireFoundationPermission\(actor, 'product\.create'\)/)
+  assert.match(source, /requireFoundationPermission\(actor, 'sku\.create'\)/)
   assert.match(source, /\.eq\('organization_id', organizationId\)/)
   assert.match(source, /index \+= 100/)
-  assert.doesNotMatch(source, /service[_-]?role/i)
+  assert.match(source, /grandfatheredSalesCodes/)
+  assert.match(source, /conflictingSalesCodes/)
 })

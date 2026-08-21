@@ -1,6 +1,6 @@
 # AVENZO ONE — Global Sales Code Implementation Plan V1
 
-**Status:** GSC-05 Local Implementation Complete — Pending Owner Approval
+**Status:** GSC-07 Local Import/API Compatibility Complete — Pending Owner Test
 **Updated:** 21 August 2026
 **Source of Truth:** `AVENZO_ONE_Global_Sales_Code_Standard_V1.md`
 **Required before:** Rapid Backend production integration and any new Product
@@ -258,6 +258,26 @@ Acceptance gate:
 
 ### GSC-06 — Shared UI Implementation and Parity
 
+Implementation checkpoint (21 August 2026):
+
+- Normal, Multi-option and Rapid Entry now import the GSC-02 validator and use
+  the authenticated `server_preview_global_sales_code_range` boundary.
+- Sequence is the default for new Normal drafts. Every new code uses one to
+  three English Prefix letters plus exactly three digits; `000` remains
+  rejected by the shared contract.
+- Multi-option requests one complete authoritative range for all enabled SKUs,
+  displays the real first/last code and never silently accepts a malformed
+  manual or Same-as-SKU value.
+- Rapid Entry removed its deterministic A120 simulation and its local test
+  controls. It requests the real 50-code range, handles Prefix rollover and
+  labels the result as a Server preview that is not reserved until creation.
+- All three flows retain input across loading, timeout, permission, error and
+  retry states, and ignore stale asynchronous responses.
+- TypeScript and the scoped GSC/Product/Variant/Rapid suites pass. Production
+  build did not complete while the active localhost Next.js process held the
+  shared `.next` workspace; Owner visual approval and a clean build checkpoint
+  remain required before GSC-07.
+
 Scope:
 
 - Replace per-screen Sales Code validation/preview helpers with the GSC-02
@@ -282,6 +302,31 @@ Acceptance gate:
 - Owner visually approves each mode before GSC-07.
 
 ### GSC-07 — Import, API and Compatibility Gate
+
+Implementation checkpoint (21 August 2026):
+
+- Excel Import now uses the GSC-02 canonical validator. Blank Sales Codes are
+  explicitly classified for automatic allocation; supplied codes are preserved
+  only when they pass Global V1.
+- The authenticated dry-run uses `product.create` plus `sku.create`, checks
+  identifiers inside the requested Organization and returns only submitted
+  values. It never exposes the Product/SKU that owns a conflict.
+- Preview distinguishes invalid rows, duplicates in the file, Organization
+  conflicts and grandfathered historical codes. Known conflicts block the
+  confirmation button instead of silently importing the remaining rows.
+- Every write group contains at most 50 rows and reuses one stable outer GSC-05
+  trusted command. Blank codes receive the authoritative proposed range before
+  the command; supplied and proposed codes are claimed together. Any failure
+  rolls back the complete group with no per-row fallback.
+- Files larger than 50 valid rows are processed as sequential atomic groups.
+  A completed earlier group remains idempotently replayable if a later group
+  fails; the UI states this boundary rather than claiming whole-file atomicity.
+- Historical identifiers remain unchanged and continue through the existing
+  search/read model. A grandfathered code is readable/searchable but cannot be
+  used for a new assignment. Correction remains an audited Rotate Sales Code
+  workflow; GSC-07 does not enable direct mutation or reuse.
+- No Database Migration, PREVIEW apply, Production connection or Deploy was
+  introduced in this Part.
 
 Scope:
 
@@ -346,7 +391,7 @@ Acceptance gate:
 
 ## 6. Immediate Next Action
 
-GSC-01 is closed. The next Part is **GSC-02 — Shared Canonical Contract Library
-and UI Specification**. Do not start GSC-02 until the Owner explicitly approves
-it, and do not create a Database Migration or runtime allocator change before
-the later approved Parts.
+GSC-07 is locally implemented and awaits Owner testing of Excel dry-run,
+automatic blank-code allocation, conflict blocking and one 1–50 row atomic
+group. Do not begin **GSC-08 — Security, Concurrency, PREVIEW and Closure Gate**
+until the Owner explicitly approves GSC-07.

@@ -15,8 +15,10 @@ test('Part 2.4 checks organization identifiers before showing preview', () => {
   assert.match(source, /checkProductImportIdentifiersAction/)
   assert.match(source, /existing: new Set/)
   assert.match(source, /พร้อมเพิ่ม/)
-  assert.match(source, /รหัสเดิม \(ข้าม\)/)
-  assert.match(source, /ข้ามรายการซ้ำ/)
+  assert.match(source, /รหัสขัดแย้ง/)
+  assert.match(source, /ต้องแก้รหัสซ้ำก่อนนำเข้า/)
+  assert.match(source, /ระบบจะสร้าง Sales Code อัตโนมัติ/)
+  assert.match(source, /proposedSalesCodeRange/)
 })
 
 test('Part 2.4 shows preview before the user confirms import', () => {

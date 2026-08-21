@@ -9,6 +9,7 @@ import {
   executeFoundationCommandAction,
   executeProductImageCleanupAction,
   loadInitialStockDestinationsAction,
+  previewGlobalSalesCodeRangeAction,
 } from '@/app/actions/foundation'
 import { createClient } from '@/lib/supabase/browser'
 import {
@@ -20,6 +21,8 @@ import {
   type PreparedProductImage,
 } from '@/lib/foundation/product-image-upload'
 import { identifierSequenceCandidates, nextIdentifierOutsideSet } from '@/lib/foundation/product-identifier-suggestion'
+import { GLOBAL_SALES_CODE_UI_TEXT, validateGlobalSalesCode } from '@/lib/foundation/global-sales-code'
+import { withGlobalSalesCodePreviewTimeout } from '@/lib/foundation/global-sales-code-preview-ui'
 import { formatInitialStockBatchId, resolveInitialStockBatchOutcome, type InitialStockBatchStatus } from '@/lib/foundation/initial-stock-batch-ui'
 import {
   DEFAULT_VARIANT_GROUPS,
@@ -352,7 +355,7 @@ function sanitizeProductDraftSnapshot(value: unknown, fallback: Pick<SkuDraft, '
     tagIds: sanitizeDraftStringList(record.tagIds, 12),
     structure: record.structure === 'variant' || record.structure === 'bundle' ? record.structure : 'standard',
     useProductNameForSku: record.useProductNameForSku !== false,
-    salesCodeMode: record.salesCodeMode === 'same-sku' || record.salesCodeMode === 'sequence' ? record.salesCodeMode : 'manual',
+    salesCodeMode: record.salesCodeMode === 'manual' || record.salesCodeMode === 'same-sku' ? record.salesCodeMode : 'sequence',
     barcodeMode: record.barcodeMode === 'internal-sku' || record.barcodeMode === 'internal-sales' || record.barcodeMode === 'none' ? record.barcodeMode : 'manufacturer',
     taxCategory: record.taxCategory === 'zero' || record.taxCategory === 'exempt' ? record.taxCategory : 'standard',
     packagingEnabled: record.packagingEnabled === true,
@@ -378,7 +381,7 @@ function sanitizeSkuDrafts(value: unknown, bundleSkus: ProductBundleSkuOption[])
     const baseUnitCode = String(record.baseUnitCode ?? '')
     const identifiers = [skuCode, salesCode, barcode].filter(Boolean)
     if (!name || FORBIDDEN_CONTROL_CHARACTERS.test(name) || !skuCode || !IDENTIFIER_CODE_PATTERN.test(skuCode)) return []
-    if (salesCode && !IDENTIFIER_CODE_PATTERN.test(salesCode)) return []
+    if (salesCode && !validateGlobalSalesCode(salesCode).ok) return []
     if (barcode && FORBIDDEN_CONTROL_CHARACTERS.test(barcode)) return []
     if (!BASE_UNIT_CODES.has(baseUnitCode) || identifiers.some((identifier) => seenIdentifiers.has(identifier))) return []
     identifiers.forEach((identifier) => seenIdentifiers.add(identifier))
@@ -992,6 +995,7 @@ export function UnifiedProductCreationForm({
   const initialStockBatchTimerRef = useRef<number | null>(null)
   const initialStockBatchInFlightRef = useRef(false)
   const identifierAutoCheckTimerRef = useRef<number | null>(null)
+  const salesCodeRangePreviewRequestRef = useRef(0)
   const identifierAutoCheckLastSignatureRef = useRef('')
   const identifierAutoCheckLastStartedAtRef = useRef(0)
   const skuDraftCheckRequestRef = useRef(0)
@@ -1027,12 +1031,18 @@ export function UnifiedProductCreationForm({
   const [variantCombinations, setVariantCombinations] = useState<VariantCombinationDraft[]>(() => synchronizeVariantCombinations(structuredClone(DEFAULT_VARIANT_GROUPS), [], 'TS'))
   const [variantIdentifiersReady, setVariantIdentifiersReady] = useState(false)
   const [variantSkuSequence, setVariantSkuSequence] = useState<VariantSkuSequenceDraft>({ prefix: 'TS', sequence: 1, digits: 3 })
-  const [salesCodeMode, setSalesCodeMode] = useState<SalesCodeMode>('manual')
+  const [salesCodeMode, setSalesCodeMode] = useState<SalesCodeMode>('sequence')
   const [barcodeMode, setBarcodeMode] = useState<BarcodeMode>('manufacturer')
   const [salesSequencePrefix, setSalesSequencePrefix] = useState('A')
   const [salesSequenceStart, setSalesSequenceStart] = useState(1)
   const [salesSequenceDigits, setSalesSequenceDigits] = useState(3)
   const [salesSequenceOffset, setSalesSequenceOffset] = useState(0)
+  const [salesCodeRangePreview, setSalesCodeRangePreview] = useState<{
+    status: 'idle' | 'loading' | 'ready' | 'error' | 'timeout' | 'denied'
+    firstCode?: string
+    lastCode?: string
+    movedPrefix?: boolean
+  }>({ status: 'idle' })
   const [skuDrafts, setSkuDrafts] = useState<SkuDraft[]>([])
   const [skuDraftTooltip, setSkuDraftTooltip] = useState<{ key: string; text: string; left: number; top: number } | null>(null)
   const [skuDraftImages, setSkuDraftImages] = useState<Record<string, SelectedImage[]>>({})
@@ -1209,8 +1219,39 @@ export function UnifiedProductCreationForm({
 
   useEffect(() => () => {
     if (identifierAutoCheckTimerRef.current !== null) window.clearTimeout(identifierAutoCheckTimerRef.current)
+    salesCodeRangePreviewRequestRef.current += 1
     for (const url of imageUrlsRef.current) URL.revokeObjectURL(url)
   }, [])
+
+  useEffect(() => {
+    const requestId = ++salesCodeRangePreviewRequestRef.current
+    if (salesCodeMode !== 'sequence' || !/^[A-Z]{1,3}$/.test(salesSequencePrefix)) {
+      setSalesCodeRangePreview({ status: 'idle' })
+      return
+    }
+    setSalesCodeRangePreview({ status: 'loading' })
+    const timer = window.setTimeout(async () => {
+      try {
+        const result = await withGlobalSalesCodePreviewTimeout(previewGlobalSalesCodeRangeAction({
+          organizationId, prefix: salesSequencePrefix, quantity: 1,
+        }))
+        if (requestId !== salesCodeRangePreviewRequestRef.current) return
+        if (!result.ok) {
+          setSalesCodeRangePreview({ status: result.error === 'permission_denied' ? 'denied' : 'error' })
+          return
+        }
+        setSalesSequencePrefix(result.data.prefix)
+        setSalesSequenceStart(result.data.startNumber)
+        setSalesSequenceDigits(3)
+        setSalesSequenceOffset(0)
+        setSalesCodeRangePreview({ status: 'ready', firstCode: result.data.firstCode, lastCode: result.data.lastCode, movedPrefix: result.data.movedToNextPrefix })
+      } catch (error) {
+        if (requestId !== salesCodeRangePreviewRequestRef.current) return
+        setSalesCodeRangePreview({ status: error instanceof Error && error.message === 'global_sales_code_preview_timeout' ? 'timeout' : 'error' })
+      }
+    }, 450)
+    return () => window.clearTimeout(timer)
+  }, [organizationId, salesCodeMode, salesSequencePrefix])
 
   useEffect(() => {
     if (!creationSuccess) return
@@ -1349,7 +1390,7 @@ export function UnifiedProductCreationForm({
   function canAutoCheckIdentifiers(values = currentIdentifierValues()) {
     return Boolean(values.skuCode)
       && IDENTIFIER_CODE_PATTERN.test(values.skuCode)
-      && (!values.salesCode || IDENTIFIER_CODE_PATTERN.test(values.salesCode))
+      && (!values.salesCode || validateGlobalSalesCode(values.salesCode).ok)
       && values.skuCode.length <= 80
       && values.salesCode.length <= 80
       && values.barcode.length <= 128
@@ -1524,7 +1565,7 @@ export function UnifiedProductCreationForm({
     if (!skuCode) {
       setIdentifierStatuses((current) => ({ ...current, skuCode: { tone: 'danger', text: 'กรุณากรอกรหัสสินค้า' } }))
       setIdentifierFeedback({ tone: 'danger', text: 'กรุณากรอก SKU Code ก่อนตรวจสอบรหัส' })
-    } else if (invalid || !IDENTIFIER_CODE_PATTERN.test(skuCode) || (salesCode && !IDENTIFIER_CODE_PATTERN.test(salesCode)) || skuCode.length > 80 || salesCode.length > 80 || barcode.length > 128) {
+    } else if (invalid || !IDENTIFIER_CODE_PATTERN.test(skuCode) || (salesCode && !validateGlobalSalesCode(salesCode).ok) || skuCode.length > 80 || salesCode.length > 80 || barcode.length > 128) {
       markIdentifierStatusesFailed('รูปแบบหรือความยาวรหัสไม่ถูกต้อง')
       setIdentifierFeedback({ tone: 'danger', text: 'พบรูปแบบหรือความยาวรหัสที่ไม่อนุญาต กรุณาแก้ไขก่อนบันทึก' })
     } else {
@@ -1617,7 +1658,7 @@ export function UnifiedProductCreationForm({
     if (structure === 'variant' && !editingSkuDraftId && !variantOptionOne.trim() && !variantOptionTwo.trim()) errors.push('Variant ต้องมีตัวเลือกอย่างน้อย 1 ค่า')
     if (!record.skuCode) errors.push('SKU Code')
     else if (!IDENTIFIER_CODE_PATTERN.test(record.skuCode)) errors.push('รูปแบบ SKU Code ไม่ถูกต้อง')
-    if (record.salesCode && !IDENTIFIER_CODE_PATTERN.test(record.salesCode)) errors.push('รูปแบบ Sales Code ไม่ถูกต้อง')
+    if (record.salesCode && !validateGlobalSalesCode(record.salesCode).ok) errors.push('รูปแบบ Sales Code ต้องเป็น A001–ZZZ999 และห้ามใช้เลข 000')
     if (record.barcode && FORBIDDEN_CONTROL_CHARACTERS.test(record.barcode)) errors.push('Barcode มีอักขระควบคุมที่ไม่อนุญาต')
     const salePrice = optionalNumber(record.salePrice)
     if (salePrice === undefined || salePrice < 0) errors.push('ราคาขายต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป')
@@ -2395,7 +2436,7 @@ export function UnifiedProductCreationForm({
       if (variantGroups.some((group) => new Set(group.values.map((value) => value.code)).size !== group.values.length)) add('sku', 'ค่าตัวเลือก', 'รหัสค่าตัวเลือกภายในกลุ่มเดียวกันต้องไม่ซ้ำกัน')
       if (enabledVariants.length < 1) add('sku', 'SKU Combination', 'ต้องเปิดใช้อย่างน้อย 1 Combination')
       if (enabledVariants.some((variant) => !variant.skuCode || !IDENTIFIER_CODE_PATTERN.test(variant.skuCode))) add('sku', 'SKU Code', 'ทุก Combination ต้องมี SKU Code ที่ใช้ A–Z, 0–9, จุด, ขีดกลาง หรือขีดล่าง')
-      if (enabledVariants.some((variant) => !variant.salesCode || !IDENTIFIER_CODE_PATTERN.test(variant.salesCode))) add('sku', 'รหัสขาย / รหัส CF', 'ทุก Combination ต้องมีรหัสขาย / รหัส CF ที่ถูกต้อง')
+      if (enabledVariants.some((variant) => !variant.salesCode || !validateGlobalSalesCode(variant.salesCode).ok)) add('sku', 'รหัสขาย / รหัส CF', 'ทุก Combination ต้องใช้รหัสขายมาตรฐาน เช่น A001 หรือ AA001 และห้ามใช้เลข 000')
       if (enabledVariants.some((variant) => variant.price === '' || !Number.isFinite(Number(variant.price)) || Number(variant.price) < 0)) add('pricing', 'ราคาขาย', 'ทุก Combination ต้องมีราคาขายตั้งแต่ 0 ขึ้นไป')
       const skuCodes = enabledVariants.map((variant) => variant.skuCode.toUpperCase())
       const salesCodes = enabledVariants.map((variant) => variant.salesCode.toUpperCase())
@@ -3335,7 +3376,7 @@ export function UnifiedProductCreationForm({
 
             <div className="product-form-field product-identifier-field"><span className="product-label-with-info"><label htmlFor="barcode">Barcode / รหัสสแกน</label><ProductInfoGuide label="Barcode / รหัสสแกน" description="เลือกใช้ Barcode จากผู้ผลิต หรือใช้รหัสสินค้า/รหัสขายเป็นรหัสสแกน โดยหนึ่งรหัสต้องชี้ไปยัง SKU เดียว" example="ตัวอย่าง: 8851234567890 หรือ A003" /></span><span className="product-select-control"><select name="barcodeMode" value={barcodeMode} onChange={(event) => applyBarcodeMode(event.target.value as BarcodeMode)} aria-label="วิธีกำหนด Barcode"><option value="manufacturer">กรอก Barcode จากผู้ผลิต</option><option value="internal-sku" disabled={!summaryFields.skuCode}>ใช้รหัสสินค้า (SKU) เป็น Barcode</option><option value="internal-sales" disabled={!summaryFields.salesCode}>ใช้รหัสขาย / รหัส CF เป็น Barcode</option><option value="none">ยังไม่กำหนด Barcode</option></select></span><input id="barcode" name="barcode" maxLength={128} inputMode="text" autoComplete="off" readOnly={barcodeMode !== 'manufacturer'} placeholder={barcodeMode === 'internal-sku' ? 'กรอกรหัสสินค้า (SKU) ก่อน' : barcodeMode === 'internal-sales' ? 'กรอกรหัสขาย / รหัส CF ก่อน' : '8851234567890'} aria-describedby="barcodeStatus barcodeHelp" onBlur={() => scheduleIdentifierAutoCheck(0)} /><div id="barcodeStatus" className={`product-identifier-field-status ${identifierStatuses.barcode.tone}`} role="status" aria-live="polite" aria-atomic="true"><span aria-hidden="true" />{identifierStatuses.barcode.text}</div>{identifierSuggestions.barcode ? <button className="product-identifier-suggestion" type="button" onClick={() => useIdentifierSuggestion('barcode')}>ใช้รหัสแนะนำ {identifierSuggestions.barcode}</button> : null}<small id="barcodeHelp">{barcodeSourceHelp}</small></div>
 
-            {salesCodeMode === 'sequence' ? <div className="full product-sales-sequence"><label><span>Prefix</span><input name="salesSequencePrefix" value={salesSequencePrefix} onChange={(event) => { setSalesSequencePrefix(event.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 10)); markIdentifierCheckStale() }} maxLength={10} placeholder="A" /></label><label><span>เลขเริ่มต้น</span><input name="salesSequenceStart" type="number" min="0" max="99999999" step="1" value={salesSequenceStart} onChange={(event) => { setSalesSequenceStart(Math.max(0, Math.trunc(Number(event.target.value) || 0))); markIdentifierCheckStale() }} /></label><label><span>จำนวนหลัก</span><input name="salesSequenceDigits" type="number" min="2" max="8" step="1" value={salesSequenceDigits} onChange={(event) => { setSalesSequenceDigits(Math.min(8, Math.max(2, Math.trunc(Number(event.target.value) || 3)))); markIdentifierCheckStale() }} /></label><div className="product-sequence-preview"><span>รหัสปัจจุบัน → รหัสถัดไป</span><strong>{salesSequenceCurrent} → {salesSequenceNext}</strong></div><div className="product-sequence-policy"><span aria-hidden="true">ⓘ</span><span>Preview ยังไม่จองเลข เมื่อบันทึก Server จะตรวจ Unique ใน transaction และไม่สร้างข้อมูลหากรหัสชนกัน</span></div></div> : null}
+            {salesCodeMode === 'sequence' ? <div className="full product-sales-sequence"><label><span>Prefix</span><input name="salesSequencePrefix" value={salesSequencePrefix} onChange={(event) => { setSalesSequencePrefix(event.target.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3)); markIdentifierCheckStale() }} maxLength={3} placeholder="A" /></label><label><span>เลขเริ่มต้นที่ว่าง</span><input name="salesSequenceStart" type="number" min="1" max="999" step="1" value={salesSequenceStart} readOnly aria-readonly="true" /></label><label><span>จำนวนหลัก</span><input name="salesSequenceDigits" value="3 หลัก" readOnly aria-readonly="true" /></label><div className="product-sequence-preview"><span>รหัสปัจจุบัน → รหัสถัดไป</span><strong>{salesSequenceCurrent} → {salesSequenceNext}</strong></div><div className={`product-sequence-policy ${salesCodeRangePreview.status === 'error' || salesCodeRangePreview.status === 'timeout' || salesCodeRangePreview.status === 'denied' ? 'danger' : ''}`} role="status" aria-live="polite"><span aria-hidden="true">ⓘ</span><span>{salesCodeRangePreview.status === 'loading' ? 'กำลังตรวจรหัสว่างกับระบบ…' : salesCodeRangePreview.status === 'ready' ? `รหัสว่างจริง ${salesCodeRangePreview.firstCode}${salesCodeRangePreview.movedPrefix ? ' · ระบบเลื่อนไป Prefix ถัดไป' : ''} · Preview ยังไม่จองเลขจนกดสร้าง` : salesCodeRangePreview.status === 'denied' ? GLOBAL_SALES_CODE_UI_TEXT.states.permission_denied : salesCodeRangePreview.status === 'timeout' ? GLOBAL_SALES_CODE_UI_TEXT.states.timeout : salesCodeRangePreview.status === 'error' ? 'ตรวจรหัสว่างไม่ได้ กรุณาลองอีกครั้ง' : GLOBAL_SALES_CODE_UI_TEXT.help.format}</span></div></div> : null}
 
             <div className="full product-identifier-assistant"><div className="product-identifier-assistant-head"><div><strong>ตรวจรหัสก่อนบันทึก</strong><span>ระบบตรวจให้อัตโนมัติเมื่อหยุดพิมพ์หรือออกจากช่อง · Server transaction เป็นผู้ยืนยัน Unique ขั้นสุดท้าย</span></div><button className="button compact secondary" type="button" onClick={() => checkIdentifiers()} disabled={!canManage || isIdentifierChecking} aria-busy={isIdentifierChecking}>{isIdentifierChecking ? 'กำลังตรวจรหัส…' : 'ตรวจสอบอีกครั้ง'}</button></div><div className={`product-identifier-result ${identifierFeedback.tone}`} role="status" aria-live="polite"><span aria-hidden="true">{identifierFeedback.tone === 'success' ? '✓' : identifierFeedback.tone === 'danger' ? '!' : identifierFeedback.text.startsWith('ข้อมูลรหัสเปลี่ยน') ? '!' : 'ⓘ'}</span><span>{identifierFeedback.text}</span></div></div>
             </div></fieldset>

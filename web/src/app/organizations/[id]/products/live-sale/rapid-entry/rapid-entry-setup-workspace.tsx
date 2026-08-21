@@ -87,7 +87,7 @@ export function RapidEntrySetupWorkspace({ organizationId, actorUserId, canManag
       <div><strong>{draftSavedAt ? 'บันทึก Browser Draft อัตโนมัติแล้ว' : 'สถานะ Browser Draft'}</strong><p>{draftNotice || 'ข้อมูลจะบันทึกอัตโนมัติภายใน Browser เครื่องนี้'}</p></div>
       {selectedRange ? <button className="button secondary" type="button" onClick={() => setDiscardOpen(true)}>ล้าง Draft</button> : null}
     </section> : null}
-    <RapidPrefixAssistant canManage={editorEnabled} onRangeSelect={handleRangeSelect} />
+    <RapidPrefixAssistant organizationId={organizationId} canManage={editorEnabled} onRangeSelect={handleRangeSelect} />
     <RapidNamingTemplateBuilder selectedRange={selectedRange} canManage={editorEnabled} onTemplateChange={setNamingTemplate} />
     <RapidEntryTable organizationId={organizationId} actorUserId={actorUserId} selectedRange={selectedRange} namingTemplate={namingTemplate} canManage={editorEnabled}
       restoredDraft={restoredDraft} onDraftRestored={handleDraftRestored} onDraftSaved={handleDraftSaved} />

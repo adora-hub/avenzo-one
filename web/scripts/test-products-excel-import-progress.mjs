@@ -4,9 +4,11 @@ import test from 'node:test'
 
 const source = await readFile(new URL('../src/app/organizations/[id]/products/product-excel-import-dialog-live.tsx', import.meta.url), 'utf8')
 
-test('Part 2.6 imports sequential batches of at most 25 rows and reports progress', () => {
-  assert.match(source, /index \+= 25/)
-  assert.match(source, /readyRows\.slice\(index, index \+ 25\)/)
+test('GSC-07 imports sequential all-or-nothing batches of at most 50 rows and reports progress', () => {
+  assert.match(source, /index \+= 50/)
+  assert.match(source, /readyRows\.slice\(index, index \+ 50\)/)
+  assert.match(source, /batchCommandId:/)
+  assert.match(source, /ชุดที่ไม่สำเร็จถูกย้อนกลับทั้งหมด/)
   assert.match(source, /setProcessed/)
   assert.match(source, /<progress/)
   assert.match(source, /aria-live="polite"/)

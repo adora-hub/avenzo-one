@@ -1,4 +1,5 @@
 import type { ProductImportHeader, ProductImportRawRow } from './product-excel-import'
+import { globalSalesCodeValidationMessage, validateGlobalSalesCode } from '../../../../lib/foundation/global-sales-code.ts'
 
 export type ProductImportField = ProductImportHeader | 'Row'
 export type ProductImportIssue = {
@@ -89,7 +90,10 @@ export function validateProductImportRows(rawRows: ProductImportRawRow[]): Produ
     if (brandName && brandName.length > 120) add(row, 'Brand', 'length', 'ชื่อแบรนด์ต้องไม่เกิน 120 ตัวอักษร')
     if (!skuCode) add(row, 'SKU Code', 'required', 'กรุณากรอกรหัสสินค้า (SKU)')
     else if (skuCode.length > 80 || CONTROL_CHARACTERS.test(skuCode)) add(row, 'SKU Code', 'format', 'SKU ต้องไม่เกิน 80 ตัวอักษรและห้ามมีอักขระควบคุม')
-    if (salesCode && (salesCode.length > 80 || CONTROL_CHARACTERS.test(salesCode))) add(row, 'Sales Code', 'format', 'รหัสขาย / CF ต้องไม่เกิน 80 ตัวอักษรและห้ามมีอักขระควบคุม')
+    if (salesCode) {
+      const salesCodeValidation = validateGlobalSalesCode(salesCode)
+      if (!salesCodeValidation.ok) add(row, 'Sales Code', 'format', globalSalesCodeValidationMessage(salesCodeValidation))
+    }
     if (barcode && (barcode.length > 128 || CONTROL_CHARACTERS.test(barcode))) add(row, 'Barcode', 'format', 'Barcode ต้องไม่เกิน 128 ตัวอักษรและห้ามมีอักขระควบคุม')
     if (!/^[a-z][a-z0-9_]{0,31}$/.test(baseUnitCode)) add(row, 'Base Unit', 'format', 'Base Unit ต้องขึ้นต้นด้วย a-z และใช้เฉพาะ a-z, 0-9 หรือ _')
     if (!behavior) add(row, 'Quantity Behavior', 'format', 'วิธีนับต้องเป็น discrete, weight หรือ volume')

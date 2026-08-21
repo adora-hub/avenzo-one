@@ -9,7 +9,7 @@ test('Rapid-UI-03 connects the selected Prefix range to the Naming Template Buil
   const setup = await read('src/app/organizations/[id]/products/live-sale/rapid-entry/rapid-entry-setup-workspace.tsx')
   const prefix = await read('src/app/organizations/[id]/products/live-sale/rapid-entry/rapid-prefix-assistant.tsx')
   assert.match(setup, /useState<RapidRangeSelection \| null>/)
-  assert.match(setup, /<RapidPrefixAssistant canManage=\{editorEnabled\} onRangeSelect=\{handleRangeSelect\}/)
+  assert.match(setup, /<RapidPrefixAssistant organizationId=\{organizationId\} canManage=\{editorEnabled\} onRangeSelect=\{handleRangeSelect\}/)
   assert.match(setup, /<RapidNamingTemplateBuilder selectedRange=\{selectedRange\}/)
   assert.match(prefix, /onRangeSelect\?\.\(suggestion\)/)
 })

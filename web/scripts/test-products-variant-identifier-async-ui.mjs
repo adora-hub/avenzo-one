@@ -42,7 +42,8 @@ test('Variant identifier check times out and returns a retryable timeout message
 
 test('Variant builder always releases loading and ignores stale or unmounted requests', async () => {
   const builder = await read(builderPath)
-  const handler = builder.slice(builder.indexOf('async function checkVariantIdentifiers()'), builder.indexOf('function commitGroups('))
+  const handlerStart = builder.indexOf('async function checkVariantIdentifiers()')
+  const handler = builder.slice(handlerStart, builder.indexOf('\n  useEffect(() => {', handlerStart))
   assert.match(handler, /if \(checkInFlightRef\.current \|\| isIdentifierChecking\) return/)
   assert.match(handler, /try \{/)
   assert.match(handler, /withVariantIdentifierCheckTimeout/)

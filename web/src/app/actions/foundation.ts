@@ -28,6 +28,10 @@ import {
   executeGlobalSalesCodeCreation,
   type GlobalSalesCodeCreationResult,
 } from '@/lib/foundation/global-sales-code-creation.server'
+import {
+  previewGlobalSalesCodeRangeServer,
+  type GlobalSalesCodeAuthoritativePreview,
+} from '@/lib/foundation/global-sales-code-preview.server'
 
 export type ProductIdentifierCheckActionResult =
   | { ok: true; data: ProductIdentifierCheckResult }
@@ -59,6 +63,21 @@ export type InitialStockWorkflowActionResult =
 export type GlobalSalesCodeCreationActionResult =
   | { ok: true; data: GlobalSalesCodeCreationResult }
   | { ok: false; error: FoundationErrorCode; status: number }
+
+export type GlobalSalesCodePreviewActionResult =
+  | { ok: true; data: GlobalSalesCodeAuthoritativePreview }
+  | { ok: false; error: FoundationErrorCode; status: number }
+
+export async function previewGlobalSalesCodeRangeAction(
+  input: unknown,
+): Promise<GlobalSalesCodePreviewActionResult> {
+  try {
+    return { ok: true, data: await previewGlobalSalesCodeRangeServer(input) }
+  } catch (error) {
+    const safeError = mapFoundationError(error)
+    return { ok: false, error: safeError.code, status: safeError.status }
+  }
+}
 
 export async function executeGlobalSalesCodeCreationAction(
   input: unknown,
