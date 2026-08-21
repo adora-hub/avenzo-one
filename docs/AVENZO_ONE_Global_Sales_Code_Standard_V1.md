@@ -141,6 +141,13 @@ Entry creation. It must provide:
 For multi-option products, every SKU receives a different Sales Code. For Rapid
 Entry, the selected ready rows are assigned in one all-or-nothing command.
 
+The Owner has recorded a future optional Live Sale workflow where one shared CF
+code may identify a Product option group and the customer supplies option words
+to resolve the exact SKU. This is **not part of Global Sales Code V1** and must
+not be implemented by duplicating one permanent Sales Code across SKU rows. Its
+separate compatibility and safety plan is
+`AVENZO_ONE_Shared_Live_CF_Code_Development_Plan_V1.md`.
+
 ## 7. Implementation Gate
 
 This document freezes the common contract direction only. Before changing the

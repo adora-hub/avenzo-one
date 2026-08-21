@@ -235,3 +235,14 @@ Proceed sequentially with Rapid-BE-01 through Rapid-BE-06. Every Backend Part
 must pass its Contract, Security, Atomicity and E2E gate before the next Part
 starts. PREVIEW apply or deployment still requires explicit Owner approval;
 Production remains out of scope.
+
+## 10. Future Shared Live CF Code
+
+The Owner has recorded a future Live Sale option where one CF code identifies a
+multi-option Product group and customer words such as `A017 ทอง ฟ้าเทา` resolve
+the exact SKU. Rapid Entry V1 continues to assign one permanent Sales Code per
+created SKU and is not changed by this note.
+
+The Shared workflow must be developed separately through
+`AVENZO_ONE_Shared_Live_CF_Code_Development_Plan_V1.md`, including exact option
+resolution, Order idempotency, Stock safety, concurrency, and PREVIEW E2E gates.

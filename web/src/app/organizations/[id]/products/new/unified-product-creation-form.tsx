@@ -154,7 +154,7 @@ const errorLabels: Record<string, string> = {
   duplicate_sku_code: 'SKU Code นี้ถูกใช้แล้วใน Organization',
   duplicate_sales_code: 'Sales Code นี้ถูกใช้แล้วใน Organization',
   duplicate_barcode: 'Barcode นี้ถูกใช้แล้วใน Organization',
-  sku_sequence_conflict: 'เลขลำดับ Product นี้ถูกใช้แล้ว กรุณากด “ใช้เลขถัดไป” แล้วตรวจรหัสอีกครั้ง',
+  sku_sequence_conflict: 'เลขลำดับ Product นี้ถูกใช้แล้ว กรุณากด “ใช้เลขแนะนำ” แล้วตรวจรหัสอีกครั้ง',
   command_payload_conflict: 'คำสั่งเดิมถูกใช้กับข้อมูลคนละชุด กรุณาลองใหม่',
   version_conflict: 'ข้อมูลอ้างอิงมีการเปลี่ยนแปลง กรุณาปิดหน้าต่างแล้วเปิดใหม่ก่อนลองอีกครั้ง',
   foundation_command_failed: 'ระบบบันทึกไม่สำเร็จ กรุณาลองใหม่หรือติดต่อผู้ดูแลระบบ',

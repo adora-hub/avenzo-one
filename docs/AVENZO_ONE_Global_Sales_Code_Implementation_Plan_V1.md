@@ -396,3 +396,16 @@ coverage, TypeScript and a 39/39-page Production Build. The next step is the
 separate PREVIEW Owner closure gate: SELECT-only schema reconciliation and
 authenticated E2E for Normal, Multiple Options, Rapid Entry and Excel Import.
 Production migration and deployment remain prohibited.
+
+## 7. Future Extension — Shared Live CF Code
+
+The Owner has requested a future optional multi-option workflow with two modes:
+
+1. one different permanent Sales Code per SKU, which remains the V1 default;
+2. one shared Live CF code at Product-group level, with required option words
+   resolving the exact SKU before Order or Stock activity.
+
+This extension is intentionally separated from GSC V1 closure. It must preserve
+current SKU/code uniqueness and must not copy one code into multiple SKU rows.
+Proceed only through the gated plan in
+`AVENZO_ONE_Shared_Live_CF_Code_Development_Plan_V1.md`.

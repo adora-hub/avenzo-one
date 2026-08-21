@@ -9,7 +9,7 @@ test('SKU-03 local next Product Sequence remains as the SKU-04 offline fallback'
   const builder = await read('src/app/organizations/[id]/products/new/variant-creation-builder.tsx')
   assert.match(builder, /function nextVariantSkuProductSequence\(sequence: number\)/)
   assert.match(builder, /recommendedProductSequence/)
-  assert.match(builder, /เชื่อมฐานข้อมูลไม่ได้ · แสดงเลขถัดไปจากหน้านี้ชั่วคราว/)
+  assert.match(builder, /เชื่อมฐานข้อมูลไม่ได้ จึงยังยืนยันเลขลำดับไม่ได้/)
 })
 
 test('SKU-03 detects duplicate SKU, Sales Code and Barcode values in the form first', async () => {
