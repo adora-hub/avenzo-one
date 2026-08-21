@@ -2,7 +2,7 @@
 
 **Status:** Owner Approved — Checkpoint Closed
 **Approved date:** 21 August 2026
-**Scope:** Live Sale Rapid Entry UI only  
+**Scope:** Live Sale Rapid Entry UI only
 **Data safety:** ไม่มีการสร้าง Product/SKU, อัปโหลดภาพ, เพิ่ม Stock หรือเรียก Backend
 
 ## สิ่งที่ทำ
