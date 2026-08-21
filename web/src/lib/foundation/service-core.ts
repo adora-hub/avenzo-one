@@ -20,9 +20,14 @@ export function foundationRequestHash(command: FoundationApplicationCommand) {
 
 function requiredPermission(command: FoundationApplicationCommand) {
   if (command.kind === 'entity') {
-    return command.commandType.startsWith('product.') || command.commandType.startsWith('sku.')
-      ? 'product.manage'
-      : 'warehouse.manage'
+    if (command.commandType === 'product.create'
+      || command.commandType === 'product.create_with_initial_sku'
+      || command.commandType === 'product.create_with_variants') return 'product.create'
+    if (command.commandType === 'product.archive'
+      || command.commandType === 'sku.archive') return 'product.archive'
+    if (command.commandType.startsWith('product.')
+      || command.commandType.startsWith('sku.')) return 'product.update'
+    return 'warehouse.manage'
   }
   if (command.commandType === 'receive') return 'inventory.receive'
   if (command.commandType.startsWith('adjustment')) return 'inventory.adjust'

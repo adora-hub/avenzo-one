@@ -5,9 +5,11 @@
 **วันที่อนุมัติ:** 20 สิงหาคม 2026
 **ผู้อนุมัติ:** Project Manager (PM)
 **Approval Decision:** อนุมัติ Decision Matrix ทั้ง 8 ข้อ โดย `Warehouse.branch_id` ต้องเป็น Required; ไม่รองรับ Warehouse ที่ไม่มี Branch ในขอบเขต T4
+**PM Amendment:** 21 สิงหาคม 2026 — Batch cardinality เปลี่ยนเป็น 1–100 Items เพื่อให้ SKU เดี่ยวและหลาย SKU ใช้ RPC เดียวกัน
 **Source of Truth:** `docs/AVENZO_ONE_Phase_T_Initial_Stock_Integration.md`
 **Branch ที่ตรวจ:** `codex/workstream-domain-qa`
-**ข้อจำกัด:** Contract นี้ได้รับอนุมัติด้าน Schema/Domain แล้ว แต่ยังห้ามเขียน Migration, RPC, API, Test หรือแก้โค้ดจนกว่า Part ที่เกี่ยวข้องจะได้รับอนุมัติ และห้าม Commit/Push โดยไม่มีคำสั่ง PM
+**Implementation Status:** T4.4B Approved/Closed ที่ commit `382b2a6` เมื่อ 21 สิงหาคม 2026
+**ข้อจำกัดปัจจุบัน:** T5.1 เป็น Documentation/Integration Preflight เท่านั้น; ห้าม Apply PREVIEW/Production, Deploy, Commit หรือ Push จนกว่า PM อนุมัติขั้นถัดไป
 
 ---
 
@@ -59,7 +61,9 @@ Candidate tables ที่ T4 ต้องมีหลังผ่าน Approva
 7. `public.inventory_movements`
 8. `private.inventory_idempotency_records` เฉพาะหาก PM เลือกแยกจาก Batch Header
 
-`inventory_receive_batch_items` จำเป็นเพื่อเก็บ 2–N SKU/Location/Quantity ใน Batch เดียว
+`inventory_receive_batch_items` จำเป็นเพื่อเก็บ 1–N SKU/Location/Quantity ใน Batch เดียว
+โดย PM แก้ไข cardinality เมื่อ 21 สิงหาคม 2026 เพื่อให้ Product ปกติ 1 SKU
+และ Product แบบ Variant หลาย SKU ใช้ Atomic Receive RPC เดียวกัน
 
 ยังไม่กำหนด Balance Table เพราะ Phase T ล็อกว่า Balance ต้องเกิดจาก Movement และห้ามแก้ยอดคงเหลือโดยตรง วิธีทำ Read Model/Projection เป็น Decision แยก
 
@@ -193,7 +197,7 @@ Cardinality:
 - Product 1 → N SKU
 - Organization 1 → N Warehouse
 - Warehouse 1 → N Location
-- Receive Batch 1 → 2–N Batch Item สำหรับ T4
+- Receive Batch 1 → 1–N Batch Item สำหรับ T4
 - Batch Item 1 → 1 SKU + 1 Location
 - Batch Item 1 → 1 Initial Receive Movement
 - Idempotency Key 1 → 1 Logical Batch Result ภายใน Tenant/Operation scope
@@ -434,8 +438,15 @@ PM อนุมัติ Decision ทั้ง 8 ข้อเมื่อวั�
 - Product status/type + SKU status เป็น stockability guard
 - Public read ผ่าน RLS, Movement immutable และทำ remote reconciliation แบบ read-only ก่อน Migration
 
+Implementation reconciliation ณ commit `382b2a6` (ไม่เปลี่ยน Owner-locked Contract):
+
+- ชื่อ Physical schema ที่นำกลับมาใช้จริงคือ `public.products`, `public.skus`, `public.warehouses`, `public.locations`, `public.stock_movements` และ `public.inventory_balances`
+- T4.2C ปิด Permission/RLS/Constraint cutover และ T4.3B ปิด Individual Permission Overrides แล้ว
+- T4.4B เพิ่มเฉพาะ Batch authority ที่อนุมัติ ได้แก่ `public.inventory_receive_batches`, `public.inventory_receive_batch_items` และ `public.server_receive_inventory_batch`
+- Candidate names และ Current Schema Findings ด้านบนคงไว้เป็นหลักฐาน ณ เวลาจัดทำ T4.1; ห้ามนำไปสร้าง Schema ซ้ำหรือใช้แทนชื่อ Physical schema ที่ reconcile แล้ว
+
 Handoff ไป T4.2: จัดทำ Permission, RLS & Constraints Plan โดยยังห้ามสร้าง Migration/RPC/API/Test Code
 
-**สถานะสุดท้าย:** T4.1 Approved Contract — การอนุมัติ T4.1 เดิมไม่ก่อให้เกิด
-Migration/RPC/API/Test/Code Change; PM อนุมัติให้นำเอกสาร Source of Truth นี้เข้า
-closeout commit ของ T4.3B เมื่อวันที่ 20 สิงหาคม 2026
+**สถานะสุดท้าย:** T4.1 Approved Contract — Owner-locked Decisions ทั้ง 8 ข้อยังคงเดิม;
+T4.4B Approved/Closed ที่ commit `382b2a6`; เอกสารฉบับนี้ถูกปรับเฉพาะสถานะและ
+implementation reconciliation สำหรับ T5.1 โดยไม่แก้ Schema/Domain Contract

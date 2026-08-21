@@ -1,4 +1,5 @@
 import type { FoundationApplicationCommand, FoundationCommandOutcome } from './contracts'
+import type { InitialStockBatchRequest, InitialStockBatchResult } from './initial-stock-workflow'
 
 export type PageResult<T> = { items: T[]; nextCursor: string | null; totalCount?: number }
 
@@ -325,4 +326,8 @@ export interface FoundationCommandRepository {
     actorUserId: string,
     requestHash: string,
   ): Promise<FoundationCommandOutcome>
+  receiveInitialStockBatch(
+    request: InitialStockBatchRequest,
+    actorUserId: string,
+  ): Promise<InitialStockBatchResult>
 }

@@ -14,12 +14,16 @@ test('T2 loads stock destinations only after the switch is enabled', async () =>
   assert.doesNotMatch(await read(pagePath), /listWarehouses|listLocations/)
 })
 
-test('T2 enforces warehouse read and inventory receive permissions before querying', async () => {
+test('T2 enforces warehouse and location read plus inventory receive before querying', async () => {
   const page = await read(pagePath)
   const action = await read(actionPath)
-  assert.match(page, /permissions\.has\('warehouse\.read'\) && permissions\.has\('inventory\.receive'\)/)
+  assert.match(page, /permissions\.has\('warehouse\.read'\)/)
+  assert.match(page, /permissions\.has\('location\.read'\)/)
+  assert.match(page, /permissions\.has\('inventory\.receive'\)/)
   assert.match(action, /getFoundationActor\(organizationId\)/)
-  assert.match(action, /!actor\.permissions\.includes\('warehouse\.read'\) \|\| !actor\.permissions\.includes\('inventory\.receive'\)/)
+  assert.match(action, /!actor\.permissions\.includes\('warehouse\.read'\)/)
+  assert.match(action, /!actor\.permissions\.includes\('location\.read'\)/)
+  assert.match(action, /!actor\.permissions\.includes\('inventory\.receive'\)/)
   assert.match(action, /status: 'active'/)
 })
 
@@ -35,12 +39,13 @@ test('T2 uses real cascading warehouse and location identifiers', async () => {
   assert.doesNotMatch(standardStock, /<option value="available">พร้อมขาย<\/option>/)
 })
 
-test('T2 remains read-only and exposes loading, retry, empty and permission states', async () => {
+test('T2 selector states remain and T5.2 adds only the approved trusted write boundary', async () => {
   const form = await read(formPath)
   for (const text of ['กำลังโหลดคลังและตำแหน่งจัดเก็บ', 'ลองใหม่', 'ยังไม่มีคลังและตำแหน่งจัดเก็บที่พร้อมใช้งาน', 'ต้องมีสิทธิ์ดูคลังและรับสต็อก']) {
     assert.match(form, new RegExp(text))
   }
-  assert.match(form, /T2 · อ่านข้อมูลจริง/)
-  assert.match(form, /ยังไม่บันทึกสต็อกจริง/)
+  assert.match(form, /T5\.2 · Atomic Backend/)
+  assert.match(form, /executeInitialStockWorkflowAction/)
+  assert.doesNotMatch(form, /data-ui-only="true"|ยังไม่บันทึกสต็อกจริง/)
   assert.doesNotMatch(form, /commandType: 'receive'|commandType: 'inventory\./)
 })

@@ -20,7 +20,8 @@ test('R7.2.4C validates bounded Organization-scoped identifier check input', asy
 test('R7.2.4C checks permission and uses the authenticated RLS client', async () => {
   const server = await read(serverPath)
   assert.match(server, /getFoundationActor\(parsed\.organizationId\)/)
-  assert.match(server, /requireFoundationPermission\(actor, 'product\.manage'\)/)
+  assert.match(server, /requireFoundationPermission\(actor, 'product\.create'\)/)
+  assert.doesNotMatch(server, /requireFoundationPermission\(actor, 'product\.manage'\)/)
   assert.match(server, /createClient\(\)/)
   assert.doesNotMatch(server, /createAdminClient|service_role|serviceRole/)
 })

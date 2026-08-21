@@ -4,14 +4,16 @@ import { parseFoundationCommand } from '@/lib/foundation/contracts'
 import type { FoundationActionResult, FoundationErrorCode } from '@/lib/foundation/errors'
 import { mapFoundationError } from '@/lib/foundation/errors'
 import type { FoundationCommandOutcome } from '@/lib/foundation/contracts'
-import { executeFoundationServerCommand } from '@/lib/foundation/server-service'
+import {
+  executeFoundationServerCommand,
+  executeInitialStockServerWorkflow,
+} from '@/lib/foundation/server-service'
 import { executeProductImageCleanupCommand } from '@/lib/foundation/product-image-cleanup.server'
 import { createFoundationReadRepository } from '@/lib/foundation/server-read'
 import { getFoundationActor } from '@/lib/foundation/server-context'
 import type { ProductWorkspaceSkuDetail } from '@/lib/foundation/repositories'
 import {
-  executeInitialStockWorkflow,
-  type InitialStockWorkflowInput,
+  parseInitialStockWorkflowInput,
   type InitialStockWorkflowResult,
 } from '@/lib/foundation/initial-stock-workflow'
 import {
@@ -44,42 +46,10 @@ export type InitialStockWorkflowActionResult =
   | { ok: true; data: InitialStockWorkflowResult }
   | { ok: false; error: FoundationErrorCode; status: number }
 
-const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-
-function parseInitialStockWorkflowInput(input: unknown): InitialStockWorkflowInput {
-  if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('validation_failed')
-  const value = input as Record<string, unknown>
-  const items = Array.isArray(value.items) ? value.items : []
-  const parsed: InitialStockWorkflowInput = {
-    workflowId: String(value.workflowId ?? ''), organizationId: String(value.organizationId ?? ''),
-    productId: String(value.productId ?? ''), productExpectedVersion: Number(value.productExpectedVersion),
-    productActivationCommandId: String(value.productActivationCommandId ?? ''),
-    destinationLocationId: String(value.destinationLocationId ?? ''),
-    items: items.map((entry) => {
-      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) throw new Error('validation_failed')
-      const item = entry as Record<string, unknown>
-      return { key: String(item.key ?? '').trim().slice(0, 500), skuId: String(item.skuId ?? ''),
-        expectedVersion: Number(item.expectedVersion), quantity: Number(item.quantity),
-        activationCommandId: String(item.activationCommandId ?? ''), receiveCommandId: String(item.receiveCommandId ?? '') }
-    }),
-  }
-  const identifiers = [parsed.workflowId, parsed.organizationId, parsed.productId, parsed.productActivationCommandId,
-    parsed.destinationLocationId, ...parsed.items.flatMap((item) => [item.skuId, item.activationCommandId, item.receiveCommandId])]
-  if (identifiers.some((id) => !uuidPattern.test(id))
-    || !Number.isInteger(parsed.productExpectedVersion) || parsed.productExpectedVersion < 1
-    || parsed.items.length < 1 || parsed.items.length > 100
-    || parsed.items.some((item) => !item.key || !Number.isInteger(item.expectedVersion) || item.expectedVersion < 1
-      || !Number.isFinite(item.quantity) || item.quantity <= 0 || item.quantity > 99_999_999_999_999.999999
-      || !Number.isInteger(item.quantity * 1_000_000))
-    || new Set(parsed.items.map((item) => item.skuId)).size !== parsed.items.length
-    || new Set(parsed.items.map((item) => item.receiveCommandId)).size !== parsed.items.length) throw new Error('validation_failed')
-  return parsed
-}
-
 export async function executeInitialStockWorkflowAction(input: unknown): Promise<InitialStockWorkflowActionResult> {
   try {
     const command = parseInitialStockWorkflowInput(input)
-    const data = await executeInitialStockWorkflow(command, executeFoundationServerCommand, (error) => mapFoundationError(error).code)
+    const data = await executeInitialStockServerWorkflow(command)
     return { ok: true, data }
   } catch (error) {
     const safeError = mapFoundationError(error)
@@ -92,7 +62,9 @@ export async function loadInitialStockDestinationsAction(input: unknown): Promis
     const organizationId = String((input as Record<string, unknown>).organizationId ?? '')
     if (!/^[0-9a-f-]{36}$/i.test(organizationId)) throw new Error('validation_failed')
     const actor = await getFoundationActor(organizationId)
-    if (!actor.permissions.includes('warehouse.read') || !actor.permissions.includes('inventory.receive')) {
+    if (!actor.permissions.includes('warehouse.read')
+      || !actor.permissions.includes('location.read')
+      || !actor.permissions.includes('inventory.receive')) {
       throw new Error('permission_denied')
     }
     const repository = await createFoundationReadRepository()

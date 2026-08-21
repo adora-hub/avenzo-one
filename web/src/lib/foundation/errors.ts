@@ -20,6 +20,14 @@ export const foundationErrorCodes = [
   'version_conflict',
   'invalid_state_transition',
   'immutable_identifier',
+  'initial_stock_validation_failed',
+  'initial_stock_duplicate_item',
+  'initial_stock_access_denied',
+  'initial_stock_item_not_receivable',
+  'initial_stock_idempotency_conflict',
+  'initial_stock_state_incomplete',
+  'initial_stock_timeout_unknown',
+  'initial_stock_failed',
   'foundation_command_failed',
 ] as const
 
@@ -58,6 +66,16 @@ const knownDatabaseMessages: Array<[string, FoundationErrorCode, number]> = [
   ['active_sku_required', 'entity_inactive', 409],
   ['active_source_location_required', 'entity_inactive', 409],
   ['active_destination_location_required', 'entity_inactive', 409],
+  ['batch_receive_duplicate_sku_location', 'initial_stock_duplicate_item', 400],
+  ['batch_receive_scope_not_accessible', 'initial_stock_access_denied', 403],
+  ['batch_receive_permission_required', 'initial_stock_access_denied', 403],
+  ['batch_receive_item_not_receivable', 'initial_stock_item_not_receivable', 409],
+  ['batch_receive_idempotency_conflict', 'initial_stock_idempotency_conflict', 409],
+  ['batch_receive_incomplete_state', 'initial_stock_state_incomplete', 500],
+  ['batch_receive_request_invalid', 'initial_stock_validation_failed', 400],
+  ['batch_receive_item_count_invalid', 'initial_stock_validation_failed', 400],
+  ['batch_receive_quantity_invalid', 'initial_stock_validation_failed', 400],
+  ['batch_receive_unit_invalid', 'initial_stock_validation_failed', 400],
 ]
 
 export function mapFoundationError(error: unknown, commandId?: string) {

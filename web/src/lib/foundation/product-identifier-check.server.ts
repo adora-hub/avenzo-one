@@ -78,7 +78,7 @@ export async function checkProductIdentifiers(
 ): Promise<ProductIdentifierCheckResult> {
   const parsed = parseProductIdentifierCheck(input)
   const actor = await getFoundationActor(parsed.organizationId)
-  requireFoundationPermission(actor, 'product.manage')
+  requireFoundationPermission(actor, 'product.create')
 
   const supabase = await createClient()
   const normalizedValues = [...new Set(parsed.identifiers.map((identifier) => identifier.value.toUpperCase()))]
@@ -171,7 +171,7 @@ export async function checkVariantProductIdentifiers(
   })
 
   const actor = await getFoundationActor(organizationId)
-  requireFoundationPermission(actor, 'product.manage')
+  requireFoundationPermission(actor, 'product.create')
 
   const grouped = new Map<string, typeof identifiers>()
   identifiers.forEach((identifier) => {

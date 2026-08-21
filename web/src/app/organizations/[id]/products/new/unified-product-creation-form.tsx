@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import {
   checkProductIdentifiersAction,
   executeFoundationCommandAction,
+  executeInitialStockWorkflowAction,
   executeProductImageCleanupAction,
   loadInitialStockDestinationsAction,
 } from '@/app/actions/foundation'
@@ -90,9 +91,38 @@ type SkuDraft = {
 }
 type UploadStage = 'selected' | 'preparing' | 'uploading' | 'finalizing' | 'ready' | 'failed'
 type SelectedImage = { id: string; file: File; previewUrl: string; stage: UploadStage }
-type VariantSkuMapping = { key: string; skuId: string; imageId: string }
-type PendingDraft = { productId: string; skuId?: string; variantSkus?: VariantSkuMapping[]; readyImageIdsByClientId?: Record<string, string>; productName: string; savedAt: string }
-type CreationSuccess = { productId: string; productName: string; skuCount: number; productCount?: number }
+type VariantSkuMapping = { key: string; skuId: string; skuVersion: number; imageId: string }
+type PendingInitialStockWorkflow = {
+  contractVersion: 1
+  workflowId: string
+  organizationId: string
+  product: { productId: string; expectedVersion: number; activationCommandId: string }
+  skus: Array<{ key: string; skuId: string; expectedVersion: number; activationCommandId: string }>
+  receive: null | {
+    branchId: string
+    idempotencyKey: string
+    reference?: string
+    reasonNote?: string
+    items: Array<{ skuId: string; locationId: string; quantity: string; unitCode: string }>
+  }
+}
+type PendingDraft = {
+  productId: string
+  skuId?: string
+  variantSkus?: VariantSkuMapping[]
+  readyImageIdsByClientId?: Record<string, string>
+  imagesCompleted?: boolean
+  initialStockWorkflow?: PendingInitialStockWorkflow
+  productName: string
+  savedAt: string
+}
+type CreationSuccess = {
+  productId: string
+  productName: string
+  skuCount: number
+  productCount?: number
+  stockStatus?: 'completed' | 'not_requested'
+}
 type Feedback = { tone: 'info' | 'success' | 'danger'; text: string }
 type IdentifierStatusKey = 'skuCode' | 'salesCode' | 'barcode'
 type IdentifierStatusMap = Record<IdentifierStatusKey, Feedback>
@@ -149,6 +179,14 @@ const errorLabels: Record<string, string> = {
   duplicate_barcode: 'Barcode นี้ถูกใช้แล้วใน Organization',
   command_payload_conflict: 'คำสั่งเดิมถูกใช้กับข้อมูลคนละชุด กรุณาลองใหม่',
   version_conflict: 'ข้อมูลอ้างอิงมีการเปลี่ยนแปลง กรุณาปิดหน้าต่างแล้วเปิดใหม่ก่อนลองอีกครั้ง',
+  initial_stock_validation_failed: 'ข้อมูลสต็อกเริ่มต้นไม่ถูกต้อง กรุณาตรวจจำนวน คลัง และตำแหน่งจัดเก็บ',
+  initial_stock_duplicate_item: 'พบ SKU และตำแหน่งจัดเก็บซ้ำใน Batch เดียวกัน',
+  initial_stock_access_denied: 'ไม่มีสิทธิ์รับสต็อกที่ Organization หรือสาขานี้',
+  initial_stock_item_not_receivable: 'มี SKU หรือตำแหน่งที่ยังไม่พร้อมรับสต็อก รายการทั้งหมดจึงไม่ถูกบันทึก',
+  initial_stock_idempotency_conflict: 'คำสั่งรับสต็อกเดิมถูกใช้กับข้อมูลคนละชุด กรุณาหยุดและตรวจสอบรายการ',
+  initial_stock_state_incomplete: 'สถานะ Batch ไม่สมบูรณ์ ระบบหยุดรายการเพื่อให้ตรวจสอบ',
+  initial_stock_timeout_unknown: 'ยังยืนยันผลการรับสต็อกไม่ได้ กรุณาลองคำสั่งเดิมอีกครั้งโดยไม่เปลี่ยนข้อมูล',
+  initial_stock_failed: 'รับสต็อกเริ่มต้นไม่สำเร็จ กรุณาลองคำสั่งเดิมอีกครั้ง',
   foundation_command_failed: 'ระบบบันทึกไม่สำเร็จ กรุณาลองใหม่หรือติดต่อผู้ดูแลระบบ',
 }
 
@@ -393,6 +431,77 @@ function sanitizeSkuDrafts(value: unknown, bundleSkus: ProductBundleSkuOption[])
   })
 }
 
+function sanitizePendingInitialStockWorkflow(value: unknown): PendingInitialStockWorkflow | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
+  const workflow = value as Record<string, unknown>
+  const product = workflow.product && typeof workflow.product === 'object' && !Array.isArray(workflow.product)
+    ? workflow.product as Record<string, unknown>
+    : null
+  const skus = Array.isArray(workflow.skus) ? workflow.skus.slice(0, 100).flatMap((entry) => {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return []
+    const item = entry as Record<string, unknown>
+    const key = String(item.key ?? '').normalize('NFC').trim().slice(0, 500)
+    const skuId = String(item.skuId ?? '')
+    const activationCommandId = String(item.activationCommandId ?? '')
+    const expectedVersion = Number(item.expectedVersion)
+    return key && UUID_PATTERN.test(skuId) && UUID_PATTERN.test(activationCommandId)
+      && Number.isSafeInteger(expectedVersion) && expectedVersion > 0
+      ? [{ key, skuId, activationCommandId, expectedVersion }]
+      : []
+  }) : []
+  if (workflow.contractVersion !== 1
+    || !UUID_PATTERN.test(String(workflow.workflowId ?? ''))
+    || !UUID_PATTERN.test(String(workflow.organizationId ?? ''))
+    || !product
+    || !UUID_PATTERN.test(String(product.productId ?? ''))
+    || !UUID_PATTERN.test(String(product.activationCommandId ?? ''))
+    || !Number.isSafeInteger(Number(product.expectedVersion))
+    || Number(product.expectedVersion) < 1
+    || skus.length < 1) return undefined
+
+  let receive: PendingInitialStockWorkflow['receive'] = null
+  if (workflow.receive !== null) {
+    if (!workflow.receive || typeof workflow.receive !== 'object' || Array.isArray(workflow.receive)) return undefined
+    const receiveRecord = workflow.receive as Record<string, unknown>
+    const items = Array.isArray(receiveRecord.items) ? receiveRecord.items.slice(0, 100).flatMap((entry) => {
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return []
+      const item = entry as Record<string, unknown>
+      const skuId = String(item.skuId ?? '')
+      const locationId = String(item.locationId ?? '')
+      const quantity = String(item.quantity ?? '').trim()
+      const unitCode = String(item.unitCode ?? '').trim().toLowerCase()
+      return UUID_PATTERN.test(skuId) && UUID_PATTERN.test(locationId)
+        && /^(?:0|[1-9][0-9]{0,8})(?:\.[0-9]{1,6})?$/.test(quantity)
+        && Number(quantity) > 0 && /^[a-z][a-z0-9_]{0,31}$/.test(unitCode)
+        ? [{ skuId, locationId, quantity, unitCode }]
+        : []
+    }) : []
+    if (!UUID_PATTERN.test(String(receiveRecord.branchId ?? ''))
+      || !UUID_PATTERN.test(String(receiveRecord.idempotencyKey ?? ''))
+      || items.length < 1) return undefined
+    receive = {
+      branchId: String(receiveRecord.branchId),
+      idempotencyKey: String(receiveRecord.idempotencyKey),
+      ...(typeof receiveRecord.reference === 'string' ? { reference: receiveRecord.reference.slice(0, 255) } : {}),
+      ...(typeof receiveRecord.reasonNote === 'string' ? { reasonNote: receiveRecord.reasonNote.slice(0, 1000) } : {}),
+      items,
+    }
+  }
+
+  return {
+    contractVersion: 1,
+    workflowId: String(workflow.workflowId),
+    organizationId: String(workflow.organizationId),
+    product: {
+      productId: String(product.productId),
+      expectedVersion: Number(product.expectedVersion),
+      activationCommandId: String(product.activationCommandId),
+    },
+    skus,
+    receive,
+  }
+}
+
 function sanitizePendingDraft(value: unknown): PendingDraft | null {
   if (!value || typeof value !== 'object') return null
   const record = value as Record<string, unknown>
@@ -403,8 +512,11 @@ function sanitizePendingDraft(value: unknown): PendingDraft | null {
     const mapping = entry as Record<string, unknown>
     const key = String(mapping.key ?? '').slice(0, 500)
     const mappedSkuId = String(mapping.skuId ?? '')
+    const skuVersion = Number(mapping.skuVersion)
     const imageId = String(mapping.imageId ?? '').slice(0, 80)
-    return key && UUID_PATTERN.test(mappedSkuId) ? [{ key, skuId: mappedSkuId, imageId }] : []
+    return key && UUID_PATTERN.test(mappedSkuId) && Number.isSafeInteger(skuVersion) && skuVersion > 0
+      ? [{ key, skuId: mappedSkuId, skuVersion, imageId }]
+      : []
   }) : []
   const productName = String(record.productName ?? '').normalize('NFKC').trim().slice(0, 160)
   const readyImageIdsByClientId = record.readyImageIdsByClientId && typeof record.readyImageIdsByClientId === 'object'
@@ -412,9 +524,20 @@ function sanitizePendingDraft(value: unknown): PendingDraft | null {
     : {}
   const savedAt = String(record.savedAt ?? '')
   const savedAtTimestamp = Date.parse(savedAt)
+  const initialStockWorkflow = sanitizePendingInitialStockWorkflow(record.initialStockWorkflow)
+  if (record.initialStockWorkflow !== undefined && !initialStockWorkflow) return null
   if (!UUID_PATTERN.test(productId) || (!UUID_PATTERN.test(skuId) && variantSkus.length === 0) || !productName || FORBIDDEN_CONTROL_CHARACTERS.test(productName) || !Number.isFinite(savedAtTimestamp)) return null
   if (savedAtTimestamp > Date.now() + 60_000 || Date.now() - savedAtTimestamp > PENDING_DRAFT_MAX_AGE_MS) return null
-  return { productId, skuId: UUID_PATTERN.test(skuId) ? skuId : undefined, variantSkus: variantSkus.length ? variantSkus : undefined, readyImageIdsByClientId, productName, savedAt }
+  return {
+    productId,
+    skuId: UUID_PATTERN.test(skuId) ? skuId : undefined,
+    variantSkus: variantSkus.length ? variantSkus : undefined,
+    readyImageIdsByClientId,
+    imagesCompleted: record.imagesCompleted === true,
+    initialStockWorkflow,
+    productName,
+    savedAt,
+  }
 }
 
 const PRODUCT_INFO_GUIDE_OPEN_EVENT = 'avenzo:product-info-guide-open'
@@ -748,7 +871,7 @@ export function MasterDataManager({
             </div>
           }) : <div className="product-master-empty">ไม่พบรายการที่ค้นหา</div>}</div>
           <div className="product-master-bulk"><label htmlFor={`${titleId}-bulk`}>เพิ่ม{label}</label><textarea id={`${titleId}-bulk`} value={bulkInput} onChange={(event) => setBulkInput(event.target.value)} maxLength={600} placeholder="แยกหลายรายการด้วย comma หรือขึ้นบรรทัดใหม่" disabled={isPending} /><button className="button compact product-grid-button-secondary product-master-secondary-action" type="button" onClick={addBulkItems} disabled={isPending || !bulkInput.trim()}>＋ เพิ่มรายการ</button></div>
-          <div className="product-master-permission-note"><span aria-hidden="true">ⓘ</span><span>แสดงเฉพาะผู้มีสิทธิ์ product.manage · แต่ละรายการบันทึกผ่าน trusted command พร้อม Audit Log · รายการที่เก็บถาวรแล้วเปิดกลับไม่ได้</span></div>
+          <div className="product-master-permission-note"><span aria-hidden="true">ⓘ</span><span>แสดงเฉพาะผู้มีสิทธิ์ product.update · แต่ละรายการบันทึกผ่าน trusted command พร้อม Audit Log · รายการที่เก็บถาวรแล้วเปิดกลับไม่ได้</span></div>
           {error ? <div className="product-master-dialog-error" role="alert">{error}</div> : null}
         </div>
         <footer><button className="button compact product-grid-button-secondary product-master-secondary-action" type="button" onClick={closeManager} disabled={isPending}>ยกเลิก</button><button className="button compact product-grid-button-primary product-master-primary-action" type="button" onClick={saveChanges} disabled={isPending}>{isPending ? `กำลังบันทึก${label}…` : `บันทึก${label}`}</button></footer>
@@ -2322,8 +2445,8 @@ export function UnifiedProductCreationForm({
     const payload = buildPayload(data)
 
     if (pendingDraft) {
-      if (images.length < 1) add('images', 'รูปสินค้า', 'ข้อมูลหลักถูกสร้างแล้ว กรุณาเลือกภาพใหม่อย่างน้อย 1 ภาพเพื่ออัปโหลดต่อ')
-      if (images.some((image) => image.stage === 'failed')) add('images', 'รูปสินค้า', 'มีรูปที่อัปโหลดไม่สำเร็จ กรุณาเลือกไฟล์ใหม่')
+      if (!pendingDraft.imagesCompleted && images.length < 1) add('images', 'รูปสินค้า', 'ข้อมูลหลักถูกสร้างแล้ว กรุณาเลือกภาพใหม่อย่างน้อย 1 ภาพเพื่ออัปโหลดต่อ')
+      if (!pendingDraft.imagesCompleted && images.some((image) => image.stage === 'failed')) add('images', 'รูปสินค้า', 'มีรูปที่อัปโหลดไม่สำเร็จ กรุณาเลือกไฟล์ใหม่')
       return issues
     }
 
@@ -2383,6 +2506,13 @@ export function UnifiedProductCreationForm({
     for (const error of packagingBundleValidationErrors(payload.quantity_behavior)) add('packaging', 'หน่วยบรรจุและ Bundle', error)
     for (const error of inventoryPolicyValidationErrors(data)) add('inventory', 'นโยบายสต๊อก', error, error.startsWith('Min') ? 'reorderMin' : 'reorderMax')
     if (hasNoSelectedSalesBranch()) add('inventory', 'สาขาที่เปิดขาย', 'กรุณาเลือกสาขาอย่างน้อย 1 แห่ง')
+    if (structure !== 'bundle' && initialStockEnabled) {
+      const stockErrors = structure === 'variant' ? variantInitialStockErrors : standardInitialStockErrors
+      for (const error of stockErrors) add('inventory', 'สต็อกเริ่มต้น', error)
+      if (initialStockTotal <= 0) {
+        add('inventory', 'สต็อกเริ่มต้น', 'เมื่อเปิดสต็อกเริ่มต้น ต้องมีอย่างน้อย 1 SKU ที่มีจำนวนมากกว่า 0')
+      }
+    }
 
     const serializedFields = JSON.stringify(Array.from(data.entries()).flatMap(([key, value]) => typeof value === 'string' ? [[key, value]] : []))
     if (new TextEncoder().encode(serializedFields).byteLength > DRAFT_MAX_BYTES) add('metadata', 'ขนาดข้อมูล', 'ข้อมูลข้อความรวมเกิน 256 KB กรุณาลดรายละเอียดก่อนสร้าง')
@@ -2586,6 +2716,17 @@ export function UnifiedProductCreationForm({
     const data = new FormData(event.currentTarget)
     if (!validateBeforeCreate(data)) return
     const payload = buildPayload(data)
+    const creationStructure = structure
+    const stockIntent = creationStructure === 'bundle' ? null : {
+      enabled: initialStockEnabled,
+      branchId: initialStockBranchId,
+      locationId: initialStockLocation,
+      rows: initialStockRows.map((row) => ({
+        key: row.key,
+        quantity: (initialStockQuantities[row.key] ?? '').trim(),
+        unitCode: row.baseUnitCode,
+      })),
+    }
     successReturnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
 
     setFeedback(null)
@@ -2593,7 +2734,7 @@ export function UnifiedProductCreationForm({
     startTransition(async () => {
       let recovery = pendingDraft
       if (!recovery) {
-        const isVariantCreation = structure === 'variant'
+        const isVariantCreation = creationStructure === 'variant'
         setProgress(isVariantCreation ? 'กำลังสร้าง Product และ SKU Variant ทั้งหมดแบบ Atomic…' : 'กำลังสร้าง Product และ SKU แรกแบบ Atomic…')
         const commandIdKey = `${localDraftKey}:command-id`
         const commandId = window.localStorage.getItem(commandIdKey) ?? crypto.randomUUID()
@@ -2612,18 +2753,75 @@ export function UnifiedProductCreationForm({
           const item = entry as Record<string, unknown>
           const key = String(item.key ?? '').slice(0, 500)
           const skuId = String(item.sku_id ?? '')
+          const skuVersion = Number(item.sku_version)
           const imageId = String(item.image_client_id ?? '').slice(0, 80)
-          return key && UUID_PATTERN.test(skuId) ? [{ key, skuId, imageId }] : []
+          return key && UUID_PATTERN.test(skuId) && Number.isSafeInteger(skuVersion) && skuVersion > 0
+            ? [{ key, skuId, skuVersion, imageId }]
+            : []
         }) : []
-        if (typeof result.data.product_id !== 'string' || (isVariantCreation ? resultVariants.length < 1 : typeof result.data.sku_id !== 'string')) {
+        const expectedVariantKeys = new Set(enabledVariantCombinations.map((item) => item.key))
+        const productVersion = Number(result.data.product_version)
+        const standardSkuVersion = Number(result.data.sku_version)
+        if (typeof result.data.product_id !== 'string'
+          || !Number.isSafeInteger(productVersion) || productVersion < 1
+          || (isVariantCreation
+            ? resultVariants.length !== enabledVariantCombinations.length
+              || new Set(resultVariants.map((item) => item.key)).size !== resultVariants.length
+              || resultVariants.some((item) => !expectedVariantKeys.has(item.key))
+            : typeof result.data.sku_id !== 'string'
+              || !Number.isSafeInteger(standardSkuVersion) || standardSkuVersion < 1)) {
           setProgress('')
           setFeedback({ tone: 'danger', text: errorLabels.foundation_command_failed })
           return
         }
+        const skuMappings = isVariantCreation
+          ? resultVariants
+          : [{
+              key: 'standard',
+              skuId: String(result.data.sku_id),
+              skuVersion: standardSkuVersion,
+              imageId: '',
+            }]
+        const workflowId = crypto.randomUUID()
+        const receiveItems = stockIntent?.enabled ? stockIntent.rows.flatMap((row) => {
+          const mapping = skuMappings.find((item) => item.key === row.key)
+          return mapping && Number(row.quantity) > 0
+            ? [{
+                skuId: mapping.skuId,
+                locationId: stockIntent.locationId,
+                quantity: row.quantity,
+                unitCode: row.unitCode,
+              }]
+            : []
+        }) : []
+        const initialStockWorkflow: PendingInitialStockWorkflow | undefined = stockIntent ? {
+          contractVersion: 1,
+          workflowId,
+          organizationId,
+          product: {
+            productId: result.data.product_id,
+            expectedVersion: productVersion,
+            activationCommandId: crypto.randomUUID(),
+          },
+          skus: skuMappings.map((item) => ({
+            key: item.key,
+            skuId: item.skuId,
+            expectedVersion: item.skuVersion,
+            activationCommandId: crypto.randomUUID(),
+          })),
+          receive: stockIntent.enabled ? {
+            branchId: stockIntent.branchId,
+            idempotencyKey: crypto.randomUUID(),
+            reference: `product:${result.data.product_id}:initial-stock`,
+            reasonNote: `Initial stock from product creation workflow ${workflowId}`,
+            items: receiveItems,
+          } : null,
+        } : undefined
         recovery = {
           productId: result.data.product_id,
           skuId: typeof result.data.sku_id === 'string' ? result.data.sku_id : undefined,
           variantSkus: resultVariants.length ? resultVariants : undefined,
+          initialStockWorkflow,
           productName: payload.name,
           savedAt: new Date().toISOString(),
         }
@@ -2631,7 +2829,9 @@ export function UnifiedProductCreationForm({
         window.localStorage.setItem(pendingDraftKey, JSON.stringify(recovery))
       }
 
-      const uploadResult = await uploadImages(recovery.productId, recovery.productName, recovery.readyImageIdsByClientId)
+      const uploadResult = recovery.imagesCompleted
+        ? { failedCount: 0, readyImageIdsByClientId: recovery.readyImageIdsByClientId ?? {} }
+        : await uploadImages(recovery.productId, recovery.productName, recovery.readyImageIdsByClientId)
       recovery = { ...recovery, readyImageIdsByClientId: uploadResult.readyImageIdsByClientId }
       setPendingDraft(recovery)
       window.localStorage.setItem(pendingDraftKey, JSON.stringify(recovery))
@@ -2640,9 +2840,35 @@ export function UnifiedProductCreationForm({
         setFeedback({ tone: 'danger', text: `ข้อมูลหลักถูกบันทึกเป็น Draft แล้ว แต่อัปโหลดรูปไม่สำเร็จ ${uploadResult.failedCount} ภาพ เลือกไฟล์ใหม่แล้วกด “อัปโหลดต่อ” ได้โดยไม่สร้างสินค้าซ้ำ` })
         return
       }
-      if (!(await assignVariantImages(recovery, uploadResult.readyImageIdsByClientId))) {
+      if (!recovery.imagesCompleted && !(await assignVariantImages(recovery, uploadResult.readyImageIdsByClientId))) {
         setFeedback({ tone: 'danger', text: 'Product และ SKU Variant ถูกสร้างแล้ว แต่เชื่อมรูปประจำ Variant ไม่สำเร็จ กรุณากด “อัปโหลดต่อ” เพื่อทำรายการเดิมต่อโดยไม่สร้าง SKU ซ้ำ' })
         return
+      }
+      recovery = { ...recovery, imagesCompleted: true }
+      setPendingDraft(recovery)
+      window.localStorage.setItem(pendingDraftKey, JSON.stringify(recovery))
+
+      let stockStatus: CreationSuccess['stockStatus']
+      if (recovery.initialStockWorkflow) {
+        setProgress(recovery.initialStockWorkflow.receive
+          ? 'กำลังเปิดใช้งาน SKU และ Product ก่อนรับสต็อกแบบ Atomic…'
+          : 'กำลังเปิดใช้งาน SKU และ Product…')
+        const workflowResult = await executeInitialStockWorkflowAction(recovery.initialStockWorkflow)
+        setProgress('')
+        if (!workflowResult.ok || workflowResult.data.status !== 'completed') {
+          const errorCode = workflowResult.ok
+            ? workflowResult.data.error ?? 'initial_stock_failed'
+            : workflowResult.error
+          const unknownOutcome = workflowResult.ok && workflowResult.data.status === 'unknown_outcome'
+          setFeedback({
+            tone: 'danger',
+            text: unknownOutcome
+              ? `${errorLabels.initial_stock_timeout_unknown} กดสร้างอีกครั้งเพื่อ Replay ด้วย Workflow ID, Command ID และ Batch key เดิม`
+              : `${errorLabels[errorCode] ?? errorLabels.initial_stock_failed} Product/SKU ที่สร้างแล้วถูกเก็บไว้เพื่อทำรายการเดิมต่อ`,
+          })
+          return
+        }
+        stockStatus = workflowResult.data.stockStatus === 'completed' ? 'completed' : 'not_requested'
       }
 
       window.localStorage.removeItem(localDraftKey)
@@ -2651,8 +2877,22 @@ export function UnifiedProductCreationForm({
       setCompletedProductId(recovery.productId)
       setPendingDraft(null)
       const createdSkuCount = recovery.variantSkus?.length ?? 1
-      setCreationSuccess({ productId: recovery.productId, productName: recovery.productName, skuCount: createdSkuCount })
-      setFeedback({ tone: 'success', text: structure === 'variant' ? `สร้าง Product, SKU Variant ${createdSkuCount} รายการ และรูปสินค้าเรียบร้อยแล้ว` : 'สร้าง Product, SKU แรก และรูปสินค้าเรียบร้อยแล้ว โดยยังคงสถานะฉบับร่างเพื่อให้ตรวจสอบก่อนเปิดใช้งาน' })
+      setCreationSuccess({
+        productId: recovery.productId,
+        productName: recovery.productName,
+        skuCount: createdSkuCount,
+        stockStatus,
+      })
+      setFeedback({
+        tone: 'success',
+        text: stockStatus === 'completed'
+          ? `สร้างและเปิดใช้งาน Product/SKU พร้อมรับสต็อกเริ่มต้น ${createdSkuCount} SKU แบบ Atomic เรียบร้อยแล้ว`
+          : stockStatus === 'not_requested'
+            ? `สร้างและเปิดใช้งาน Product/SKU ${createdSkuCount} รายการ โดยข้าม Initial Stock ตามที่ปิดไว้`
+            : creationStructure === 'variant'
+              ? `สร้าง Product และ SKU Variant ${createdSkuCount} รายการเรียบร้อยแล้ว`
+              : 'สร้าง Product และ SKU แรกเรียบร้อยแล้ว',
+      })
       router.refresh()
     })
   }
@@ -2901,9 +3141,9 @@ export function UnifiedProductCreationForm({
       {validationIssues.length ? <button className="product-validation-floating-action" type="button" onClick={() => focusValidationIssue(validationIssues[0])} aria-label="ไปยังจุดแรกที่ต้องแก้">ไปแก้ →</button> : null}
       <button className="product-validation-floating-close" type="button" onClick={() => setValidationNoticeVisible(false)} aria-label="ปิดการแจ้งเตือน">×</button>
     </div> : null}
-    {!canManage ? <div className="product-feedback danger" role="alert">บัญชีนี้อ่านข้อมูลได้ แต่ไม่มีสิทธิ์ product.manage สำหรับสร้างสินค้า</div> : null}
+    {!canManage ? <div className="product-feedback danger" role="alert">บัญชีนี้อ่านข้อมูลได้ แต่ต้องมีสิทธิ์ product.create และ product.update สำหรับสร้างและเปิดใช้งานสินค้า</div> : null}
     {requiredMasterMissing ? <div className="product-feedback danger product-master-state-alert" role="alert"><span><strong>ยังไม่พร้อมสร้างสินค้า</strong><small>ยังไม่มีหมวดหมู่สินค้า ต้องเพิ่มหมวดหมู่อย่างน้อย 1 รายการก่อนสร้างสินค้า</small></span><MasterDataManager organizationId={organizationId} kind="category" items={categories} canManage={canManage} triggerLabel="จัดการหมวดหมู่" onSaved={(options) => { setCategories(options); const firstActive = options.find((option) => option.status !== 'archived'); if (firstActive) setCategoryId(firstActive.id) }} /></div> : null}
-    {pendingDraft ? <div className="product-recovery-banner" role="status" aria-live="polite"><div className="product-recovery-heading"><span aria-hidden="true">↻</span><div><strong>กู้คืนงานสร้างสินค้าที่อัปโหลดภาพไม่ครบ</strong><span>{pendingDraft.productName} · บันทึกข้อมูลหลักเมื่อ {new Intl.DateTimeFormat('th-TH', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(pendingDraft.savedAt))}</span></div></div><p>Product และ SKU แรกถูกสร้างเป็นฉบับร่างแล้ว ระบบจะใช้ Product ID เดิมและไม่สร้างซ้ำ กรุณาเลือกภาพใหม่แล้วกด “อัปโหลดต่อ”</p><div className="product-recovery-actions"><button className="button compact secondary" type="button" onClick={focusRecoveryImages}>เลือกภาพใหม่</button><Link className="button compact secondary" href={`${productsHref}?product=${pendingDraft.productId}`}>เปิด Product Draft</Link></div></div> : null}
+    {pendingDraft ? <div className="product-recovery-banner" role="status" aria-live="polite"><div className="product-recovery-heading"><span aria-hidden="true">↻</span><div><strong>กู้คืนงานสร้างสินค้าเดิม</strong><span>{pendingDraft.productName} · บันทึก Recovery เมื่อ {new Intl.DateTimeFormat('th-TH', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(pendingDraft.savedAt))}</span></div></div><p>ระบบจะใช้ Product ID, Workflow ID, Command ID และ Batch key เดิมโดยไม่สร้าง Product หรือ Stock ซ้ำ กรุณากดทำรายการเดิมต่อ</p><div className="product-recovery-actions"><button className="button compact secondary" type="button" onClick={focusRecoveryImages}>ตรวจรูปสินค้า</button><Link className="button compact secondary" href={`${productsHref}?product=${pendingDraft.productId}`}>เปิด Product</Link></div></div> : null}
     {feedback ? <div className={`product-feedback ${feedback.tone === 'danger' ? 'danger' : 'success'}`} role={feedback.tone === 'danger' ? 'alert' : 'status'}>{feedback.text}</div> : null}
     {draftSaveNotice ? <div className="product-draft-save-toast" role="status" aria-live="polite"><span aria-hidden="true">✓</span><span className="product-draft-save-message">{draftSaveNotice}</span><span className="product-draft-save-countdown">ปิดใน {draftSaveSeconds} วินาที</span><button type="button" onClick={() => setDraftSaveNotice('')} aria-label="ปิดข้อความบันทึกร่าง">×</button></div> : null}
     {progress ? <div className="product-creation-progress" role="status"><span aria-hidden="true" />{progress}</div> : null}
@@ -3055,9 +3295,9 @@ export function UnifiedProductCreationForm({
             })}</div> : <p className="product-form-note">ยังไม่มีสาขาที่ใช้งาน</p>}
           </div>
           <div className="product-inline-note warning">การเลือกสาขารอบนี้บันทึกใน Browser Draft เพื่อทดสอบ UI เท่านั้น; R7.1 ยังไม่มี Branch sales-scope contract จึงยังไม่ส่งค่าชุดนี้ไป Backend</div>
-          <div className="product-initial-stock-section" data-ui-only="true">
+          <div className="product-initial-stock-section">
             <div className="product-initial-stock-heading">
-              <div><span className="product-initial-stock-title"><strong>สต็อกเริ่มต้น</strong><span className="product-initial-stock-prototype-badge">T2 · อ่านข้อมูลจริง</span></span><small>เตรียมยอดตั้งต้นสำหรับรับสินค้าเข้าคลังหลังสร้าง SKU</small></div>
+              <div><span className="product-initial-stock-title"><strong>สต็อกเริ่มต้น</strong><span className="product-initial-stock-prototype-badge">{structure === 'bundle' ? 'UI ทดลอง' : 'T5.2 · Atomic Backend'}</span></span><small>เตรียมยอดตั้งต้นสำหรับรับสินค้าเข้าคลังหลังสร้าง SKU</small></div>
               {structure !== 'bundle' ? <label className="product-switch"><input type="checkbox" checked={initialStockEnabled} disabled={!canLoadInitialStockDestinations} onChange={(event) => setInitialStockEnabled(event.target.checked)} aria-label="กำหนดสต็อกเริ่มต้น" /><span aria-hidden="true" /></label> : null}
             </div>
             {structure === 'bundle'
@@ -3092,7 +3332,7 @@ export function UnifiedProductCreationForm({
                   </>
                 : <p className="product-form-note">{initialStockHasDraftValues ? 'ปิดการแสดงผลไว้ · ค่าที่กรอกก่อนหน้ายังคงอยู่และจะแสดงเมื่อเปิดอีกครั้ง' : 'ยังไม่กำหนดสต็อกเริ่มต้น — สามารถสร้างสินค้าไว้ก่อน แล้วรับสินค้าเข้าคลังภายหลังได้'}</p>}
             {!canLoadInitialStockDestinations && structure !== 'bundle' ? <div className="product-inline-note warning">บัญชีนี้ต้องมีสิทธิ์ดูคลังและรับสต็อก จึงจะเปิดส่วนสต็อกเริ่มต้นได้</div> : null}
-            <div className="product-initial-stock-write-guard" role="note"><span aria-hidden="true">ⓘ</span><span><strong>ยังไม่บันทึกสต็อกจริง</strong> · UI นี้ไม่ส่งค่าไป Backend, ไม่เปลี่ยนยอดคงเหลือ และไม่สร้าง Stock Movement</span></div>
+            <div className="product-initial-stock-write-guard" role="note"><span aria-hidden="true">ⓘ</span><span>{structure === 'bundle' ? <><strong>Bundle ยังไม่เชื่อม Backend</strong> · ค่า UI ทดลองจะไม่สร้าง Stock Movement</> : <><strong>บันทึกผ่าน Atomic Batch เท่านั้น</strong> · SKU ใดผิด ระบบจะ Rollback ทั้ง Batch และ Retry ด้วย key เดิม</>}</span></div>
           </div>
           <div className="product-form-grid three product-inventory-policy-grid">
             <label><span>กันสต๊อกสินค้า (Safety Stock)</span><input name="safetyStock" type="number" min="0" max="999999999" step="0.000001" inputMode="decimal" defaultValue="0" /><small>จำนวน Buffer ที่ไม่ต้องการนำไปเสนอขาย</small></label>
@@ -3190,7 +3430,7 @@ export function UnifiedProductCreationForm({
         </div>
       </aside>
     </form>
-    {creationSuccess ? <div className="product-success-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeSuccessDialog() }}><section ref={successDialogRef} className="product-success-dialog" role="dialog" aria-modal="true" aria-labelledby="productSuccessTitle" aria-describedby="productSuccessMessage" onKeyDown={handleSuccessDialogKeyDown}><div className="product-success-body"><div className="product-success-mark" aria-hidden="true">✓</div><h2 id="productSuccessTitle">สร้างสินค้าเรียบร้อยแล้ว</h2><p id="productSuccessMessage">{creationSuccess.productCount ? `สินค้า ${creationSuccess.productCount} รายการ พร้อม ${creationSuccess.skuCount} SKU` : `${creationSuccess.productName} พร้อม ${creationSuccess.skuCount} SKU`} ถูกสร้างเป็นฉบับร่าง และอัปโหลดรูปสินค้าครบแล้ว</p><span>ระบบยังไม่เปิดใช้งานสินค้าและยังไม่เพิ่ม Stock จนกว่าจะผ่านขั้นตอนที่เกี่ยวข้อง</span></div><footer><div className="product-success-actions"><Link className="button secondary" href={productsHref}>กลับหน้ารายการสินค้า</Link><button className="button product-primary-action" type="button" onClick={createNextProduct}>สร้างสินค้ารายการถัดไป</button></div>{creationSuccess.productCount ? null : <Link className="product-success-detail-link" href={`${productsHref}?product=${creationSuccess.productId}`}>ดูรายละเอียดสินค้านี้ →</Link>}</footer></section></div> : null}
+    {creationSuccess ? <div className="product-success-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeSuccessDialog() }}><section ref={successDialogRef} className="product-success-dialog" role="dialog" aria-modal="true" aria-labelledby="productSuccessTitle" aria-describedby="productSuccessMessage" onKeyDown={handleSuccessDialogKeyDown}><div className="product-success-body"><div className="product-success-mark" aria-hidden="true">✓</div><h2 id="productSuccessTitle">สร้างสินค้าเรียบร้อยแล้ว</h2><p id="productSuccessMessage">{creationSuccess.productCount ? `สินค้า ${creationSuccess.productCount} รายการ พร้อม ${creationSuccess.skuCount} SKU ถูกสร้างเป็นฉบับร่าง และอัปโหลดรูปสินค้าครบแล้ว` : `${creationSuccess.productName} พร้อม ${creationSuccess.skuCount} SKU ถูกสร้างและเปิดใช้งานแล้ว`}</p><span>{creationSuccess.productCount ? 'Product Queue อยู่นอก T5.2 และยังไม่เปิดใช้งานหรือเพิ่ม Stock' : creationSuccess.stockStatus === 'completed' ? 'Initial Stock ถูกบันทึกครบทั้ง Batch และสร้าง Stock Movement แล้ว' : 'Initial Stock ถูกปิดไว้ จึงข้าม Receive โดยไม่สร้าง Stock Movement'}</span></div><footer><div className="product-success-actions"><Link className="button secondary" href={productsHref}>กลับหน้ารายการสินค้า</Link><button className="button product-primary-action" type="button" onClick={createNextProduct}>สร้างสินค้ารายการถัดไป</button></div>{creationSuccess.productCount ? null : <Link className="product-success-detail-link" href={`${productsHref}?product=${creationSuccess.productId}`}>ดูรายละเอียดสินค้านี้ →</Link>}</footer></section></div> : null}
     <button className="product-back-to-top" type="button" aria-label="กลับด้านบน" title="กลับด้านบน" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>↑</button>
   </>
 }

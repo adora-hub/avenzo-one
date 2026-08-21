@@ -39,8 +39,10 @@ export default async function NewProductPage({ params }: Props) {
 
   const permissions = new Set(access.permissions.map((permission) => permission.code))
   if (!permissions.has('product.read')) redirect(`/organizations/${organizationId}`)
-  const canManage = permissions.has('product.manage')
-  const canLoadInitialStockDestinations = permissions.has('warehouse.read') && permissions.has('inventory.receive')
+  const canManage = permissions.has('product.create') && permissions.has('product.update')
+  const canLoadInitialStockDestinations = permissions.has('warehouse.read')
+    && permissions.has('location.read')
+    && permissions.has('inventory.receive')
 
   const [categoriesResult, brandsResult, tagsResult, branchesResult, bundleSkusResult] = await Promise.all([
     supabase.from('product_categories').select('id, name, status, version').eq('organization_id', organizationId).order('name').limit(200),

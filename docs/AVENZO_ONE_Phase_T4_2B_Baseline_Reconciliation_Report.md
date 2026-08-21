@@ -1,13 +1,13 @@
 # AVENZO ONE — Phase T4.2B Baseline Reconciliation Report
 
-**สถานะ:** Prepared — Pending PM Approval; No Implementation  
+**สถานะ:** Approved/Closed — Reconciled through T4.4B commit `382b2a6`
 **วันที่:** 20 สิงหาคม 2026  
 **Git Baseline:** codex/phase-2.1-products-workspace  
 **Baseline Commit:** df53136f242916c5cf72236833c2034f849eecd6  
 **Remote Environment:** AVENZO ONE PREVIEW only  
 **Parent Reports:** docs/AVENZO_ONE_Phase_T4_2A_Remote_Schema_Drift_Report.md และ docs/AVENZO_ONE_Phase_T4_2_Permission_RLS_Constraints_Plan.md  
 **Source of Truth:** docs/AVENZO_ONE_Phase_T_Initial_Stock_Integration.md  
-**ข้อจำกัด:** Reconciliation/Corrective Migration Plan เท่านั้น; ไม่มี DDL, DML, RPC execution, Migration file, Production connection, Commit หรือ Push
+**ข้อจำกัดปัจจุบัน:** เก็บ Baseline Findings เป็น historical evidence; T5.1 เป็น Documentation/Integration Preflight เท่านั้น และห้าม Apply PREVIEW/Production, Deploy, Commit หรือ Push
 
 ---
 
@@ -27,6 +27,16 @@ T4.2A เดิมเทียบ Preview กับ origin/main จึงจั�
 - Multi-SKU Batch Receive header/items และ batch-level idempotency ยังไม่มี
 - SKU policy ที่ใช้ product.read ตรงกับ baseline migration แต่ขัด Approved T4.2 Contract ที่กำหนด sku.read จึงเป็น True Contract Drift
 - ห้ามสร้าง schema ซ้ำสำหรับ objects ที่ baseline มีอยู่แล้ว
+
+### 1.1 Implementation Reconciliation — 21 August 2026
+
+ส่วน Findings/Classification ในรายงานนี้สะท้อนเวลาที่จัดทำ T4.2B และไม่ถูกเขียนทับย้อนหลัง แต่สถานะจริง ณ commit `382b2a6` คือ:
+
+- T4.2C ปิด `sku.read`, granular Location/Inventory permissions, RLS/constraint compatibility และ Browser write denial แล้ว
+- T4.3B ปิด Individual Allow/Deny และ granular Product permission cutover แล้ว
+- T4.4B เพิ่ม Batch Header/Items และ atomic RPC ตาม Contract โดย reuse `locations`, `stock_movements`, `inventory_balances` เดิม
+- “Missing Batch” และ “Open PM Decisions” ด้านล่างเป็น historical findings ที่ได้รับการตัดสิน/ดำเนินการใน Part ถัดมาแล้ว ไม่ใช่คำสั่งให้สร้าง object เพิ่ม
+- ห้ามสร้าง `inventory_locations`, `inventory_movements` หรือ Batch alias/legacy surface ซ้ำ
 
 ---
 
@@ -427,7 +437,8 @@ Future T4 design must decide one approved pattern:
 Required invariants:
 
 - One Organization and one Branch per Batch
-- 2–N SKU lines
+- 1–N SKU lines (updated by PM cardinality decision on 21 August 2026;
+  implementation ceiling is 1–100 Items)
 - Every line resolves to existing skus and locations
 - Duplicate SKU/location line rejected before writes
 - One batch-level idempotency key and canonical request hash
@@ -493,5 +504,7 @@ Approve the new baseline and reclassifications:
 
 Approve a single transactional SKU-authority corrective migration plan with compatibility backfill and mandatory policy targets. Decide the expanded SKU surface list before code is written.
 
-**Final Status:** T4.2B Baseline Reconciliation Prepared — Waiting for PM Approval; No Remote Mutation, Migration, Commit or Push
+**Final Status:** T4.2B Approved/Closed — Corrective lineage ผ่าน T4.2C, T4.3B และ
+T4.4B ถูก reconcile ถึง commit `382b2a6`; historical findings คงไว้เพื่อ audit และ
+Owner-locked Contract ไม่เปลี่ยน
 

@@ -45,17 +45,19 @@ test('R7.2.4F preserves pending recovery when any image upload fails', async () 
 
 test('R7.2.4F renders an explicit recovery state with retry and safe Product access', async () => {
   const form = await read(formPath)
-  assert.match(form, /กู้คืนงานสร้างสินค้าที่อัปโหลดภาพไม่ครบ/)
-  assert.match(form, /ระบบจะใช้ Product ID เดิมและไม่สร้างซ้ำ/)
-  assert.match(form, /onClick=\{focusRecoveryImages\}>เลือกภาพใหม่/)
-  assert.match(form, /เปิด Product Draft/)
+  assert.match(form, /กู้คืนงานสร้างสินค้าเดิม/)
+  assert.match(form, /ระบบจะใช้ Product ID, Workflow ID, Command ID และ Batch key เดิมโดยไม่สร้าง Product หรือ Stock ซ้ำ/)
+  assert.match(form, /onClick=\{focusRecoveryImages\}>ตรวจรูปสินค้า/)
+  assert.match(form, /เปิด Product/)
 })
 
-test('R7.2.4F opens the approved success dialog only after image completion', async () => {
+test('R7.2.4F opens success only after image and approved activation/stock workflow completion', async () => {
   const form = await read(formPath)
   assert.ok(form.indexOf('if (failedCount > 0)') < form.indexOf('setCreationSuccess({'))
+  assert.ok(form.indexOf('executeInitialStockWorkflowAction(recovery.initialStockWorkflow)') < form.lastIndexOf('setCreationSuccess({'))
   assert.match(form, /สร้างสินค้าเรียบร้อยแล้ว/)
-  assert.match(form, /พร้อม \{creationSuccess\.skuCount\} SKU ถูกสร้างเป็นฉบับร่าง/)
+  assert.match(form, /พร้อม \$\{creationSuccess\.skuCount\} SKU ถูกสร้างและเปิดใช้งานแล้ว/)
+  assert.match(form, /Initial Stock ถูกบันทึกครบทั้ง Batchและสร้าง Stock Movement แล้ว|Initial Stock ถูกบันทึกครบทั้ง Batch และสร้าง Stock Movement แล้ว/)
   assert.match(form, /role="dialog" aria-modal="true"/)
 })
 

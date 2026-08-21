@@ -14,6 +14,11 @@ import {
 import { decodeFoundationCursor, encodeFoundationCursor } from './cursor'
 import { mapFoundationError } from './errors'
 import {
+  parseInitialStockBatchResult,
+  type InitialStockBatchRequest,
+  type InitialStockBatchResult,
+} from './initial-stock-workflow'
+import {
   buildProductWorkspaceRows,
   PRODUCT_WORKSPACE_BALANCE_AGGREGATE_LIMIT,
   PRODUCT_WORKSPACE_SKU_AGGREGATE_LIMIT,
@@ -1136,6 +1141,18 @@ export class SupabaseFoundationCommandRepository implements FoundationCommandRep
     })
     if (error) throw error
     return (data ?? {}) as FoundationCommandOutcome
+  }
+
+  async receiveInitialStockBatch(
+    request: InitialStockBatchRequest,
+    actorUserId: string,
+  ): Promise<InitialStockBatchResult> {
+    const { data, error } = await this.admin.rpc('server_receive_inventory_batch', {
+      p_request: request,
+      p_actor_user_id: actorUserId,
+    })
+    if (error) throw error
+    return parseInitialStockBatchResult(data)
   }
 
   async resolveBranchIds(command: FoundationApplicationCommand): Promise<string[]> {
