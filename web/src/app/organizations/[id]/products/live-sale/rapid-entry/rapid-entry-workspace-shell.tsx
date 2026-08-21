@@ -22,7 +22,6 @@ function MonitorIcon() {
 
 export function RapidEntryWorkspaceShell({ organizationId, organizationName, actorUserId, canManage }: Props) {
   const productsHref = `/organizations/${organizationId}/products`
-  const liveSaleHref = `${productsHref}/live-sale`
 
   return <>
     <div className="live-sale-rapid-supported">
@@ -36,7 +35,7 @@ export function RapidEntryWorkspaceShell({ organizationId, organizationName, act
           <p>เตรียมสินค้าและรหัสขายได้สูงสุด 50 รายการในพื้นที่เดียวสำหรับ {organizationName}</p>
         </div>
         <div className="live-sale-heading-actions">
-          <Link className="button secondary" href={liveSaleHref}><ArrowLeftIcon />กลับ Live Sale</Link>
+          <Link className="button secondary" href={productsHref}><ArrowLeftIcon />กลับหน้าสินค้า</Link>
           <button className="button" type="button" disabled>เริ่มตั้งค่าชุด 50 รหัส</button>
         </div>
       </header>
@@ -82,7 +81,6 @@ export function RapidEntryWorkspaceShell({ organizationId, organizationName, act
         <p>โหมดกรอกสินค้าแบบตารางรองรับคอมพิวเตอร์หรือ Tablet แนวนอนที่มีความกว้างอย่างน้อย 1,024px เพื่อให้กรอกข้อมูลได้ครบและลดความผิดพลาด</p>
       </div>
       <div className="live-sale-rapid-block-actions">
-        <Link className="button" href={liveSaleHref}>กลับ Live Sale</Link>
         <Link className="button secondary" href={productsHref}>กลับหน้าสินค้า</Link>
       </div>
     </section>

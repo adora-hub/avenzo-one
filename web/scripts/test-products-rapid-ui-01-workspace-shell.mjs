@@ -23,6 +23,15 @@ test('Rapid-UI-01 is the primary Live Sale destination from Products and legacy 
   assert.match(legacyPage, /products\/live-sale\/rapid-entry/)
 })
 
+test('Rapid-UI-01 identifies the page as Live Sale and returns directly to Products', async () => {
+  const breadcrumb = await read('src/app/components/product-header-breadcrumb.tsx')
+  const shell = await read('src/app/organizations/[id]/products/live-sale/rapid-entry/rapid-entry-workspace-shell.tsx')
+  assert.match(breadcrumb, /currentPage === 'live-sale-rapid-entry'[\s\S]*aria-current="page"[\s\S]*<span>Live Sale<\/span>/)
+  assert.doesNotMatch(breadcrumb, /currentPage === 'live-sale-rapid-entry'[\s\S]*<span>กรอกสินค้าแบบตาราง<\/span>/)
+  assert.match(shell, /href=\{productsHref\}><ArrowLeftIcon \/>กลับหน้าสินค้า/)
+  assert.doesNotMatch(shell, /กลับ Live Sale|const liveSaleHref/)
+})
+
 test('Rapid-UI-01 shell states the 50-row scope and UI-only safety boundary', async () => {
   const shell = await read('src/app/organizations/[id]/products/live-sale/rapid-entry/rapid-entry-workspace-shell.tsx')
   assert.match(shell, /สูงสุด 50 รายการ/)
