@@ -1,6 +1,6 @@
 # AVENZO ONE — Global Sales Code Implementation Plan V1
 
-**Status:** GSC-01 Owner Approved and Closed — GSC-02 Ready
+**Status:** GSC-05 Local Implementation Complete — Pending Owner Approval
 **Updated:** 21 August 2026
 **Source of Truth:** `AVENZO_ONE_Global_Sales_Code_Standard_V1.md`
 **Required before:** Rapid Backend production integration and any new Product
@@ -88,6 +88,16 @@ Acceptance gate:
 
 ### GSC-02 — Shared Canonical Contract Library and UI Specification
 
+Current result:
+
+- **Owner accepted / closed.**
+- Shared pure TypeScript contract and scoped tests are implemented locally.
+- UI wording and authority boundaries are documented in
+  `AVENZO_ONE_GSC-02_Shared_Contract_and_UI_Specification.md`.
+- Existing Product/Variant/Rapid screens are not rewired in this Part.
+- No Migration, RPC, API, PREVIEW or Production change was made.
+- The contract is the shared authority for the remaining GSC Parts.
+
 Scope:
 
 - Create one reusable TypeScript module for normalize, validate, format,
@@ -112,6 +122,22 @@ Acceptance gate:
 - TypeScript and scoped contract tests pass.
 
 ### GSC-03 — Forward-only Database Compatibility Migration
+
+Current status: **Owner accepted / closed**
+
+Current result:
+
+- Added a CLI-created forward-only migration on top of A4.
+- Existing sequence definitions are marked `legacy` and read-only; new
+  definitions default to `global_v1`.
+- New Sales Codes are enforced at the Database boundary as 1–3 English letters
+  plus three digits, with `000` reserved.
+- Manual, Same-as-SKU, reservation and trusted command paths share the same
+  predicate; historical non-V1 values remain readable and unchanged.
+- Browser writes remain denied and the privileged command remains service-only.
+- Baseline verifier and isolated replay passed 90/90 migrations + 7/7 bridges,
+  followed by Forward migrations and the GSC-03 behavior suite.
+- PREVIEW/Production were not connected or changed.
 
 Scope:
 
@@ -139,6 +165,28 @@ Acceptance gate:
 
 ### GSC-04 — Global Allocator, Range Discovery and Rollover
 
+Current status: **Local Implementation Complete — Pending Owner Approval**
+
+Current result:
+
+- Extended the existing A4 sequence, reservation, command, event, audit and
+  permanent identifier registry surfaces; no parallel allocator was created.
+- Added service-only preview and reserve boundaries for contiguous ranges of
+  1–50 permanent Sales Codes with a fixed three-hour reservation lifetime.
+- Added indexed high-water discovery, complete-Prefix rollover, reusable
+  expired/released never-assigned reservations, Organization locking and
+  idempotent command replay.
+- Legacy and `global_v1` sequence definitions can coexist without rewriting
+  historical Sales Codes. Assigned permanent identifiers never return to the
+  pool.
+- Isolated replay passed 90/90 baseline migrations, 7/7 bridges, GSC-03 and
+  GSC-04 behavior tests. Concurrent requests produced `X001–X050` and
+  `X051–X100`; the same key and payload produced one command/result.
+- With 9,990 synthetic SKUs, a full `J` Prefix rolled to `K001–K050`; measured
+  preview execution time was about 15 ms.
+- PREVIEW/Production were not connected or changed. GSC-05 remains blocked
+  until Owner approval.
+
 Scope:
 
 - Extend the existing allocator to find the next actually available permanent
@@ -163,6 +211,25 @@ Acceptance gate:
 - Query plan and latency are measured with a large synthetic dataset.
 
 ### GSC-05 — Atomic Creation Integration for All Three Modes
+
+Current result:
+
+- Added one trusted, service-only atomic creation command for Normal, Variant
+  and Rapid flows; no Browser writes are permitted.
+- Sequence allocation, Product/SKU creation and reservation confirmation now
+  share one PostgreSQL transaction and stable outer/child Command IDs.
+- Rapid creation supports 1–50 rows in one all-or-nothing command. Duplicate
+  or invalid rows roll back the complete command with no partial fallback.
+- Manual, Same-as-SKU and deferred Draft behavior reuse the same Database
+  trigger and identifier registry authority. Rapid does not allow deferred
+  Sales Codes.
+- Initial Stock is deliberately returned as `t5-pending`; GSC-05 does not
+  write Inventory balances or Stock Movements directly.
+- Full isolated baseline replay passed 90/90 migrations and 7/7 bridges.
+  Normal, two-SKU Variant, Rapid 50-row, replay, atomic rollback and security
+  tests passed. PREVIEW/Production were not connected or changed.
+- The authenticated Server Action is ready for GSC-06 UI wiring. Existing
+  screen layout and wording were not changed in this Part.
 
 Scope:
 

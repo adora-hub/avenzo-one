@@ -24,6 +24,10 @@ import {
   previewVariantSkuSequence,
   type VariantSkuSequencePreview,
 } from '@/lib/foundation/variant-sku-sequence.server'
+import {
+  executeGlobalSalesCodeCreation,
+  type GlobalSalesCodeCreationResult,
+} from '@/lib/foundation/global-sales-code-creation.server'
 
 export type ProductIdentifierCheckActionResult =
   | { ok: true; data: ProductIdentifierCheckResult }
@@ -51,6 +55,21 @@ export type InitialStockDestinationActionResult =
 export type InitialStockWorkflowActionResult =
   | { ok: true; data: InitialStockWorkflowResult }
   | { ok: false; error: FoundationErrorCode; status: number }
+
+export type GlobalSalesCodeCreationActionResult =
+  | { ok: true; data: GlobalSalesCodeCreationResult }
+  | { ok: false; error: FoundationErrorCode; status: number }
+
+export async function executeGlobalSalesCodeCreationAction(
+  input: unknown,
+): Promise<GlobalSalesCodeCreationActionResult> {
+  try {
+    return { ok: true, data: await executeGlobalSalesCodeCreation(input) }
+  } catch (error) {
+    const safeError = mapFoundationError(error)
+    return { ok: false, error: safeError.code, status: safeError.status }
+  }
+}
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
