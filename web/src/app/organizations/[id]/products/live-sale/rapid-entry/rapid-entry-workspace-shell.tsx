@@ -22,7 +22,6 @@ function MonitorIcon() {
 
 export function RapidEntryWorkspaceShell({ organizationId, organizationName, actorUserId, canManage }: Props) {
   const productsHref = `/organizations/${organizationId}/products`
-  const liveSaleHref = `${productsHref}/live-sale`
 
   return <>
     <div className="live-sale-rapid-supported">
@@ -36,7 +35,7 @@ export function RapidEntryWorkspaceShell({ organizationId, organizationName, act
           <p>เตรียมสินค้าและรหัสขายได้สูงสุด 50 รายการในพื้นที่เดียวสำหรับ {organizationName}</p>
         </div>
         <div className="live-sale-heading-actions">
-          <Link className="button secondary" href={liveSaleHref}><ArrowLeftIcon />กลับ Live Sale</Link>
+          <Link className="button secondary" href={productsHref}><ArrowLeftIcon />กลับหน้าสินค้า</Link>
           <button className="button" type="button" disabled>เริ่มตั้งค่าชุด 50 รหัส</button>
         </div>
       </header>
@@ -63,7 +62,7 @@ export function RapidEntryWorkspaceShell({ organizationId, organizationName, act
 
         <ol className="live-sale-rapid-steps" aria-label="ขั้นตอนการเตรียมสินค้าแบบตาราง">
           <li className="is-complete"><span>1</span><div><strong>ตรวจและจองรหัส</strong><small>UI Simulation พร้อมทดสอบ</small></div></li>
-          <li className="is-complete"><span>2</span><div><strong>กำหนดชื่อสินค้า</strong><small>Template และตัวอย่างชื่อ</small></div></li>
+          <li className="is-complete"><span>2</span><div><strong>กำหนดชื่อสินค้า</strong><small>เลือกรูปแบบชื่อและรหัสขาย</small></div></li>
           <li className="is-current"><span>3</span><div><strong>กรอกข้อมูลในตาราง</strong><small>โครงสร้าง 50 แถวพร้อมตรวจ</small></div></li>
           <li><span>4</span><div><strong>ตรวจสอบก่อนสร้าง</strong><small>สร้างครบทั้งชุดหรือไม่สร้างเลย</small></div></li>
         </ol>
@@ -82,7 +81,6 @@ export function RapidEntryWorkspaceShell({ organizationId, organizationName, act
         <p>โหมดกรอกสินค้าแบบตารางรองรับคอมพิวเตอร์หรือ Tablet แนวนอนที่มีความกว้างอย่างน้อย 1,024px เพื่อให้กรอกข้อมูลได้ครบและลดความผิดพลาด</p>
       </div>
       <div className="live-sale-rapid-block-actions">
-        <Link className="button" href={liveSaleHref}>กลับ Live Sale</Link>
         <Link className="button secondary" href={productsHref}>กลับหน้าสินค้า</Link>
       </div>
     </section>

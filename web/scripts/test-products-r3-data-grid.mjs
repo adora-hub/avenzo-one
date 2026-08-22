@@ -35,7 +35,7 @@ test('R3 preserves a valid resized width for restoration after refresh', () => {
   assert.equal(normalized.find((column) => column.key === 'product')?.width, 318)
 })
 
-test('R3 renders the approved real-data default columns and R7.4.3 price read model', () => {
+test('R3 renders the approved real-data default columns, price model and Cost Quick Edit', () => {
   for (const label of ['สินค้า', 'รหัส CF', 'SKU / ตัวเลือก', 'สต็อก', 'หน่วยนับ', 'ราคาขาย', 'สถานะ', 'แก้ไขล่าสุด']) {
     assert.match(grid, new RegExp(label.replace('/', '\\/')))
   }
@@ -43,6 +43,8 @@ test('R3 renders the approved real-data default columns and R7.4.3 price read mo
   assert.match(grid, /name="costPrice"/)
   assert.match(grid, /canManage && canReadCost/)
   assert.match(grid, /ข้อมูลจำกัดสิทธิ์และบันทึก Audit Log เมื่อแก้ไข/)
+  assert.match(grid, /costPrice/)
+  assert.match(grid, /formatSkuCost/)
   assert.match(grid, /row\.price\.mode/)
   assert.match(grid, /product-grid-placeholder/)
 })
@@ -85,4 +87,13 @@ test('R3 keeps the actions column visible at the right edge', () => {
   assert.match(css, /\.product-grid-table \.product-grid-actions-column \{[\s\S]*position: sticky;[\s\S]*right: 0;/)
   assert.match(grid, /showCopyTooltip\(event\.currentTarget, `\$\{row\.id\}:actions`, 'การดำเนินการ'\)/)
   assert.match(css, /\.product-grid-row-action:hover \{[^}]*background: transparent;[^}]*outline: 0;/)
+})
+
+test('R3 keeps the native horizontal scrollbar at the bottom of the visible table workspace', () => {
+  assert.doesNotMatch(grid, /product-grid-sticky-scrollbar/)
+  assert.match(grid, /ref=\{productTableViewportRef\}/)
+  assert.match(grid, /ref=\{productPaginationFooterRef\}/)
+  assert.match(grid, /window\.innerHeight - tableTop - footerHeight/)
+  assert.match(css, /\.product-grid-wrap\s*\{[^}]*max-height:\s*var\(--product-grid-viewport-height,[^;]+\);[^}]*overflow:\s*auto;/)
+  assert.match(css, /\.product-grid-table th\s*\{[^}]*position:\s*sticky;[^}]*top:\s*0;/)
 })

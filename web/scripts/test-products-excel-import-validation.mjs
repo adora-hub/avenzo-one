@@ -28,3 +28,11 @@ test('Part 2.2 accepts Thai status and quantity labels', () => {
   assert.equal(result.rows[0].status, 'active')
   assert.equal(result.rows[0].taxCategory, 'exempt')
 })
+
+test('GSC-07 accepts blank Sales Code for automatic allocation and rejects non-canonical new codes', () => {
+  assert.equal(validateProductImportRows([row({ 'Sales Code': '' })]).rows[0].salesCode, null)
+  const invalid = validateProductImportRows([row({ 'Sales Code': 'A000' })])
+  assert.equal(invalid.rows.length, 0)
+  assert.equal(invalid.issues[0].field, 'Sales Code')
+  assert.match(invalid.issues[0].message, /000/)
+})

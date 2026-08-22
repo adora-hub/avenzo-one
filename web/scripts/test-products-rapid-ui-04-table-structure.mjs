@@ -21,7 +21,7 @@ test('Rapid-UI-04 creates exactly 50 display rows and all approved columns', asy
   for (const heading of ['รหัสขาย', 'รูปภาพ', 'ชื่อสินค้า', 'หมวดหมู่', 'ราคาขาย', 'สต็อกเริ่มต้น', 'หน่วย', 'สาขา', 'สถานะ']) {
     assert.match(table, new RegExp(heading))
   }
-  assert.match(table, /แสดง 50 จาก 50 รายการ/)
+  assert.match(table, /\{displayedRows\.length\} จาก \{rows\.length\} รายการ/)
 })
 
 test('Rapid-UI shows table entry as numbered step 3', async () => {
@@ -43,7 +43,7 @@ test('Rapid-UI-04 provides sticky header, pinned identity and internal two-axis 
   assert.match(table, /is-pinned-select/)
   assert.match(table, /is-pinned-code/)
   assert.match(styles, /\.live-sale-rapid-table-scroll \{[^}]*max-height: 520px;[^}]*overflow: auto;/)
-  assert.match(styles, /\.live-sale-rapid-table \{[^}]*min-width: 868px;/)
+  assert.match(styles, /\.live-sale-rapid-table \{[^}]*min-width: max\(100%, 868px\);/)
   assert.match(styles, /\.live-sale-rapid-table thead th \{[^}]*position: sticky;[^}]*top: 0;/)
   assert.match(styles, /\.live-sale-rapid-table \.is-pinned-row \{[^}]*position: sticky;[^}]*left: 0;/)
   assert.match(styles, /\.live-sale-rapid-table \.is-pinned-code \{[^}]*position: sticky;[^}]*left: 84px;[^}]*box-shadow:/)

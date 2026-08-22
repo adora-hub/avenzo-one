@@ -1,6 +1,6 @@
 # AVENZO ONE — Live Sale Rapid Entry Table Development Guide V1
 
-**Status:** Rapid-UI-01–09 Owner Approved · Rapid-UI-10A Pending Owner Review
+**Status:** Rapid Entry UI V1 Owner Approved and Frozen · Rapid-UI-01–11C completed · Rapid-UI-11D deferred
 **Updated:** 21 August 2026
 **Authority:** Owner-approved direction after Live-UI-04
 **Scope:** Live Sale product preparation only; normal Product Creation remains unchanged
@@ -39,6 +39,10 @@ This flow is intentionally different from normal Product Creation:
 8. UI approval must finish before API, Database or Storage integration begins.
 
 ## 3. Prefix Availability and Reservation
+
+Sales Code syntax, normalization, rollover and allocator behavior are governed
+by `AVENZO_ONE_Global_Sales_Code_Standard_V1.md`. Rapid Entry may reserve up to
+50 codes per command but must not define a separate Sales Code format.
 
 When an operator enters a Prefix such as `A`, the UI normalizes it to uppercase
 and performs a debounced availability check after 300–500 ms.
@@ -195,6 +199,10 @@ Stock.
 | Rapid-UI-08 | Validation summary, row status, selected-ready submit preview and error navigation | Owner approved — empty rows ignored, invalid cell focus and no partial-success language |
 | Rapid-UI-09 | Browser Draft recovery, discard/restore and 50-row performance pass | Owner approved — refresh recovery, confirmed discard and 50-row restore passed |
 | Rapid-UI-10 | Visual parity, accessibility, regression and Owner acceptance | TypeScript/build/tests pass; Owner explicitly approves UI freeze |
+| Rapid-UI-11A | Status filters for incomplete, ready and all rows | Owner approved |
+| Rapid-UI-11B | Ready-row ordering without mutating row identity | Owner approved |
+| Rapid-UI-11C | Safe bulk-selection scope across visible and hidden rows | Owner approved; committed and pushed in `66a38fa` |
+| Rapid-UI-11D | Advanced filters for Category, Price, Stock, Unit and Branch | Deferred as a Future Enhancement; not required for V1 because the workspace is capped at 50 rows and V1 prioritizes a compact workflow |
 
 ### Phase Domain/Integration — starts only after Rapid-UI-10
 
@@ -219,6 +227,22 @@ Stock.
 
 ## 9. Next Authorized Action
 
-Present this plan to the Owner. Development starts only after explicit approval
-of Rapid-UI-01. Work proceeds one Part at a time and stops for Owner inspection
-after every Part.
+The Owner froze the Rapid Entry UI V1 scope on 21 August 2026. Do not add
+Rapid-UI-11D before real-usage evidence shows that the current status filters,
+ready-row ordering and safe selection are insufficient.
+
+Proceed sequentially with Rapid-BE-01 through Rapid-BE-06. Every Backend Part
+must pass its Contract, Security, Atomicity and E2E gate before the next Part
+starts. PREVIEW apply or deployment still requires explicit Owner approval;
+Production remains out of scope.
+
+## 10. Future Shared Live CF Code
+
+The Owner has recorded a future Live Sale option where one CF code identifies a
+multi-option Product group and customer words such as `A017 ทอง ฟ้าเทา` resolve
+the exact SKU. Rapid Entry V1 continues to assign one permanent Sales Code per
+created SKU and is not changed by this note.
+
+The Shared workflow must be developed separately through
+`AVENZO_ONE_Shared_Live_CF_Code_Development_Plan_V1.md`, including exact option
+resolution, Order idempotency, Stock safety, concurrency, and PREVIEW E2E gates.

@@ -5,6 +5,7 @@ import { FoundationError } from './errors'
 import { getFoundationActor } from './server-context'
 import { createClient } from '@/lib/supabase/server'
 import { identifierSequenceCandidates } from './product-identifier-suggestion'
+import { validateGlobalSalesCode } from './global-sales-code'
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const CODE_PATTERN = /^[A-Z0-9][A-Z0-9._-]*$/
@@ -59,7 +60,7 @@ export function parseProductIdentifierCheck(input: unknown): ParsedIdentifierChe
   const skuCode = normalizedOptionalString(value.skuCode, 80, true)
   const salesCode = normalizedOptionalString(value.salesCode, 80, true)
   const barcode = normalizedOptionalString(value.barcode, 128)
-  if (!skuCode || !CODE_PATTERN.test(skuCode) || (salesCode && !CODE_PATTERN.test(salesCode))) {
+  if (!skuCode || !CODE_PATTERN.test(skuCode) || (salesCode && !validateGlobalSalesCode(salesCode).ok)) {
     throw new FoundationError('validation_failed', 400)
   }
 
@@ -159,7 +160,7 @@ export async function checkVariantProductIdentifiers(
     const salesCode = normalizedOptionalString(variant.salesCode, 80, true)
     const barcode = normalizedOptionalString(variant.barcode, 128, true)
     if (!key || !skuCode || !CODE_PATTERN.test(skuCode)
-      || (salesCode && !CODE_PATTERN.test(salesCode))
+      || (salesCode && !validateGlobalSalesCode(salesCode).ok)
       || (barcode && !CODE_PATTERN.test(barcode))) {
       throw new FoundationError('validation_failed', 400)
     }

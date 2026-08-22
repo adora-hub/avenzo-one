@@ -14,6 +14,8 @@ test('R7.2.4C validates bounded Organization-scoped identifier check input', asy
   assert.match(server, /normalizedOptionalString\(value\.skuCode, 80, true\)/)
   assert.match(server, /normalizedOptionalString\(value\.salesCode, 80, true\)/)
   assert.match(server, /normalizedOptionalString\(value\.barcode, 128\)/)
+  assert.match(server, /import \{ validateGlobalSalesCode \} from '\.\/global-sales-code'/)
+  assert.match(server, /salesCode && !validateGlobalSalesCode\(salesCode\)\.ok/)
   assert.match(server, /throw new FoundationError\('validation_failed', 400\)/)
 })
 
@@ -52,6 +54,14 @@ test('R7.2.4C synchronizes derived identifiers and marks prior checks stale', as
   assert.match(form, /target\.value = target\.value\.toUpperCase\(\)/)
   assert.match(form, /salesCodeMode === 'same-sku'/)
   assert.match(form, /barcodeMode === 'internal-sales'/)
+  assert.match(form, /barcode: barcodeMode === 'internal-sku'[\s\S]*\? skuCode[\s\S]*barcodeMode === 'internal-sales'[\s\S]*\? salesCode/)
+  assert.match(form, /id="salesCode" name="salesCode" onChange=\{\(event\) => \{ const value = event\.currentTarget\.value\.toUpperCase\(\)/)
+  assert.match(form, /window\.addEventListener\('pageshow', syncDerivedBarcode\)/)
+  assert.doesNotMatch(form, /id="salesCode" name="salesCode" value=/)
+  assert.doesNotMatch(form, /id="barcode" name="barcode" value=/)
+  assert.match(form, /function markInvalidGlobalSalesCode/)
+  assert.match(form, /globalSalesCodeValidationMessage\(validation\)/)
+  assert.match(form, /current\.salesCode\.match\(\/\^\(\[A-Z\]\{1,3\}\)000\$\/\)/)
 })
 
 test('R7.2.4C performs live advisory checks and discards stale responses', async () => {
@@ -66,6 +76,10 @@ test('R7.2.4C performs live advisory checks and discards stale responses', async
 
 test('generated SKU helper creates, checks, and advances to the next available code', async () => {
   const form = await read(formPath)
+  const generatedGroupHandler = form.slice(
+    form.indexOf('function generateAndCheckIdentifierGroup'),
+    form.indexOf('function applySkuNameSuggestion'),
+  )
   assert.match(form, /function generatedCodeCandidate/)
   assert.match(form, /function generateAndCheckIdentifierGroup/)
   assert.match(form, /for \(let offset = 0; offset < 25; offset \+= 1\)/)
@@ -74,6 +88,8 @@ test('generated SKU helper creates, checks, and advances to the next available c
   assert.match(form, /function clearIdentifierValidationIssue/)
   assert.match(form, /issue\.sectionId === 'sku' && issue\.label === 'ตรวจสอบรหัส'/)
   assert.match(form, /removeAttribute\('data-validation-invalid'\)/)
+  assert.match(generatedGroupHandler, /setFormFieldValue\('skuCode', skuCode\)\s*setFormFieldValue\('salesCode', salesCode\)/)
+  assert.doesNotMatch(generatedGroupHandler, /if \(salesCodeMode === 'same-sku' \|\| salesCodeMode === 'sequence'\) setFormFieldValue\('salesCode'/)
   assert.match(form, /onClick=\{generateAndCheckIdentifierGroup\}/)
   assert.match(form, /สร้างและตรวจสอบรหัส/)
 })
@@ -151,10 +167,17 @@ test('identifier UX Part 4 recommends the next code and rechecks after one click
   assert.match(form, /ใช้รหัสแนะนำ \{identifierSuggestions\.salesCode\}/)
   assert.match(form, /ใช้รหัสแนะนำ \{identifierSuggestions\.skuCode\}/)
   assert.match(form, /ใช้รหัสแนะนำ \{identifierSuggestions\.barcode\}/)
-  assert.match(form, /scheduleIdentifierAutoCheck\(0\)/)
+  const suggestionHandler = form.slice(
+    form.indexOf('function useIdentifierSuggestion'),
+    form.indexOf('function markIdentifierStatusesFailed'),
+  )
+  assert.match(suggestionHandler, /checkIdentifiers\('manual', nextValues\)/)
+  assert.doesNotMatch(suggestionHandler, /scheduleIdentifierAutoCheck/)
   assert.match(form, /salesCodeMode === 'same-sku' \? 'skuCode' : 'salesCode'/)
   assert.match(form, /field === 'salesCode' && salesCodeMode === 'sequence'/)
-  assert.match(form, /setSalesSequenceOffset\(\(current\) => current \+ 1\)/)
+  assert.match(suggestionHandler, /setSalesSequenceOffset\(suggestedNumber - salesSequenceStart\)/)
+  assert.match(suggestionHandler, /nextValues\.barcode = suggestion/)
+  assert.doesNotMatch(suggestionHandler, /setSalesSequenceOffset\(\(current\) => current \+ 1\)/)
 })
 
 test('identifier UX Part 5 creates and checks the complete identifier group from the zone header', async () => {

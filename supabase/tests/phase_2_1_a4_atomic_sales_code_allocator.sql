@@ -200,7 +200,45 @@ begin
   ) then
     raise exception 'authenticated must not execute A4 trusted command directly';
   end if;
-  if (select count(*) from public.sales_code_allocator_events) <> 10 then
+  if (select count(*) from public.sales_code_allocator_events
+      where organization_id = '00000000-0000-4000-8000-00000000b411') <> 10
+     or exists (
+       select expected.command_id
+       from (values
+         ('00000000-0000-4000-8000-00000000b701'::uuid),
+         ('00000000-0000-4000-8000-00000000b702'::uuid),
+         ('00000000-0000-4000-8000-00000000b703'::uuid),
+         ('00000000-0000-4000-8000-00000000b704'::uuid),
+         ('00000000-0000-4000-8000-00000000b705'::uuid),
+         ('00000000-0000-4000-8000-00000000b706'::uuid),
+         ('00000000-0000-4000-8000-00000000b707'::uuid),
+         ('00000000-0000-4000-8000-00000000b708'::uuid),
+         ('00000000-0000-4000-8000-00000000b709'::uuid),
+         ('00000000-0000-4000-8000-00000000b710'::uuid)
+       ) expected(command_id)
+       left join public.sales_code_allocator_events event
+         on event.organization_id = '00000000-0000-4000-8000-00000000b411'
+        and event.command_id = expected.command_id
+       group by expected.command_id
+       having count(event.command_id) <> 1
+     )
+     or exists (
+       select 1
+       from public.sales_code_allocator_events event
+       where event.organization_id = '00000000-0000-4000-8000-00000000b411'
+         and event.command_id not in (
+           '00000000-0000-4000-8000-00000000b701',
+           '00000000-0000-4000-8000-00000000b702',
+           '00000000-0000-4000-8000-00000000b703',
+           '00000000-0000-4000-8000-00000000b704',
+           '00000000-0000-4000-8000-00000000b705',
+           '00000000-0000-4000-8000-00000000b706',
+           '00000000-0000-4000-8000-00000000b707',
+           '00000000-0000-4000-8000-00000000b708',
+           '00000000-0000-4000-8000-00000000b709',
+           '00000000-0000-4000-8000-00000000b710'
+         )
+     ) then
     raise exception 'A4 expected exactly one event per completed command';
   end if;
 end;
@@ -211,10 +249,12 @@ select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-00000000b401
 
 do $$
 begin
-  if (select count(*) from public.sales_code_sequences) <> 3 then
+  if (select count(*) from public.sales_code_sequences
+      where organization_id = '00000000-0000-4000-8000-00000000b411') <> 3 then
     raise exception 'A4 product.read actor did not see its three sequences';
   end if;
-  if (select count(*) from public.sales_code_allocator_events) <> 10 then
+  if (select count(*) from public.sales_code_allocator_events
+      where organization_id = '00000000-0000-4000-8000-00000000b411') <> 10 then
     raise exception 'A4 product.read actor did not see allocator events';
   end if;
 end;

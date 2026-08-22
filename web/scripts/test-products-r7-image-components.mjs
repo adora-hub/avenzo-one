@@ -12,7 +12,9 @@ test('R7.2.3B renders the approved image count, real-file toolbar and cover note
   assert.match(form, /เลือกภาพจากเครื่อง/)
   assert.match(form, /ภาพแรกเป็นภาพปกโดยอัตโนมัติ/)
   assert.doesNotMatch(form, /เพิ่มภาพจำลอง/)
-  assert.doesNotMatch(form, /product-image-dropzone/)
+  assert.match(form, /product-image-empty-interactive/)
+  assert.match(form, /onDrop=\{dropProductImages\}/)
+  assert.match(form, /คลิกหรือลากรูปสินค้ามาวาง/)
 })
 
 test('R7.2.3B uses the approved empty and populated image-grid composition', async () => {
@@ -24,6 +26,16 @@ test('R7.2.3B uses the approved empty and populated image-grid composition', asy
   assert.match(form, /<Image[^>]*width=\{600\} height=\{600\}[^>]*unoptimized/)
   assert.match(styles, /\.product-image-grid \{[^}]*repeat\(4, minmax\(0, 1fr\)\)/)
   assert.match(styles, /\.product-image-media \{[^}]*aspect-ratio: 1/)
+})
+
+test('Image-UI keeps a green click and drop tile available until all nine images are selected', async () => {
+  const [form, styles] = await Promise.all([read(formPath), read('../src/app/globals.css')])
+  assert.match(form, /images\.length < PRODUCT_IMAGE_MAX_FILES \? <label/)
+  assert.match(form, /คลิกหรือลากรูปเพิ่ม/)
+  assert.match(form, /เพิ่มได้อีก \$\{PRODUCT_IMAGE_MAX_FILES - images\.length\} ภาพ/)
+  assert.match(form, /product-image-empty-icon/)
+  assert.match(styles, /\.product-image-empty \{[^}]*var\(--status-success-surface\)/)
+  assert.match(styles, /\.product-image-grid\.has-images \.product-image-empty \{[^}]*grid-column: auto;[^}]*aspect-ratio: 1;/)
 })
 
 test('R7.2.3B supports reorder, explicit cover selection and removal', async () => {

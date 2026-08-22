@@ -27,7 +27,6 @@ function LiveSaleIcon() {
 
 export function ProductHeaderBreadcrumb({ organizationId, currentPage = 'products' }: ProductHeaderBreadcrumbProps) {
   const productsHref = `/organizations/${organizationId}/products`
-  const liveSaleHref = `${productsHref}/live-sale`
 
   return <nav className="product-header-breadcrumb" aria-label="Breadcrumb">
     <Link href="/dashboard"><HomeIcon /><span>หน้าหลัก</span></Link><span aria-hidden="true">›</span>
@@ -36,7 +35,7 @@ export function ProductHeaderBreadcrumb({ organizationId, currentPage = 'product
       ? <span aria-current="page"><ProductIcon /><span>สินค้า</span></span>
       : <><Link href={productsHref}><ProductIcon /><span>สินค้า</span></Link><span aria-hidden="true">›</span>
         {currentPage === 'live-sale-rapid-entry'
-          ? <><Link href={liveSaleHref}><LiveSaleIcon /><span>Live Sale</span></Link><span aria-hidden="true">›</span><span aria-current="page"><CreateIcon /><span>กรอกสินค้าแบบตาราง</span></span></>
+          ? <span aria-current="page"><LiveSaleIcon /><span>Live Sale</span></span>
           : <span aria-current="page">{currentPage === 'live-sale' ? <LiveSaleIcon /> : <CreateIcon />}<span>{currentPage === 'live-sale' ? 'Live Sale' : 'สร้างสินค้า'}</span></span>}
       </>}
   </nav>

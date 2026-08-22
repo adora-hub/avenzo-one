@@ -92,7 +92,7 @@ insert into public.skus (
   '00000000-0000-4000-8000-000000007601',
   '00000000-0000-4000-8000-000000007201',
   '00000000-0000-4000-8000-000000007501',
-  'R71-COMPONENT-001', 'R7.1 Component', '8857100000001', 'R71C01',
+  'R71-COMPONENT-001', 'R7.1 Component', '8857100000001', 'RC001',
   'piece', 'draft',
   '00000000-0000-4000-8000-000000007101',
   '00000000-0000-4000-8000-000000007101'
@@ -111,7 +111,7 @@ declare
     'sku_name', 'R7.1 Atomic Bundle SKU',
     'sku_code', 'R71-BUNDLE-001',
     'barcode', '8857100000018',
-    'sales_code', 'R71B01',
+    'sales_code', 'RB001',
     'base_unit_code', 'set',
     'quantity_behavior', 'discrete',
     'sale_price', 1590,
@@ -215,7 +215,7 @@ begin
         "category_id":"00000000-0000-4000-8000-000000007401",
         "sku_name":"Duplicate Sales Code",
         "sku_code":"R71-SALES-ROLLBACK",
-        "sales_code":"R71C01",
+        "sales_code":"RC001",
         "base_unit_code":"piece"
       }'::jsonb,
       repeat('a', 64),

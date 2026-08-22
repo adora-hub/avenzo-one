@@ -1,8 +1,11 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState, type Dispatch, type KeyboardEvent, type SetStateAction } from 'react'
-import { checkVariantProductIdentifiersAction, previewVariantSkuSequenceAction } from '@/app/actions/foundation'
+import { checkVariantProductIdentifiersAction, previewGlobalSalesCodeRangeAction, previewVariantSkuSequenceAction } from '@/app/actions/foundation'
 import { variantIdentifierCheckFailureMessage, withVariantIdentifierCheckTimeout } from '@/lib/foundation/variant-identifier-check-ui'
+import { withGlobalSalesCodePreviewTimeout } from '@/lib/foundation/global-sales-code-preview-ui'
+import { formatGlobalSalesCode, GLOBAL_SALES_CODE_UI_TEXT, nextGlobalSalesCode, validateGlobalSalesCode } from '@/lib/foundation/global-sales-code'
+import { ProductCreationCombobox } from './product-creation-combobox'
 
 export type VariantOptionValueDraft = {
   id: string
@@ -170,6 +173,36 @@ export function formatVariantSkuBase(prefix: string, sequence: number, digits = 
   return `${safePrefix}-${String(safeSequence).padStart(safeDigits, '0')}`
 }
 
+const salesCodeModeOptions = [
+  { value: 'sequence', label: 'ให้ระบบรันเลขต่อเนื่อง' },
+  { value: 'same-sku', label: 'ใช้รหัสเดียวกับรหัสสินค้า (SKU)' },
+  { value: 'manual', label: 'กรอกเองแต่ละ Variant' },
+]
+
+const barcodeModeOptions = [
+  { value: 'none', label: 'ยังไม่กำหนด Barcode' },
+  { value: 'sku', label: 'ใช้รหัสสินค้า (SKU) เป็น Barcode' },
+  { value: 'sales', label: 'ใช้รหัสขาย / รหัส CF เป็น Barcode' },
+  { value: 'sequence', label: 'สร้าง Barcode ภายในแบบต่อเนื่อง' },
+]
+
+const variantStatusOptions = [
+  { value: 'draft', label: 'ฉบับร่าง' },
+  { value: 'active', label: 'ใช้งานอยู่' },
+]
+
+const VARIANT_SALES_CODE_PREVIEW_DEBOUNCE_MS = 120
+const VARIANT_SALES_CODE_PREVIEW_CACHE_TTL_MS = 30_000
+type VariantSalesCodePreviewCacheEntry = {
+  expiresAt: number
+  prefix: string
+  startNumber: number
+  firstCode: string
+  lastCode: string
+  movedPrefix: boolean
+}
+const variantSalesCodePreviewCache = new Map<string, VariantSalesCodePreviewCacheEntry>()
+
 export function nextVariantSkuProductSequence(sequence: number) {
   return Math.min(99999999, Math.max(1, Math.trunc(sequence || 1)) + 1)
 }
@@ -207,15 +240,22 @@ export function VariantCreationBuilder({
   organizationId, groups, setGroups, combinations, setCombinations, images,
   onIdentifierCheckChange, onSkuSequenceChange, disabled = false,
 }: Props) {
-  const [skuPrefix, setSkuPrefix] = useState('TS')
+  const [skuPrefix, setSkuPrefix] = useState('')
   const [skuProductSequence, setSkuProductSequence] = useState(1)
   const [bulkPrice, setBulkPrice] = useState('')
-  const [bulkBarcode, setBulkBarcode] = useState<'none' | 'sku' | 'sequence'>('none')
+  const [bulkBarcode, setBulkBarcode] = useState<'none' | 'sku' | 'sales' | 'sequence'>('none')
   const [bulkStatus, setBulkStatus] = useState<'draft' | 'active'>('draft')
   const [salesCodeMode, setSalesCodeMode] = useState<'manual' | 'same-sku' | 'sequence'>('sequence')
-  const [salesCodePrefix, setSalesCodePrefix] = useState('B')
+  const [salesCodePrefix, setSalesCodePrefix] = useState('A')
   const [salesCodeStart, setSalesCodeStart] = useState(1)
-  const [salesCodeDigits, setSalesCodeDigits] = useState(3)
+  const salesCodeDigits = 3
+  const [salesCodePreview, setSalesCodePreview] = useState<{
+    status: 'idle' | 'loading' | 'ready' | 'error' | 'timeout' | 'denied'
+    firstCode?: string
+    lastCode?: string
+    movedPrefix?: boolean
+    cached?: boolean
+  }>({ status: 'idle' })
   const [serverSequencePreview, setServerSequencePreview] = useState<{
     status: 'idle' | 'loading' | 'ready' | 'error'
     nextSequence?: number
@@ -234,6 +274,7 @@ export function VariantCreationBuilder({
   const checkInFlightRef = useRef(false)
   const isMountedRef = useRef(true)
   const sequencePreviewRequestRef = useRef(0)
+  const salesCodePreviewRequestRef = useRef(0)
   const manuallyEditedSkuKeysRef = useRef(new Set<string>())
 
   const enabledIdentifiers = useMemo(() => combinations.filter((item) => item.enabled).map((item) => ({
@@ -241,6 +282,14 @@ export function VariantCreationBuilder({
   })), [combinations])
   const enabledIdentifierSignature = JSON.stringify(enabledIdentifiers)
   const skuBaseCode = formatVariantSkuBase(skuPrefix, skuProductSequence)
+  const recommendedProductSequence = serverSequencePreview.status === 'ready'
+    ? serverSequencePreview.nextSequence ?? nextVariantSkuProductSequence(skuProductSequence)
+    : nextVariantSkuProductSequence(skuProductSequence)
+  const skuSequenceConflict = serverSequencePreview.status === 'ready'
+    && skuProductSequence < recommendedProductSequence
+  const formattedSkuProductSequence = String(skuProductSequence).padStart(3, '0')
+  const formattedRecommendedProductSequence = String(recommendedProductSequence).padStart(3, '0')
+  const nextSalesCodeAfterRange = salesCodePreview.lastCode ? nextGlobalSalesCode(salesCodePreview.lastCode) : null
 
   useEffect(() => {
     onSkuSequenceChange?.({ prefix: skuPrefix, sequence: skuProductSequence, digits: 3 })
@@ -271,6 +320,78 @@ export function VariantCreationBuilder({
     return () => window.clearTimeout(timer)
   }, [organizationId, skuPrefix])
 
+  useEffect(() => {
+    if (!skuSequenceConflict) return
+    checkRequestRef.current += 1
+    checkInFlightRef.current = false
+    if (isMountedRef.current) setIsIdentifierChecking(false)
+    onIdentifierCheckChange?.(false)
+  }, [onIdentifierCheckChange, skuSequenceConflict])
+
+  useEffect(() => {
+    const requestId = ++salesCodePreviewRequestRef.current
+    if (salesCodeMode !== 'sequence' || !/^[A-Z]{1,3}$/.test(salesCodePrefix) || enabledIdentifiers.length < 1) {
+      setSalesCodePreview({ status: 'idle' })
+      return
+    }
+    const requestedPrefix = salesCodePrefix
+    const quantity = Math.min(50, enabledIdentifiers.length)
+    const cacheKey = `${organizationId}:${requestedPrefix}:${quantity}`
+    const cachedPreview = variantSalesCodePreviewCache.get(cacheKey)
+    if (cachedPreview && cachedPreview.expiresAt > Date.now()) {
+      setSalesCodeStart(cachedPreview.startNumber)
+      setSalesCodePreview({
+        status: 'ready', firstCode: cachedPreview.firstCode, lastCode: cachedPreview.lastCode,
+        movedPrefix: cachedPreview.movedPrefix, cached: true,
+      })
+      if (cachedPreview.prefix !== requestedPrefix) setSalesCodePrefix(cachedPreview.prefix)
+      return
+    }
+    if (cachedPreview) variantSalesCodePreviewCache.delete(cacheKey)
+
+    const provisionalEnd = Math.min(999, salesCodeStart + quantity - 1)
+    setSalesCodePreview({
+      status: 'loading',
+      firstCode: formatGlobalSalesCode(requestedPrefix, salesCodeStart),
+      lastCode: formatGlobalSalesCode(requestedPrefix, provisionalEnd),
+    })
+    const timer = window.setTimeout(async () => {
+      try {
+        const result = await withGlobalSalesCodePreviewTimeout(previewGlobalSalesCodeRangeAction({
+          organizationId, prefix: requestedPrefix, quantity,
+        }))
+        if (!isMountedRef.current || requestId !== salesCodePreviewRequestRef.current) return
+        if (!result.ok) {
+          setSalesCodePreview((current) => ({
+            ...current,
+            status: result.error === 'permission_denied' ? 'denied' : 'error',
+          }))
+          return
+        }
+        const previewCacheEntry: VariantSalesCodePreviewCacheEntry = {
+          expiresAt: Date.now() + VARIANT_SALES_CODE_PREVIEW_CACHE_TTL_MS,
+          prefix: result.data.prefix,
+          startNumber: result.data.startNumber,
+          firstCode: result.data.firstCode,
+          lastCode: result.data.lastCode,
+          movedPrefix: result.data.movedToNextPrefix,
+        }
+        variantSalesCodePreviewCache.set(cacheKey, previewCacheEntry)
+        variantSalesCodePreviewCache.set(`${organizationId}:${result.data.prefix}:${quantity}`, previewCacheEntry)
+        setSalesCodePrefix(result.data.prefix)
+        setSalesCodeStart(result.data.startNumber)
+        setSalesCodePreview({ status: 'ready', firstCode: result.data.firstCode, lastCode: result.data.lastCode, movedPrefix: result.data.movedToNextPrefix })
+      } catch (error) {
+        if (!isMountedRef.current || requestId !== salesCodePreviewRequestRef.current) return
+        setSalesCodePreview((current) => ({
+          ...current,
+          status: error instanceof Error && error.message === 'global_sales_code_preview_timeout' ? 'timeout' : 'error',
+        }))
+      }
+    }, VARIANT_SALES_CODE_PREVIEW_DEBOUNCE_MS)
+    return () => window.clearTimeout(timer)
+  }, [enabledIdentifiers.length, organizationId, salesCodeMode, salesCodePrefix])
+
     async function checkVariantIdentifiers() {
     if (checkInFlightRef.current || isIdentifierChecking) return
     if (!enabledIdentifiers.length || enabledIdentifiers.some((item) => !item.skuCode || !item.salesCode)) {
@@ -288,6 +409,23 @@ export function VariantCreationBuilder({
         collisionKeys,
         collisions: localCollisions,
       })
+      return
+    }
+    if (skuSequenceConflict) {
+      onIdentifierCheckChange?.(false)
+      setIdentifierCheck({
+        tone: 'danger',
+        text: `เลขลำดับ Product ${formattedSkuProductSequence} ถูกใช้แล้ว · กรุณาใช้เลขแนะนำ ${formattedRecommendedProductSequence}`,
+        collisionKeys: [],
+        collisions: [],
+      })
+      return
+    }
+    const invalidSalesCode = enabledIdentifiers.find((item) => !validateGlobalSalesCode(item.salesCode).ok)
+    if (invalidSalesCode) {
+      onIdentifierCheckChange?.(false)
+      const validation = validateGlobalSalesCode(invalidSalesCode.salesCode)
+      setIdentifierCheck({ tone: 'danger', text: validation.ok ? GLOBAL_SALES_CODE_UI_TEXT.errors.invalid_format : GLOBAL_SALES_CODE_UI_TEXT.errors[validation.error], collisionKeys: [`${invalidSalesCode.key}:sales_code`], collisions: [] })
       return
     }
     const requestId = ++checkRequestRef.current
@@ -333,6 +471,7 @@ export function VariantCreationBuilder({
       isMountedRef.current = false
       checkRequestRef.current += 1
       sequencePreviewRequestRef.current += 1
+      salesCodePreviewRequestRef.current += 1
       checkInFlightRef.current = false
     }
   }, [])
@@ -413,9 +552,31 @@ function commitGroups(next: VariantOptionGroupDraft[]) {
     })))
   }
 
+  function useAllIdentifierSuggestions() {
+    if (!suggestedIdentifierCollisions.length) return
+    setCombinations((current) => current.map((item) => {
+      const collisions = suggestedIdentifierCollisions.filter((collision) => collision.key === item.key && collision.suggestion)
+      if (!collisions.length) return item
+      return collisions.reduce((next, collision) => {
+        const currentValue = collision.value.toUpperCase()
+        const suggestion = collision.suggestion!.toUpperCase()
+        return {
+          ...next,
+          skuCode: next.skuCode.toUpperCase() === currentValue ? suggestion : next.skuCode,
+          salesCode: next.salesCode.toUpperCase() === currentValue ? suggestion : next.salesCode,
+          barcode: next.barcode.toUpperCase() === currentValue ? suggestion : next.barcode,
+        }
+      }, item)
+    }))
+  }
+
   function applyBulkValues() {
     const safePrefix = skuBaseCode
-    const safeSalesPrefix = salesCodePrefix.toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 10) || 'B'
+    const safeSalesPrefix = salesCodePrefix.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3) || 'A'
+    const visibleSalesCodeMatch = salesCodePreview.firstCode?.match(/^([A-Z]{1,3})(\d{3})$/)
+    const visibleSalesCodeStart = visibleSalesCodeMatch?.[1] === safeSalesPrefix
+      ? Math.max(1, Number(visibleSalesCodeMatch[2]))
+      : salesCodeStart
     const valuesById = new Map(groups.flatMap((group) => group.values.map((value) => [value.id, value])))
     let sequenceIndex = 0
     manuallyEditedSkuKeysRef.current.clear()
@@ -424,7 +585,7 @@ function commitGroups(next: VariantOptionGroupDraft[]) {
       const salesCode = salesCodeMode === 'same-sku'
         ? skuCode
         : salesCodeMode === 'sequence' && item.enabled
-          ? `${safeSalesPrefix}${String(salesCodeStart + sequenceIndex++).padStart(salesCodeDigits, '0')}`.slice(0, 80)
+          ? `${safeSalesPrefix}${String(visibleSalesCodeStart + sequenceIndex++).padStart(salesCodeDigits, '0')}`.slice(0, 80)
           : item.salesCode
       return {
         ...item,
@@ -432,7 +593,13 @@ function commitGroups(next: VariantOptionGroupDraft[]) {
         salesCode,
         price: bulkPrice,
         status: bulkStatus,
-        barcode: bulkBarcode === 'sku' ? skuCode : bulkBarcode === 'sequence' ? `290${String(index + 1).padStart(10, '0')}` : '',
+        barcode: bulkBarcode === 'sku'
+          ? skuCode
+          : bulkBarcode === 'sales'
+            ? salesCode
+            : bulkBarcode === 'sequence'
+              ? `290${String(index + 1).padStart(10, '0')}`
+              : '',
       }
     }))
   }
@@ -442,9 +609,6 @@ function commitGroups(next: VariantOptionGroupDraft[]) {
   const allEnabled = combinations.length > 0 && enabledCount === combinations.length
   const groupLimitReached = groups.length >= 3
   const skuFormatPreview = [skuBaseCode, ...groups.flatMap((group) => group.values[0]?.code ? [group.values[0].code] : [])].join('-').slice(0, 80)
-  const recommendedProductSequence = serverSequencePreview.status === 'ready'
-    ? serverSequencePreview.nextSequence ?? nextVariantSkuProductSequence(skuProductSequence)
-    : nextVariantSkuProductSequence(skuProductSequence)
   const suggestedIdentifierCollisions = [...new Map(identifierCheck.collisions
     .filter((collision) => collision.reason === 'already_exists' && collision.suggestion)
     .map((collision) => [`${collision.key}:${collision.value.toUpperCase()}`, collision]))
@@ -469,20 +633,57 @@ function commitGroups(next: VariantOptionGroupDraft[]) {
       </article>)}</div>
 
       <div className="product-variant-bulk-toolbar" aria-label="เครื่องมือกรอกหลาย Combination">
-        <label><span>คำนำหน้า SKU</span><input value={skuPrefix} maxLength={12} disabled={disabled} placeholder="เช่น TS" aria-describedby="variantSkuFormatHelp" onChange={(event) => setSkuPrefix(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12))} /></label>
-        <label><span>เลขลำดับ Product</span><input type="number" min="1" max="99999999" step="1" value={skuProductSequence} disabled={disabled} aria-describedby="variantSkuFormatHelp variantSkuNextHelp" onChange={(event) => setSkuProductSequence(Math.max(1, Math.trunc(Number(event.target.value) || 1)))} /></label>
-        <div className="product-variant-next-sequence"><button className="button compact secondary" type="button" disabled={disabled || serverSequencePreview.status === 'loading' || recommendedProductSequence >= 99999999} aria-describedby="variantSkuNextHelp" onClick={() => setSkuProductSequence(recommendedProductSequence)}>{serverSequencePreview.status === 'loading' ? 'กำลังตรวจเลขถัดไป…' : `ใช้เลขถัดไป ${String(recommendedProductSequence).padStart(3, '0')}`}</button><small id="variantSkuNextHelp">{serverSequencePreview.status === 'ready' ? 'ฐานข้อมูลแนะนำเลขที่ว่างถัดไป · ยังไม่จองจนกดสร้าง' : serverSequencePreview.status === 'error' ? 'เชื่อมฐานข้อมูลไม่ได้ · แสดงเลขถัดไปจากหน้านี้ชั่วคราว' : 'กรอกคำนำหน้าอย่างน้อย 2 ตัวอักษร'}</small></div>
-        <div className="product-variant-sku-format-preview" id="variantSkuFormatHelp" role="status" aria-live="polite"><span>รูปแบบ SKU ที่จะใช้</span><strong>{skuFormatPreview}</strong><small>{serverSequencePreview.status === 'error' ? 'สภาพแวดล้อมนี้ยังไม่มีตัวจองเลข SKU-04 · ระบบเดิมยังตรวจ Unique ก่อนบันทึก' : 'เลขนี้จะถูกจองพร้อม Product และ SKU ใน Transaction เดียวเมื่อกดสร้างสำเร็จ'}</small></div>
-        <label><span>วิธีกำหนดรหัสขาย / CF</span><span className="product-select-control"><select value={salesCodeMode} disabled={disabled} onChange={(event) => setSalesCodeMode(event.target.value as typeof salesCodeMode)}><option value="sequence">รันเลขต่อเนื่อง</option><option value="same-sku">ใช้รหัสเดียวกับ SKU</option><option value="manual">กรอกเองแต่ละ Variant</option></select></span></label>
-        {salesCodeMode === 'sequence' ? <div className="product-variant-sequence-controls"><label><span>Prefix</span><input value={salesCodePrefix} maxLength={10} disabled={disabled} onChange={(event) => setSalesCodePrefix(event.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 10))} /></label><label><span>เลขเริ่มต้น</span><input type="number" min="0" max="99999999" value={salesCodeStart} disabled={disabled} onChange={(event) => setSalesCodeStart(Math.max(0, Math.trunc(Number(event.target.value) || 0)))} /></label><label><span>หลัก</span><input type="number" min="2" max="8" value={salesCodeDigits} disabled={disabled} onChange={(event) => setSalesCodeDigits(Math.min(8, Math.max(2, Math.trunc(Number(event.target.value) || 3))))} /></label></div> : null}
-        <label><span>ราคาขายทุกตัวเลือก</span><input value={bulkPrice} type="number" min="0" max="999999999" step="0.01" disabled={disabled} placeholder="เช่น 390.00" onChange={(event) => setBulkPrice(event.target.value)} /></label>
-        <label><span>Barcode</span><span className="product-select-control"><select value={bulkBarcode} disabled={disabled} onChange={(event) => setBulkBarcode(event.target.value as typeof bulkBarcode)}><option value="none">ยังไม่กำหนด</option><option value="sku">ใช้ SKU Code เป็นรหัสภายใน</option><option value="sequence">สร้างเลขตัวอย่างต่อเนื่อง</option></select></span></label>
-        <label><span>สถานะ</span><span className="product-select-control"><select value={bulkStatus} disabled={disabled} onChange={(event) => setBulkStatus(event.target.value as typeof bulkStatus)}><option value="draft">ฉบับร่าง</option><option value="active">ใช้งานอยู่</option></select></span></label>
-        <div className="product-variant-bulk-actions"><button className="button compact product-primary-action" type="button" disabled={disabled || combinations.length === 0} onClick={applyBulkValues}>ใช้กับทุกรายการ</button><button className="button compact secondary" type="button" disabled={disabled || combinations.length === 0} onClick={() => { setBulkPrice(''); setBulkBarcode('none'); setBulkStatus('draft'); setCombinations((current) => current.map((item) => ({ ...item, price: '', barcode: '', status: 'draft' }))) }}>ล้างค่า</button></div>
+        <div className="product-variant-code-settings-pair">
+        <section className="product-variant-toolbar-section product-variant-code-settings-card" aria-labelledby="variantSkuSettingsHeading">
+          <header className="product-variant-toolbar-heading"><h4 id="variantSkuSettingsHeading">กำหนดรหัส SKU</h4><span>ใช้รูปแบบเดียวกันกับทุกตัวเลือก</span></header>
+          <div className="product-variant-sku-settings-grid">
+            <label><span>คำนำหน้า SKU</span><input value={skuPrefix} maxLength={12} disabled={disabled} placeholder="เช่น MU" aria-describedby="variantSkuFormatHelp" onChange={(event) => setSkuPrefix(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12))} /></label>
+            <label><span>เลขลำดับ Product</span><input type="number" min="1" max="99999999" step="1" value={skuProductSequence} disabled={disabled} aria-describedby="variantSkuFormatHelp variantSkuNextHelp" onChange={(event) => setSkuProductSequence(Math.max(1, Math.trunc(Number(event.target.value) || 1)))} /></label>
+            <div className="product-variant-next-sequence">
+              <span className="product-variant-field-label">สถานะเลขลำดับ</span>
+              {serverSequencePreview.status === 'ready' && skuSequenceConflict
+                ? <button className="button compact secondary" type="button" disabled={disabled || recommendedProductSequence >= 99999999} aria-describedby="variantSkuNextHelp" onClick={() => setSkuProductSequence(recommendedProductSequence)}>ใช้เลขแนะนำ {formattedRecommendedProductSequence}</button>
+                : <span className={`product-variant-sequence-status ${serverSequencePreview.status === 'ready' ? 'success' : serverSequencePreview.status === 'error' ? 'danger' : ''}`} role="status" aria-live="polite">
+                  {serverSequencePreview.status === 'loading'
+                    ? `กำลังตรวจเลขลำดับ ${formattedSkuProductSequence}…`
+                    : serverSequencePreview.status === 'ready'
+                      ? `เลขลำดับ ${formattedSkuProductSequence} ใช้ได้`
+                      : serverSequencePreview.status === 'error'
+                        ? 'ตรวจเลขลำดับไม่ได้'
+                        : 'รอคำนำหน้า SKU'}
+                </span>}
+            </div>
+            <div className="product-variant-sku-format-preview" id="variantSkuFormatHelp" role="status" aria-live="polite"><span>ตัวอย่างรหัสที่จะได้</span><strong>{skuFormatPreview}</strong></div>
+          </div>
+          <p className="product-variant-section-help" id="variantSkuNextHelp">{serverSequencePreview.status === 'ready' ? skuSequenceConflict ? `เลข ${formattedSkuProductSequence} ถูกใช้แล้ว · ระบบแนะนำเลขว่างถัดไปจากฐานข้อมูล` : `เลข ${formattedSkuProductSequence} ยังว่างและใช้ได้ · ระบบจะไม่เปลี่ยนค่าที่กรอก` : serverSequencePreview.status === 'error' ? 'เชื่อมฐานข้อมูลไม่ได้ จึงยังยืนยันเลขลำดับไม่ได้' : 'กรอกคำนำหน้าอย่างน้อย 2 ตัวอักษรเพื่อให้ระบบตรวจเลขลำดับ'}</p>
+        </section>
+
+        <section className="product-variant-toolbar-section product-variant-code-settings-card" aria-labelledby="variantSalesSettingsHeading">
+          <header className="product-variant-toolbar-heading"><h4 id="variantSalesSettingsHeading">กำหนดรหัสขาย / รหัส CF</h4><span>ตั้งวิธีรันรหัสสำหรับทุกตัวเลือก</span></header>
+          <div className="product-variant-sales-settings-grid">
+            <label className="product-variant-sales-mode"><span>วิธีสร้างรหัสขาย</span><ProductCreationCombobox id="variantSalesCodeMode" value={salesCodeMode} options={salesCodeModeOptions} disabled={disabled} ariaLabel="วิธีสร้างรหัสขายหรือรหัส CF สำหรับทุก Variant" onChange={(value) => setSalesCodeMode(value as typeof salesCodeMode)} /></label>
+            {salesCodeMode === 'sequence' ? <div className="product-variant-sales-sequence-card">
+              <div className="product-variant-sales-sequence-heading"><strong>ตั้งค่าการรันรหัสต่อเนื่อง</strong><span>กำหนดเฉพาะ Prefix ระบบจะค้นหารหัสว่างและข้ามรหัสที่ถูกใช้แล้วให้อัตโนมัติ</span></div>
+              <div className="product-variant-sales-sequence-controls"><label><span>Prefix</span><input value={salesCodePrefix} maxLength={3} disabled={disabled} onChange={(event) => { setSalesCodeStart(1); setSalesCodePrefix(event.target.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3)) }} /></label><div className="product-variant-sales-range-preview" role="status" aria-live="polite"><span>ช่วงรหัสที่จะใช้</span><strong>{salesCodePreview.firstCode && salesCodePreview.lastCode ? `${salesCodePreview.firstCode}–${salesCodePreview.lastCode}` : 'รอตรวจสอบ'}</strong><small>{salesCodePreview.status === 'loading' ? 'ตัวอย่างชั่วคราว · กำลังยืนยันกับระบบ' : salesCodePreview.status === 'ready' ? nextSalesCodeAfterRange ? `รหัสถัดไปหลังชุดนี้ ${nextSalesCodeAfterRange}${salesCodePreview.cached ? ' · ใช้ผลล่าสุด' : ''}` : 'รหัส Prefix นี้ถูกใช้ครบช่วงแล้ว' : salesCodePreview.status === 'error' || salesCodePreview.status === 'timeout' || salesCodePreview.status === 'denied' ? 'ตัวอย่างเท่านั้น · กดใช้ค่าแล้วตรวจรหัสซ้ำได้' : enabledIdentifiers.length ? `${enabledIdentifiers.length} Variant` : 'เพิ่มตัวเลือกให้ครบเพื่อคำนวณช่วงรหัส'}</small></div></div>
+              <div className={`product-sequence-policy product-variant-sales-policy ${salesCodePreview.status === 'error' || salesCodePreview.status === 'timeout' || salesCodePreview.status === 'denied' ? 'danger' : ''}`} role="status" aria-live="polite"><span aria-hidden="true">ⓘ</span><span>{salesCodePreview.status === 'loading' ? 'แสดงตัวอย่างทันที และกำลังตรวจรหัสว่างจริงกับระบบ…' : salesCodePreview.status === 'ready' ? `ช่วงนี้ว่างและใช้ได้ ${enabledIdentifiers.length} รายการ${salesCodePreview.movedPrefix ? ' · ระบบเลื่อนไป Prefix ถัดไป' : ''}` : salesCodePreview.status === 'denied' ? GLOBAL_SALES_CODE_UI_TEXT.states.permission_denied : salesCodePreview.status === 'timeout' ? GLOBAL_SALES_CODE_UI_TEXT.states.timeout : salesCodePreview.status === 'error' ? 'ตรวจช่วงรหัสไม่ได้ กรุณาลองอีกครั้ง' : GLOBAL_SALES_CODE_UI_TEXT.help.format}</span></div>
+            </div> : <div className="product-variant-sales-mode-note" role="note">{salesCodeMode === 'same-sku' ? 'ระบบจะใช้รหัสสินค้า (SKU) ของแต่ละ Variant เป็นรหัสขาย / รหัส CF' : 'กรอกรหัสขาย / รหัส CF ของแต่ละ Variant ได้โดยตรงในตารางด้านล่าง'}</div>}
+          </div>
+        </section>
+        </div>
+
+        <section className="product-variant-toolbar-section product-variant-default-settings" aria-labelledby="variantDefaultSettingsHeading">
+          <header className="product-variant-toolbar-heading"><h4 id="variantDefaultSettingsHeading">ค่าเริ่มต้นของทุกรายการ</h4><span>นำค่าเหล่านี้ไปใส่ในตารางด้านล่าง</span></header>
+          <div className="product-variant-default-settings-grid">
+            <label><span>ราคาขายทุกตัวเลือก</span><input value={bulkPrice} type="number" min="0" max="999999999" step="0.01" disabled={disabled} placeholder="เช่น 390.00" onChange={(event) => setBulkPrice(event.target.value)} /></label>
+            <label><span>Barcode</span><ProductCreationCombobox id="variantBulkBarcode" value={bulkBarcode} options={barcodeModeOptions} disabled={disabled} ariaLabel="วิธีกำหนด Barcode สำหรับทุก Variant" onChange={(value) => setBulkBarcode(value as typeof bulkBarcode)} /></label>
+            <label><span>สถานะ</span><ProductCreationCombobox id="variantBulkStatus" value={bulkStatus} options={variantStatusOptions} disabled={disabled} ariaLabel="สถานะเริ่มต้นสำหรับทุก Variant" onChange={(value) => setBulkStatus(value as typeof bulkStatus)} /></label>
+            <div className="product-variant-bulk-actions"><button className="button compact product-primary-action" type="button" disabled={disabled || combinations.length === 0} onClick={applyBulkValues}>ใช้กับทุกรายการ</button><button className="button compact secondary" type="button" disabled={disabled || combinations.length === 0} onClick={() => { setBulkPrice(''); setBulkBarcode('none'); setBulkStatus('draft'); setCombinations((current) => current.map((item) => ({ ...item, price: '', barcode: '', status: 'draft' }))) }}>ล้างค่า</button></div>
+          </div>
+        </section>
       </div>
 
-      <div className={`product-variant-identifier-check ${identifierCheck.tone}`} role="status" aria-live="polite"><span>{identifierCheck.tone === 'success' ? '✓' : identifierCheck.tone === 'danger' ? '!' : 'ⓘ'}</span><span>{identifierCheck.text}</span><button className="button compact secondary" type="button" disabled={disabled || isIdentifierChecking} aria-busy={isIdentifierChecking} onClick={() => { void checkVariantIdentifiers() }}>{isIdentifierChecking ? 'กำลังตรวจ…' : 'ตรวจรหัสอีกครั้ง'}</button></div>
-      {suggestedIdentifierCollisions.length ? <div className="product-variant-identifier-suggestions" role="list" aria-label="รหัสถัดไปที่สามารถใช้ได้"><strong>รหัสถัดไปที่ว่างจริง</strong><div>{suggestedIdentifierCollisions.map((collision) => <button className="button compact secondary" type="button" role="listitem" key={`${collision.key}:${collision.value}`} onClick={() => useIdentifierSuggestion(collision)} disabled={disabled}><span>{collision.field === 'sku_code' ? 'SKU Code' : collision.field === 'sales_code' ? 'รหัส CF' : 'Barcode'}</span><code>{collision.value}</code><span aria-hidden="true">→</span><code>{collision.suggestion}</code></button>)}</div><small>กดใช้รหัสแล้วระบบจะตรวจฐานข้อมูลซ้ำให้อัตโนมัติ</small></div> : null}
+      <div className={`product-variant-identifier-check ${skuSequenceConflict ? 'danger' : identifierCheck.tone}`} role="status" aria-live="polite"><span>{skuSequenceConflict || identifierCheck.tone === 'danger' ? '!' : identifierCheck.tone === 'success' ? '✓' : 'ⓘ'}</span><span>{skuSequenceConflict ? `เลขลำดับ Product ${formattedSkuProductSequence} ถูกใช้แล้ว · กรุณาใช้เลขแนะนำ ${formattedRecommendedProductSequence}` : identifierCheck.text}</span><button className="button compact secondary" type="button" disabled={disabled || isIdentifierChecking || skuSequenceConflict} aria-busy={isIdentifierChecking} onClick={() => { void checkVariantIdentifiers() }}>{isIdentifierChecking ? 'กำลังตรวจ…' : 'ตรวจรหัสอีกครั้ง'}</button></div>
+      {suggestedIdentifierCollisions.length ? <div className="product-variant-identifier-suggestions"><div className="product-variant-identifier-suggestions-head"><strong id="variantIdentifierSuggestionsHeading">รหัสถัดไปที่ว่างจริง</strong><div className="product-variant-identifier-suggestion-list" role="list" aria-labelledby="variantIdentifierSuggestionsHeading">{suggestedIdentifierCollisions.map((collision) => <button className="button compact secondary" type="button" role="listitem" key={`${collision.key}:${collision.value}`} onClick={() => useIdentifierSuggestion(collision)} disabled={disabled}><span>{collision.field === 'sku_code' ? 'SKU Code' : collision.field === 'sales_code' ? 'รหัส CF' : 'Barcode'}</span><code>{collision.value}</code><span aria-hidden="true">→</span><code>{collision.suggestion}</code></button>)}</div><button className="button compact product-primary-action product-variant-use-all-suggestions" type="button" onClick={useAllIdentifierSuggestions} disabled={disabled}>ใช้รหัสแนะนำทั้งหมด ({suggestedIdentifierCollisions.length})</button></div><small>เลือกใช้ทีละรหัส หรือกดใช้ทั้งหมด แล้วระบบจะตรวจฐานข้อมูลซ้ำให้อัตโนมัติ</small></div> : null}
 
       <div className="product-variant-matrix-wrap"><table className="product-variant-matrix">
         <thead><tr><th><input type="checkbox" checked={allEnabled} ref={(node) => { if (node) node.indeterminate = enabledCount > 0 && enabledCount < combinations.length }} disabled={disabled || combinations.length === 0} aria-label="เปิดหรือปิดทุก Combination" onChange={(event) => setCombinations((current) => current.map((item) => ({ ...item, enabled: event.target.checked })))} /></th><th>ตัวเลือก</th><th>SKU Code</th><th>รหัสขาย / รหัส CF</th><th>ราคาขาย</th><th>Barcode</th><th>รูปประจำ Variant</th><th>สถานะ</th></tr></thead>

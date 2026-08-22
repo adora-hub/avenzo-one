@@ -9,15 +9,27 @@ test('Rapid-UI-01 provides an authenticated organization route without write int
   const page = await read('src/app/organizations/[id]/products/live-sale/rapid-entry/page.tsx')
   assert.match(page, /current_user_organization_access/)
   assert.match(page, /permissions\.has\('product\.read'\)/)
+  assert.match(page, /canManage=\{permissions\.has\('product\.create'\)\}/)
+  assert.doesNotMatch(page, /permissions\.has\('product\.manage'\)/)
   assert.match(page, /currentPage="live-sale-rapid-entry"/)
   assert.match(page, /<RapidEntryWorkspaceShell/)
   assert.doesNotMatch(page, /executeFoundationCommandAction|\.insert\(|\.update\(|\.delete\(|fetch\(/)
 })
 
-test('Rapid-UI-01 is reachable from the existing Live Sale workspace', async () => {
-  const liveSale = await read('src/app/organizations/[id]/products/live-sale/live-sale-reservation-ui.tsx')
-  assert.match(liveSale, /live-sale\/rapid-entry/)
-  assert.match(liveSale, /กรอกสินค้าแบบตาราง/)
+test('Rapid-UI-01 is the primary Live Sale destination from Products and legacy URLs', async () => {
+  const workspace = await read('src/app/organizations/[id]/products/product-sku-workspace.tsx')
+  const legacyPage = await read('src/app/organizations/[id]/products/live-sale/page.tsx')
+  assert.match(workspace, /products\/live-sale\/rapid-entry/)
+  assert.match(legacyPage, /products\/live-sale\/rapid-entry/)
+})
+
+test('Rapid-UI-01 identifies the page as Live Sale and returns directly to Products', async () => {
+  const breadcrumb = await read('src/app/components/product-header-breadcrumb.tsx')
+  const shell = await read('src/app/organizations/[id]/products/live-sale/rapid-entry/rapid-entry-workspace-shell.tsx')
+  assert.match(breadcrumb, /currentPage === 'live-sale-rapid-entry'[\s\S]*aria-current="page"[\s\S]*<span>Live Sale<\/span>/)
+  assert.doesNotMatch(breadcrumb, /currentPage === 'live-sale-rapid-entry'[\s\S]*<span>กรอกสินค้าแบบตาราง<\/span>/)
+  assert.match(shell, /href=\{productsHref\}><ArrowLeftIcon \/>กลับหน้าสินค้า/)
+  assert.doesNotMatch(shell, /กลับ Live Sale|const liveSaleHref/)
 })
 
 test('Rapid-UI-01 shell states the 50-row scope and UI-only safety boundary', async () => {

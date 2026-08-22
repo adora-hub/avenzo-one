@@ -252,12 +252,43 @@ export function ProductsDataGrid({
   const exportColumnsDialogRef = useRef<HTMLElement>(null)
   const customizeRef = useRef<HTMLDivElement>(null)
   const customizeTriggerRef = useRef<HTMLButtonElement>(null)
+  const productTableViewportRef = useRef<HTMLDivElement>(null)
+  const productPaginationFooterRef = useRef<HTMLElement>(null)
+  const productGridLayoutFrameRef = useRef<number | null>(null)
   const resizeStateRef = useRef<{
     key: ProductGridColumnKey
     pointerId: number
     startX: number
     startWidth: number
   } | null>(null)
+
+  useEffect(() => {
+    const tableViewport = productTableViewportRef.current
+    const paginationFooter = productPaginationFooterRef.current
+    if (!tableViewport || !paginationFooter) return
+    const updateViewportHeight = () => {
+      if (productGridLayoutFrameRef.current !== null) return
+      productGridLayoutFrameRef.current = window.requestAnimationFrame(() => {
+        productGridLayoutFrameRef.current = null
+        const tableTop = Math.max(0, tableViewport.getBoundingClientRect().top)
+        const footerHeight = paginationFooter.getBoundingClientRect().height
+        const availableHeight = Math.max(280, Math.floor(window.innerHeight - tableTop - footerHeight))
+        tableViewport.style.setProperty('--product-grid-viewport-height', `${availableHeight}px`)
+      })
+    }
+    updateViewportHeight()
+    window.addEventListener('resize', updateViewportHeight)
+    window.addEventListener('scroll', updateViewportHeight, { passive: true })
+    const footerObserver = new ResizeObserver(updateViewportHeight)
+    footerObserver.observe(paginationFooter)
+    return () => {
+      window.removeEventListener('resize', updateViewportHeight)
+      window.removeEventListener('scroll', updateViewportHeight)
+      footerObserver.disconnect()
+      if (productGridLayoutFrameRef.current !== null) window.cancelAnimationFrame(productGridLayoutFrameRef.current)
+      productGridLayoutFrameRef.current = null
+    }
+  })
 
   useEffect(() => {
     try {
@@ -1218,7 +1249,7 @@ function toggleVariantRow(rowId: string) {
       onCompleted={(message) => { setGridToast(message); router.refresh() }}
     /> : null}
     {!rows.length ? <OperationsEmptyState icon="＋" title={emptyState.title} description={emptyState.description} /> : <>
-    <div className="product-table-wrap product-grid-wrap">
+    <div ref={productTableViewportRef} className="product-table-wrap product-grid-wrap">
       <table className="product-data-table product-grid-table">
         <colgroup><col style={{ width: PRODUCT_GRID_SELECTION_WIDTH }} />{visibleColumns.map((column) => <col key={column.key} style={{ width: column.width }} />)}<col style={{ width: 72 }} /></colgroup>
         <thead><tr><th className={`product-grid-selection product-grid-selection-pinned${lastPinnedKey ? '' : ' product-grid-pinned-boundary'}`}><input ref={selectAllRef} type="checkbox" aria-label="เลือกสินค้าทั้งหมด" checked={displayedRows.length > 0 && selectedRows.size === displayedRows.length} onChange={(event) => toggleAllRows(event.target.checked)} /></th>{visibleColumns.map((column) => <th key={column.key} className={[
@@ -1265,7 +1296,7 @@ function toggleVariantRow(rowId: string) {
       </article>)}
     </div>
     </>}
-    <footer className="product-grid-footer product-grid-pagination-footer" aria-label="การแบ่งหน้ารายการสินค้า">
+    <footer ref={productPaginationFooterRef} className="product-grid-footer product-grid-pagination-footer" aria-label="การแบ่งหน้ารายการสินค้า">
       <label className="product-grid-page-size">
         <span>Rows per page</span>
         <select

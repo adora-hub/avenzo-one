@@ -9,7 +9,7 @@ test('Product Creation permits a Draft without images and keeps the Image Gate f
 
   assert.match(form, /รูปภาพไม่บังคับและจะผ่าน Image Gate เมื่อเลือกอัปโหลด/)
   assert.match(form, /ไม่บังคับ · เพิ่มได้สูงสุด 9 ภาพ/)
-  assert.match(form, /สร้างสินค้าได้ก่อน แล้วเพิ่มรูปภายหลังจากหน้ารายละเอียดสินค้า/)
+  assert.match(form, /ยังไม่ใส่รูปก็สร้างสินค้าได้ และเพิ่มภายหลังได้/)
   assert.doesNotMatch(form, /if \(images\.length < 1\) add\('images'/)
   assert.doesNotMatch(form, /errors\.push\('รูปสินค้าอย่างน้อย 1 ภาพ'\)/)
   assert.match(form, /images\.some\(\(image\) => image\.stage === 'failed'\)/)
@@ -19,10 +19,12 @@ test('Product Creation permits a Draft without images and keeps the Image Gate f
 
 test('Optional images do not reduce completion or queue readiness', async () => {
   const form = await read('../src/app/organizations/[id]/products/new/unified-product-creation-form.tsx')
+  const completionChecks = form.slice(form.indexOf('const completionChecks ='), form.indexOf('const completionPercent ='))
 
   assert.match(form, /images: true,/)
   assert.match(form, /\{ id: 'images', label: 'รูปสินค้า', optional: true \}/)
-  assert.match(form, /!section\.optional && !sectionCompletion\[section\.id\]/)
+  assert.match(form, /!section\.optional && section\.id !== 'metadata' && !sectionCompletion\[section\.id\]/)
+  assert.doesNotMatch(completionChecks, /sectionCompletion\.images/)
   assert.doesNotMatch(form, /queueCompleteCount[\s\S]{0,900}draftImages\.some/)
   assert.match(form, /โดยยังไม่มีรูปสินค้า สามารถเพิ่มรูปภายหลังได้/)
 })

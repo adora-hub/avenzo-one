@@ -35,7 +35,7 @@ test('R7.2.3C renders a bounded Sales Code sequence preview without claiming res
   assert.match(form, /salesSequenceDigits/)
   assert.match(form, /รหัสปัจจุบัน → รหัสถัดไป/)
   assert.match(form, /Preview ยังไม่จองเลข/)
-  assert.match(form, /Server จะตรวจ Unique ใน transaction/)
+  assert.match(form, /GLOBAL_SALES_CODE_UI_TEXT\.help\.format/)
 })
 
 test('R7.2.3C renders identifier advisory, Base Unit policy and truthful Draft status', async () => {
@@ -69,9 +69,10 @@ test('R7.2.3C renders the SKU staging surface while preserving the initial-SKU c
 
 test('R7.2.3C applies the approved desktop and responsive component layout', async () => {
   const styles = await read('../src/app/globals.css')
-  assert.match(styles, /\.product-sales-sequence \{[^}]*grid-template-columns: 1fr 1fr 1fr 1\.3fr/)
+  assert.match(styles, /\.product-sales-sequence \{[^}]*display: grid;[^}]*gap:/)
+  assert.match(styles, /\.product-sales-sequence-controls \{[^}]*grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1\.3fr\)/)
   assert.match(styles, /\.product-identifier-assistant/)
   assert.match(styles, /\.product-sku-staging-table \{ width: max-content; min-width: 100%;/)
-  assert.match(styles, /@media \(max-width: 760px\)[\s\S]*\.product-variant-name-assistant, \.product-sales-sequence \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); \}/)
-  assert.match(styles, /@media \(max-width: 480px\)[\s\S]*\.product-variant-name-assistant, \.product-sales-sequence \{ grid-template-columns: 1fr; \}/)
+  assert.match(styles, /@media \(max-width: 760px\)[\s\S]*\.product-sales-sequence-controls \{ grid-template-columns: 1fr; \}/)
+  assert.doesNotMatch(styles, /\.product-variant-name-assistant, \.product-sales-sequence \{/)
 })

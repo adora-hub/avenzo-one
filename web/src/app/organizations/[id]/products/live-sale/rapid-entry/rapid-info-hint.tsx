@@ -18,7 +18,13 @@ export function RapidInfoHint({ label, description }: Props) {
       aria-expanded={open}
       aria-controls={tooltipId}
       aria-describedby={open ? tooltipId : undefined}
-      onClick={() => setOpen((current) => !current)}
+      onClick={() => setOpen(true)}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') {
+          setOpen(false)
+          event.currentTarget.blur()
+        }
+      }}
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
       onFocus={() => setOpen(true)}

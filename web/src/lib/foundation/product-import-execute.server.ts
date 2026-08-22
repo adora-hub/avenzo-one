@@ -1,10 +1,11 @@
 import 'server-only'
 
 import { requireFoundationPermission } from './authorization'
-import { parseFoundationCommand, type FoundationCommandOutcome } from './contracts'
-import { FoundationError, mapFoundationError } from './errors'
+import { FoundationError } from './errors'
+import { executeGlobalSalesCodeCreation } from './global-sales-code-creation.server'
+import { formatGlobalSalesCode, validateGlobalSalesCode } from './global-sales-code'
+import { previewGlobalSalesCodeRangeServer } from './global-sales-code-preview.server'
 import { getFoundationActor } from './server-context'
-import { executeFoundationServerCommand } from './server-service'
 import { createClient } from '@/lib/supabase/server'
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -33,22 +34,25 @@ export type ProductImportExecutionRow = {
 export type ProductImportExecutionResult = {
   sourceRow: number
   commandId: string
-  status: 'created' | 'skipped' | 'failed'
+  status: 'created' | 'failed'
   productId?: string
   skuId?: string
+  salesCode?: string
   error?: string
   warnings: string[]
 }
 
 type ParsedInput = {
   organizationId: string
+  batchCommandId: string
   rows: ProductImportExecutionRow[]
 }
 
 export async function executeProductImportRows(input: unknown): Promise<ProductImportExecutionResult[]> {
   const parsed = parseInput(input)
   const actor = await getFoundationActor(parsed.organizationId)
-  requireFoundationPermission(actor, 'product.manage')
+  requireFoundationPermission(actor, 'product.create')
+  requireFoundationPermission(actor, 'sku.create')
   const supabase = await createClient()
 
   const [categoriesResult, brandsResult, tagsResult, branchesResult] = await Promise.all([
@@ -64,97 +68,103 @@ export async function executeProductImportRows(input: unknown): Promise<ProductI
   const brandByName = nameMap(brandsResult.data ?? [])
   const tagByName = nameMap(tagsResult.data ?? [])
   const activeBranches = new Set((branchesResult.data ?? []).map((row) => normalizeCode(String(row.code))))
-  const identifiers = [...new Set(parsed.rows.flatMap(rowIdentifiers))]
-  const existing = new Set<string>()
-  for (let index = 0; index < identifiers.length; index += 100) {
-    const result = await supabase.from('sku_identifier_registry')
-      .select('normalized_identifier')
-      .eq('organization_id', parsed.organizationId)
-      .in('normalized_identifier', identifiers.slice(index, index + 100))
-    if (result.error) throw result.error
-    result.data?.forEach((row) => existing.add(normalizeCode(String(row.normalized_identifier))))
-  }
-
-  const results: ProductImportExecutionResult[] = []
-  for (const row of parsed.rows) {
-    const warnings = row.status === 'draft' ? [] : ['นำเข้าเป็นฉบับร่างเพื่อให้ตรวจสอบก่อนเปิดใช้งาน']
-    if (rowIdentifiers(row).some((identifier) => existing.has(identifier))) {
-      results.push({ sourceRow: row.sourceRow, commandId: row.commandId, status: 'skipped', error: 'identifier_already_exists', warnings })
-      continue
-    }
+  const resolvedRows = parsed.rows.map((row) => {
     const categoryId = categoryByName.get(normalizeName(row.categoryName))
     const brandId = row.brandName ? brandByName.get(normalizeName(row.brandName)) : null
     const tagIds = row.tags.map((tag) => tagByName.get(normalizeName(tag)))
     const missingBranches = row.branches.filter((branch) => !activeBranches.has(normalizeCode(branch)))
     if (!categoryId || (row.brandName && !brandId) || tagIds.some((id) => !id) || missingBranches.length) {
-      const missing = [
-        ...(!categoryId ? [`หมวดหมู่: ${row.categoryName}`] : []),
-        ...(row.brandName && !brandId ? [`แบรนด์: ${row.brandName}`] : []),
-        ...row.tags.filter((_, index) => !tagIds[index]).map((tag) => `ป้ายกำกับ: ${tag}`),
-        ...missingBranches.map((branch) => `สาขา: ${branch}`),
-      ]
-      results.push({ sourceRow: row.sourceRow, commandId: row.commandId, status: 'failed', error: `master_missing:${missing.join(', ')}`, warnings })
-      continue
+      throw new FoundationError('validation_failed', 400, parsed.batchCommandId)
     }
+    return { row, categoryId, brandId, tagIds: tagIds as string[] }
+  })
 
-    try {
-      const command = parseFoundationCommand({
-        kind: 'entity',
-        commandId: row.commandId,
-        organizationId: parsed.organizationId,
-        commandType: 'product.create_with_initial_sku',
-        payload: {
-          name: row.productName,
-          description: null,
-          category_id: categoryId,
-          brand_id: brandId,
-          structure_type: 'standard',
-          internal_note: null,
-          tag_ids: tagIds,
-          sku_name: row.productName,
-          sku_code: row.skuCode,
-          barcode: row.barcode,
-          sales_code: row.salesCode,
-          base_unit_code: row.baseUnitCode,
-          quantity_behavior: row.quantityBehavior,
-          sale_price: row.salePrice,
-          currency_code: 'THB',
-          tax_category: row.taxCategory,
-          tax_rate: row.taxRate,
-          sell_units: [],
-          bundle_components: [],
-        },
-      })
-      const outcome: FoundationCommandOutcome = await executeFoundationServerCommand(command)
-      rowIdentifiers(row).forEach((identifier) => existing.add(identifier))
-      results.push({
-        sourceRow: row.sourceRow,
-        commandId: row.commandId,
-        status: 'created',
-        productId: String(outcome.product_id ?? outcome.entity_id ?? ''),
-        skuId: String(outcome.sku_id ?? ''),
-        warnings,
-      })
-    } catch (error) {
-      const safeError = mapFoundationError(error, row.commandId)
-      results.push({ sourceRow: row.sourceRow, commandId: row.commandId, status: 'failed', error: safeError.code, warnings })
-    }
+  const blankRows = resolvedRows.filter(({ row }) => !row.salesCode)
+  const automaticCodes = new Map<number, string>()
+  if (blankRows.length) {
+    const range = await previewGlobalSalesCodeRangeServer({
+      organizationId: parsed.organizationId,
+      prefix: 'A',
+      quantity: blankRows.length,
+    })
+    blankRows.forEach(({ row }, index) => automaticCodes.set(
+      row.sourceRow,
+      formatGlobalSalesCode(range.prefix, range.startNumber + index),
+    ))
   }
-  return results
+
+  const creationItems = resolvedRows.map(({ row, categoryId, brandId, tagIds }) => {
+    const salesCode = row.salesCode ?? automaticCodes.get(row.sourceRow)
+    if (!salesCode || !validateGlobalSalesCode(salesCode).ok) throw new FoundationError('validation_failed', 400, parsed.batchCommandId)
+    return {
+      command_id: row.commandId,
+      command_type: 'product.create_with_initial_sku',
+      payload: {
+        name: row.productName,
+        description: null,
+        category_id: categoryId,
+        brand_id: brandId,
+        structure_type: 'standard',
+        internal_note: null,
+        tag_ids: tagIds,
+        sku_name: row.productName,
+        sku_code: row.skuCode,
+        barcode: row.barcode,
+        sales_code: salesCode,
+        base_unit_code: row.baseUnitCode,
+        quantity_behavior: row.quantityBehavior,
+        sale_price: row.salePrice,
+        currency_code: 'THB',
+        tax_category: row.taxCategory,
+        tax_rate: row.taxRate,
+        sell_units: [],
+        bundle_components: [],
+      },
+    }
+  })
+
+  // GSC-05's Rapid shape is the existing 1-50 all-or-nothing Product/SKU
+  // boundary. Import reuses it internally; there is no separate allocator or
+  // per-row fallback. All supplied and auto-proposed codes are claimed as one
+  // manual set inside the trusted PostgreSQL transaction.
+  const outcome = await executeGlobalSalesCodeCreation({
+    commandId: parsed.batchCommandId,
+    organizationId: parsed.organizationId,
+    flow: 'rapid',
+    payload: { sales_code_mode: 'manual', creation_items: creationItems },
+  })
+  if (outcome.created_count !== parsed.rows.length || outcome.results.length !== parsed.rows.length) {
+    throw new FoundationError('foundation_command_failed', 500, parsed.batchCommandId)
+  }
+
+  return parsed.rows.map((row, index) => {
+    const created = outcome.results[index] ?? {}
+    return {
+      sourceRow: row.sourceRow,
+      commandId: row.commandId,
+      status: 'created',
+      productId: String(created.product_id ?? created.entity_id ?? ''),
+      skuId: String(created.sku_id ?? ''),
+      salesCode: row.salesCode ?? automaticCodes.get(row.sourceRow),
+      warnings: row.status === 'draft' ? [] : ['นำเข้าเป็นฉบับร่างเพื่อให้ตรวจสอบก่อนเปิดใช้งาน'],
+    }
+  })
 }
 
 function parseInput(input: unknown): ParsedInput {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new FoundationError('validation_failed', 400)
   const value = input as Record<string, unknown>
   const organizationId = typeof value.organizationId === 'string' ? value.organizationId.trim() : ''
-  if (!UUID_PATTERN.test(organizationId) || !Array.isArray(value.rows) || value.rows.length < 1 || value.rows.length > 25) {
+  const batchCommandId = typeof value.batchCommandId === 'string' ? value.batchCommandId.trim() : ''
+  if (!UUID_PATTERN.test(organizationId) || !UUID_PATTERN.test(batchCommandId)
+    || !Array.isArray(value.rows) || value.rows.length < 1 || value.rows.length > 50) {
     throw new FoundationError('validation_failed', 400)
   }
   const rows = value.rows.map((entry) => parseRow(entry))
   if (new Set(rows.map((row) => row.commandId)).size !== rows.length || new Set(rows.map((row) => row.sourceRow)).size !== rows.length) {
     throw new FoundationError('validation_failed', 400)
   }
-  return { organizationId, rows }
+  return { organizationId, batchCommandId, rows }
 }
 
 function parseRow(input: unknown): ProductImportExecutionRow {
@@ -179,7 +189,7 @@ function parseRow(input: unknown): ProductImportExecutionRow {
   const taxCategory = row.taxCategory
   const status = row.status
   if (!UUID_PATTERN.test(commandId) || !Number.isSafeInteger(sourceRow) || sourceRow < 2
-    || !CODE_PATTERN.test(skuCode) || (salesCode && !CODE_PATTERN.test(salesCode))
+    || !CODE_PATTERN.test(skuCode) || (salesCode && !validateGlobalSalesCode(salesCode).ok)
     || !BASE_UNIT_PATTERN.test(baseUnitCode) || !Number.isFinite(salePrice) || salePrice < 0
     || !Number.isFinite(taxRate) || taxRate < 0 || taxRate > 100
     || !['discrete', 'weight', 'volume'].includes(String(quantityBehavior))
@@ -209,7 +219,4 @@ function normalizeName(value: string) { return value.normalize('NFKC').trim().to
 function normalizeCode(value: string) { return value.normalize('NFKC').trim().toUpperCase() }
 function nameMap(rows: Array<{ id: unknown; name: unknown }>) {
   return new Map(rows.map((row) => [normalizeName(String(row.name)), String(row.id)]))
-}
-function rowIdentifiers(row: Pick<ProductImportExecutionRow, 'skuCode' | 'salesCode' | 'barcode'>) {
-  return [...new Set([row.skuCode, row.salesCode, row.barcode].filter((value): value is string => Boolean(value)).map(normalizeCode))]
 }

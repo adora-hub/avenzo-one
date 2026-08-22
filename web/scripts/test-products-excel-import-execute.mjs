@@ -4,8 +4,9 @@ import test from 'node:test'
 
 const source = await readFile(new URL('../src/lib/foundation/product-import-execute.server.ts', import.meta.url), 'utf8')
 
-test('Part 2.5 enforces product.manage and organization-scoped master resolution', () => {
-  assert.match(source, /requireFoundationPermission\(actor, 'product\.manage'\)/)
+test('GSC-07 enforces granular create permissions and organization-scoped master resolution', () => {
+  assert.match(source, /requireFoundationPermission\(actor, 'product\.create'\)/)
+  assert.match(source, /requireFoundationPermission\(actor, 'sku\.create'\)/)
   assert.match(source, /\.eq\('organization_id', parsed\.organizationId\)/)
   assert.match(source, /product_categories/)
   assert.match(source, /product_brands/)
@@ -13,11 +14,14 @@ test('Part 2.5 enforces product.manage and organization-scoped master resolution
   assert.match(source, /branches/)
 })
 
-test('Part 2.5 reuses the atomic idempotent Product plus initial SKU command', () => {
+test('GSC-07 reuses one all-or-nothing Global Sales Code creation command', () => {
   assert.match(source, /product\.create_with_initial_sku/)
-  assert.match(source, /parseFoundationCommand/)
-  assert.match(source, /executeFoundationServerCommand/)
-  assert.match(source, /commandId: row\.commandId/)
+  assert.match(source, /executeGlobalSalesCodeCreation/)
+  assert.match(source, /batchCommandId/)
+  assert.match(source, /flow: 'rapid'/)
+  assert.match(source, /sales_code_mode: 'manual'/)
+  assert.match(source, /previewGlobalSalesCodeRangeServer/)
+  assert.match(source, /validateGlobalSalesCode/)
 })
 
 test('Part 2.5 never posts inventory or writes Stock', () => {

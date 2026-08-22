@@ -90,7 +90,7 @@ test('creation flow follows the Owner-approved section order', async () => {
 test('S1 validates standard-product initial stock and shows localized base unit', async () => {
   const form = await read(formPath)
   assert.match(form, /const BASE_UNIT_LABELS: Record<string, string>/)
-  assert.match(form, /standardInitialStockErrors = structure === 'standard' && initialStockEnabled/)
+  assert.match(form, /standardInitialStockErrors = structure === 'standard' && !queueReviewMode && initialStockEnabled && !initialStockMissingSku/)
   assert.match(form, /กรุณาเลือกสาขารับสต็อก/)
   assert.match(form, /กรุณากรอกจำนวนตั้งต้น/)
   assert.match(form, /จำนวนตั้งต้นต้องเป็น 0 หรือมากกว่า/)
@@ -102,8 +102,8 @@ test('S2 supports bulk quantity and per-SKU validation for variant initial stock
   assert.match(form, /initialStockBulkQuantity, setInitialStockBulkQuantity/)
   assert.match(form, /ใส่จำนวนเดียวกันทุก SKU/)
   assert.match(form, /Object\.fromEntries\(initialStockRows\.map/)
-  assert.match(form, /variantInitialStockInvalidKeys/)
-  assert.match(form, /variantInitialStockFilledCount/)
+  assert.match(form, /multiInitialStockInvalidKeys/)
+  assert.match(form, /multiInitialStockFilledCount/)
   assert.match(form, /กรุณาตรวจสต็อกของ SKU Combination/)
 })
 test('S3 distinguishes virtual and pre-assembled Bundle stock UI', async () => {
@@ -130,7 +130,7 @@ test('initial stock uses trusted atomic backend and supports standard and varian
   const form = await read(formPath)
   assert.doesNotMatch(form, /data-ui-only="true"/)
   assert.match(form, /<strong>สต็อกเริ่มต้น<\/strong>/)
-  assert.match(form, /initialStockRows = structure === 'variant'/)
+  assert.match(form, /initialStockRows = queueReviewMode[\s\S]{0,700}: structure === 'variant'/)
   assert.match(form, /สาขารับสต็อก/)
   assert.match(form, /executeInitialStockWorkflowAction/)
   assert.match(form, /T5\.2 · Atomic Backend/)

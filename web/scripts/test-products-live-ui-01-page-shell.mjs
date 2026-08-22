@@ -5,18 +5,15 @@ import test from 'node:test'
 const root = new URL('../', import.meta.url)
 const read = (path) => readFile(new URL(path, root), 'utf8')
 
-test('Live-UI-01 provides an authenticated organization route without write integration', async () => {
+test('Live-UI-01 redirects the retired Live Sale route to Rapid Entry', async () => {
   const page = await read('src/app/organizations/[id]/products/live-sale/page.tsx')
-  assert.match(page, /current_user_organization_access/)
-  assert.match(page, /permissions\.has\('product\.read'\)/)
-  assert.match(page, /currentPage="live-sale"/)
-  assert.match(page, /<LiveSalePageShell/)
-  assert.doesNotMatch(page, /executeFoundationCommandAction|\.insert\(|\.update\(|\.delete\(|fetch\(/)
+  assert.match(page, /redirect\(`\/organizations\/\$\{organizationId\}\/products\/live-sale\/rapid-entry`\)/)
+  assert.doesNotMatch(page, /LiveSalePageShell|current_user_organization_access/)
 })
 
-test('Live-UI-01 links the Products create menu to the new route', async () => {
+test('Live-UI-01 links the Products create menu directly to Rapid Entry', async () => {
   const workspace = await read('src/app/organizations/[id]/products/product-sku-workspace.tsx')
-  assert.match(workspace, /href=\{`\/organizations\/\$\{organizationId\}\/products\/live-sale`\}/)
+  assert.match(workspace, /href=\{`\/organizations\/\$\{organizationId\}\/products\/live-sale\/rapid-entry`\}/)
   assert.match(workspace, /สร้างสินค้าขายด่วน \/ Live Sale/)
   assert.doesNotMatch(workspace, /Live Sale อยู่ในแผนเชื่อมระบบจริง/)
 })

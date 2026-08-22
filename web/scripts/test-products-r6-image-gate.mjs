@@ -34,6 +34,8 @@ test('R6 lifecycle is idempotent, service-only, tenant scoped and compensatable'
   assert.match(migration, /authorized users can read ready product images/)
   assert.match(cleanup, /\.storage[\s\S]*\.remove\(\[image\.storage_path\]\)/)
   assert.match(cleanup, /executeFoundationServerCommand\(command\)/)
+  assert.match(cleanup, /requireFoundationPermission\(actor, 'product\.update'\)/)
+  assert.doesNotMatch(cleanup, /requireFoundationPermission\(actor, 'product\.manage'\)/)
 })
 
 test('R6 upload helper rejects unsafe input and never overwrites immutable paths', async () => {

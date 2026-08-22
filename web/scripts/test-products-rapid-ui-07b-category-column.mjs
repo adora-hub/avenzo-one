@@ -30,7 +30,7 @@ test('Rapid-UI-07B uses a searchable category combobox per row', async () => {
 
 test('Rapid-UI-07B bulk-applies Category to selected or all rows', async () => {
   const source = await readFile(tablePath, 'utf8')
-  assert.match(source, /<option value="category">หมวดหมู่<\/option>/)
+  assert.match(source, /<RapidSelectCombobox[\s\S]{0,500}\{ value: 'category', label: 'หมวดหมู่' \}/)
   assert.match(source, /bulkAction === 'category'/)
   assert.match(source, /categoryOptions\.includes\(value\)/)
   assert.match(source, /\[pendingBulk\.action\]: pendingBulk\.value/)

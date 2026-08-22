@@ -63,6 +63,11 @@ Part A1 ยืนยันว่า Unique indexes ปัจจุบันข�
 
 ### 4.2 Sales Code
 
+> Global authority: all new Sales Codes in normal, multi-option and Rapid Entry
+> creation must follow `AVENZO_ONE_Global_Sales_Code_Standard_V1.md`. This
+> section defines lifecycle semantics and must not be used to introduce a
+> different format or allocator in one workflow.
+
 1. เป็น Optional จนกว่าจะใช้ขาย/รับ CF
 2. กำหนด Manual, Same-as-SKU หรือ Sequence ได้
 3. หากเดิมเป็น `null` สามารถกำหนดได้หนึ่งครั้งผ่าน trusted command

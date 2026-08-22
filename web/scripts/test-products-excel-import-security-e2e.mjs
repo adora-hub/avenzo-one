@@ -9,6 +9,7 @@ test('Excel import keeps stable command IDs and exposes a safe retry path', asyn
   const source = await read('src/app/organizations/[id]/products/product-excel-import-dialog-live.tsx')
 
   assert.match(source, /commandIds: Object\.fromEntries\(validation\.rows\.map\(\(row\) => \[row\.sourceRow, crypto\.randomUUID\(\)\]\)\)/)
+  assert.match(source, /batchCommandIds: Array\.from/)
   assert.match(source, /commandId: preview\.commandIds\[row\.sourceRow\]/)
   assert.match(source, /ลองนำเข้าอีกครั้ง/)
   assert.match(source, /onClick=\{importRows\}/)
@@ -18,19 +19,21 @@ test('Excel import keeps stable command IDs and exposes a safe retry path', asyn
 test('server boundary is permissioned, tenant-scoped, bounded, and never posts Stock', async () => {
   const source = await read('src/lib/foundation/product-import-execute.server.ts')
 
-  assert.match(source, /requireFoundationPermission\(actor, 'product\.manage'\)/)
+  assert.match(source, /requireFoundationPermission\(actor, 'product\.create'\)/)
+  assert.match(source, /requireFoundationPermission\(actor, 'sku\.create'\)/)
   assert.match(source, /\.eq\('organization_id', parsed\.organizationId\)/)
-  assert.match(source, /value\.rows\.length > 25/)
-  assert.match(source, /commandType: 'product\.create_with_initial_sku'/)
+  assert.match(source, /value\.rows\.length > 50/)
+  assert.match(source, /command_type: 'product\.create_with_initial_sku'/)
+  assert.match(source, /executeGlobalSalesCodeCreation/)
   assert.doesNotMatch(source, /inventory\.(receive|adjust|transfer)|stock_movement|service_role/i)
 })
 
-test('atomic database command enforces permission, audit, idempotency, and no inventory write', async () => {
-  const source = await read('../supabase/migrations/20260815103024_phase_2_1_r7_1_atomic_product_creation.sql')
+test('trusted Global Sales Code command enforces permission, audit, idempotency, and no inventory write', async () => {
+  const source = await read('../supabase/migrations/20260821143000_phase_gsc_05_atomic_creation_integration.sql')
 
   assert.match(source, /security definer/i)
   assert.match(source, /set search_path = ''/i)
-  assert.match(source, /server_actor_has_org_permission[\s\S]*'product\.manage'/i)
+  assert.match(source, /server_actor_has_org_permission[\s\S]*'product\.create'/i)
   assert.match(source, /on conflict \(id\) do nothing/i)
   assert.match(source, /if v_command\.status = 'completed' then[\s\S]*return v_command\.result/i)
   assert.match(source, /append_organization_audit_log/i)

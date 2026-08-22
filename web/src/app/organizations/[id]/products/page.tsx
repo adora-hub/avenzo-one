@@ -83,7 +83,8 @@ export default async function ProductSkuPage({ params, searchParams }: Props) {
 
   const permissions = new Set(access.permissions.map((permission) => permission.code))
   const canRead = permissions.has('product.read')
-  const canManage = permissions.has('product.manage')
+  const canCreate = permissions.has('product.create')
+  const canManage = permissions.has('product.update')
   const canReadInventory = permissions.has('inventory.read')
   const canAdjustInventory = permissions.has('inventory.adjust')
   const canReadCost = permissions.has('product.cost.read')
@@ -210,6 +211,7 @@ export default async function ProductSkuPage({ params, searchParams }: Props) {
         productAction={productAction}
         selectedSku={selectedSku}
         nextCursor={listResult.nextCursor}
+        canCreate={canCreate}
         canManage={canManage}
         canAdjustInventory={canAdjustInventory}
         inventoryLocationOptions={inventoryLocationOptions}

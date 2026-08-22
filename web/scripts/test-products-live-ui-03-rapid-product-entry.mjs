@@ -54,7 +54,12 @@ test('Live-UI-03 follows the Live Sale design and responsive controls', async ()
   assert.match(css, /@media \(max-width: 600px\)[\s\S]*\.live-sale-quick-fields \{ grid-template-columns: 1fr;/)
 })
 
-test('Live-UI-03 accepts the granular Product create authority with legacy compatibility', async () => {
-  const page = await read('src/app/organizations/[id]/products/live-sale/page.tsx')
-  assert.match(page, /permissions\.has\('product\.create'\) \|\| permissions\.has\('product\.manage'\)/)
+test('Live-UI-03 redirects the legacy route and uses only granular Product create authority', async () => {
+  const [legacyPage, rapidEntryPage] = await Promise.all([
+    read('src/app/organizations/[id]/products/live-sale/page.tsx'),
+    read('src/app/organizations/[id]/products/live-sale/rapid-entry/page.tsx'),
+  ])
+  assert.match(legacyPage, /redirect\(`\/organizations\/\$\{organizationId\}\/products\/live-sale\/rapid-entry`\)/)
+  assert.match(rapidEntryPage, /canManage=\{permissions\.has\('product\.create'\)\}/)
+  assert.doesNotMatch(rapidEntryPage, /product\.manage/)
 })

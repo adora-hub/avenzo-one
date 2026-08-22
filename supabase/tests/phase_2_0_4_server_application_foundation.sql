@@ -86,7 +86,7 @@ begin
     jsonb_build_object(
       'product_id', v_product ->> 'entity_id', 'sku_code', 'APP-SKU-1',
       'name', 'Application SKU', 'base_unit_code', 'piece',
-      'status', 'active', 'barcode', '8850000000001', 'sales_code', 'CF-APP-1'
+      'status', 'active', 'barcode', '8850000000001', 'sales_code', 'APP001'
     ), repeat('c', 64), v_owner, now()
   );
   perform public.server_execute_foundation_command(

@@ -48,13 +48,13 @@ begin
     sales_code, base_unit_code, status, created_by
   ) values (
     v_sku_a, v_org_a, v_product_a, '  sku-a  ', '  SKU A  ', '  BAR-A  ',
-    '  cf-a  ', '  PIECE  ', 'active', v_user_id
+    '  a001  ', '  PIECE  ', 'active', v_user_id
   );
 
   if (select sku_code <> 'SKU-A'
              or name <> 'SKU A'
              or barcode <> 'BAR-A'
-             or sales_code <> 'CF-A'
+             or sales_code <> 'A001'
              or base_unit_code <> 'piece'
              or quantity_scale <> 6
       from public.skus where id = v_sku_a) then
@@ -84,7 +84,7 @@ begin
     base_unit_code
   ) values (
     v_org_b, v_product_b, 'sku-a', 'Same codes in another tenant',
-    'BAR-A', 'CF-A', 'piece'
+    'BAR-A', 'A001', 'piece'
   );
 
   begin
@@ -99,7 +99,7 @@ begin
   begin
     insert into public.skus (
       organization_id, product_id, sku_code, name, sales_code, base_unit_code
-    ) values (v_org_a, v_product_a, 'SKU-C', 'Duplicate sales code', 'cf-a', 'piece');
+    ) values (v_org_a, v_product_a, 'SKU-C', 'Duplicate sales code', 'a001', 'piece');
     raise exception 'expected_duplicate_sales_code';
   exception when unique_violation then
     null;
@@ -115,7 +115,7 @@ begin
   end;
 
   begin
-    update public.skus set sales_code = 'NEW-CODE' where id = v_sku_a;
+    update public.skus set sales_code = 'A002' where id = v_sku_a;
     raise exception 'expected_permanent_sales_code';
   exception when sqlstate '22023' then
     null;
