@@ -168,8 +168,12 @@ Undo must be available for the latest bulk operation.
   selected for creation.
 - Submission includes only explicitly selected ready rows.
 - Validation summary links to and focuses the first invalid cell.
-- Browser Draft autosave protects UI work from accidental refresh during the
-  UI phase; it is not proof of a server reservation.
+- Browser Draft autosave protects UI work from accidental refresh. It remains
+  device/browser local and never extends the server reservation expiry.
+- A selected range becomes usable only after the trusted server reservation
+  returns `batch_id` and authoritative `expires_at` (fixed three-hour TTL).
+- Show remaining time, warn at 30 and 10 minutes, keep draft values after
+  expiry and block final review until the user reserves a new range.
 - Draft format is versioned, bounded and scoped by Organization/reservation.
 - Provide discard-draft confirmation and restore notice.
 - Disable duplicate submit while processing.
@@ -203,13 +207,14 @@ Stock.
 | Rapid-UI-11B | Ready-row ordering without mutating row identity | Owner approved |
 | Rapid-UI-11C | Safe bulk-selection scope across visible and hidden rows | Owner approved; committed and pushed in `66a38fa` |
 | Rapid-UI-11D | Advanced filters for Category, Price, Stock, Unit and Branch | Deferred as a Future Enhancement; not required for V1 because the workspace is capped at 50 rows and V1 prioritizes a compact workflow |
+| Rapid-Draft-01 / Rapid-BE-02A | Silent Browser Draft + authoritative three-hour reservation status | Owner approved and closed — refresh recovered the existing active reservation and restored all 50 rows without allocating another range |
 
 ### Phase Domain/Integration — starts only after Rapid-UI-10
 
 | Part | Deliverable | Acceptance gate |
 |---|---|---|
 | Rapid-BE-01 | Prefix availability read contract and Organization-scoped contiguous-range query | Bounded query, permission, no cross-tenant leak and measured index plan |
-| Rapid-BE-02 | Atomic 50-code reservation/claim with expiry, conflict and idempotency | Concurrent claim creates one owner; retry returns deterministic result |
+| Rapid-BE-02 | Atomic 50-code reservation/claim with expiry, conflict and idempotency | Approved and closed; database contract, trusted reservation action, expiry UI, Browser Draft flush and active-reservation refresh recovery passed |
 | Rapid-BE-03 | Atomic selected-row Product/SKU/Sales Code creation command | 1–50 ready rows; duplicate or invalid row rolls back the complete command |
 | Rapid-BE-04 | Image staging, finalize and compensation | No orphan object/row; retry and partial upload recovery pass |
 | Rapid-BE-05 | Initial Stock integration through approved Phase T inventory boundary | Every created SKU resolves to `sku_id`; one failed Stock item rolls back per approved contract |
@@ -218,7 +223,8 @@ Stock.
 ## 8. Explicit Non-goals for the First UI Phase
 
 - No mobile layout below 1,024 CSS pixels
-- No real Prefix scan or Sales Code claim
+- Prefix scan and three-hour claim are real server-authoritative operations;
+  Product/SKU creation remains outside this checkpoint
 - No Product/SKU/Stock write
 - No Supabase Storage upload
 - No automatic multi-file filename matching

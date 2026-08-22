@@ -756,3 +756,12 @@ Design System ควรพัฒนาเท่าที่ Vertical Slice ต�
 - เพิ่มมาตรฐาน `Safe Selection Scope` สำหรับตารางที่มีตัวกรองสถานะ
 - Bulk action ใช้เฉพาะ Selection ที่มองเห็นเป็นค่าเริ่มต้น และต้องขอคำยืนยันอย่างชัดเจนก่อนรวม Selection จากสถานะอื่น
 - กำหนด Hidden-selection warning, Clear hidden selection และ Snapshot เป้าหมายก่อนยืนยันคำสั่ง
+
+### V1.11 — 22 สิงหาคม 2026
+
+- เพิ่มมาตรฐาน `Expiring Reservation Status` สำหรับงานที่ล็อกทรัพยากรชั่วคราว
+- เวลาหมดอายุต้องยึด `expires_at` จาก Server เท่านั้น; Auto-save ห้ามต่ออายุโดยเงียบ
+- แสดงเวลาคงเหลือแบบ Compact, เตือนเมื่อเหลือ 30 และ 10 นาที และใช้ Danger state เมื่อหมดอายุ
+- เมื่อหมดอายุ ข้อมูล Draft ต้องไม่หาย แต่ Action ขั้นสุดท้ายต้องถูกปิดพร้อมบอกวิธีจองใหม่
+- Browser Draft และ Server Reservation ต้องสื่อสารแยกกันชัดเจน: Draft คือการกู้ข้อมูล ส่วน Reservation คือสิทธิ์ใช้รหัสชั่วคราว
+- Browser Draft ที่บันทึกแบบ Debounce ต้องเขียนค่าล่าสุดทันทีเมื่อหน้าเข้าสู่ Background หรือเกิด `pagehide`; การ Flush นี้เป็น Local-only และห้ามต่ออายุ Server Reservation

@@ -41,7 +41,13 @@ export function rapidBrowserDraftStorageKey(organizationId: string, actorUserId:
 function isSafeRange(value: unknown): value is RapidRangeSelection {
   if (!value || typeof value !== 'object') return false
   const range = value as Partial<RapidRangeSelection>
-  return typeof range.prefix === 'string' && /^[A-Z0-9-]{1,8}$/.test(range.prefix)
+  const hasReservation = range.reserved === true
+  const reservationIsSafe = !hasReservation || (
+    typeof range.reservationBatchId === 'string' && /^[0-9a-f-]{36}$/i.test(range.reservationBatchId)
+    && typeof range.reservationCommandId === 'string' && /^[0-9a-f-]{36}$/i.test(range.reservationCommandId)
+    && typeof range.expiresAt === 'string' && !Number.isNaN(Date.parse(range.expiresAt))
+  )
+  return reservationIsSafe && typeof range.prefix === 'string' && /^[A-Z0-9-]{1,8}$/.test(range.prefix)
     && Number.isInteger(range.start) && Number.isInteger(range.end) && Number.isInteger(range.occupiedUntil)
     && Number(range.start) > 0 && Number(range.end) - Number(range.start) === 49
 }

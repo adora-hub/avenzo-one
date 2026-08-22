@@ -1,11 +1,13 @@
 import Link from 'next/link'
 import { RapidEntrySetupWorkspace } from './rapid-entry-setup-workspace'
+import type { RapidRangeSelection } from './rapid-prefix-assistant'
 
 type Props = {
   organizationId: string
   organizationName: string
   actorUserId: string
   canManage: boolean
+  activeReservation: RapidRangeSelection | null
 }
 
 function ArrowLeftIcon() {
@@ -20,7 +22,7 @@ function MonitorIcon() {
   return <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2" /><path d="M8 21h8M12 17v4" /></svg>
 }
 
-export function RapidEntryWorkspaceShell({ organizationId, organizationName, actorUserId, canManage }: Props) {
+export function RapidEntryWorkspaceShell({ organizationId, organizationName, actorUserId, canManage, activeReservation }: Props) {
   const productsHref = `/organizations/${organizationId}/products`
 
   return <>
@@ -68,7 +70,7 @@ export function RapidEntryWorkspaceShell({ organizationId, organizationName, act
         </ol>
 
         <div className="live-sale-rapid-stage-grid">
-          <RapidEntrySetupWorkspace organizationId={organizationId} actorUserId={actorUserId} canManage={canManage} />
+          <RapidEntrySetupWorkspace organizationId={organizationId} actorUserId={actorUserId} canManage={canManage} activeReservation={activeReservation} />
         </div>
       </section>
     </div>

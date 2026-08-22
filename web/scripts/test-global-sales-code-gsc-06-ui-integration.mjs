@@ -34,7 +34,8 @@ test('GSC-06 gives Normal, Variant and Rapid one Global V1 contract', async () =
   }
   assert.match(normal, /useState<SalesCodeMode>\('sequence'\)/)
   assert.match(rapid, /quantity: RANGE_SIZE/)
-  assert.match(rapid, /ยังไม่จองจนกดสร้างสินค้า/)
+  assert.match(rapid, /reserveGlobalSalesCodeRangeAction/)
+  assert.match(rapid, /ต้องสร้างสินค้าให้เสร็จภายใน 3 ชั่วโมง/)
 })
 
 test('GSC-06 handles timeout, stale response, denied and retry without clearing input', async () => {

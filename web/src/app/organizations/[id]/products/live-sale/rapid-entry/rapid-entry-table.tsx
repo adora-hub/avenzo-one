@@ -1,7 +1,7 @@
 'use client'
 
 import Image from 'next/image'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ChangeEvent, DragEvent, FormEvent, KeyboardEvent, PointerEvent as ReactPointerEvent } from 'react'
 import { RAPID_BROWSER_DRAFT_VERSION, rapidBrowserDraftStorageKey, rapidReservationKey, serializeRapidBrowserDraft } from './rapid-entry-browser-draft'
 import type { RapidBrowserDraft } from './rapid-entry-browser-draft'
@@ -14,6 +14,7 @@ type Props = {
   selectedRange: RapidRangeSelection | null
   namingTemplate: string
   canManage: boolean
+  reservationExpired: boolean
   restoredDraft: RapidBrowserDraft | null
   onDraftRestored: () => void
   onDraftSaved: (savedAt: string, message: string) => void
@@ -159,7 +160,7 @@ function ReadyPlacementIcon({ direction }: { direction: 'up' | 'down' }) {
     : <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14m-5-5 5 5 5-5" /></svg>
 }
 
-export function RapidEntryTable({ organizationId, actorUserId, selectedRange, namingTemplate, canManage, restoredDraft, onDraftRestored, onDraftSaved }: Props) {
+export function RapidEntryTable({ organizationId, actorUserId, selectedRange, namingTemplate, canManage, reservationExpired, restoredDraft, onDraftRestored, onDraftSaved }: Props) {
   const [rows, setRows] = useState<RapidRowDraft[]>([])
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null)
   const [bulkAction, setBulkAction] = useState<BulkAction>('price')
@@ -189,6 +190,53 @@ export function RapidEntryTable({ organizationId, actorUserId, selectedRange, na
   const restoredReservationRef = useRef('')
   const readyCodesRef = useRef<Set<string> | null>(null)
   const [draftHydrated, setDraftHydrated] = useState(false)
+
+  const persistBrowserDraft = useCallback((notify = true) => {
+    if (!draftHydrated || !selectedRange || rows.length !== ROW_COUNT) return false
+    const savedAt = new Date().toISOString()
+    const draft: RapidBrowserDraft = {
+      version: RAPID_BROWSER_DRAFT_VERSION,
+      organizationId,
+      actorUserId,
+      reservationKey: rapidReservationKey(selectedRange),
+      savedAt,
+      range: selectedRange,
+      namingTemplate,
+      rows: rows.map((row) => ({
+        index: row.index,
+        salesCode: row.salesCode,
+        productName: row.productName,
+        category: row.category,
+        price: row.price,
+        stock: row.stock,
+        unit: row.unit,
+        branch: row.branch,
+        selected: row.selected,
+        nameOverridden: row.nameOverridden,
+        imageFileName: (row.image?.file.name ?? row.imageFileName).slice(0, 160),
+      })),
+      categoryOptions,
+      columnWidths,
+    }
+    const serialized = serializeRapidBrowserDraft(draft)
+    if (!serialized.ok) {
+      if (notify) onDraftSaved(savedAt, `Browser Draft มีขนาด ${Math.ceil(serialized.bytes / 1024)} KB ซึ่งเกินขีดจำกัด 256 KB จึงยังไม่บันทึก`)
+      return false
+    }
+    try {
+      window.localStorage.setItem(rapidBrowserDraftStorageKey(organizationId, actorUserId), serialized.value)
+      if (notify) {
+        const imageCount = rows.filter((row) => row.image).length
+        onDraftSaved(savedAt, imageCount
+          ? `บันทึกข้อมูลตารางแล้ว · ไฟล์ภาพ ${imageCount} รายการจะไม่ถูกเก็บใน Browser และต้องเลือกใหม่หลัง F5`
+          : `บันทึกข้อมูลตารางอัตโนมัติแล้ว ${rows.length} แถว · ${Math.ceil(serialized.bytes / 1024)} KB`)
+      }
+      return true
+    } catch {
+      if (notify) onDraftSaved(savedAt, 'Browser ไม่อนุญาตให้บันทึก Draft กรุณาอย่าปิดหรือรีเฟรชหน้านี้')
+      return false
+    }
+  }, [actorUserId, categoryOptions, columnWidths, draftHydrated, namingTemplate, onDraftSaved, organizationId, rows, selectedRange])
 
   useEffect(() => {
     if (!bulkNotice || bulkNoticeTone !== 'success') return
@@ -258,49 +306,23 @@ export function RapidEntryTable({ organizationId, actorUserId, selectedRange, na
 
   useEffect(() => {
     if (!draftHydrated || !selectedRange || rows.length !== ROW_COUNT) return
-    const saveTimer = window.setTimeout(() => {
-      const savedAt = new Date().toISOString()
-      const draft: RapidBrowserDraft = {
-        version: RAPID_BROWSER_DRAFT_VERSION,
-        organizationId,
-        actorUserId,
-        reservationKey: rapidReservationKey(selectedRange),
-        savedAt,
-        range: selectedRange,
-        namingTemplate,
-        rows: rows.map((row) => ({
-          index: row.index,
-          salesCode: row.salesCode,
-          productName: row.productName,
-          category: row.category,
-          price: row.price,
-          stock: row.stock,
-          unit: row.unit,
-          branch: row.branch,
-          selected: row.selected,
-          nameOverridden: row.nameOverridden,
-          imageFileName: (row.image?.file.name ?? row.imageFileName).slice(0, 160),
-        })),
-        categoryOptions,
-        columnWidths,
-      }
-      const serialized = serializeRapidBrowserDraft(draft)
-      if (!serialized.ok) {
-        onDraftSaved(savedAt, `Browser Draft มีขนาด ${Math.ceil(serialized.bytes / 1024)} KB ซึ่งเกินขีดจำกัด 256 KB จึงยังไม่บันทึก`)
-        return
-      }
-      try {
-        window.localStorage.setItem(rapidBrowserDraftStorageKey(organizationId, actorUserId), serialized.value)
-        const imageCount = rows.filter((row) => row.image).length
-        onDraftSaved(savedAt, imageCount
-          ? `บันทึกข้อมูลตารางแล้ว · ไฟล์ภาพ ${imageCount} รายการจะไม่ถูกเก็บใน Browser และต้องเลือกใหม่หลัง F5`
-          : `บันทึกข้อมูลตารางอัตโนมัติแล้ว ${rows.length} แถว · ${Math.ceil(serialized.bytes / 1024)} KB`)
-      } catch {
-        onDraftSaved(savedAt, 'Browser ไม่อนุญาตให้บันทึก Draft กรุณาอย่าปิดหรือรีเฟรชหน้านี้')
-      }
-    }, 400)
+    const saveTimer = window.setTimeout(() => persistBrowserDraft(), 400)
     return () => window.clearTimeout(saveTimer)
-  }, [actorUserId, categoryOptions, columnWidths, draftHydrated, namingTemplate, onDraftSaved, organizationId, rows, selectedRange])
+  }, [draftHydrated, persistBrowserDraft, rows.length, selectedRange])
+
+  useEffect(() => {
+    if (!draftHydrated || !selectedRange || rows.length !== ROW_COUNT) return
+    const saveBeforeLeave = () => { persistBrowserDraft(false) }
+    const saveWhenHidden = () => {
+      if (document.visibilityState === 'hidden') saveBeforeLeave()
+    }
+    window.addEventListener('pagehide', saveBeforeLeave)
+    document.addEventListener('visibilitychange', saveWhenHidden)
+    return () => {
+      window.removeEventListener('pagehide', saveBeforeLeave)
+      document.removeEventListener('visibilitychange', saveWhenHidden)
+    }
+  }, [draftHydrated, persistBrowserDraft, rows.length, selectedRange])
 
   useEffect(() => () => revokeAllImageUrls(), [])
 
@@ -495,6 +517,10 @@ export function RapidEntryTable({ organizationId, actorUserId, selectedRange, na
   }
 
   function reviewSelectedRows() {
+    if (reservationExpired) {
+      setValidationNotice({ tone: 'error', message: 'ช่วงรหัสหมดอายุแล้ว ข้อมูลยังอยู่ครบ กรุณาล้าง Draft และจองช่วงรหัสใหม่ก่อนสร้างสินค้า' })
+      return
+    }
     const selectedRows = rows.filter((row) => row.selected)
     if (!selectedRows.length) {
       setValidationNotice({ tone: 'error', message: 'กรุณาเลือกรายการที่ต้องการตรวจสอบอย่างน้อย 1 รายการ' })
@@ -689,7 +715,7 @@ export function RapidEntryTable({ organizationId, actorUserId, selectedRange, na
 
     {selectedRange && <section className="live-sale-rapid-validation-summary" aria-labelledby="rapidValidationTitle">
       <header className="live-sale-rapid-section-header"><div className="live-sale-rapid-section-title"><span aria-hidden="true">4</span><div><h3 id="rapidValidationTitle">ตรวจสอบก่อนสร้าง</h3><p>แถวที่ยังไม่กรอกจะถูกเว้นไว้ และจะส่งต่อเฉพาะรายการที่เลือกและข้อมูลครบเท่านั้น</p></div></div>
-        <div className="live-sale-rapid-validation-actions"><button type="button" onClick={selectReadyRows} disabled={!canManage || !readyCount}>เลือกเฉพาะรายการพร้อมสร้าง</button><button className="button" type="button" onClick={reviewSelectedRows} disabled={!canManage || !rows.length}>ตรวจรายการที่เลือก</button></div></header>
+        <div className="live-sale-rapid-validation-actions"><button type="button" onClick={selectReadyRows} disabled={!canManage || !readyCount}>เลือกเฉพาะรายการพร้อมสร้าง</button><button className="button" type="button" onClick={reviewSelectedRows} disabled={!canManage || !rows.length || reservationExpired} aria-describedby={reservationExpired ? 'rapidReservationStatus' : undefined}>ตรวจรายการที่เลือก</button></div></header>
       <div className="live-sale-rapid-validation-counters" aria-label="สถานะการตรวจรายการ"><span><strong>{readyCount}</strong> พร้อมสร้าง</span><span className="is-danger"><strong>{invalidRows.length}</strong> ต้องแก้ไข</span><span><strong>{emptyRows.length}</strong> ยังไม่กรอก</span><span className="is-accent"><strong>{selectedReadyRows.length}</strong> เลือกพร้อมสร้าง</span></div>
       {validationNotice ? <div className={`live-sale-rapid-validation-notice is-${validationNotice.tone}`} role="status"><span>{validationNotice.message}</span>{validationNotice.tone === 'error' && firstInvalidIssue ? <button type="button" onClick={() => focusValidationIssue(firstInvalidIssue)}>ไปยังจุดแรกที่ต้องแก้</button> : null}</div> : null}
       {invalidRows.length ? <div className="live-sale-rapid-validation-issues"><strong>รายการที่ต้องตรวจ</strong><div>{invalidRows.slice(0, 3).map((row) => { const issue = validationIssuesFor(row, categoryOptions)[0]; return <button key={row.salesCode} type="button" onClick={() => focusValidationIssue(issue)}><span>{row.salesCode}</span><small>{issue.message}</small></button> })}</div>{invalidRows.length > 3 ? <small>และอีก {invalidRows.length - 3} รายการ</small> : null}</div> : null}

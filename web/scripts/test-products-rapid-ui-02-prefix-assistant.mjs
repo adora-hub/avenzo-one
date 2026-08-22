@@ -29,7 +29,31 @@ test('GSC-06 renders the authoritative 50-code range returned by the server', as
   assert.match(assistant, /const RANGE_SIZE = 50/)
   assert.match(assistant, /result\.data\.startNumber/)
   assert.match(assistant, /result\.data\.endNumber/)
-  assert.match(assistant, /ใช้ช่วงที่แนะนำ/)
+  assert.match(assistant, /จองช่วงนี้ 3 ชั่วโมง/)
+  assert.match(assistant, /reserveGlobalSalesCodeRangeAction/)
+})
+
+test('reserved range remains the single authority for Step 2 and the 50-row table', async () => {
+  const assistant = await read('src/app/organizations/[id]/products/live-sale/rapid-entry/rapid-prefix-assistant.tsx')
+  assert.match(assistant, /if \(status !== 'reserved' \|\| suggestion\?\.reserved !== true\) return[\s\S]*onRangeSelect\?\.\(suggestion\)/)
+  assert.match(assistant, /const selectedRange = status === 'reserved' && suggestion\?\.reserved === true[\s\S]*rangeLabel\(suggestion\)/)
+  assert.doesNotMatch(assistant, /const \[selectedRange, setSelectedRange\]/)
+})
+
+test('Rapid-BE-02A restores the current actor active reservation after refresh', async () => {
+  const page = await read('src/app/organizations/[id]/products/live-sale/rapid-entry/page.tsx')
+  const shell = await read('src/app/organizations/[id]/products/live-sale/rapid-entry/rapid-entry-workspace-shell.tsx')
+  const setup = await read('src/app/organizations/[id]/products/live-sale/rapid-entry/rapid-entry-setup-workspace.tsx')
+  const assistant = await read('src/app/organizations/[id]/products/live-sale/rapid-entry/rapid-prefix-assistant.tsx')
+  assert.match(page, /from\('sales_code_reservation_batches'\)/)
+  assert.match(page, /eq\('created_by', user\.id\)/)
+  assert.match(page, /eq\('status', 'active'\)/)
+  assert.match(page, /gt\('expires_at', new Date\(\)\.toISOString\(\)\)/)
+  assert.match(page, /activeReservation=\{activeReservation\}/)
+  assert.match(shell, /activeReservation=\{activeReservation\}/)
+  assert.match(setup, /useState<RapidRangeSelection \| null>\(activeReservation\)/)
+  assert.match(setup, /reservedRange=\{selectedRange\}/)
+  assert.match(assistant, /if \(reservedRange\?\.reserved === true && reservedRange\.prefix === prefix\) return/)
 })
 
 test('GSC-06 covers loading, ready, timeout, error and permission states', async () => {

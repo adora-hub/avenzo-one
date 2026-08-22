@@ -1,12 +1,10 @@
-import type { GlobalSalesCodePreviewActionResult } from '@/app/actions/foundation'
-
 export const GLOBAL_SALES_CODE_PREVIEW_TIMEOUT_MS = 12_000
 
-export function withGlobalSalesCodePreviewTimeout(
-  request: Promise<GlobalSalesCodePreviewActionResult>,
+export function withGlobalSalesCodePreviewTimeout<T>(
+  request: Promise<T>,
   timeoutMs = GLOBAL_SALES_CODE_PREVIEW_TIMEOUT_MS,
 ) {
-  return new Promise<GlobalSalesCodePreviewActionResult>((resolve, reject) => {
+  return new Promise<T>((resolve, reject) => {
     const timer = window.setTimeout(() => reject(new Error('global_sales_code_preview_timeout')), timeoutMs)
     request.then(
       (result) => { window.clearTimeout(timer); resolve(result) },
