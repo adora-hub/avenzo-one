@@ -85,7 +85,17 @@ function stockLabel(sku: ProductWorkspaceSkuDetail) {
   return `${formatNumber(sku.stock.onHand)} ${formatProductUnit(sku.baseUnitCode)} · ใช้ได้ ${formatNumber(sku.stock.available)}`
 }
 
-function ProductQuickView({ selectedProduct, canReadCost }: { selectedProduct: ProductWorkspaceDetail; canReadCost: boolean }) {
+function ProductQuickView({
+  selectedProduct,
+  canReadCost,
+  canManage,
+  imageManagerHref,
+}: {
+  selectedProduct: ProductWorkspaceDetail
+  canReadCost: boolean
+  canManage: boolean
+  imageManagerHref?: string
+}) {
   const sellUnits = selectedProduct.skus.flatMap((sku) => sku.sellUnits.map((unit) => ({ sku, unit })))
   const bundleComponents = selectedProduct.skus.flatMap((sku) => sku.bundleComponents.map((component) => ({ sku, component })))
 
@@ -104,7 +114,7 @@ function ProductQuickView({ selectedProduct, canReadCost }: { selectedProduct: P
     </section>
 
     <section className="product-detail-section product-quick-section" aria-labelledby="product-detail-images">
-      <div className="product-detail-section-heading"><h3 id="product-detail-images">รูปภาพสินค้า ({selectedProduct.images.length})</h3><span>เรียงตามลำดับที่บันทึก</span></div>
+      <div className="product-detail-section-heading"><h3 id="product-detail-images">รูปภาพสินค้า ({selectedProduct.images.length})</h3>{canManage && imageManagerHref ? <Link className="product-quick-image-manager-link" href={imageManagerHref}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="9" cy="10" r="2" /><path d="m5 18 5-5 3 3 2-2 4 4" /></svg>จัดการรูปภาพ</Link> : <span>เรียงตามลำดับที่บันทึก</span>}</div>
       {selectedProduct.images.length ? <div className="product-quick-image-grid" role="list" aria-label="รูปภาพสินค้า">
         {selectedProduct.images.map((image) => <figure key={image.id} role="listitem" className="product-quick-image">
           <span><Image src={image.signedUrl} alt={image.altText || selectedProduct.name} fill sizes="(max-width: 560px) 42vw, 150px" unoptimized /></span>
@@ -209,11 +219,15 @@ export function ProductDetailSheet({
   selectedSku,
   closeHref,
   canReadCost,
+  canManage = false,
+  imageManagerHref,
 }: {
   selectedProduct: ProductWorkspaceDetail | null
   selectedSku: SkuDetail | null
   closeHref: string
   canReadCost: boolean
+  canManage?: boolean
+  imageManagerHref?: string
 }) {
   const selectedEntity = selectedProduct ?? selectedSku
   if (!selectedEntity) return null
@@ -226,7 +240,7 @@ export function ProductDetailSheet({
     >
       <div className="product-detail-stack">
         {selectedProduct ? <>
-          <ProductQuickView selectedProduct={selectedProduct} canReadCost={canReadCost} />
+          <ProductQuickView selectedProduct={selectedProduct} canReadCost={canReadCost} canManage={canManage} imageManagerHref={imageManagerHref} />
         </> : selectedSku ? <>
           <div className="product-detail-status"><OperationsStatusBadge tone={statusTone(selectedSku.status)}>{statusLabels[selectedSku.status] ?? selectedSku.status}</OperationsStatusBadge><span>Version {selectedSku.version}</span></div>
           <section className="product-detail-section" aria-labelledby="sku-detail-identifiers">

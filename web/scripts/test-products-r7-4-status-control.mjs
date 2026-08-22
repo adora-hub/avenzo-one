@@ -30,7 +30,7 @@ test('status transitions follow the existing safe lifecycle contract', () => {
 test('Quick View remains a separate action in the row menu', () => {
   assert.match(grid, /className="product-grid-row-menu" role="menu"/)
   assert.match(grid, /<Link role="menuitem"[^>]*><IconEye[^>]*>\s*<span>Quick View<\/span><\/Link>/)
-  assert.match(grid, /<Link role="menuitem"[^>]*><IconEdit[^>]*><span className="product-grid-row-menu-copy"><strong>แก้ไขข้อมูลสินค้า<\/strong><small>ชื่อ รูปภาพ หมวดหมู่ และข้อมูลส่วนกลาง<\/small><\/span><\/Link>/)
+  assert.match(grid, /<Link role="menuitem"[^>]*><IconEdit[^>]*><span className="product-grid-row-menu-copy"><strong>แก้ไขข้อมูลสินค้า<\/strong><small>ชื่อ หมวดหมู่ แบรนด์ Tags และข้อมูลส่วนกลาง<\/small><\/span><\/Link>/)
   assert.match(grid, /<Link role="menuitem"[^>]*><IconPackages[^>]*><span className="product-grid-row-menu-copy"><strong>จัดการ SKU \/ ตัวเลือก<\/strong><small>รหัส SKU รหัสขาย ราคา และสถานะ<\/small><\/span><\/Link>/)
   assert.match(css, /\.product-grid-row-menu-copy \{[^}]*display: grid/)
 })

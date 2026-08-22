@@ -521,6 +521,36 @@ Pain Point: การเพิ่มภาพย้อนหลังแบบ�
 5. **V5 — Exception Resolution & Audit:** ทำ manual remap, append/replace confirmation, audit log และรายงานผลสำเร็จ/ล้มเหลวต่อ SKU
 6. **V6 — Performance, Security & E2E Gate:** ทดสอบ 100–1,000 SKU, ไฟล์ผิดชนิด/ขนาด, duplicate, retry, tenant isolation, refresh/recovery และ visual parity ก่อน Deploy
 
+#### Product Image Editor Extension — Deferred Plan
+
+สถานะ: **บันทึกแผนแล้ว — ยังไม่เริ่มพัฒนา**
+
+เครื่องมือแต่งภาพต้องเป็นโมดูลแยกจาก Products Grid, Quick View และ Image Manager ปกติ โดยโหลดแบบ Lazy Load เฉพาะเมื่อผู้ใช้กด “แก้ไขภาพ” เพื่อไม่เพิ่ม JavaScript/โมเดลประมวลผลให้หน้าสินค้าและระบบส่วนอื่นโดยไม่จำเป็น
+
+ลำดับพัฒนา:
+
+1. **IMAGE-EDIT-04 — Crop, Zoom, Rotate & Reset:** รองรับ Crop 1:1 เป็นค่าแนะนำ, เลื่อนตำแหน่ง, ซูม, หมุน 90 องศา และคืนค่าต้นฉบับ
+2. **IMAGE-EDIT-05 — Resize Image:** มี Preset 1200×1200 px, 1:1, 4:5, 16:9, กำหนดขนาดเอง และโหมด Fit/Fill โดยห้ามทำให้อัตราส่วนภาพบิดเบี้ยว
+3. **IMAGE-EDIT-06 — Basic Adjustments:** ปรับ Brightness, Contrast และ Sharpness แบบจำกัดช่วง พร้อม Preview ที่ใช้ภาพขนาดย่อระหว่างเลื่อนค่า
+4. **IMAGE-EDIT-07 — Subject Focus / Background Blur:** แยกสินค้าออกจากพื้นหลัง, ปรับระดับ Blur และมีเครื่องมือเพิ่ม/ลบพื้นที่เมื่อระบบตรวจขอบผิด โดยเฉพาะสินค้าเส้นเล็ก โซ่ เครื่องประดับ และวัตถุโปร่งใส
+5. **IMAGE-EDIT-08 — Compare, Undo & Derived Asset:** แสดง Before/After, Undo/Redo, Reset และสร้างไฟล์ Derived ใหม่เมื่อกดนำไปใช้ โดยไม่เขียนทับไฟล์ต้นฉบับ
+
+Performance Contract:
+
+- Products Grid, Quick View และ Image Manager ปกติต้องไม่โหลด Image Editor bundle หรือโมเดลแยกวัตถุล่วงหน้า
+- Crop, Resize และการปรับแสงใช้ Browser processing; ระหว่างปรับใช้ Preview ขนาดย่อ และประมวลผลไฟล์เต็มเพียงครั้งเดียวเมื่อกด “นำไปใช้”
+- Background Blur เป็น Advanced Tool และโหลดโมเดลเฉพาะเมื่อเปิดฟีเจอร์นี้ พร้อม Loading/Progress/Cancel ที่ชัดเจน
+- เมื่อปิด Editor ต้องยกเลิกงานที่ค้าง, revoke Object URL และคืนหน่วยความจำ
+- ต้องเก็บต้นฉบับตาม Media Storage Policy และนับ Derived files ใน Organization quota ตาม V0.2–V0.5
+- ก่อนเปิดใช้จริงต้องทดสอบเวลาเปิดครั้งแรก, การใช้หน่วยความจำ, ภาพขนาดใหญ่, เครื่องประสิทธิภาพต่ำ, ขอบวัตถุละเอียด และคุณภาพไฟล์หลัง Export
+
+UX/Safety Contract:
+
+- การปรับทุกอย่างเป็น Non-destructive Draft จนกด “นำไปใช้” และยังไม่บันทึก Storage จนกดยืนยันใน Image Manager
+- ต้องมี Before/After, Reset และข้อความระบุชัดว่าภาพต้นฉบับยังไม่ถูกแก้ไข
+- ค่า Sharpness และ Background Blur ต้องมีช่วงปลอดภัยและ Preview เพื่อป้องกันภาพแตก ขอบเรือง หรือสินค้าเบลอผิดส่วน
+- IMAGE-EDIT-04–08 ต้องทำและอนุมัติทีละข้อ โดยหยุดให้ Owner ตรวจ localhost ก่อนเริ่มข้อถัดไป
+
 Stop Gate: Phase V เป็น Future Plan เท่านั้น ห้ามเริ่ม V1 UI Mockup, Storage mutation หรือ Database change จนกว่า V0 ผ่านครบทุก Gate, Owner อนุมัติ Cost/Quota Contract และอนุมัติลำดับการทำงานหลัง Phase T/U
 
 ## 11. Decision Log
@@ -548,3 +578,4 @@ Stop Gate: Phase V เป็น Future Plan เท่านั้น ห้า�
 | 19 ส.ค. 2026 | เพิ่ม C15 Customer Transaction Standing & Fair Recovery เป็น Future Plan: แสดงสถานะการทำรายการแบบข้อเท็จจริง ใช้ progressive friction/time decay/recovery และ human review/appeal ก่อนจำกัดสิทธิ์ โดยแยกข้อมูลตาม Organization |
 | 19 ส.ค. 2026 | เพิ่ม C16 Customer Benefits & Loyalty Layer เป็น Future Plan: แยกสิทธิ์ร้านค้าและสิทธิ์แพลตฟอร์ม มี eligibility/expiry/re-evaluation, fairness, privacy และ appeal โดยไม่จัดอันดับคุณค่าลูกค้า |
 | 20 ส.ค. 2026 | SKU-04 Completed: เพิ่ม Server Preview และ Organization+Prefix high-water allocator; จอง Product Sequence พร้อม Product+SKU Variant ใน Transaction เดียว ใช้ advisory lock, idempotency และ rollback ทั้งชุด; ผ่าน isolated database/concurrency tests และ Apply Migration `20260820134813` เฉพาะ AVENZO ONE PREVIEW แล้ว โดย Production ไม่ถูกแตะ |
+| 23 ส.ค. 2026 | บันทึก Product Image Editor Extension เป็น Deferred Plan: IMAGE-EDIT-04–08 ครอบคลุม Crop/Zoom/Rotate, Resize, Brightness/Contrast/Sharpness, หน้าชัด–หลังเบลอ และ Before/After/Undo; ต้อง Lazy Load เฉพาะเมื่อเปิด Editor, ประมวลผลแบบ Non-destructive และสร้าง Derived file โดยไม่ทำให้หน้าสินค้าหรือระบบส่วนอื่นช้าลง |

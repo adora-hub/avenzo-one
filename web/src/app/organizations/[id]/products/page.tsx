@@ -63,7 +63,7 @@ export default async function ProductSkuPage({ params, searchParams }: Props) {
   const sort = firstParam(query.sort) === 'updated_asc' ? 'updated_asc' : 'updated_desc'
   const requestedProductId = firstParam(query.product)
   const requestedProductAction = firstParam(query.action)
-  const productAction = requestedProductAction === 'edit' || requestedProductAction === 'skus' || requestedProductAction === 'price' ? requestedProductAction : ''
+  const productAction = requestedProductAction === 'edit' || requestedProductAction === 'skus' || requestedProductAction === 'price' || requestedProductAction === 'images' ? requestedProductAction : ''
   const requestedSkuId = firstParam(query.sku)
   const productId = uuidPattern.test(requestedProductId) ? requestedProductId : ''
   const skuId = uuidPattern.test(requestedSkuId) ? requestedSkuId : ''

@@ -16,7 +16,7 @@ test('route edit opens one editor modal without rendering Quick View behind it',
 
 test('editor close returns route-based editing to the product list', () => {
   assert.match(source, /function closeEditor\(\) \{[\s\S]*productAction === 'skus' && editorMode !== 'manage-skus'[\s\S]*setEditorMode\('manage-skus'\)[\s\S]*productAction === 'edit' \|\| productAction === 'skus' \|\| productAction === 'price'[\s\S]*router\.replace\(closeDetailHref\)[\s\S]*else setEditorMode\(null\)/)
-  assert.match(source, /productAction === '' && \(editorMode === 'manage-skus' \|\| editorMode === 'edit-product' \|\| editorMode === 'edit-price'\)/)
+  assert.match(source, /productAction === '' && \(editorMode === 'manage-skus' \|\| editorMode === 'manage-images' \|\| editorMode === 'edit-product' \|\| editorMode === 'edit-price'\)/)
   assert.match(source, /aria-label="ปิดหน้าต่าง"[\s\S]*onClick=\{closeEditor\}/)
 })
 
@@ -36,12 +36,13 @@ test('manage SKU route opens a dedicated manager modal instead of Quick View', (
 })
 
 test('product editor follows the approved modal copy and hierarchy', () => {
+  const editor = source.slice(source.indexOf("{editorMode === 'edit-product'"), source.indexOf("{editorMode === 'edit-price'"))
   assert.match(source, /editorMode === 'manage-skus' \? 'SKU \/ ตัวเลือก' : 'ข้อมูลสินค้า'/)
   assert.match(source, /'แก้ไขข้อมูลสินค้า'/)
-  assert.match(source, />ข้อมูลทั่วไป</)
-  assert.match(source, />รูปภาพสินค้า</)
-  assert.match(source, />หมวดหมู่และการจัดกลุ่ม</)
-  assert.match(source, />ข้อมูลส่วนกลาง</)
+  assert.match(editor, /product-complete-editor-step">1<[\s\S]*>ข้อมูลทั่วไป</)
+  assert.match(editor, /product-complete-editor-step">2<[\s\S]*>หมวดหมู่และการจัดกลุ่ม</)
+  assert.match(editor, /product-complete-editor-step">3<[\s\S]*>ข้อมูลส่วนกลาง</)
+  assert.doesNotMatch(editor, /รูปภาพ|ภาพปก|product-editor-image/)
   assert.match(source, /name="categoryId"/)
   assert.match(source, /name="brandId"/)
   assert.match(source, /product-select-control"><select name="categoryId"/)
@@ -60,10 +61,10 @@ test('product editor follows the approved modal copy and hierarchy', () => {
   assert.match(styles, /\.product-single-editor-dialog \.form-grid-two \{[^}]*align-items: start/)
 })
 
-test('complete editor reuses existing safe commands for metadata and images', () => {
+test('complete editor uses product commands while images stay in their dedicated manager', () => {
+  const editor = source.slice(source.indexOf("{editorMode === 'edit-product'"), source.indexOf("{editorMode === 'edit-price'"))
   assert.match(source, /executeEditorCommand\('product\.metadata\.update'/)
   assert.match(source, /executeEditorCommand\('product\.update'/)
-  assert.match(source, /executeEditorCommand\('product\.image\.prepare'/)
-  assert.match(source, /uploadPreparedProductImage\(client, reservation, draft\.file\)/)
-  assert.match(source, /executeEditorCommand\('product\.images\.reorder'/)
+  assert.doesNotMatch(editor, /product\.image|product\.images|uploadPreparedProductImage/)
+  assert.match(source, /editorMode === 'manage-images'[\s\S]*<ProductImageManagerModal/)
 })

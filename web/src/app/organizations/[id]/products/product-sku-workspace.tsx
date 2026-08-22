@@ -1,10 +1,9 @@
 'use client'
 
-import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useMemo, useRef, useState, useTransition, type ChangeEvent, type FormEvent } from 'react'
-import { executeFoundationCommandAction, executeProductImageCleanupAction } from '@/app/actions/foundation'
+import { useEffect, useMemo, useRef, useState, useTransition, type FormEvent } from 'react'
+import { executeFoundationCommandAction } from '@/app/actions/foundation'
 import {
   OperationsEmptyState,
   OperationsStatusBadge,
@@ -16,32 +15,20 @@ import type {
   ProductWorkspaceSkuDetail,
   SkuReadModel,
 } from '@/lib/foundation/repositories'
-import { createClient } from '@/lib/supabase/browser'
-import {
-  PRODUCT_IMAGE_MAX_FILES,
-  uploadPreparedProductImage,
-  validateProductImageFile,
-  type PreparedProductImage,
-} from '@/lib/foundation/product-image-upload'
 import { ProductDetailSheet } from './product-detail-sheet'
+import { ProductImageManagerModal } from './product-image-manager-modal'
 import { ProductsDataGrid } from './products-data-grid'
 
 type ViewMode = 'products' | 'skus'
 type DateFilterField = 'created' | 'updated'
 
-type EditorMode = 'create-product' | 'create-sku' | 'manage-skus' | 'edit-product' | 'edit-sku' | 'edit-price' | null
+type EditorMode = 'create-product' | 'create-sku' | 'manage-skus' | 'manage-images' | 'edit-product' | 'edit-sku' | 'edit-price' | null
 type PendingLifecycle = {
   commandType: 'product.archive' | 'sku.archive'
   idKey: 'product_id' | 'sku_id'
   id: string
   version: number
   label: string
-}
-
-type ProductEditorImageDraft = {
-  id: string
-  file: File
-  previewUrl: string
 }
 
 type Props = {
@@ -74,7 +61,7 @@ type Props = {
   skus: SkuReadModel[]
   productOptions: ProductReadModel[]
   selectedProduct: ProductWorkspaceDetail | null
-  productAction: '' | 'edit' | 'skus' | 'price'
+  productAction: '' | 'edit' | 'skus' | 'price' | 'images'
   selectedSku: (ProductWorkspaceSkuDetail & { productName: string }) | null
   nextCursor: string | null
   canCreate: boolean
@@ -206,6 +193,7 @@ export function ProductSkuWorkspace({
   const [editorMode, setEditorMode] = useState<EditorMode>(() => {
     if (selectedProduct && productAction === 'edit' && canManage) return 'edit-product'
     if (selectedProduct && productAction === 'skus' && canManage) return 'manage-skus'
+    if (selectedProduct && productAction === 'images' && canManage) return 'manage-images'
     if (selectedProduct && selectedSku && productAction === 'price' && canManage) return 'edit-price'
     return null
   })
@@ -232,9 +220,6 @@ export function ProductSkuWorkspace({
   const [stockMaxFilter, setStockMaxFilter] = useState(stockMax)
   const [advancedFilterError, setAdvancedFilterError] = useState('')
   const [feedback, setFeedback] = useState<{ tone: 'success' | 'danger' | 'info'; text: string; code?: string } | null>(null)
-  const [editorImageDrafts, setEditorImageDrafts] = useState<ProductEditorImageDraft[]>([])
-  const [editorCoverImageId, setEditorCoverImageId] = useState('')
-  const [editorImageError, setEditorImageError] = useState('')
   const [pendingLifecycle, setPendingLifecycle] = useState<PendingLifecycle | null>(null)
   const [isPending, startTransition] = useTransition()
   const [, startSearchTransition] = useTransition()
@@ -274,7 +259,7 @@ export function ProductSkuWorkspace({
         setFeedback(null)
         setEditorMode('manage-skus')
       }
-      else if (productAction === 'edit' || productAction === 'skus' || productAction === 'price') router.replace(closeDetailHref)
+      else if (productAction === 'edit' || productAction === 'skus' || productAction === 'price' || productAction === 'images') router.replace(closeDetailHref)
       else setEditorMode(null)
     }
     window.addEventListener('keydown', closeOnEscape)
@@ -282,7 +267,7 @@ export function ProductSkuWorkspace({
   }, [closeDetailHref, editorMode, isPending, productAction, router])
 
   useEffect(() => {
-    if (productAction === '' && (editorMode === 'manage-skus' || editorMode === 'edit-product' || editorMode === 'edit-price')) {
+    if (productAction === '' && (editorMode === 'manage-skus' || editorMode === 'manage-images' || editorMode === 'edit-product' || editorMode === 'edit-price')) {
       setEditorMode(null)
       return
     }
@@ -295,21 +280,15 @@ export function ProductSkuWorkspace({
       if (!editorMode) setEditorMode('manage-skus')
       return
     }
+    if (productAction === 'images' && canManage) {
+      setEditorMode('manage-images')
+      return
+    }
     if (productAction === 'price' && canManage && selectedSku) {
       setManagedSkuId(selectedSku.id)
       setEditorMode('edit-price')
     }
   }, [canManage, editorMode, productAction, selectedProduct, selectedSku])
-
-  useEffect(() => {
-    if (editorMode !== 'edit-product' || !selectedProduct) return
-    setEditorCoverImageId(selectedProduct.images.find((image) => image.isCover)?.id ?? selectedProduct.images[0]?.id ?? '')
-    setEditorImageError('')
-    setEditorImageDrafts((current) => {
-      current.forEach((image) => URL.revokeObjectURL(image.previewUrl))
-      return []
-    })
-  }, [editorMode, selectedProduct])
 
   useEffect(() => {
     if (!feedback || feedback.tone === 'danger') return
@@ -545,52 +524,18 @@ export function ProductSkuWorkspace({
 
   function closeEditor() {
     if (isPending) return
-    editorImageDrafts.forEach((image) => URL.revokeObjectURL(image.previewUrl))
-    setEditorImageDrafts([])
-    setEditorImageError('')
     if (productAction === 'skus' && editorMode !== 'manage-skus') {
       setFeedback(null)
       setEditorMode('manage-skus')
       return
     }
-    if (productAction === 'edit' || productAction === 'skus' || productAction === 'price') router.replace(closeDetailHref)
+    if (productAction === 'edit' || productAction === 'skus' || productAction === 'price' || productAction === 'images') router.replace(closeDetailHref)
     else setEditorMode(null)
   }
 
   function openManagedSkuEditor(mode: 'edit-sku' | 'edit-price', skuId: string) {
     setManagedSkuId(skuId)
     openEditor(mode)
-  }
-
-  function selectProductEditorImages(event: ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(event.target.files ?? [])
-    event.target.value = ''
-    if (!files.length || !selectedProduct) return
-    const remainingSlots = Math.max(0, PRODUCT_IMAGE_MAX_FILES - selectedProduct.images.length - editorImageDrafts.length)
-    if (!remainingSlots) {
-      setEditorImageError(`สินค้าเพิ่มรูปได้สูงสุด ${PRODUCT_IMAGE_MAX_FILES} รูป`)
-      return
-    }
-    const accepted: ProductEditorImageDraft[] = []
-    for (const file of files.slice(0, remainingSlots)) {
-      try {
-        validateProductImageFile(file)
-        accepted.push({ id: crypto.randomUUID(), file, previewUrl: URL.createObjectURL(file) })
-      } catch {
-        setEditorImageError('รองรับ JPEG, PNG หรือ WebP และแต่ละรูปต้องไม่เกิน 5 MB')
-      }
-    }
-    if (files.length > remainingSlots) setEditorImageError(`เลือกได้อีก ${remainingSlots} รูปเท่านั้น (สูงสุด ${PRODUCT_IMAGE_MAX_FILES} รูป)`)
-    else if (accepted.length) setEditorImageError('')
-    setEditorImageDrafts((current) => [...current, ...accepted])
-  }
-
-  function removeProductEditorImageDraft(id: string) {
-    setEditorImageDrafts((current) => {
-      const target = current.find((image) => image.id === id)
-      if (target) URL.revokeObjectURL(target.previewUrl)
-      return current.filter((image) => image.id !== id)
-    })
   }
 
   async function executeEditorCommand(commandType: string, payload: Record<string, unknown>) {
@@ -601,72 +546,6 @@ export function ProductSkuWorkspace({
       commandType,
       payload,
     })
-  }
-
-  async function uploadProductEditorImages(product: ProductWorkspaceDetail, productName: string) {
-    const existingImageIds = product.images.map((image) => image.id)
-    if (!editorImageDrafts.length) {
-      const currentCoverImageId = product.images.find((image) => image.isCover)?.id ?? existingImageIds[0]
-      if (existingImageIds.length && editorCoverImageId && editorCoverImageId !== currentCoverImageId) {
-        const reordered = await executeEditorCommand('product.images.reorder', {
-          product_id: product.id,
-          image_ids: existingImageIds,
-          cover_image_id: editorCoverImageId,
-        })
-        if (!reordered.ok) throw new Error(reordered.error)
-      }
-      return existingImageIds
-    }
-    const client = createClient()
-    const uploadedIds: string[] = []
-    for (let index = 0; index < editorImageDrafts.length; index += 1) {
-      const draft = editorImageDrafts[index]
-      let reservation: PreparedProductImage | null = null
-      try {
-        const prepared = await executeEditorCommand('product.image.prepare', {
-          product_id: product.id,
-          original_file_name: draft.file.name,
-          mime_type: draft.file.type,
-          file_size_bytes: draft.file.size,
-          alt_text: `${productName} รูปที่ ${product.images.length + index + 1}`.slice(0, 160),
-        })
-        if (!prepared.ok) throw new Error(prepared.error)
-        reservation = prepared.data as PreparedProductImage
-        await uploadPreparedProductImage(client, reservation, draft.file)
-        const finalized = await executeEditorCommand('product.image.finalize', {
-          image_id: reservation.entity_id,
-          expected_version: reservation.version,
-        })
-        if (!finalized.ok) throw new Error(finalized.error)
-        uploadedIds.push(reservation.entity_id)
-      } catch (error) {
-        if (reservation) {
-          await executeProductImageCleanupAction({
-            kind: 'entity',
-            commandId: crypto.randomUUID(),
-            organizationId,
-            commandType: 'product.image.fail',
-            payload: {
-              image_id: reservation.entity_id,
-              expected_version: reservation.version,
-              failure_reason: error instanceof Error ? error.message.slice(0, 500) : 'client_upload_failed',
-            },
-          })
-        }
-        throw error
-      }
-    }
-    const imageIds = [...existingImageIds, ...uploadedIds]
-    const coverImageId = imageIds.includes(editorCoverImageId) ? editorCoverImageId : imageIds[0]
-    if (imageIds.length && coverImageId) {
-      const reordered = await executeEditorCommand('product.images.reorder', {
-        product_id: product.id,
-        image_ids: imageIds,
-        cover_image_id: coverImageId,
-      })
-      if (!reordered.ok) throw new Error(reordered.error)
-    }
-    return imageIds
   }
 
   function submitProductEditor(data: FormData, product: ProductWorkspaceDetail) {
@@ -693,9 +572,6 @@ export function ProductSkuWorkspace({
           description: String(data.get('description') ?? '').trim(),
         })
         if (!general.ok) throw new Error(general.error)
-        await uploadProductEditorImages(product, name)
-        editorImageDrafts.forEach((image) => URL.revokeObjectURL(image.previewUrl))
-        setEditorImageDrafts([])
         setFeedback({ tone: 'success', text: 'บันทึกข้อมูลสินค้าเรียบร้อยแล้ว' })
         router.replace(closeDetailHref)
         router.refresh()
@@ -1281,7 +1157,24 @@ export function ProductSkuWorkspace({
       selectedSku={selectedSku}
       closeHref={closeDetailHref}
       canReadCost={canReadCost}
+      canManage={canManage}
+      imageManagerHref={selectedProduct ? buildHref(organizationId, {
+        view,
+        q: search,
+        status,
+        date_by: dateFrom || dateTo ? dateField : undefined,
+        date_from: dateFrom,
+        date_to: dateTo,
+        sort,
+        page: view === 'products' ? String(productPage) : undefined,
+        page_size: view === 'products' ? String(productPageSize) : undefined,
+        product: selectedProduct.id,
+        action: 'images',
+        bulk: bulkSearchActive ? '1' : undefined,
+      }) : undefined}
     /> : null}
+
+    {editorMode === 'manage-images' && selectedProduct ? <ProductImageManagerModal product={selectedProduct} onClose={closeEditor} /> : null}
 
     {bulkSearchOpen ? <div className="product-modal-backdrop product-bulk-search-backdrop" role="presentation" onMouseDown={(event) => {
       if (event.target === event.currentTarget) setBulkSearchOpen(false)
@@ -1311,7 +1204,7 @@ export function ProductSkuWorkspace({
       </section>
     </div> : null}
 
-    {editorMode ? <div className="product-modal-backdrop product-single-editor-backdrop" role="presentation" onMouseDown={(event) => {
+    {editorMode && editorMode !== 'manage-images' ? <div className="product-modal-backdrop product-single-editor-backdrop" role="presentation" onMouseDown={(event) => {
       if (event.target === event.currentTarget) closeEditor()
     }}>
       <section className="product-editor-dialog product-single-editor-dialog" role="dialog" aria-modal="true" aria-labelledby="product-editor-title">
@@ -1337,29 +1230,8 @@ export function ProductSkuWorkspace({
               </div>
             </section>
 
-            <section className="product-complete-editor-section" aria-labelledby="product-edit-images-title">
-              <div className="product-complete-editor-heading"><span className="product-complete-editor-step">2</span><div><h3 id="product-edit-images-title">รูปภาพสินค้า</h3><p>เพิ่มรูปใหม่ได้สูงสุด {PRODUCT_IMAGE_MAX_FILES} รูป และคลิกรูปเดิมเพื่อเลือกเป็นภาพปก</p></div></div>
-              <div className="product-editor-image-grid">
-                {selectedProduct.images.map((image) => <button className={`product-editor-image ${editorCoverImageId === image.id ? 'selected' : ''}`} type="button" key={image.id} onClick={() => setEditorCoverImageId(image.id)} aria-pressed={editorCoverImageId === image.id}>
-                  <Image src={image.signedUrl} alt={image.altText ?? selectedProduct.name} width={112} height={112} unoptimized />
-                  <span>{editorCoverImageId === image.id ? 'ภาพปก' : 'เลือกเป็นภาพปก'}</span>
-                </button>)}
-                {editorImageDrafts.map((image) => <div className="product-editor-image product-editor-image-new" key={image.id}>
-                  <Image src={image.previewUrl} alt={`รูปใหม่ ${image.file.name}`} width={112} height={112} unoptimized />
-                  <span>รูปใหม่</span>
-                  <button type="button" aria-label={`นำ ${image.file.name} ออก`} onClick={() => removeProductEditorImageDraft(image.id)}>×</button>
-                </div>)}
-                {selectedProduct.images.length + editorImageDrafts.length < PRODUCT_IMAGE_MAX_FILES ? <label className="product-editor-image-add">
-                  <input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={selectProductEditorImages} />
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="9" cy="10" r="2" /><path d="m5 18 5-5 3 3 2-2 4 4" /></svg>
-                  <strong>เพิ่มรูปภาพ</strong><small>JPEG, PNG, WebP</small>
-                </label> : null}
-              </div>
-              {editorImageError ? <div className="product-feedback danger" role="alert">{editorImageError}</div> : null}
-            </section>
-
             <section className="product-complete-editor-section" aria-labelledby="product-edit-classification-title">
-              <div className="product-complete-editor-heading"><span className="product-complete-editor-step">3</span><div><h3 id="product-edit-classification-title">หมวดหมู่และการจัดกลุ่ม</h3><p>กำหนดหมวดหมู่ แบรนด์ และ Tags สำหรับค้นหาและจัดสินค้า</p></div></div>
+              <div className="product-complete-editor-heading"><span className="product-complete-editor-step">2</span><div><h3 id="product-edit-classification-title">หมวดหมู่และการจัดกลุ่ม</h3><p>กำหนดหมวดหมู่ แบรนด์ และ Tags สำหรับค้นหาและจัดสินค้า</p></div></div>
               <div className="product-complete-editor-fields form-grid-two">
                 <label className="field-stack">หมวดหมู่<span className="product-select-control"><select name="categoryId" defaultValue={selectedProduct.category?.id ?? ''}><option value="">ไม่ระบุหมวดหมู่</option>{categoryOptions.filter((item) => item.status !== 'archived' || item.id === selectedProduct.category?.id).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></span></label>
                 <label className="field-stack">แบรนด์<span className="product-select-control"><select name="brandId" defaultValue={selectedProduct.brand?.id ?? ''}><option value="">ไม่มีแบรนด์</option>{brandOptions.filter((item) => item.status !== 'archived' || item.id === selectedProduct.brand?.id).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></span></label>
@@ -1368,7 +1240,7 @@ export function ProductSkuWorkspace({
             </section>
 
             <section className="product-complete-editor-section" aria-labelledby="product-edit-shared-title">
-              <div className="product-complete-editor-heading"><span className="product-complete-editor-step">4</span><div><h3 id="product-edit-shared-title">ข้อมูลส่วนกลาง</h3><p>ข้อมูลระดับ Product ที่ทุก SKU ภายใต้สินค้านี้ใช้อ้างอิงร่วมกัน</p></div></div>
+              <div className="product-complete-editor-heading"><span className="product-complete-editor-step">3</span><div><h3 id="product-edit-shared-title">ข้อมูลส่วนกลาง</h3><p>ข้อมูลระดับ Product ที่ทุก SKU ภายใต้สินค้านี้ใช้อ้างอิงร่วมกัน</p></div></div>
               <div className="product-editor-shared-summary"><div><span>รูปแบบสินค้า</span><strong>{selectedProduct.structureType === 'variant' ? 'มีตัวเลือกหลายรายการ' : selectedProduct.structureType === 'bundle' ? 'Bundle / Kit' : 'สินค้าปกติ'}</strong></div><div><span>สถานะ</span><strong>{statusLabels[selectedProduct.status] ?? selectedProduct.status}</strong></div><div><span>จำนวน SKU</span><strong>{selectedProduct.skuCount} รายการ</strong></div></div>
               <label className="field-stack"><span className="product-single-editor-label">บันทึกภายใน <small>(ไม่แสดงให้ลูกค้าเห็น)</small></span><textarea name="internalNote" maxLength={4000} defaultValue={selectedProduct.internalNote ?? ''} /></label>
             </section>
