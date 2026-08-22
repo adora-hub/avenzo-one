@@ -29,7 +29,7 @@ import { ProductsDataGrid } from './products-data-grid'
 type ViewMode = 'products' | 'skus'
 type DateFilterField = 'created' | 'updated'
 
-type EditorMode = 'create-product' | 'create-sku' | 'edit-product' | 'edit-sku' | 'edit-price' | null
+type EditorMode = 'create-product' | 'create-sku' | 'manage-skus' | 'edit-product' | 'edit-sku' | 'edit-price' | null
 type PendingLifecycle = {
   commandType: 'product.archive' | 'sku.archive'
   idKey: 'product_id' | 'sku_id'
@@ -205,9 +205,11 @@ export function ProductSkuWorkspace({
   const tagSearchInputRef = useRef<HTMLInputElement>(null)
   const [editorMode, setEditorMode] = useState<EditorMode>(() => {
     if (selectedProduct && productAction === 'edit' && canManage) return 'edit-product'
+    if (selectedProduct && productAction === 'skus' && canManage) return 'manage-skus'
     if (selectedProduct && selectedSku && productAction === 'price' && canManage) return 'edit-price'
     return null
   })
+  const [managedSkuId, setManagedSkuId] = useState(selectedSku?.id ?? '')
   const [bulkSearchOpen, setBulkSearchOpen] = useState(false)
   const [bulkCodes, setBulkCodes] = useState(bulkSearchActive ? search.replaceAll(',', '\n') : '')
   const [bulkSearchAttempted, setBulkSearchAttempted] = useState(false)
@@ -237,6 +239,10 @@ export function ProductSkuWorkspace({
   const [isPending, startTransition] = useTransition()
   const [, startSearchTransition] = useTransition()
   const rows = view === 'products' ? productWorkspaceRows : skus
+  const editorSku = useMemo(() => {
+    const sku = selectedProduct?.skus.find((item) => item.id === managedSkuId)
+    return sku && selectedProduct ? { ...sku, productName: selectedProduct.name } : selectedSku
+  }, [managedSkuId, selectedProduct, selectedSku])
   const rawBulkCodes = bulkCodes.slice(0, 400).split(/[\s,;]+/).map(normalizeBulkCode).filter(Boolean)
   const uniqueBulkCodes = Array.from(new Set(rawBulkCodes)).slice(0, 50)
   const duplicateBulkCodeCount = rawBulkCodes.length - new Set(rawBulkCodes).size
@@ -264,7 +270,11 @@ export function ProductSkuWorkspace({
     firstFieldRef.current?.focus()
     function closeOnEscape(event: KeyboardEvent) {
       if (event.key !== 'Escape' || isPending) return
-      if (productAction === 'edit' || productAction === 'price') router.replace(closeDetailHref)
+      if (productAction === 'skus' && editorMode !== 'manage-skus') {
+        setFeedback(null)
+        setEditorMode('manage-skus')
+      }
+      else if (productAction === 'edit' || productAction === 'skus' || productAction === 'price') router.replace(closeDetailHref)
       else setEditorMode(null)
     }
     window.addEventListener('keydown', closeOnEscape)
@@ -272,7 +282,7 @@ export function ProductSkuWorkspace({
   }, [closeDetailHref, editorMode, isPending, productAction, router])
 
   useEffect(() => {
-    if (productAction === '' && (editorMode === 'edit-product' || editorMode === 'edit-price')) {
+    if (productAction === '' && (editorMode === 'manage-skus' || editorMode === 'edit-product' || editorMode === 'edit-price')) {
       setEditorMode(null)
       return
     }
@@ -281,11 +291,14 @@ export function ProductSkuWorkspace({
       setEditorMode('edit-product')
       return
     }
-    if (productAction === 'skus') {
-      window.requestAnimationFrame(() => document.getElementById('product-detail-skus')?.scrollIntoView({ block: 'start' }))
+    if (productAction === 'skus' && canManage) {
+      if (!editorMode) setEditorMode('manage-skus')
       return
     }
-    if (productAction === 'price' && canManage && selectedSku) setEditorMode('edit-price')
+    if (productAction === 'price' && canManage && selectedSku) {
+      setManagedSkuId(selectedSku.id)
+      setEditorMode('edit-price')
+    }
   }, [canManage, editorMode, productAction, selectedProduct, selectedSku])
 
   useEffect(() => {
@@ -535,8 +548,18 @@ export function ProductSkuWorkspace({
     editorImageDrafts.forEach((image) => URL.revokeObjectURL(image.previewUrl))
     setEditorImageDrafts([])
     setEditorImageError('')
-    if (productAction === 'edit' || productAction === 'price') router.replace(closeDetailHref)
+    if (productAction === 'skus' && editorMode !== 'manage-skus') {
+      setFeedback(null)
+      setEditorMode('manage-skus')
+      return
+    }
+    if (productAction === 'edit' || productAction === 'skus' || productAction === 'price') router.replace(closeDetailHref)
     else setEditorMode(null)
+  }
+
+  function openManagedSkuEditor(mode: 'edit-sku' | 'edit-price', skuId: string) {
+    setManagedSkuId(skuId)
+    openEditor(mode)
   }
 
   function selectProductEditorImages(event: ChangeEvent<HTMLInputElement>) {
@@ -699,6 +722,10 @@ export function ProductSkuWorkspace({
       }
       setFeedback({ tone: 'success', text: 'บันทึกข้อมูลเรียบร้อยแล้ว' })
       if (productAction === 'edit' || productAction === 'price') router.replace(closeDetailHref)
+      else if (productAction === 'skus') {
+        setEditorMode('manage-skus')
+        router.refresh()
+      }
       else {
         setEditorMode(null)
         router.refresh()
@@ -728,18 +755,18 @@ export function ProductSkuWorkspace({
         base_unit_code: String(data.get('baseUnitCode') ?? '').trim(),
         status: String(data.get('status') ?? 'draft'),
       })
-    } else if (editorMode === 'edit-sku' && selectedSku) {
+    } else if (editorMode === 'edit-sku' && editorSku) {
       runCommand('sku.update', {
-        sku_id: selectedSku.id,
-        expected_version: selectedSku.version,
+        sku_id: editorSku.id,
+        expected_version: editorSku.version,
         name,
         barcode: String(data.get('barcode') ?? '').trim(),
-        sales_code: selectedSku.salesCode ?? String(data.get('salesCode') ?? '').trim(),
+        sales_code: editorSku.salesCode ?? String(data.get('salesCode') ?? '').trim(),
       })
-    } else if (editorMode === 'edit-price' && selectedSku) {
-      const profile = selectedSku.profile
+    } else if (editorMode === 'edit-price' && editorSku) {
+      const profile = editorSku.profile
       runCommand('sku.profile.upsert', {
-        sku_id: selectedSku.id,
+        sku_id: editorSku.id,
         expected_version: profile?.version ?? 0,
         quantity_behavior: profile?.quantityBehavior ?? 'discrete',
         sale_price: Number(data.get('salePrice')),
@@ -1249,7 +1276,7 @@ export function ProductSkuWorkspace({
     </nav> : null}
     </section>
 
-    {!editorMode ? <ProductDetailSheet
+    {!editorMode && productAction === '' ? <ProductDetailSheet
       selectedProduct={selectedProduct}
       selectedSku={selectedSku}
       closeHref={closeDetailHref}
@@ -1288,8 +1315,19 @@ export function ProductSkuWorkspace({
       if (event.target === event.currentTarget) closeEditor()
     }}>
       <section className="product-editor-dialog product-single-editor-dialog" role="dialog" aria-modal="true" aria-labelledby="product-editor-title">
-        <header><div><div className="eyebrow">ข้อมูลสินค้า</div><h2 id="product-editor-title">{editorMode === 'create-product' ? 'เพิ่มสินค้า' : editorMode === 'create-sku' ? 'เพิ่ม SKU' : editorMode === 'edit-product' ? 'แก้ไขข้อมูลสินค้า' : editorMode === 'edit-price' ? 'แก้ไขราคาขาย' : 'แก้ไข SKU'}</h2></div><button className="product-single-editor-close" type="button" aria-label="ปิดหน้าต่าง" disabled={isPending} onClick={closeEditor}>×</button></header>
+        <header><div><div className="eyebrow">{editorMode === 'manage-skus' ? 'SKU / ตัวเลือก' : 'ข้อมูลสินค้า'}</div><h2 id="product-editor-title">{editorMode === 'create-product' ? 'เพิ่มสินค้า' : editorMode === 'create-sku' ? 'เพิ่ม SKU' : editorMode === 'manage-skus' ? 'จัดการ SKU / ตัวเลือก' : editorMode === 'edit-product' ? 'แก้ไขข้อมูลสินค้า' : editorMode === 'edit-price' ? 'แก้ไขราคาขาย' : 'แก้ไข SKU'}</h2></div><button className="product-single-editor-close" type="button" aria-label="ปิดหน้าต่าง" disabled={isPending} onClick={closeEditor}>×</button></header>
         <form onSubmit={submitEditor}>
+          {editorMode === 'manage-skus' && selectedProduct ? <div className="product-sku-manager">
+            <div className="product-sku-manager-summary"><div><span>สินค้า</span><strong>{selectedProduct.name}</strong></div><div><span>รูปแบบ</span><strong>{selectedProduct.structureType === 'variant' ? 'มีตัวเลือกหลายรายการ' : selectedProduct.structureType === 'bundle' ? 'Bundle / Kit' : 'สินค้าปกติ'}</strong></div><div><span>จำนวน SKU</span><strong>{selectedProduct.skuCount} รายการ</strong></div><button className="button product-grid-button-primary" type="button" disabled={selectedProduct.status === 'archived'} onClick={() => openEditor('create-sku')}>＋ เพิ่ม SKU</button></div>
+            {selectedProduct.skus.length ? <div className="product-sku-manager-table-wrap" tabIndex={0} aria-label="รายการ SKU และตัวเลือก">
+              <table className="product-sku-manager-table">
+                <thead><tr><th scope="col">ตัวเลือก</th><th scope="col">SKU</th><th scope="col">รหัสขาย / CF</th><th scope="col">Barcode</th><th scope="col">ราคาขาย</th><th scope="col">สถานะ</th><th scope="col">ดำเนินการ</th></tr></thead>
+                <tbody>{selectedProduct.skus.map((sku) => <tr key={sku.id}>
+                  <td><strong>{sku.name}</strong></td><td><code>{sku.skuCode}</code></td><td><code>{sku.salesCode || '—'}</code></td><td><code>{sku.barcode || '—'}</code></td><td>{sku.profile?.salePrice == null ? 'ยังไม่กำหนด' : `${new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(sku.profile.salePrice)} บาท`}</td><td><OperationsStatusBadge tone={statusTone(sku.status)}>{statusLabels[sku.status] ?? sku.status}</OperationsStatusBadge></td><td><div className="product-sku-manager-actions"><button className="button secondary compact" type="button" onClick={() => openManagedSkuEditor('edit-sku', sku.id)}>แก้ไข SKU</button><button className="button secondary compact" type="button" onClick={() => openManagedSkuEditor('edit-price', sku.id)}>แก้ราคา</button>{sku.status === 'draft' ? <button className="button secondary compact" type="button" onClick={() => requestLifecycle({ commandType: 'sku.activate', idKey: 'sku_id', id: sku.id, version: sku.version, label: sku.name })}>เปิดใช้งาน</button> : sku.status === 'active' ? <button className="button secondary compact" type="button" onClick={() => requestLifecycle({ commandType: 'sku.archive', idKey: 'sku_id', id: sku.id, version: sku.version, label: sku.name })}>เก็บถาวร</button> : <span className="product-sku-manager-readonly">อ่านอย่างเดียว</span>}</div></td>
+                </tr>)}</tbody>
+              </table>
+            </div> : <OperationsEmptyState title="ยังไม่มี SKU" description="เพิ่ม SKU แรกเพื่อกำหนดรหัสขาย ราคา และสถานะของสินค้า" />}
+          </div> : null}
           {editorMode === 'edit-product' && selectedProduct ? <div className="product-complete-editor">
             <section className="product-complete-editor-section" aria-labelledby="product-edit-general-title">
               <div className="product-complete-editor-heading"><span className="product-complete-editor-step">1</span><div><h3 id="product-edit-general-title">ข้อมูลทั่วไป</h3><p>แก้ไขชื่อและคำอธิบายที่แสดงในรายการสินค้า</p></div></div>
@@ -1335,16 +1373,16 @@ export function ProductSkuWorkspace({
               <label className="field-stack"><span className="product-single-editor-label">บันทึกภายใน <small>(ไม่แสดงให้ลูกค้าเห็น)</small></span><textarea name="internalNote" maxLength={4000} defaultValue={selectedProduct.internalNote ?? ''} /></label>
             </section>
           </div> : null}
-          {editorMode === 'edit-price' && selectedSku ? <><div className="product-immutable-fields" role="note"><div><span>สินค้า / SKU</span><strong>{selectedSku.productName} · <span className="product-code">{selectedSku.skuCode}</span></strong></div><p>แก้ไขเฉพาะราคาขายของ SKU นี้ ระบบจะบันทึกผ่านคำสั่งที่มี Audit Log</p></div><label className="field-stack">ราคาขาย (บาท)<input ref={firstFieldRef} name="salePrice" type="number" inputMode="decimal" min="0" step="0.01" required defaultValue={selectedSku.profile?.salePrice ?? ''} placeholder="0.00" /></label></> : null}
+          {editorMode === 'edit-price' && editorSku ? <><div className="product-immutable-fields" role="note"><div><span>สินค้า / SKU</span><strong>{editorSku.productName} · <span className="product-code">{editorSku.skuCode}</span></strong></div><p>แก้ไขเฉพาะราคาขายของ SKU นี้ ระบบจะบันทึกผ่านคำสั่งที่มี Audit Log</p></div><label className="field-stack">ราคาขาย (บาท)<input ref={firstFieldRef} name="salePrice" type="number" inputMode="decimal" min="0" step="0.01" required defaultValue={editorSku.profile?.salePrice ?? ''} placeholder="0.00" /></label></> : null}
           {(editorMode === 'create-sku') ? <label className="field-stack">Product<span className="product-select-control"><select name="productId" required defaultValue={selectedProduct?.id ?? ''}><option value="" disabled>เลือก Product</option>{productOptions.filter((product) => product.status !== 'archived').map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</select></span></label> : null}
           {(editorMode === 'create-sku') ? <label className="field-stack">SKU Code<input ref={firstFieldRef} name="skuCode" required maxLength={80} autoComplete="off" placeholder="เช่น SHIRT-BLK-M" /></label> : null}
-          {(editorMode !== 'edit-price' && editorMode !== 'edit-product') ? <label className="field-stack"><span className="product-single-editor-label">ชื่อสินค้า <b aria-hidden="true">*</b></span><input ref={editorMode === 'create-sku' ? undefined : firstFieldRef} name="name" required maxLength={160} defaultValue={selectedProduct?.name ?? selectedSku?.name ?? ''} /></label> : null}
+          {(editorMode !== 'manage-skus' && editorMode !== 'edit-price' && editorMode !== 'edit-product') ? <label className="field-stack"><span className="product-single-editor-label">ชื่อสินค้า <b aria-hidden="true">*</b></span><input ref={editorMode === 'create-sku' ? undefined : firstFieldRef} name="name" required maxLength={160} defaultValue={editorSku?.name ?? selectedProduct?.name ?? ''} /></label> : null}
           {editorMode === 'create-product' ? <label className="field-stack"><span className="product-single-editor-label">คำอธิบาย <small>(ไม่บังคับ)</small></span><textarea name="description" maxLength={2000} defaultValue={selectedProduct?.description ?? ''} /></label> : null}
-          {editorMode === 'edit-sku' && selectedSku ? <div className="product-immutable-fields" role="note"><div><span>SKU Code</span><strong className="product-code">{selectedSku.skuCode}</strong></div><div><span>Base Unit</span><strong>{selectedSku.baseUnitCode}</strong></div><p>สองค่านี้เป็นรหัสอ้างอิงถาวรและแก้ไขไม่ได้</p></div> : null}
-          {(editorMode === 'create-sku' || editorMode === 'edit-sku') ? <div className="form-grid-two">{editorMode === 'edit-sku' && selectedSku?.salesCode ? <div className="field-stack product-readonly-field"><span>Sales Code</span><strong className="product-code">{selectedSku.salesCode}</strong><small>บันทึกถาวรแล้ว เปลี่ยนไม่ได้</small></div> : <label className="field-stack">Sales Code<input name="salesCode" maxLength={80} defaultValue={selectedSku?.salesCode ?? ''} placeholder="รหัส CF/ขาย" /><small>ตั้งได้ครั้งเดียวก่อนบันทึก</small></label>}<label className="field-stack">Barcode<input name="barcode" maxLength={128} defaultValue={selectedSku?.barcode ?? ''} inputMode="numeric" /></label></div> : null}
+          {editorMode === 'edit-sku' && editorSku ? <div className="product-immutable-fields" role="note"><div><span>SKU Code</span><strong className="product-code">{editorSku.skuCode}</strong></div><div><span>Base Unit</span><strong>{editorSku.baseUnitCode}</strong></div><p>สองค่านี้เป็นรหัสอ้างอิงถาวรและแก้ไขไม่ได้</p></div> : null}
+          {(editorMode === 'create-sku' || editorMode === 'edit-sku') ? <div className="form-grid-two">{editorMode === 'edit-sku' && editorSku?.salesCode ? <div className="field-stack product-readonly-field"><span>Sales Code</span><strong className="product-code">{editorSku.salesCode}</strong><small>บันทึกถาวรแล้ว เปลี่ยนไม่ได้</small></div> : <label className="field-stack">Sales Code<input name="salesCode" maxLength={80} defaultValue={editorSku?.salesCode ?? ''} placeholder="รหัส CF/ขาย" /><small>ตั้งได้ครั้งเดียวก่อนบันทึก</small></label>}<label className="field-stack"><span className="product-single-editor-label">Barcode <small>(ไม่บังคับ)</small></span><input name="barcode" maxLength={128} defaultValue={editorSku?.barcode ?? ''} inputMode="numeric" placeholder="กรอก Barcode จากผู้ผลิต" /></label></div> : null}
           {editorMode === 'create-sku' ? <div className="form-grid-two"><label className="field-stack">Base Unit<input name="baseUnitCode" required maxLength={32} defaultValue="piece" /></label><label className="field-stack">สถานะ<span className="product-select-control"><select name="status" defaultValue="draft"><option value="draft">ฉบับร่าง</option><option value="active">ใช้งาน</option></select></span></label></div> : null}
           {feedback?.tone === 'danger' ? <div className="product-feedback danger" role="alert">{feedback.text}</div> : null}
-          <footer><button className="button secondary" type="button" disabled={isPending} onClick={closeEditor}>ยกเลิก</button><button className="button" type="submit" disabled={isPending}>{isPending ? 'กำลังบันทึก…' : editorMode === 'edit-product' ? 'บันทึกการแก้ไข' : 'บันทึก'}</button></footer>
+          <footer><button className="button secondary" type="button" disabled={isPending} onClick={closeEditor}>{editorMode === 'manage-skus' ? 'ปิด' : 'ยกเลิก'}</button>{editorMode !== 'manage-skus' ? <button className="button" type="submit" disabled={isPending}>{isPending ? 'กำลังบันทึก…' : editorMode === 'edit-product' ? 'บันทึกการแก้ไข' : 'บันทึก'}</button> : null}</footer>
         </form>
       </section>
     </div> : null}
