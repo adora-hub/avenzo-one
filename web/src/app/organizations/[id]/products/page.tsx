@@ -86,6 +86,7 @@ export default async function ProductSkuPage({ params, searchParams }: Props) {
   const canCreate = permissions.has('product.create')
   const canManage = permissions.has('product.update')
   const canReadInventory = permissions.has('inventory.read')
+  const canReadInventoryMovement = permissions.has('inventory_movement.read')
   const canAdjustInventory = permissions.has('inventory.adjust')
   const canReadCost = permissions.has('product.cost.read')
   const isPlatformAdmin = platformAdminResult.data?.status === 'active'
@@ -124,6 +125,7 @@ export default async function ProductSkuPage({ params, searchParams }: Props) {
       stockMax: canReadInventory && stockMax ? Number(stockMax) : undefined,
       pageSize: productPageSize,
       includeInventory: canReadInventory,
+      includeRecentReceipts: canReadInventoryMovement,
       includeCost: canReadCost,
       sort,
     })

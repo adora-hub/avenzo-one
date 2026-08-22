@@ -9,7 +9,7 @@ const css = await readFile(new URL('../src/app/globals.css', import.meta.url), '
 
 test('R7.4.3 default columns match the approved mockup order', () => {
   assert.deepEqual(PRODUCT_GRID_DEFAULT_COLUMNS.filter((column) => column.visible).map((column) => column.key), [
-    'product', 'salesCode', 'sku', 'stock', 'baseUnit', 'price', 'status', 'updatedAt',
+    'product', 'salesCode', 'sku', 'stock', 'stockStatus', 'baseUnit', 'price', 'status', 'updatedAt',
   ])
   assert.equal(PRODUCT_GRID_DEFAULT_COLUMNS.find((column) => column.key === 'price')?.visible, true)
 })
@@ -53,6 +53,18 @@ test('R7.4.3 retains width persistence and keyboard resizing after adding price'
   assert.match(grid, /data-column-resizer=\{column\.key\}/)
   assert.match(grid, /event\.key === 'ArrowRight'/)
   assert.match(grid, /aria-valuenow=\{column\.width\}/)
+})
+
+test('column boundaries auto-fit visible header and cell content like Excel', () => {
+  assert.match(grid, /function autoFitColumn\(column: ProductGridColumnPreference\)/)
+  assert.match(grid, /tbody > tr:not\(\.product-grid-variant-expanded-row\) > td:nth-child/)
+  assert.match(grid, /context\.measureText\(line\.trim\(\)\)\.width/)
+  assert.match(grid, /productMediaWidth/)
+  assert.match(grid, /Math\.min\(Math\.max\(Math\.ceil\(preferredWidth \+ 10\), 96\), 520\)/)
+  assert.match(grid, /onDoubleClick=\{\(\) => autoFitColumn\(column\)\}/)
+  assert.match(grid, /if \(event\.detail > 1\) \{[\s\S]*?autoFitColumn\(column\)/)
+  assert.match(grid, /event\.key === 'Enter'/)
+  assert.match(grid, /ดับเบิลคลิกเพื่อปรับให้พอดีกับข้อมูล/)
 })
 
 test('product rows keep primary and secondary values on shared vertical tiers', () => {

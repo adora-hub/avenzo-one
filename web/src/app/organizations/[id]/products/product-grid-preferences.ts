@@ -1,5 +1,5 @@
 export type ProductGridColumnKey =
-  | 'product' | 'salesCode' | 'sku' | 'stock' | 'baseUnit' | 'price' | 'status' | 'updatedAt'
+  | 'product' | 'salesCode' | 'sku' | 'stock' | 'stockStatus' | 'baseUnit' | 'price' | 'status' | 'updatedAt'
   | 'category' | 'brand' | 'tags' | 'barcode' | 'quantityBehavior' | 'tax'
   | 'safetyStock' | 'reorder' | 'branches' | 'createdAt' | 'createdBy' | 'cost'
 
@@ -15,6 +15,7 @@ export const PRODUCT_GRID_DEFAULT_COLUMNS: ProductGridColumnPreference[] = [
   { key: 'salesCode', visible: true, width: 150, pinned: false },
   { key: 'sku', visible: true, width: 230, pinned: false },
   { key: 'stock', visible: true, width: 150, pinned: false },
+  { key: 'stockStatus', visible: true, width: 150, pinned: false },
   { key: 'baseUnit', visible: true, width: 130, pinned: false },
   { key: 'price', visible: true, width: 140, pinned: false },
   { key: 'status', visible: true, width: 140, pinned: false },

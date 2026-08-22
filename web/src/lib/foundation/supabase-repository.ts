@@ -198,6 +198,7 @@ export class SupabaseFoundationReadRepository implements FoundationReadRepositor
     page?: number
     pageSize?: number
     includeInventory?: boolean
+    includeRecentReceipts?: boolean
     includeCost?: boolean
     sort?: 'updated_desc' | 'updated_asc'
   }): Promise<PageResult<ProductWorkspaceRow>> {
@@ -370,7 +371,8 @@ export class SupabaseFoundationReadRepository implements FoundationReadRepositor
     const categoryIds = Array.from(new Set(productRows.map((row) => row.category_id).filter(Boolean))) as string[]
     const brandIds = Array.from(new Set(productRows.map((row) => row.brand_id).filter(Boolean))) as string[]
     const creatorIds = Array.from(new Set(productRows.map((row) => row.created_by).filter(Boolean))) as string[]
-    const [categoryResult, brandResult, assignmentResult, profileResult, costResult, creatorResult, imageResult, variantImageAssignmentResult, balanceResult] = await Promise.all([
+    const recentReceiptCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1_000).toISOString()
+    const [categoryResult, brandResult, assignmentResult, profileResult, costResult, creatorResult, imageResult, variantImageAssignmentResult, balanceResult, receiptResult] = await Promise.all([
       categoryIds.length > 0
         ? this.client.from('product_categories').select('id, name').eq('organization_id', input.organizationId).in('id', categoryIds)
         : Promise.resolve({ data: [], error: null }),
@@ -410,8 +412,18 @@ export class SupabaseFoundationReadRepository implements FoundationReadRepositor
           .eq('organization_id', input.organizationId).in('sku_id', skuIds)
           .limit(PRODUCT_WORKSPACE_BALANCE_AGGREGATE_LIMIT + 1)
         : Promise.resolve({ data: [], error: null }),
+      input.includeRecentReceipts && skuIds.length > 0
+        ? this.client.from('stock_movements')
+          .select('sku_id, occurred_at')
+          .eq('organization_id', input.organizationId)
+          .eq('movement_type', 'receive')
+          .in('sku_id', skuIds)
+          .gte('occurred_at', recentReceiptCutoff)
+          .order('occurred_at', { ascending: false })
+          .limit(PRODUCT_WORKSPACE_SKU_AGGREGATE_LIMIT)
+        : Promise.resolve({ data: [], error: null }),
     ])
-    for (const result of [categoryResult, brandResult, assignmentResult, profileResult, costResult, creatorResult, variantImageAssignmentResult, balanceResult]) {
+    for (const result of [categoryResult, brandResult, assignmentResult, profileResult, costResult, creatorResult, variantImageAssignmentResult, balanceResult, receiptResult]) {
       if (result.error) throw mapFoundationError(result.error)
     }
     const { data: imageData, error: imageError } = imageResult
@@ -513,6 +525,10 @@ export class SupabaseFoundationReadRepository implements FoundationReadRepositor
         allocated: Number(row.allocated),
         available: Number(row.available),
         branchCode: branchCodeById.get(row.branch_id) ?? null,
+      })),
+      receipts: (receiptResult.data ?? []).map((row) => ({
+        skuId: String(row.sku_id),
+        occurredAt: String(row.occurred_at),
       })),
       images,
       variantImageAssignments,

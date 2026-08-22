@@ -96,6 +96,7 @@ export type ProductWorkspaceStockSummary = {
   allocated: number | null
   available: number | null
   branchCodes: string[]
+  lastReceivedAt?: string | null
 }
 
 export type ProductImageReadModel = {
@@ -129,6 +130,13 @@ export type ProductWorkspaceRow = ProductReadModel & {
   cost: ProductWorkspacePriceSummary | null
   aggregateCapped: boolean
   stock: ProductWorkspaceStockSummary
+  stockStatusSkus: Array<{
+    skuCode: string
+    available: number
+    reorderMin: number | null
+    safetyStock: number | null
+    lastReceivedAt: string | null
+  }>
   coverImage: ProductImageReadModel | null
 }
 
@@ -245,6 +253,7 @@ export interface FoundationReadRepository {
     page?: number
     pageSize?: number
     includeInventory?: boolean
+    includeRecentReceipts?: boolean
     includeCost?: boolean
     sort?: 'updated_desc' | 'updated_asc'
   }): Promise<PageResult<ProductWorkspaceRow>>

@@ -42,6 +42,7 @@
     "test:product-sku-slice": "node --test scripts/test-product-sku-vertical-slice.mjs",
     "test:products-r2-read-model": "node --experimental-strip-types --test scripts/test-products-r2-read-model.mjs",
     "test:products-r3-data-grid": "node --experimental-strip-types --test scripts/test-products-r3-data-grid.mjs",
+    "test:products-stock-status": "node --experimental-strip-types --test scripts/test-products-stock-status.mjs",
     "test:products-r4-detail-safe-actions": "node --experimental-strip-types --test scripts/test-products-r4-detail-safe-actions.mjs",
     "test:products-r5-domain-extension": "node --experimental-strip-types --test scripts/test-products-r5-domain-extension.mjs",
     "test:products-r6-image-gate": "node --experimental-strip-types --test scripts/test-products-r6-image-gate.mjs",

@@ -15,7 +15,7 @@ import {
 import { executeFoundationCommandAction } from '@/app/actions/foundation'
 import { ProductsBulkEdit } from './products-bulk-edit'
 import { ProductExcelImportDialogLive } from './product-excel-import-dialog-live'
-import { OperationsEmptyState } from '@/app/components/operations-ui'
+import { OperationsEmptyState, OperationsStatusBadge } from '@/app/components/operations-ui'
 import type { ProductWorkspaceRow } from '@/lib/foundation/repositories'
 import {
   normalizeProductGridColumns,
@@ -25,9 +25,10 @@ import {
 } from './product-grid-preferences'
 import { formatProductUnit } from './product-unit-labels'
 import { formatSkuCost } from './product-grid-formatters'
+import { resolveProductStockStatus, resolveSkuStockStatus } from './product-stock-status'
 
 const labels: Record<ProductGridColumnKey, string> = {
-  product: 'สินค้า', salesCode: 'รหัส CF', sku: 'SKU / ตัวเลือก', stock: 'สต็อก',
+  product: 'สินค้า', salesCode: 'รหัส CF', sku: 'SKU / ตัวเลือก', stock: 'สต็อก', stockStatus: 'สถานะสต็อก',
   baseUnit: 'หน่วยนับ', price: 'ราคาขาย', status: 'สถานะ', updatedAt: 'แก้ไขล่าสุด',
   category: 'หมวดหมู่', brand: 'แบรนด์', tags: 'ป้ายกำกับ', barcode: 'Barcode',
   quantityBehavior: 'วิธีนับจำนวน', tax: 'ภาษี', safetyStock: 'Safety Stock',
@@ -37,7 +38,7 @@ const labels: Record<ProductGridColumnKey, string> = {
 
 const PRODUCT_EXPORT_COLUMNS = [
   ['product', 'สินค้า'], ['salesCode', 'รหัสขาย / CF'], ['sku', 'รหัสสินค้า (SKU)'],
-  ['stock', 'สต็อก'], ['baseUnit', 'หน่วยนับ'], ['price', 'ราคาขาย'], ['status', 'สถานะ'],
+  ['stock', 'สต็อก'], ['stockStatus', 'สถานะสต็อก'], ['baseUnit', 'หน่วยนับ'], ['price', 'ราคาขาย'], ['status', 'สถานะ'],
   ['updatedAt', 'แก้ไขล่าสุด'], ['category', 'หมวดหมู่'], ['brand', 'แบรนด์'],
   ['tags', 'ป้ายกำกับ'], ['barcode', 'บาร์โค้ด'], ['quantityBehavior', 'วิธีนับจำนวน'],
   ['tax', 'อัตราภาษี'], ['safetyStock', 'สต็อกสำรอง (Safety Stock)'],
@@ -429,6 +430,7 @@ export function ProductsDataGrid({
       if (gridSort.key === 'salesCode') return row.skuPreview[0]?.salesCode ?? ''
       if (gridSort.key === 'sku') return row.skuPreview[0]?.skuCode ?? ''
       if (gridSort.key === 'stock') return row.stock.available
+      if (gridSort.key === 'stockStatus') return resolveProductStockStatus(row).rank
       if (gridSort.key === 'baseUnit') return row.stock.baseUnitCode ?? ''
       if (gridSort.key === 'price') return row.price.minimum ?? Number.POSITIVE_INFINITY
       if (gridSort.key === 'category') return row.category?.name ?? ''
@@ -802,6 +804,12 @@ export function ProductsDataGrid({
 
   function startColumnResize(event: ReactPointerEvent<HTMLSpanElement>, column: ProductGridColumnPreference) {
     event.preventDefault()
+    if (event.detail > 1) {
+      resizeStateRef.current = null
+      event.currentTarget.dataset.resizing = 'false'
+      autoFitColumn(column)
+      return
+    }
     resizeStateRef.current = {
       key: column.key,
       pointerId: event.pointerId,
@@ -826,7 +834,47 @@ export function ProductsDataGrid({
     resizeStateRef.current = null
   }
 
+  function autoFitColumn(column: ProductGridColumnPreference) {
+    const viewport = productTableViewportRef.current
+    const visibleIndex = visibleColumns.findIndex((candidate) => candidate.key === column.key)
+    if (!viewport || visibleIndex < 0) return
+
+    // The selection checkbox occupies the first table column.
+    const tableColumnIndex = visibleIndex + 2
+    const sourceCells = Array.from(viewport.querySelectorAll<HTMLElement>([
+      `thead > tr > th:nth-child(${tableColumnIndex})`,
+      `tbody > tr:not(.product-grid-variant-expanded-row) > td:nth-child(${tableColumnIndex})`,
+    ].join(', ')))
+    if (!sourceCells.length) return
+
+    const canvas = document.createElement('canvas')
+    const context = canvas.getContext('2d')
+    if (!context) return
+    const preferredWidth = Math.max(...sourceCells.map((cell) => {
+      const computed = window.getComputedStyle(cell)
+      context.font = computed.font
+      const textWidth = Math.max(0, ...cell.innerText
+        .split(/\r?\n/)
+        .map((line) => context.measureText(line.trim()).width))
+      const padding = Number.parseFloat(computed.paddingLeft) + Number.parseFloat(computed.paddingRight)
+      const productMediaWidth = cell.querySelector('.product-grid-image, .product-grid-placeholder') ? 54 : 0
+      const iconButtonWidth = cell.querySelectorAll('button svg, .product-grid-copy-button, .product-grid-cell-edit-button').length * 24
+      const headerControlsWidth = cell.tagName === 'TH' ? 30 : 0
+      return Math.ceil(textWidth + padding + productMediaWidth + iconButtonWidth + headerControlsWidth)
+    }))
+
+    // Keep a small breathing space like Excel auto-fit, while retaining the grid safety limits.
+    const nextWidth = Math.min(Math.max(Math.ceil(preferredWidth + 10), 96), 520)
+    updateColumn(column.key, { width: nextWidth })
+    setGridToast(`ปรับคอลัมน์ ${labels[column.key]} ให้พอดีกับข้อมูลแล้ว`)
+  }
+
   function resizeColumnWithKeyboard(event: ReactKeyboardEvent<HTMLSpanElement>, column: ProductGridColumnPreference) {
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      autoFitColumn(column)
+      return
+    }
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
     event.preventDefault()
     const nextWidth = event.key === 'Home'
@@ -849,7 +897,7 @@ export function ProductsDataGrid({
     }
   }
 
-  function showCopyTooltip(button: HTMLButtonElement, key: string, text: string) {
+  function showCopyTooltip(button: HTMLElement, key: string, text: string) {
     const rect = button.getBoundingClientRect()
     const safeHalfWidth = 90
     setCopyTooltip({
@@ -1004,6 +1052,18 @@ function toggleVariantRow(rowId: string) {
       return next
     })
   }
+  function stockStatusBadge(status: ReturnType<typeof resolveProductStockStatus>, tooltipKey: string) {
+    return <span
+      className="product-grid-stock-status"
+      tabIndex={0}
+      aria-label={`${status.label}: ${status.description}`}
+      aria-describedby={copyTooltip?.key === tooltipKey ? 'product-grid-copy-tooltip' : undefined}
+      onMouseEnter={(event) => showCopyTooltip(event.currentTarget, tooltipKey, status.description)}
+      onMouseLeave={() => setCopyTooltip(null)}
+      onFocus={(event) => showCopyTooltip(event.currentTarget, tooltipKey, status.description)}
+      onBlur={() => setCopyTooltip(null)}
+    ><OperationsStatusBadge tone={status.tone}>{status.label}</OperationsStatusBadge></span>
+  }
   function cell(row: ProductWorkspaceRow, key: ProductGridColumnKey) {
     const firstSku = row.skuPreview[0]
     const common = columns.find((column) => column.key === key)!
@@ -1037,6 +1097,10 @@ function toggleVariantRow(rowId: string) {
         if (firstActiveSku) openQuickEdit(event.currentTarget, 'stock', row, firstActiveSku)
         else setGridToast('กรุณาเปลี่ยนสถานะ SKU เป็น “ใช้งานอยู่” ก่อนปรับจำนวนสต๊อก')
       }}><ProductGridEditIcon /></button> : null}</div></td>
+    }
+    if (key === 'stockStatus') {
+      const stockStatus = resolveProductStockStatus(row)
+      return <td key={key} className={className} style={style}>{stack(stockStatusBadge(stockStatus, `${row.id}:stock-status`))}</td>
     }
     if (key === 'baseUnit') return <td key={key} className={className} style={style}>{stack(<strong>{row.stock.mode === 'mixed-units' ? 'หลายหน่วย' : formatProductUnit(row.stock.baseUnitCode)}</strong>)}</td>
     if (key === 'price') {
@@ -1114,6 +1178,16 @@ function toggleVariantRow(rowId: string) {
             if (sku.status === 'active') openQuickEdit(event.currentTarget, 'stock', row, sku)
             else setGridToast('กรุณาเปลี่ยนสถานะ SKU เป็น “ใช้งานอยู่” ก่อนปรับจำนวนสต๊อก')
           }}><ProductGridEditIcon /></button> : null}</div>
+        }
+        if (key === 'stockStatus') {
+          const statusSource = row.stockStatusSkus.find((item) => item.skuCode === sku.skuCode) ?? {
+            skuCode: sku.skuCode,
+            available: sku.stock?.mode === 'single-unit' ? Number(sku.stock.available ?? 0) : 0,
+            reorderMin: sku.profile?.reorderMin ?? null,
+            safetyStock: sku.profile?.safetyStock ?? null,
+            lastReceivedAt: sku.stock?.lastReceivedAt ?? null,
+          }
+          return stockStatusBadge(resolveSkuStockStatus(statusSource), `${row.id}:${sku.id}:stock-status`)
         }
         if (key === 'baseUnit') return variantStack(<strong>{formatProductUnit(sku.baseUnitCode)}</strong>)
         if (key === 'price') {
@@ -1264,7 +1338,7 @@ function toggleVariantRow(rowId: string) {
             data-column-resizer={column.key}
             data-resizing="false"
             role="separator"
-            aria-label={`ปรับความกว้างคอลัมน์ ${labels[column.key]}`}
+            aria-label={`ปรับความกว้างคอลัมน์ ${labels[column.key]} ลากเพื่อปรับ หรือดับเบิลคลิกเพื่อปรับให้พอดี`}
             aria-orientation="vertical"
             aria-valuemin={96}
             aria-valuemax={520}
@@ -1274,7 +1348,9 @@ function toggleVariantRow(rowId: string) {
             onPointerMove={(event) => moveColumnResize(event, column.key)}
             onPointerUp={stopColumnResize}
             onPointerCancel={stopColumnResize}
+            onDoubleClick={() => autoFitColumn(column)}
             onKeyDown={(event) => resizeColumnWithKeyboard(event, column)}
+            title="ลากเพื่อปรับความกว้าง · ดับเบิลคลิกเพื่อปรับให้พอดีกับข้อมูล"
           />
         </th>)}<th className="product-grid-actions-column product-grid-actions-column-header"><span className="product-grid-actions-header-icon" title="การดำเนินการ"><span aria-hidden="true">⋯</span><span className="sr-only">การดำเนินการ</span></span></th></tr></thead>
         <tbody>{displayedRows.map((row) => <Fragment key={row.id}><tr data-selected={selectedRows.has(row.id)} data-expanded={expandedRows.has(row.id)}><td className={`product-grid-selection product-grid-selection-pinned${lastPinnedKey ? '' : ' product-grid-pinned-boundary'}`}><input type="checkbox" aria-label={`เลือก ${row.name}`} checked={selectedRows.has(row.id)} onChange={(event) => toggleRow(row.id, event.target.checked)} /></td>{visibleColumns.map((column) => cell(row, column.key))}<td className="product-grid-actions-column"><button className="product-grid-row-action" type="button" data-tooltip="การดำเนินการ" aria-label={`เปิดเมนู ${row.name}`} aria-describedby={copyTooltip?.key === `${row.id}:actions` ? 'product-grid-copy-tooltip' : undefined} aria-haspopup="menu" aria-expanded={rowMenu?.rowId === row.id && !rowMenu.skuId} onMouseEnter={(event) => showCopyTooltip(event.currentTarget, `${row.id}:actions`, 'การดำเนินการ')} onMouseLeave={() => setCopyTooltip(null)} onFocus={(event) => showCopyTooltip(event.currentTarget, `${row.id}:actions`, 'การดำเนินการ')} onBlur={() => setCopyTooltip(null)} onClick={(event) => { setCopyTooltip(null); rowMenu?.rowId === row.id && !rowMenu.skuId ? setRowMenu(null) : openRowMenu(event.currentTarget, row.id) }} onKeyDown={(event) => {
@@ -1290,6 +1366,7 @@ function toggleVariantRow(rowId: string) {
         <div><strong>{row.name}</strong>{productStatusControl(row)}</div>
         <p>{row.skuPreview[0]?.salesCode || 'ไม่มีรหัส CF'} · {row.skuCount} SKU</p>
         <small>{row.stock.mode === 'single-unit' ? `Stock ${row.stock.onHand} · Available ${row.stock.available}` : row.stock.mode === 'mixed-units' ? 'Stock หลายหน่วย' : 'ยังไม่มียอด Stock'}</small>
+        <div className="product-grid-mobile-stock-status">{stockStatusBadge(resolveProductStockStatus(row), `${row.id}:mobile-stock-status`)}</div>
         {row.skuCount > 1 ? <button className="product-grid-mobile-variant-toggle" type="button" aria-expanded={expandedRows.has(row.id)} aria-controls={`product-grid-variants-${row.id}-mobile`} onClick={() => toggleVariantRow(row.id)}>{expandedRows.has(row.id) ? 'ซ่อนตัวเลือก' : `ดู ${row.skuCount} ตัวเลือก`}</button> : null}
         {expandedRows.has(row.id) && row.skuCount > 1 ? variantPanel(row, 'mobile') : null}
         <Link className="product-row-link" href={detailHref({ organizationId, search, status, dateField, dateFrom, dateTo, brandId, categoryId, tagIds, priceMin, priceMax, stockMin, stockMax, sort, productId: row.id, page: currentPage, pageSize, bulkSearchActive })}>ดูรายละเอียด</Link>
@@ -1341,8 +1418,8 @@ function toggleVariantRow(rowId: string) {
       items[(Math.max(currentIndex, 0) + delta + items.length) % items.length]?.focus()
     }}>
       <Link role="menuitem" href={detailHref({ organizationId, search, status, dateField, dateFrom, dateTo, brandId, categoryId, tagIds, priceMin, priceMax, stockMin, stockMax, sort, productId: rowMenu.rowId, skuId: rowMenu.skuId, page: currentPage, pageSize, bulkSearchActive })}><IconEye aria-hidden="true" /> <span>Quick View</span></Link>
-      <Link role="menuitem" href={detailHref({ organizationId, search, status, dateField, dateFrom, dateTo, brandId, categoryId, tagIds, priceMin, priceMax, stockMin, stockMax, sort, productId: rowMenu.rowId, skuId: rowMenu.skuId, page: currentPage, pageSize, bulkSearchActive, action: 'edit' })}><IconEdit aria-hidden="true" /> <span>แก้ไขสินค้า</span></Link>
-      <Link role="menuitem" href={detailHref({ organizationId, search, status, dateField, dateFrom, dateTo, brandId, categoryId, tagIds, priceMin, priceMax, stockMin, stockMax, sort, productId: rowMenu.rowId, skuId: rowMenu.skuId, page: currentPage, pageSize, bulkSearchActive, action: 'skus' })}><IconPackages aria-hidden="true" /> <span>จัดการ SKU</span></Link>
+      <Link role="menuitem" href={detailHref({ organizationId, search, status, dateField, dateFrom, dateTo, brandId, categoryId, tagIds, priceMin, priceMax, stockMin, stockMax, sort, productId: rowMenu.rowId, skuId: rowMenu.skuId, page: currentPage, pageSize, bulkSearchActive, action: 'edit' })}><IconEdit aria-hidden="true" /><span className="product-grid-row-menu-copy"><strong>แก้ไขข้อมูลสินค้า</strong><small>ชื่อ รูปภาพ หมวดหมู่ และข้อมูลส่วนกลาง</small></span></Link>
+      <Link role="menuitem" href={detailHref({ organizationId, search, status, dateField, dateFrom, dateTo, brandId, categoryId, tagIds, priceMin, priceMax, stockMin, stockMax, sort, productId: rowMenu.rowId, skuId: rowMenu.skuId, page: currentPage, pageSize, bulkSearchActive, action: 'skus' })}><IconPackages aria-hidden="true" /><span className="product-grid-row-menu-copy"><strong>จัดการ SKU / ตัวเลือก</strong><small>รหัส SKU รหัสขาย ราคา และสถานะ</small></span></Link>
     </div> : null}
     {quickEdit ? <div ref={quickEditRef} className="product-grid-quick-editor" data-kind={quickEdit.kind} role="dialog" aria-modal="false" aria-labelledby="product-grid-quick-editor-title" style={{ left: quickEdit.left, top: quickEdit.top }}>
       <header><div><h2 id="product-grid-quick-editor-title">{quickEdit.kind === 'price' ? 'แก้ไขราคาขาย' : quickEdit.kind === 'cost' ? 'แก้ไขราคาต้นทุน' : quickEdit.kind === 'inventoryPolicy' ? 'แก้ไขนโยบายสต๊อก' : 'ปรับจำนวนสต๊อก'}</h2><p title={`${quickEdit.row.name} · ${quickEdit.sku.skuCode}`}>{quickEdit.row.name} · <span className="product-code">{quickEdit.sku.skuCode}</span></p></div><button type="button" aria-label="ปิด" disabled={quickEditPending} onClick={() => setQuickEdit(null)}>×</button></header>

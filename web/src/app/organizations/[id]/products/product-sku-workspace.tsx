@@ -1,9 +1,10 @@
 'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useMemo, useRef, useState, useTransition, type FormEvent } from 'react'
-import { executeFoundationCommandAction } from '@/app/actions/foundation'
+import { useEffect, useMemo, useRef, useState, useTransition, type ChangeEvent, type FormEvent } from 'react'
+import { executeFoundationCommandAction, executeProductImageCleanupAction } from '@/app/actions/foundation'
 import {
   OperationsEmptyState,
   OperationsStatusBadge,
@@ -15,6 +16,13 @@ import type {
   ProductWorkspaceSkuDetail,
   SkuReadModel,
 } from '@/lib/foundation/repositories'
+import { createClient } from '@/lib/supabase/browser'
+import {
+  PRODUCT_IMAGE_MAX_FILES,
+  uploadPreparedProductImage,
+  validateProductImageFile,
+  type PreparedProductImage,
+} from '@/lib/foundation/product-image-upload'
 import { ProductDetailSheet } from './product-detail-sheet'
 import { ProductsDataGrid } from './products-data-grid'
 
@@ -28,6 +36,12 @@ type PendingLifecycle = {
   id: string
   version: number
   label: string
+}
+
+type ProductEditorImageDraft = {
+  id: string
+  file: File
+  previewUrl: string
 }
 
 type Props = {
@@ -189,7 +203,11 @@ export function ProductSkuWorkspace({
   const advancedFilterButtonRef = useRef<HTMLButtonElement>(null)
   const tagComboboxRef = useRef<HTMLDivElement>(null)
   const tagSearchInputRef = useRef<HTMLInputElement>(null)
-  const [editorMode, setEditorMode] = useState<EditorMode>(null)
+  const [editorMode, setEditorMode] = useState<EditorMode>(() => {
+    if (selectedProduct && productAction === 'edit' && canManage) return 'edit-product'
+    if (selectedProduct && selectedSku && productAction === 'price' && canManage) return 'edit-price'
+    return null
+  })
   const [bulkSearchOpen, setBulkSearchOpen] = useState(false)
   const [bulkCodes, setBulkCodes] = useState(bulkSearchActive ? search.replaceAll(',', '\n') : '')
   const [bulkSearchAttempted, setBulkSearchAttempted] = useState(false)
@@ -212,6 +230,9 @@ export function ProductSkuWorkspace({
   const [stockMaxFilter, setStockMaxFilter] = useState(stockMax)
   const [advancedFilterError, setAdvancedFilterError] = useState('')
   const [feedback, setFeedback] = useState<{ tone: 'success' | 'danger' | 'info'; text: string; code?: string } | null>(null)
+  const [editorImageDrafts, setEditorImageDrafts] = useState<ProductEditorImageDraft[]>([])
+  const [editorCoverImageId, setEditorCoverImageId] = useState('')
+  const [editorImageError, setEditorImageError] = useState('')
   const [pendingLifecycle, setPendingLifecycle] = useState<PendingLifecycle | null>(null)
   const [isPending, startTransition] = useTransition()
   const [, startSearchTransition] = useTransition()
@@ -225,18 +246,36 @@ export function ProductSkuWorkspace({
   const foundBulkCodes = uniqueBulkCodes.filter((code) => knownIdentifiers.has(code))
   const missingBulkCodes = uniqueBulkCodes.filter((code) => !knownIdentifiers.has(code))
   const activeBulkCodes = bulkSearchActive ? Array.from(new Set(search.split(',').map(normalizeBulkCode).filter(Boolean))).slice(0, 50) : []
+  const closeDetailHref = buildHref(organizationId, {
+    view,
+    q: search,
+    status,
+    date_by: dateFrom || dateTo ? dateField : undefined,
+    date_from: dateFrom,
+    date_to: dateTo,
+    sort,
+    page: view === 'products' ? String(productPage) : undefined,
+    page_size: view === 'products' ? String(productPageSize) : undefined,
+    bulk: bulkSearchActive ? '1' : undefined,
+  })
 
   useEffect(() => {
     if (!editorMode) return
     firstFieldRef.current?.focus()
     function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === 'Escape' && !isPending) setEditorMode(null)
+      if (event.key !== 'Escape' || isPending) return
+      if (productAction === 'edit' || productAction === 'price') router.replace(closeDetailHref)
+      else setEditorMode(null)
     }
     window.addEventListener('keydown', closeOnEscape)
     return () => window.removeEventListener('keydown', closeOnEscape)
-  }, [editorMode, isPending])
+  }, [closeDetailHref, editorMode, isPending, productAction, router])
 
   useEffect(() => {
+    if (productAction === '' && (editorMode === 'edit-product' || editorMode === 'edit-price')) {
+      setEditorMode(null)
+      return
+    }
     if (!selectedProduct) return
     if (productAction === 'edit' && canManage) {
       setEditorMode('edit-product')
@@ -247,7 +286,17 @@ export function ProductSkuWorkspace({
       return
     }
     if (productAction === 'price' && canManage && selectedSku) setEditorMode('edit-price')
-  }, [canManage, productAction, selectedProduct, selectedSku])
+  }, [canManage, editorMode, productAction, selectedProduct, selectedSku])
+
+  useEffect(() => {
+    if (editorMode !== 'edit-product' || !selectedProduct) return
+    setEditorCoverImageId(selectedProduct.images.find((image) => image.isCover)?.id ?? selectedProduct.images[0]?.id ?? '')
+    setEditorImageError('')
+    setEditorImageDrafts((current) => {
+      current.forEach((image) => URL.revokeObjectURL(image.previewUrl))
+      return []
+    })
+  }, [editorMode, selectedProduct])
 
   useEffect(() => {
     if (!feedback || feedback.tone === 'danger') return
@@ -481,6 +530,159 @@ export function ProductSkuWorkspace({
     setEditorMode(mode)
   }
 
+  function closeEditor() {
+    if (isPending) return
+    editorImageDrafts.forEach((image) => URL.revokeObjectURL(image.previewUrl))
+    setEditorImageDrafts([])
+    setEditorImageError('')
+    if (productAction === 'edit' || productAction === 'price') router.replace(closeDetailHref)
+    else setEditorMode(null)
+  }
+
+  function selectProductEditorImages(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? [])
+    event.target.value = ''
+    if (!files.length || !selectedProduct) return
+    const remainingSlots = Math.max(0, PRODUCT_IMAGE_MAX_FILES - selectedProduct.images.length - editorImageDrafts.length)
+    if (!remainingSlots) {
+      setEditorImageError(`สินค้าเพิ่มรูปได้สูงสุด ${PRODUCT_IMAGE_MAX_FILES} รูป`)
+      return
+    }
+    const accepted: ProductEditorImageDraft[] = []
+    for (const file of files.slice(0, remainingSlots)) {
+      try {
+        validateProductImageFile(file)
+        accepted.push({ id: crypto.randomUUID(), file, previewUrl: URL.createObjectURL(file) })
+      } catch {
+        setEditorImageError('รองรับ JPEG, PNG หรือ WebP และแต่ละรูปต้องไม่เกิน 5 MB')
+      }
+    }
+    if (files.length > remainingSlots) setEditorImageError(`เลือกได้อีก ${remainingSlots} รูปเท่านั้น (สูงสุด ${PRODUCT_IMAGE_MAX_FILES} รูป)`)
+    else if (accepted.length) setEditorImageError('')
+    setEditorImageDrafts((current) => [...current, ...accepted])
+  }
+
+  function removeProductEditorImageDraft(id: string) {
+    setEditorImageDrafts((current) => {
+      const target = current.find((image) => image.id === id)
+      if (target) URL.revokeObjectURL(target.previewUrl)
+      return current.filter((image) => image.id !== id)
+    })
+  }
+
+  async function executeEditorCommand(commandType: string, payload: Record<string, unknown>) {
+    return executeFoundationCommandAction({
+      kind: 'entity',
+      commandId: crypto.randomUUID(),
+      organizationId,
+      commandType,
+      payload,
+    })
+  }
+
+  async function uploadProductEditorImages(product: ProductWorkspaceDetail, productName: string) {
+    const existingImageIds = product.images.map((image) => image.id)
+    if (!editorImageDrafts.length) {
+      const currentCoverImageId = product.images.find((image) => image.isCover)?.id ?? existingImageIds[0]
+      if (existingImageIds.length && editorCoverImageId && editorCoverImageId !== currentCoverImageId) {
+        const reordered = await executeEditorCommand('product.images.reorder', {
+          product_id: product.id,
+          image_ids: existingImageIds,
+          cover_image_id: editorCoverImageId,
+        })
+        if (!reordered.ok) throw new Error(reordered.error)
+      }
+      return existingImageIds
+    }
+    const client = createClient()
+    const uploadedIds: string[] = []
+    for (let index = 0; index < editorImageDrafts.length; index += 1) {
+      const draft = editorImageDrafts[index]
+      let reservation: PreparedProductImage | null = null
+      try {
+        const prepared = await executeEditorCommand('product.image.prepare', {
+          product_id: product.id,
+          original_file_name: draft.file.name,
+          mime_type: draft.file.type,
+          file_size_bytes: draft.file.size,
+          alt_text: `${productName} รูปที่ ${product.images.length + index + 1}`.slice(0, 160),
+        })
+        if (!prepared.ok) throw new Error(prepared.error)
+        reservation = prepared.data as PreparedProductImage
+        await uploadPreparedProductImage(client, reservation, draft.file)
+        const finalized = await executeEditorCommand('product.image.finalize', {
+          image_id: reservation.entity_id,
+          expected_version: reservation.version,
+        })
+        if (!finalized.ok) throw new Error(finalized.error)
+        uploadedIds.push(reservation.entity_id)
+      } catch (error) {
+        if (reservation) {
+          await executeProductImageCleanupAction({
+            kind: 'entity',
+            commandId: crypto.randomUUID(),
+            organizationId,
+            commandType: 'product.image.fail',
+            payload: {
+              image_id: reservation.entity_id,
+              expected_version: reservation.version,
+              failure_reason: error instanceof Error ? error.message.slice(0, 500) : 'client_upload_failed',
+            },
+          })
+        }
+        throw error
+      }
+    }
+    const imageIds = [...existingImageIds, ...uploadedIds]
+    const coverImageId = imageIds.includes(editorCoverImageId) ? editorCoverImageId : imageIds[0]
+    if (imageIds.length && coverImageId) {
+      const reordered = await executeEditorCommand('product.images.reorder', {
+        product_id: product.id,
+        image_ids: imageIds,
+        cover_image_id: coverImageId,
+      })
+      if (!reordered.ok) throw new Error(reordered.error)
+    }
+    return imageIds
+  }
+
+  function submitProductEditor(data: FormData, product: ProductWorkspaceDetail) {
+    const name = String(data.get('name') ?? '').trim()
+    const tagIds = data.getAll('tagIds').map(String)
+    setFeedback(null)
+    startTransition(async () => {
+      try {
+        const metadata = await executeEditorCommand('product.metadata.update', {
+          product_id: product.id,
+          expected_version: product.version,
+          category_id: String(data.get('categoryId') ?? '') || null,
+          brand_id: String(data.get('brandId') ?? '') || null,
+          structure_type: product.structureType,
+          internal_note: String(data.get('internalNote') ?? '').trim() || null,
+          tag_ids: tagIds,
+        })
+        if (!metadata.ok) throw new Error(metadata.error)
+        const nextVersion = Number(metadata.data.version)
+        const general = await executeEditorCommand('product.update', {
+          product_id: product.id,
+          expected_version: Number.isFinite(nextVersion) ? nextVersion : product.version + 1,
+          name,
+          description: String(data.get('description') ?? '').trim(),
+        })
+        if (!general.ok) throw new Error(general.error)
+        await uploadProductEditorImages(product, name)
+        editorImageDrafts.forEach((image) => URL.revokeObjectURL(image.previewUrl))
+        setEditorImageDrafts([])
+        setFeedback({ tone: 'success', text: 'บันทึกข้อมูลสินค้าเรียบร้อยแล้ว' })
+        router.replace(closeDetailHref)
+        router.refresh()
+      } catch (error) {
+        const code = error instanceof Error ? error.message : 'foundation_command_failed'
+        setFeedback({ tone: 'danger', text: errorLabels[code] ?? 'บันทึกข้อมูลบางส่วนไม่สำเร็จ กรุณารีเฟรชแล้วตรวจสอบอีกครั้ง', code })
+      }
+    })
+  }
+
   function runCommand(commandType: string, payload: Record<string, unknown>) {
     setFeedback(null)
     startTransition(async () => {
@@ -496,8 +698,11 @@ export function ProductSkuWorkspace({
         return
       }
       setFeedback({ tone: 'success', text: 'บันทึกข้อมูลเรียบร้อยแล้ว' })
-      setEditorMode(null)
-      router.refresh()
+      if (productAction === 'edit' || productAction === 'price') router.replace(closeDetailHref)
+      else {
+        setEditorMode(null)
+        router.refresh()
+      }
     })
   }
 
@@ -512,12 +717,7 @@ export function ProductSkuWorkspace({
         description: String(data.get('description') ?? '').trim(),
       })
     } else if (editorMode === 'edit-product' && selectedProduct) {
-      runCommand('product.update', {
-        product_id: selectedProduct.id,
-        expected_version: selectedProduct.version,
-        name,
-        description: String(data.get('description') ?? '').trim(),
-      })
+      submitProductEditor(data, selectedProduct)
     } else if (editorMode === 'create-sku') {
       runCommand('sku.create', {
         product_id: String(data.get('productId') ?? ''),
@@ -585,18 +785,6 @@ export function ProductSkuWorkspace({
     navigateFilters(codes.join(','), status, 'push', true)
   }
 
-  const closeDetailHref = buildHref(organizationId, {
-    view,
-    q: search,
-    status,
-    date_by: dateFrom || dateTo ? dateField : undefined,
-    date_from: dateFrom,
-    date_to: dateTo,
-    sort,
-    page: view === 'products' ? String(productPage) : undefined,
-    page_size: view === 'products' ? String(productPageSize) : undefined,
-    bulk: bulkSearchActive ? '1' : undefined,
-  })
   const nextHref = buildHref(organizationId, {
     view,
     q: search,
@@ -1061,11 +1249,12 @@ export function ProductSkuWorkspace({
     </nav> : null}
     </section>
 
-    <ProductDetailSheet
+    {!editorMode ? <ProductDetailSheet
       selectedProduct={selectedProduct}
       selectedSku={selectedSku}
       closeHref={closeDetailHref}
-            canReadCost={canReadCost}/>
+      canReadCost={canReadCost}
+    /> : null}
 
     {bulkSearchOpen ? <div className="product-modal-backdrop product-bulk-search-backdrop" role="presentation" onMouseDown={(event) => {
       if (event.target === event.currentTarget) setBulkSearchOpen(false)
@@ -1095,22 +1284,67 @@ export function ProductSkuWorkspace({
       </section>
     </div> : null}
 
-    {editorMode ? <div className="product-modal-backdrop" role="presentation" onMouseDown={(event) => {
-      if (event.target === event.currentTarget && !isPending) setEditorMode(null)
+    {editorMode ? <div className="product-modal-backdrop product-single-editor-backdrop" role="presentation" onMouseDown={(event) => {
+      if (event.target === event.currentTarget) closeEditor()
     }}>
-      <section className="product-editor-dialog" role="dialog" aria-modal="true" aria-labelledby="product-editor-title">
-        <header><div><div className="eyebrow">Product/SKU command</div><h2 id="product-editor-title">{editorMode === 'create-product' ? 'เพิ่ม Product' : editorMode === 'create-sku' ? 'เพิ่ม SKU' : editorMode === 'edit-product' ? 'แก้ไข Product' : editorMode === 'edit-price' ? 'แก้ไขราคาขาย' : 'แก้ไข SKU'}</h2></div><button className="button secondary compact" type="button" disabled={isPending} onClick={() => setEditorMode(null)}>ปิด</button></header>
+      <section className="product-editor-dialog product-single-editor-dialog" role="dialog" aria-modal="true" aria-labelledby="product-editor-title">
+        <header><div><div className="eyebrow">ข้อมูลสินค้า</div><h2 id="product-editor-title">{editorMode === 'create-product' ? 'เพิ่มสินค้า' : editorMode === 'create-sku' ? 'เพิ่ม SKU' : editorMode === 'edit-product' ? 'แก้ไขข้อมูลสินค้า' : editorMode === 'edit-price' ? 'แก้ไขราคาขาย' : 'แก้ไข SKU'}</h2></div><button className="product-single-editor-close" type="button" aria-label="ปิดหน้าต่าง" disabled={isPending} onClick={closeEditor}>×</button></header>
         <form onSubmit={submitEditor}>
+          {editorMode === 'edit-product' && selectedProduct ? <div className="product-complete-editor">
+            <section className="product-complete-editor-section" aria-labelledby="product-edit-general-title">
+              <div className="product-complete-editor-heading"><span className="product-complete-editor-step">1</span><div><h3 id="product-edit-general-title">ข้อมูลทั่วไป</h3><p>แก้ไขชื่อและคำอธิบายที่แสดงในรายการสินค้า</p></div></div>
+              <div className="product-complete-editor-fields">
+                <label className="field-stack"><span className="product-single-editor-label">ชื่อสินค้า <b aria-hidden="true">*</b></span><input ref={firstFieldRef} name="name" required maxLength={160} defaultValue={selectedProduct.name} /></label>
+                <label className="field-stack"><span className="product-single-editor-label">คำอธิบาย <small>(ไม่บังคับ)</small></span><textarea name="description" maxLength={2000} defaultValue={selectedProduct.description ?? ''} /></label>
+              </div>
+            </section>
+
+            <section className="product-complete-editor-section" aria-labelledby="product-edit-images-title">
+              <div className="product-complete-editor-heading"><span className="product-complete-editor-step">2</span><div><h3 id="product-edit-images-title">รูปภาพสินค้า</h3><p>เพิ่มรูปใหม่ได้สูงสุด {PRODUCT_IMAGE_MAX_FILES} รูป และคลิกรูปเดิมเพื่อเลือกเป็นภาพปก</p></div></div>
+              <div className="product-editor-image-grid">
+                {selectedProduct.images.map((image) => <button className={`product-editor-image ${editorCoverImageId === image.id ? 'selected' : ''}`} type="button" key={image.id} onClick={() => setEditorCoverImageId(image.id)} aria-pressed={editorCoverImageId === image.id}>
+                  <Image src={image.signedUrl} alt={image.altText ?? selectedProduct.name} width={112} height={112} unoptimized />
+                  <span>{editorCoverImageId === image.id ? 'ภาพปก' : 'เลือกเป็นภาพปก'}</span>
+                </button>)}
+                {editorImageDrafts.map((image) => <div className="product-editor-image product-editor-image-new" key={image.id}>
+                  <Image src={image.previewUrl} alt={`รูปใหม่ ${image.file.name}`} width={112} height={112} unoptimized />
+                  <span>รูปใหม่</span>
+                  <button type="button" aria-label={`นำ ${image.file.name} ออก`} onClick={() => removeProductEditorImageDraft(image.id)}>×</button>
+                </div>)}
+                {selectedProduct.images.length + editorImageDrafts.length < PRODUCT_IMAGE_MAX_FILES ? <label className="product-editor-image-add">
+                  <input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={selectProductEditorImages} />
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="9" cy="10" r="2" /><path d="m5 18 5-5 3 3 2-2 4 4" /></svg>
+                  <strong>เพิ่มรูปภาพ</strong><small>JPEG, PNG, WebP</small>
+                </label> : null}
+              </div>
+              {editorImageError ? <div className="product-feedback danger" role="alert">{editorImageError}</div> : null}
+            </section>
+
+            <section className="product-complete-editor-section" aria-labelledby="product-edit-classification-title">
+              <div className="product-complete-editor-heading"><span className="product-complete-editor-step">3</span><div><h3 id="product-edit-classification-title">หมวดหมู่และการจัดกลุ่ม</h3><p>กำหนดหมวดหมู่ แบรนด์ และ Tags สำหรับค้นหาและจัดสินค้า</p></div></div>
+              <div className="product-complete-editor-fields form-grid-two">
+                <label className="field-stack">หมวดหมู่<span className="product-select-control"><select name="categoryId" defaultValue={selectedProduct.category?.id ?? ''}><option value="">ไม่ระบุหมวดหมู่</option>{categoryOptions.filter((item) => item.status !== 'archived' || item.id === selectedProduct.category?.id).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></span></label>
+                <label className="field-stack">แบรนด์<span className="product-select-control"><select name="brandId" defaultValue={selectedProduct.brand?.id ?? ''}><option value="">ไม่มีแบรนด์</option>{brandOptions.filter((item) => item.status !== 'archived' || item.id === selectedProduct.brand?.id).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></span></label>
+              </div>
+              <fieldset className="product-editor-tags"><legend>Tags <small>(เลือกได้หลายรายการ)</small></legend><div>{tagOptions.filter((item) => item.status !== 'archived' || selectedProduct.tags.some((tag) => tag.id === item.id)).map((item) => <label key={item.id}><input type="checkbox" name="tagIds" value={item.id} defaultChecked={selectedProduct.tags.some((tag) => tag.id === item.id)} /><span>{item.name}</span></label>)}</div></fieldset>
+            </section>
+
+            <section className="product-complete-editor-section" aria-labelledby="product-edit-shared-title">
+              <div className="product-complete-editor-heading"><span className="product-complete-editor-step">4</span><div><h3 id="product-edit-shared-title">ข้อมูลส่วนกลาง</h3><p>ข้อมูลระดับ Product ที่ทุก SKU ภายใต้สินค้านี้ใช้อ้างอิงร่วมกัน</p></div></div>
+              <div className="product-editor-shared-summary"><div><span>รูปแบบสินค้า</span><strong>{selectedProduct.structureType === 'variant' ? 'มีตัวเลือกหลายรายการ' : selectedProduct.structureType === 'bundle' ? 'Bundle / Kit' : 'สินค้าปกติ'}</strong></div><div><span>สถานะ</span><strong>{statusLabels[selectedProduct.status] ?? selectedProduct.status}</strong></div><div><span>จำนวน SKU</span><strong>{selectedProduct.skuCount} รายการ</strong></div></div>
+              <label className="field-stack"><span className="product-single-editor-label">บันทึกภายใน <small>(ไม่แสดงให้ลูกค้าเห็น)</small></span><textarea name="internalNote" maxLength={4000} defaultValue={selectedProduct.internalNote ?? ''} /></label>
+            </section>
+          </div> : null}
           {editorMode === 'edit-price' && selectedSku ? <><div className="product-immutable-fields" role="note"><div><span>สินค้า / SKU</span><strong>{selectedSku.productName} · <span className="product-code">{selectedSku.skuCode}</span></strong></div><p>แก้ไขเฉพาะราคาขายของ SKU นี้ ระบบจะบันทึกผ่านคำสั่งที่มี Audit Log</p></div><label className="field-stack">ราคาขาย (บาท)<input ref={firstFieldRef} name="salePrice" type="number" inputMode="decimal" min="0" step="0.01" required defaultValue={selectedSku.profile?.salePrice ?? ''} placeholder="0.00" /></label></> : null}
-          {(editorMode === 'create-sku') ? <label className="field-stack">Product<select name="productId" required defaultValue={selectedProduct?.id ?? ''}><option value="" disabled>เลือก Product</option>{productOptions.filter((product) => product.status !== 'archived').map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</select></label> : null}
+          {(editorMode === 'create-sku') ? <label className="field-stack">Product<span className="product-select-control"><select name="productId" required defaultValue={selectedProduct?.id ?? ''}><option value="" disabled>เลือก Product</option>{productOptions.filter((product) => product.status !== 'archived').map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</select></span></label> : null}
           {(editorMode === 'create-sku') ? <label className="field-stack">SKU Code<input ref={firstFieldRef} name="skuCode" required maxLength={80} autoComplete="off" placeholder="เช่น SHIRT-BLK-M" /></label> : null}
-          {editorMode !== 'edit-price' ? <label className="field-stack">ชื่อ<input ref={editorMode === 'create-sku' ? undefined : firstFieldRef} name="name" required maxLength={160} defaultValue={selectedProduct?.name ?? selectedSku?.name ?? ''} /></label> : null}
-          {(editorMode === 'create-product' || editorMode === 'edit-product') ? <label className="field-stack">คำอธิบาย<textarea name="description" maxLength={2000} defaultValue={selectedProduct?.description ?? ''} /></label> : null}
+          {(editorMode !== 'edit-price' && editorMode !== 'edit-product') ? <label className="field-stack"><span className="product-single-editor-label">ชื่อสินค้า <b aria-hidden="true">*</b></span><input ref={editorMode === 'create-sku' ? undefined : firstFieldRef} name="name" required maxLength={160} defaultValue={selectedProduct?.name ?? selectedSku?.name ?? ''} /></label> : null}
+          {editorMode === 'create-product' ? <label className="field-stack"><span className="product-single-editor-label">คำอธิบาย <small>(ไม่บังคับ)</small></span><textarea name="description" maxLength={2000} defaultValue={selectedProduct?.description ?? ''} /></label> : null}
           {editorMode === 'edit-sku' && selectedSku ? <div className="product-immutable-fields" role="note"><div><span>SKU Code</span><strong className="product-code">{selectedSku.skuCode}</strong></div><div><span>Base Unit</span><strong>{selectedSku.baseUnitCode}</strong></div><p>สองค่านี้เป็นรหัสอ้างอิงถาวรและแก้ไขไม่ได้</p></div> : null}
           {(editorMode === 'create-sku' || editorMode === 'edit-sku') ? <div className="form-grid-two">{editorMode === 'edit-sku' && selectedSku?.salesCode ? <div className="field-stack product-readonly-field"><span>Sales Code</span><strong className="product-code">{selectedSku.salesCode}</strong><small>บันทึกถาวรแล้ว เปลี่ยนไม่ได้</small></div> : <label className="field-stack">Sales Code<input name="salesCode" maxLength={80} defaultValue={selectedSku?.salesCode ?? ''} placeholder="รหัส CF/ขาย" /><small>ตั้งได้ครั้งเดียวก่อนบันทึก</small></label>}<label className="field-stack">Barcode<input name="barcode" maxLength={128} defaultValue={selectedSku?.barcode ?? ''} inputMode="numeric" /></label></div> : null}
-          {editorMode === 'create-sku' ? <div className="form-grid-two"><label className="field-stack">Base Unit<input name="baseUnitCode" required maxLength={32} defaultValue="piece" /></label><label className="field-stack">สถานะ<select name="status" defaultValue="draft"><option value="draft">ฉบับร่าง</option><option value="active">ใช้งาน</option></select></label></div> : null}
+          {editorMode === 'create-sku' ? <div className="form-grid-two"><label className="field-stack">Base Unit<input name="baseUnitCode" required maxLength={32} defaultValue="piece" /></label><label className="field-stack">สถานะ<span className="product-select-control"><select name="status" defaultValue="draft"><option value="draft">ฉบับร่าง</option><option value="active">ใช้งาน</option></select></span></label></div> : null}
           {feedback?.tone === 'danger' ? <div className="product-feedback danger" role="alert">{feedback.text}</div> : null}
-          <footer><button className="button secondary" type="button" disabled={isPending} onClick={() => setEditorMode(null)}>ยกเลิก</button><button className="button" type="submit" disabled={isPending}>{isPending ? 'กำลังบันทึก…' : 'บันทึก'}</button></footer>
+          <footer><button className="button secondary" type="button" disabled={isPending} onClick={closeEditor}>ยกเลิก</button><button className="button" type="submit" disabled={isPending}>{isPending ? 'กำลังบันทึก…' : editorMode === 'edit-product' ? 'บันทึกการแก้ไข' : 'บันทึก'}</button></footer>
         </form>
       </section>
     </div> : null}

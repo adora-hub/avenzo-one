@@ -162,6 +162,13 @@ export function buildProductWorkspaceDetail(input: {
       : null,
     aggregateCapped: Boolean(input.aggregateCapped),
     stock,
+    stockStatusSkus: skus.map((sku) => ({
+      skuCode: sku.skuCode,
+      available: sku.stock.mode === 'single-unit' ? Number(sku.stock.available ?? 0) : 0,
+      reorderMin: sku.profile?.reorderMin ?? null,
+      safetyStock: sku.profile?.safetyStock ?? null,
+      lastReceivedAt: null,
+    })),
     skus,
     skuListCapped: Boolean(input.skuListCapped),
     images: [...(input.images ?? [])].sort((left, right) => left.sortOrder - right.sortOrder),

@@ -13,6 +13,7 @@ import type {
 export const PRODUCT_WORKSPACE_SKU_AGGREGATE_LIMIT = 5_000
 export const PRODUCT_WORKSPACE_BALANCE_AGGREGATE_LIMIT = 10_000
 export const PRODUCT_WORKSPACE_SKU_PREVIEW_LIMIT = 5
+export const PRODUCT_WORKSPACE_RECENT_RECEIPT_DAYS = 7
 
 export type ProductWorkspaceProductSource = {
   id: string
@@ -44,6 +45,11 @@ export type ProductWorkspaceBalanceSource = {
   allocated: number
   available: number
   branchCode: string | null
+}
+
+export type ProductWorkspaceReceiptSource = {
+  skuId: string
+  occurredAt: string
 }
 
 export type ProductWorkspaceImageSource = ProductImageReadModel
@@ -84,12 +90,13 @@ function summarizePrices(
 function summarizeSkuStock(input: {
   baseUnitCode: string
   balances: ProductWorkspaceBalanceSource[]
+  lastReceivedAt: string | null
   includeInventory: boolean
 }): ProductWorkspaceStockSummary {
   if (!input.includeInventory) {
     return {
       mode: 'not-authorized', baseUnitCode: input.baseUnitCode, onHand: null,
-      allocated: null, available: null, branchCodes: [],
+      allocated: null, available: null, branchCodes: [], lastReceivedAt: null,
     }
   }
   const branchCodes = Array.from(new Set(input.balances
@@ -99,7 +106,7 @@ function summarizeSkuStock(input: {
   if (!input.balances.length) {
     return {
       mode: 'no-balance', baseUnitCode: input.baseUnitCode, onHand: null,
-      allocated: null, available: null, branchCodes,
+      allocated: null, available: null, branchCodes, lastReceivedAt: input.lastReceivedAt,
     }
   }
   return {
@@ -109,12 +116,14 @@ function summarizeSkuStock(input: {
     allocated: input.balances.reduce((sum, balance) => sum + balance.allocated, 0),
     available: input.balances.reduce((sum, balance) => sum + balance.available, 0),
     branchCodes,
+    lastReceivedAt: input.lastReceivedAt,
   }
 }
 export function buildProductWorkspaceRows(input: {
   products: ProductWorkspaceProductSource[]
   skus: ProductWorkspaceSkuSource[]
   balances: ProductWorkspaceBalanceSource[]
+  receipts?: ProductWorkspaceReceiptSource[]
   images?: ProductWorkspaceImageSource[]
   variantImageAssignments?: Array<{ skuId: string; productImageId: string; isPrimary: boolean; sortOrder: number }>
   includeInventory: boolean
@@ -132,6 +141,14 @@ export function buildProductWorkspaceRows(input: {
     const rows = balancesBySku.get(balance.skuId) ?? []
     rows.push(balance)
     balancesBySku.set(balance.skuId, rows)
+  }
+
+  const lastReceivedAtBySku = new Map<string, string>()
+  for (const receipt of input.receipts ?? []) {
+    const current = lastReceivedAtBySku.get(receipt.skuId)
+    if (!current || Date.parse(receipt.occurredAt) > Date.parse(current)) {
+      lastReceivedAtBySku.set(receipt.skuId, receipt.occurredAt)
+    }
   }
 
   const imageById = new Map((input.images ?? []).map((image) => [image.id, image]))
@@ -159,7 +176,7 @@ export function buildProductWorkspaceRows(input: {
     if (!input.includeInventory) {
       stock = {
         mode: 'not-authorized', baseUnitCode, onHand: null, allocated: null,
-        available: null, branchCodes: [],
+        available: null, branchCodes: [], lastReceivedAt: null,
       }
     } else {
       const productBalances = productSkus.flatMap((sku) => balancesBySku.get(sku.id) ?? [])
@@ -171,12 +188,18 @@ export function buildProductWorkspaceRows(input: {
       if (productBalances.length === 0) {
         stock = {
           mode: 'no-balance', baseUnitCode, onHand: null, allocated: null,
-          available: null, branchCodes,
+          available: null, branchCodes, lastReceivedAt: productSkus
+            .map((sku) => lastReceivedAtBySku.get(sku.id) ?? null)
+            .filter((value): value is string => Boolean(value))
+            .sort((left, right) => Date.parse(right) - Date.parse(left))[0] ?? null,
         }
       } else if (distinctUnits.length > 1) {
         stock = {
           mode: 'mixed-units', baseUnitCode: null, onHand: null, allocated: null,
-          available: null, branchCodes,
+          available: null, branchCodes, lastReceivedAt: productSkus
+            .map((sku) => lastReceivedAtBySku.get(sku.id) ?? null)
+            .filter((value): value is string => Boolean(value))
+            .sort((left, right) => Date.parse(right) - Date.parse(left))[0] ?? null,
         }
       } else {
         stock = {
@@ -186,6 +209,10 @@ export function buildProductWorkspaceRows(input: {
           allocated: productBalances.reduce((sum, row) => sum + row.allocated, 0),
           available: productBalances.reduce((sum, row) => sum + row.available, 0),
           branchCodes,
+          lastReceivedAt: productSkus
+            .map((sku) => lastReceivedAtBySku.get(sku.id) ?? null)
+            .filter((value): value is string => Boolean(value))
+            .sort((left, right) => Date.parse(right) - Date.parse(left))[0] ?? null,
         }
       }
     }
@@ -210,6 +237,7 @@ export function buildProductWorkspaceRows(input: {
         stock: summarizeSkuStock({
           baseUnitCode: sku.baseUnitCode,
           balances: balancesBySku.get(sku.id) ?? [],
+          lastReceivedAt: lastReceivedAtBySku.get(sku.id) ?? null,
           includeInventory: input.includeInventory,
         }),
         cost: sku.cost,
@@ -233,6 +261,13 @@ export function buildProductWorkspaceRows(input: {
         : null,
       aggregateCapped: Boolean(input.aggregateCapped),
       stock,
+      stockStatusSkus: productSkus.map((sku) => ({
+        skuCode: sku.skuCode,
+        available: (balancesBySku.get(sku.id) ?? []).reduce((sum, balance) => sum + balance.available, 0),
+        reorderMin: sku.profile?.reorderMin ?? null,
+        safetyStock: sku.profile?.safetyStock ?? null,
+        lastReceivedAt: lastReceivedAtBySku.get(sku.id) ?? null,
+      })),
       coverImage: coverImageByProduct.get(product.id) ?? null,
     }
   })
