@@ -24,7 +24,7 @@ Implemented on localhost for Owner visual review. UI only; no Backend, API, data
 1. Open Rapid Entry and create the 50-row draft.
 2. Confirm the default view shows rows requiring work.
 3. Enter complete data in at least one row and invalid/partial data in another.
-4. Switch among `ต้องกรอก/ต้องแก้`, `ต้องแก้`, `พร้อมสร้าง`, and `ทั้งหมด`.
+4. Switch among `รอดำเนินการ`, `ข้อมูลไม่ครบ`, `พร้อมสร้าง`, and `ทั้งหมด`.
 5. Confirm counts and visible rows update immediately.
 6. Select a row, change the filter so it disappears, then return to `ทั้งหมด`; selection must remain.
 7. Confirm row number and Sales Code never change.

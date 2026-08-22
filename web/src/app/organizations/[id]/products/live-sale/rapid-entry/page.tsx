@@ -14,10 +14,11 @@ export default async function LiveSaleRapidEntryPage({ params }: Props) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/')
 
-  const [organizationResult, accessResult, platformAdminResult] = await Promise.all([
+  const [organizationResult, accessResult, platformAdminResult, categoryResult] = await Promise.all([
     supabase.from('organizations').select('id, name').eq('id', organizationId).maybeSingle(),
     supabase.rpc('current_user_organization_access', { p_organization_id: organizationId }),
     supabase.from('platform_admins').select('status').eq('user_id', user.id).maybeSingle(),
+    supabase.from('product_categories').select('id, name').eq('organization_id', organizationId).eq('status', 'active').order('name').limit(100),
   ])
 
   const organization = organizationResult.data
@@ -28,6 +29,7 @@ export default async function LiveSaleRapidEntryPage({ params }: Props) {
   if (!permissions.has('product.read')) redirect(`/organizations/${organizationId}`)
 
   let activeReservation: RapidRangeSelection | null = null
+  let assignedSalesCodes: string[] = []
   if (permissions.has('product.create')) {
     const { data: batch } = await supabase
       .from('sales_code_reservation_batches')
@@ -49,6 +51,14 @@ export default async function LiveSaleRapidEntryPage({ params }: Props) {
         .eq('id', batch.sequence_id)
         .maybeSingle()
       if (sequence?.prefix) {
+        const { data: assignedReservations } = await supabase
+          .from('sales_code_reservations')
+          .select('code')
+          .eq('organization_id', organizationId)
+          .eq('batch_id', batch.id)
+          .eq('status', 'assigned')
+          .order('sequence_number')
+        assignedSalesCodes = (assignedReservations ?? []).map((reservation) => reservation.code)
         activeReservation = {
           prefix: sequence.prefix,
           start: Number(batch.start_number),
@@ -79,6 +89,8 @@ export default async function LiveSaleRapidEntryPage({ params }: Props) {
         actorUserId={user.id}
         canManage={permissions.has('product.create')}
         activeReservation={activeReservation}
+        assignedSalesCodes={assignedSalesCodes}
+        categories={(categoryResult.data ?? []).map((category) => ({ id: category.id, name: category.name }))}
       />
     </section>
   </ApplicationShell>

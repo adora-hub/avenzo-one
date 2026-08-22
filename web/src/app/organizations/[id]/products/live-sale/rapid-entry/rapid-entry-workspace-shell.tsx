@@ -8,6 +8,8 @@ type Props = {
   actorUserId: string
   canManage: boolean
   activeReservation: RapidRangeSelection | null
+  assignedSalesCodes: string[]
+  categories: Array<{ id: string; name: string }>
 }
 
 function ArrowLeftIcon() {
@@ -22,7 +24,7 @@ function MonitorIcon() {
   return <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2" /><path d="M8 21h8M12 17v4" /></svg>
 }
 
-export function RapidEntryWorkspaceShell({ organizationId, organizationName, actorUserId, canManage, activeReservation }: Props) {
+export function RapidEntryWorkspaceShell({ organizationId, organizationName, actorUserId, canManage, activeReservation, assignedSalesCodes, categories }: Props) {
   const productsHref = `/organizations/${organizationId}/products`
 
   return <>
@@ -32,21 +34,21 @@ export function RapidEntryWorkspaceShell({ organizationId, organizationName, act
           <span className="live-sale-eyebrow">LIVE SALE · RAPID ENTRY</span>
           <div className="live-sale-title-line">
             <h1>กรอกสินค้าแบบตาราง</h1>
-            <span className="live-sale-preview-badge">UI PREVIEW</span>
+            <span className="live-sale-preview-badge">LOCAL BACKEND</span>
           </div>
           <p>เตรียมสินค้าและรหัสขายได้สูงสุด 50 รายการในพื้นที่เดียวสำหรับ {organizationName}</p>
         </div>
         <div className="live-sale-heading-actions">
           <Link className="button secondary" href={productsHref}><ArrowLeftIcon />กลับหน้าสินค้า</Link>
-          <button className="button" type="button" disabled>เริ่มตั้งค่าชุด 50 รหัส</button>
+          {canManage ? <a className="button" href="#rapidValidationTitle">ไปตรวจสอบก่อนสร้าง</a> : null}
         </div>
       </header>
 
       <section className="live-sale-preview-notice" role="note">
         <TableIcon />
         <div>
-          <strong>Rapid Entry · UI Preview เท่านั้น</strong>
-          <span>การตรวจ Prefix เป็นข้อมูลจำลอง ไม่จองรหัส ไม่สร้าง Product/SKU ไม่อัปโหลดรูป และไม่เปลี่ยนแปลง Stock จริง</span>
+          <strong>Rapid Entry · เชื่อม Local Backend แล้ว</strong>
+          <span>ระบบสร้าง Product/SKU แบบทั้งชุด อัปโหลดรูปผ่าน Private Storage และรับสต็อกผ่าน Atomic Batch; PREVIEW และ Production ยังไม่ถูกแก้ไข</span>
         </div>
       </section>
 
@@ -57,20 +59,20 @@ export function RapidEntryWorkspaceShell({ organizationId, organizationName, act
           <div>
             <span className="live-sale-rapid-kicker">รองรับคอมพิวเตอร์และ Tablet แนวนอน</span>
             <h2 id="rapidWorkspaceTitle">พื้นที่เตรียมสินค้าขายด่วน</h2>
-            <p>Viewport ขั้นต่ำ 1,024px · สูงสุด 50 แถวต่อหนึ่งชุด · UI Simulation</p>
+            <p>Viewport ขั้นต่ำ 1,024px · สูงสุด 50 แถวต่อหนึ่งชุด · Local Backend</p>
           </div>
           <span className="live-sale-rapid-limit-badge">สูงสุด 50 รายการ</span>
         </header>
 
         <ol className="live-sale-rapid-steps" aria-label="ขั้นตอนการเตรียมสินค้าแบบตาราง">
-          <li className="is-complete"><span>1</span><div><strong>ตรวจและจองรหัส</strong><small>UI Simulation พร้อมทดสอบ</small></div></li>
+          <li className="is-complete"><span>1</span><div><strong>ตรวจและจองรหัส</strong><small>จองช่วงจริง 3 ชั่วโมง</small></div></li>
           <li className="is-complete"><span>2</span><div><strong>กำหนดชื่อสินค้า</strong><small>เลือกรูปแบบชื่อและรหัสขาย</small></div></li>
           <li className="is-current"><span>3</span><div><strong>กรอกข้อมูลในตาราง</strong><small>โครงสร้าง 50 แถวพร้อมตรวจ</small></div></li>
           <li><span>4</span><div><strong>ตรวจสอบก่อนสร้าง</strong><small>สร้างครบทั้งชุดหรือไม่สร้างเลย</small></div></li>
         </ol>
 
         <div className="live-sale-rapid-stage-grid">
-          <RapidEntrySetupWorkspace organizationId={organizationId} actorUserId={actorUserId} canManage={canManage} activeReservation={activeReservation} />
+          <RapidEntrySetupWorkspace organizationId={organizationId} actorUserId={actorUserId} canManage={canManage} activeReservation={activeReservation} assignedSalesCodes={assignedSalesCodes} categories={categories} />
         </div>
       </section>
     </div>

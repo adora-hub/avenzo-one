@@ -32,11 +32,12 @@ test('Rapid-UI-01 identifies the page as Live Sale and returns directly to Produ
   assert.doesNotMatch(shell, /กลับ Live Sale|const liveSaleHref/)
 })
 
-test('Rapid-UI-01 shell states the 50-row scope and UI-only safety boundary', async () => {
+test('Rapid-UI-01 shell states the 50-row scope and local-backend safety boundary', async () => {
   const shell = await read('src/app/organizations/[id]/products/live-sale/rapid-entry/rapid-entry-workspace-shell.tsx')
   assert.match(shell, /สูงสุด 50 รายการ/)
   assert.match(shell, /Viewport ขั้นต่ำ 1,024px/)
-  assert.match(shell, /ไม่จองรหัส ไม่สร้าง Product\/SKU ไม่อัปโหลดรูป และไม่เปลี่ยนแปลง Stock จริง/)
+  assert.match(shell, /เชื่อม Local Backend แล้ว/)
+  assert.match(shell, /PREVIEW และ Production ยังไม่ถูกแก้ไข/)
   assert.match(shell, /<RapidEntrySetupWorkspace organizationId=\{organizationId\} actorUserId=\{actorUserId\} canManage=\{canManage\}/)
   assert.doesNotMatch(shell, /ขอบเขต V1|live-sale-rapid-scope-card/)
   assert.doesNotMatch(shell, /<table|fetch\(|supabase|executeFoundationCommandAction/)

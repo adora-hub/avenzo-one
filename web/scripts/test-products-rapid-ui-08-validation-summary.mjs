@@ -40,11 +40,13 @@ test('Rapid-UI-08 previews only selected ready rows and does not claim partial s
   assert.match(source, /ตัวอย่างก่อนส่งสร้าง/)
   assert.match(source, /พร้อมส่งต่อ \{selectedReadyRows\.length\} รายการ/)
   assert.match(source, /แถวว่างจะไม่ถูกนำมารวมในขั้นตอนนี้/)
-  assert.doesNotMatch(source, /สำเร็จบางส่วน/)
+  assert.match(source, /ไม่มีรายการสำเร็จบางส่วน/)
+  assert.doesNotMatch(source, /status:\s*['"]partial['"]/)
 })
 
-test('Rapid-UI-08 remains a local UI preview without backend writes', async () => {
+test('Rapid-UI-08 sends writes only through authenticated server actions', async () => {
   const source = await readFile(tablePath, 'utf8')
-  assert.match(source, /UI Preview เท่านั้น · ยังไม่มีการสร้าง Product, SKU, อัปโหลดภาพ หรือเพิ่ม Stock จริง/)
-  assert.doesNotMatch(source, /fetch\(|supabase|executeFoundationCommandAction|\.insert\(|\.update\(|\.rpc\(/)
+  assert.match(source, /executeGlobalSalesCodeCreationAction/)
+  assert.match(source, /executeRapidInitialStockWorkflowAction/)
+  assert.doesNotMatch(source, /fetch\(|supabase|\.insert\(|\.update\(|\.rpc\(/)
 })

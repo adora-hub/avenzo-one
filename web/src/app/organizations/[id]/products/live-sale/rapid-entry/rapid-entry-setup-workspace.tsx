@@ -14,9 +14,11 @@ type Props = {
   actorUserId: string
   canManage: boolean
   activeReservation: RapidRangeSelection | null
+  assignedSalesCodes: string[]
+  categories: Array<{ id: string; name: string }>
 }
 
-export function RapidEntrySetupWorkspace({ organizationId, actorUserId, canManage, activeReservation }: Props) {
+export function RapidEntrySetupWorkspace({ organizationId, actorUserId, canManage, activeReservation, assignedSalesCodes, categories }: Props) {
   const [selectedRange, setSelectedRange] = useState<RapidRangeSelection | null>(activeReservation)
   const [namingTemplate, setNamingTemplate] = useState('PayDay-{code}')
   const [pendingDraft, setPendingDraft] = useState<RapidBrowserDraft | null>(null)
@@ -126,8 +128,8 @@ export function RapidEntrySetupWorkspace({ organizationId, actorUserId, canManag
     </section> : null}
     <RapidPrefixAssistant organizationId={organizationId} canManage={editorEnabled} reservedRange={selectedRange} onRangeSelect={handleRangeSelect} />
     <RapidNamingTemplateBuilder selectedRange={selectedRange} canManage={editorEnabled} onTemplateChange={setNamingTemplate} />
-    <RapidEntryTable organizationId={organizationId} actorUserId={actorUserId} selectedRange={selectedRange} namingTemplate={namingTemplate} canManage={editorEnabled} reservationExpired={reservationExpired}
-      restoredDraft={restoredDraft} onDraftRestored={handleDraftRestored} onDraftSaved={handleDraftSaved} />
+    <RapidEntryTable organizationId={organizationId} actorUserId={actorUserId} selectedRange={selectedRange} namingTemplate={namingTemplate} canManage={editorEnabled} reservationExpired={reservationExpired} assignedSalesCodes={assignedSalesCodes}
+      restoredDraft={restoredDraft} onDraftRestored={handleDraftRestored} onDraftSaved={handleDraftSaved} categories={categories} />
     {discardOpen ? <div className="live-sale-rapid-bulk-dialog-backdrop" role="presentation"><section className="live-sale-rapid-bulk-dialog" role="dialog" aria-modal="true" aria-labelledby="rapidDiscardDraftTitle">
       <header><div><span className="live-sale-rapid-kicker">ยืนยันการล้างข้อมูล</span><h4 id="rapidDiscardDraftTitle">ล้าง Browser Draft ชุดนี้?</h4></div><button type="button" onClick={() => setDiscardOpen(false)} aria-label="ปิดหน้าต่างยืนยันล้าง Draft">×</button></header>
       <div><p>ข้อมูลที่กรอกในตารางและการเลือกต่าง ๆ จะถูกลบออกจาก Browser เครื่องนี้ และไม่สามารถกู้คืนได้</p>

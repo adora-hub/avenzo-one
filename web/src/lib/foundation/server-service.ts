@@ -12,6 +12,11 @@ import {
   type InitialStockWorkflowInput,
   type InitialStockWorkflowResult,
 } from './initial-stock-workflow'
+import {
+  executeRapidInitialStockWorkflow,
+  type RapidInitialStockInput,
+  type RapidInitialStockResult,
+} from './rapid-initial-stock-workflow'
 
 export async function executeFoundationServerCommand(
   command: FoundationApplicationCommand,
@@ -39,6 +44,27 @@ export async function executeInitialStockServerWorkflow(
     },
     receiveBatch: (request) => repository.receiveInitialStockBatch(request, actor.userId),
     normalizeError: (error) => mapFoundationError(error),
+  })
+}
+
+export async function executeRapidInitialStockServerWorkflow(
+  input: RapidInitialStockInput,
+): Promise<RapidInitialStockResult> {
+  const actor = await getFoundationActor(input.organizationId)
+  requireFoundationPermission(actor, 'product.update')
+  requireFoundationPermission(actor, 'inventory.receive', [input.branchId])
+  const repository = new SupabaseFoundationCommandRepository(createAdminClient())
+  return executeRapidInitialStockWorkflow(input, {
+    activate: (workflow) => executeInitialStockWorkflow(workflow, {
+      executeCommand: async (command) => {
+        const branchIds = await repository.resolveBranchIds(command)
+        return executeFoundationCommand({ actor, command, repository, branchIds })
+      },
+      receiveBatch: (request) => repository.receiveInitialStockBatch(request, actor.userId),
+      normalizeError: (error) => mapFoundationError(error),
+    }),
+    receive: (request) => repository.receiveInitialStockBatch(request, actor.userId),
+    newActivationWorkflowId: () => crypto.randomUUID(),
   })
 }
 

@@ -7,6 +7,12 @@ import { RAPID_BROWSER_DRAFT_VERSION, rapidBrowserDraftStorageKey, rapidReservat
 import type { RapidBrowserDraft } from './rapid-entry-browser-draft'
 import type { RapidRangeSelection } from './rapid-prefix-assistant'
 import { RapidSelectCombobox } from './rapid-select-combobox'
+import {
+  executeGlobalSalesCodeCreationAction,
+  executeRapidInitialStockWorkflowAction,
+  loadInitialStockDestinationsAction,
+} from '@/app/actions/foundation'
+import { runRapidEntryImagePipeline, type RapidImageRecoveryItem } from './rapid-entry-image-pipeline'
 
 type Props = {
   organizationId: string
@@ -15,29 +21,55 @@ type Props = {
   namingTemplate: string
   canManage: boolean
   reservationExpired: boolean
+  assignedSalesCodes: string[]
   restoredDraft: RapidBrowserDraft | null
   onDraftRestored: () => void
   onDraftSaved: (savedAt: string, message: string) => void
+  categories: Array<{ id: string; name: string }>
 }
 type EditableField = 'productName' | 'category' | 'price' | 'stock' | 'unit' | 'branch'
 type BulkAction = 'price' | 'stock' | 'unit' | 'category' | 'branch' | 'restore-name'
 type BulkTarget = 'selected' | 'all'
 type RapidStatusFilter = 'attention' | 'invalid' | 'ready' | 'all'
 type RapidImageDraft = { file: File; previewUrl: string }
-type RapidRowDraft = { index: number; salesCode: string; productName: string; category: string; price: string; stock: string; unit: string; branch: string; selected: boolean; nameOverridden: boolean; image: RapidImageDraft | null; imageFileName: string; imageError: string }
+type RapidRowDraft = { index: number; salesCode: string; productName: string; category: string; price: string; stock: string; unit: string; branch: string; selected: boolean; nameOverridden: boolean; image: RapidImageDraft | null; imageFileName: string; imageError: string; created: boolean }
 type EditingCell = { rowIndex: number; field: EditableField; originalValue: string; originalNameOverridden: boolean }
 type PendingBulk = { action: BulkAction; target: BulkTarget; value: string; affectedCount: number; rowIndexes: number[]; includesHiddenSelection: boolean }
 type ResizableColumn = 'code' | 'image' | 'name' | 'category' | 'price' | 'stock' | 'unit' | 'branch' | 'status'
 type ValidationField = EditableField | 'image'
 type ValidationIssue = { rowIndex: number; salesCode: string; field: ValidationField; message: string }
+type RapidExecutionSnapshot = {
+  rowIndex: number
+  productName: string
+  category?: string
+  price?: string
+  stock: string
+  unit: string
+  branch?: string
+  imageFileName?: string
+}
+type RapidExecutionJournal = {
+  version: 1
+  reservationKey: string
+  commandId: string
+  payload: Record<string, unknown>
+  rowSnapshots: RapidExecutionSnapshot[]
+  createdItems?: Array<Record<string, unknown>>
+  stockWorkflowId: string
+  stockIdempotencyKey: string
+  activationIds?: Record<string, { product: string; sku: string }>
+  imageRecovery: RapidImageRecoveryItem[]
+}
 
 const ROW_COUNT = 50
+const RAPID_EXECUTION_JOURNAL_VERSION = 1
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
 const EDITABLE_FIELDS: EditableField[] = ['productName', 'category', 'price', 'stock', 'unit', 'branch']
 const UNIT_OPTIONS = ['ชิ้น', 'คู่', 'ใบ', 'ขวด', 'แพ็ค', 'ชุด', 'กล่อง', 'กิโลกรัม']
 const CATEGORY_OPTIONS = ['ไม่ระบุหมวดหมู่', 'ต่างหู', 'กำไล', 'กระเป๋า', 'เสื้อผ้า', 'น้ำหอม']
 const BRANCH_OPTIONS = ['BKK-01']
+const UNIT_CODE: Record<string, string> = { 'ชิ้น': 'piece', 'คู่': 'pair', 'ใบ': 'item', 'ขวด': 'bottle', 'แพ็ค': 'pack', 'ชุด': 'set', 'กล่อง': 'box', 'กิโลกรัม': 'kg' }
 const COLUMN_CONFIG: Record<ResizableColumn, { label: string; width: number; min: number; max: number }> = {
   code: { label: 'รหัสขาย', width: 130, min: 90, max: 260 },
   image: { label: 'รูปภาพ', width: 78, min: 64, max: 160 },
@@ -50,6 +82,10 @@ const COLUMN_CONFIG: Record<ResizableColumn, { label: string; width: number; min
   status: { label: 'สถานะ', width: 100, min: 88, max: 180 },
 }
 
+function rapidExecutionJournalKey(organizationId: string, actorUserId: string) {
+  return `avenzo:rapid-entry:execution:${organizationId}:${actorUserId}`
+}
+
 function codeFor(range: RapidRangeSelection, offset: number) {
   return `${range.prefix}${String(range.start + offset).padStart(3, '0')}`
 }
@@ -59,10 +95,10 @@ function productNameFor(template: string, code: string) {
     .replaceAll('{branch}', 'BKK-01').replaceAll('{seller}', 'แม่ค้า A').replace(/\s+/g, ' ').trim()
 }
 
-function draftRows(range: RapidRangeSelection, namingTemplate: string): RapidRowDraft[] {
+function draftRows(range: RapidRangeSelection, namingTemplate: string, assignedSalesCodes: ReadonlySet<string>): RapidRowDraft[] {
   return Array.from({ length: ROW_COUNT }, (_, index) => {
     const salesCode = codeFor(range, index)
-    return { index, salesCode, productName: productNameFor(namingTemplate, salesCode), category: 'ไม่ระบุหมวดหมู่', price: '', stock: '', unit: 'ชิ้น', branch: 'BKK-01', selected: false, nameOverridden: false, image: null, imageFileName: '', imageError: '' }
+    return { index, salesCode, productName: productNameFor(namingTemplate, salesCode), category: 'ไม่ระบุหมวดหมู่', price: '', stock: '', unit: 'ชิ้น', branch: 'BKK-01', selected: false, nameOverridden: false, image: null, imageFileName: '', imageError: '', created: assignedSalesCodes.has(salesCode) }
   })
 }
 
@@ -114,6 +150,7 @@ function rowIsReady(row: RapidRowDraft, categoryOptions = CATEGORY_OPTIONS) {
 }
 
 function rowState(row: RapidRowDraft, isEditing: boolean, categoryOptions = CATEGORY_OPTIONS) {
+  if (row.created) return { label: 'สร้างแล้ว', className: 'is-created' }
   if (!rowHasEntry(row)) return { label: 'ยังไม่กรอก', className: 'is-empty' }
   if (validationIssuesFor(row, categoryOptions).length) return { label: 'ต้องแก้ไข', className: 'is-invalid' }
   if (isEditing) return { label: 'กำลังแก้ไข', className: 'is-editing' }
@@ -160,7 +197,7 @@ function ReadyPlacementIcon({ direction }: { direction: 'up' | 'down' }) {
     : <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14m-5-5 5 5 5-5" /></svg>
 }
 
-export function RapidEntryTable({ organizationId, actorUserId, selectedRange, namingTemplate, canManage, reservationExpired, restoredDraft, onDraftRestored, onDraftSaved }: Props) {
+export function RapidEntryTable({ organizationId, actorUserId, selectedRange, namingTemplate, canManage, reservationExpired, assignedSalesCodes, restoredDraft, onDraftRestored, onDraftSaved, categories }: Props) {
   const [rows, setRows] = useState<RapidRowDraft[]>([])
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null)
   const [bulkAction, setBulkAction] = useState<BulkAction>('price')
@@ -190,6 +227,36 @@ export function RapidEntryTable({ organizationId, actorUserId, selectedRange, na
   const restoredReservationRef = useRef('')
   const readyCodesRef = useRef<Set<string> | null>(null)
   const [draftHydrated, setDraftHydrated] = useState(false)
+  const [creationStage, setCreationStage] = useState<'idle' | 'creating' | 'images' | 'stock' | 'success' | 'error'>('idle')
+  const [creationMessage, setCreationMessage] = useState('')
+  const [imageRecovery, setImageRecovery] = useState<RapidImageRecoveryItem[]>([])
+  const executionRef = useRef<{
+    commandId: string
+    payload: Record<string, unknown>
+    reservationKey: string
+    rowSnapshots: RapidExecutionSnapshot[]
+    createdItems?: Array<Record<string, unknown>>
+    stockWorkflowId: string
+    stockIdempotencyKey: string
+    activationIds?: Record<string, { product: string; sku: string }>
+  } | null>(null)
+
+  const persistExecutionJournal = useCallback((execution = executionRef.current, recovery = imageRecovery) => {
+    if (!execution) return
+    const journal: RapidExecutionJournal = {
+      version: RAPID_EXECUTION_JOURNAL_VERSION,
+      reservationKey: execution.reservationKey,
+      commandId: execution.commandId,
+      payload: execution.payload,
+      rowSnapshots: execution.rowSnapshots,
+      createdItems: execution.createdItems,
+      stockWorkflowId: execution.stockWorkflowId,
+      stockIdempotencyKey: execution.stockIdempotencyKey,
+      activationIds: execution.activationIds,
+      imageRecovery: recovery,
+    }
+    window.localStorage.setItem(rapidExecutionJournalKey(organizationId, actorUserId), JSON.stringify(journal))
+  }, [actorUserId, imageRecovery, organizationId])
 
   const persistBrowserDraft = useCallback((notify = true) => {
     if (!draftHydrated || !selectedRange || rows.length !== ROW_COUNT) return false
@@ -214,6 +281,7 @@ export function RapidEntryTable({ organizationId, actorUserId, selectedRange, na
         selected: row.selected,
         nameOverridden: row.nameOverridden,
         imageFileName: (row.image?.file.name ?? row.imageFileName).slice(0, 160),
+        created: row.created,
       })),
       categoryOptions,
       columnWidths,
@@ -274,14 +342,25 @@ export function RapidEntryTable({ organizationId, actorUserId, selectedRange, na
       readyCodesRef.current = null
       return
     }
-    const generated = draftRows(selectedRange, namingTemplate)
+    const assignedCodeSet = new Set(assignedSalesCodes)
+    const generated = draftRows(selectedRange, namingTemplate, assignedCodeSet)
     if (rangeIdentityRef.current !== rangeIdentity) {
       revokeAllImageUrls()
       rangeIdentityRef.current = rangeIdentity
       const canRestore = restoredDraft && restoredDraft.reservationKey === rangeIdentity && restoredReservationRef.current !== rangeIdentity
       if (canRestore) {
         restoredReservationRef.current = rangeIdentity
-        setRows(restoredDraft.rows.map((row) => ({ ...row, image: null, imageError: row.imageFileName ? `กรุณาเลือกภาพ “${row.imageFileName}” ใหม่หลัง F5` : '' })))
+        setRows(restoredDraft.rows.map((row) => {
+          const created = Boolean(row.created || assignedCodeSet.has(row.salesCode))
+          return {
+            ...row,
+            created,
+            selected: Boolean(row.selected && !created),
+            image: null,
+            imageFileName: created ? '' : row.imageFileName,
+            imageError: !created && row.imageFileName ? `กรุณาเลือกภาพ “${row.imageFileName}” ใหม่หลัง F5` : '',
+          }
+        }))
         setCategoryOptions(Array.from(new Set([...CATEGORY_OPTIONS, ...restoredDraft.categoryOptions])))
         setColumnWidths((current) => Object.fromEntries(Object.entries(current).map(([column, width]) => {
           const config = COLUMN_CONFIG[column as ResizableColumn]
@@ -302,7 +381,86 @@ export function RapidEntryTable({ organizationId, actorUserId, selectedRange, na
       category: row.category || 'ไม่ระบุหมวดหมู่',
       ...(!row.nameOverridden ? { productName: generated[index].productName } : {}),
     })))
-  }, [selectedRange, namingTemplate, restoredDraft, onDraftRestored])
+  }, [assignedSalesCodes, selectedRange, namingTemplate, restoredDraft, onDraftRestored])
+
+  useEffect(() => {
+    if (!selectedRange?.reservationBatchId) return
+    const journalKey = rapidExecutionJournalKey(organizationId, actorUserId)
+    const clearStaleDuplicateAttempt = (execution: Pick<RapidExecutionJournal, 'createdItems' | 'rowSnapshots'>) => {
+      const staleDuplicateAttempt = !execution.createdItems?.length
+        && execution.rowSnapshots.length > 0
+        && execution.rowSnapshots.every((snapshot) => rows[snapshot.rowIndex]?.created)
+      if (!staleDuplicateAttempt) return false
+      window.localStorage.removeItem(journalKey)
+      executionRef.current = null
+      setImageRecovery([])
+      setCreationStage('idle')
+      setCreationMessage('')
+      setValidationNotice(null)
+      return true
+    }
+    if (executionRef.current) {
+      clearStaleDuplicateAttempt(executionRef.current)
+      return
+    }
+    try {
+      const raw = window.localStorage.getItem(journalKey)
+      if (!raw) return
+      const journal = JSON.parse(raw) as Partial<RapidExecutionJournal>
+      if (journal.version !== RAPID_EXECUTION_JOURNAL_VERSION
+        || journal.reservationKey !== rapidReservationKey(selectedRange)
+        || typeof journal.commandId !== 'string'
+        || typeof journal.stockWorkflowId !== 'string'
+        || typeof journal.stockIdempotencyKey !== 'string'
+        || !journal.payload || !Array.isArray(journal.rowSnapshots)) return
+      if (clearStaleDuplicateAttempt(journal as RapidExecutionJournal)) return
+      executionRef.current = {
+        reservationKey: journal.reservationKey,
+        commandId: journal.commandId,
+        payload: journal.payload,
+        rowSnapshots: journal.rowSnapshots,
+        createdItems: Array.isArray(journal.createdItems) ? journal.createdItems : undefined,
+        stockWorkflowId: journal.stockWorkflowId,
+        stockIdempotencyKey: journal.stockIdempotencyKey,
+        activationIds: journal.activationIds,
+      }
+      const creationItems = Array.isArray((journal.payload as { creation_items?: unknown[] }).creation_items)
+        ? (journal.payload as { creation_items: Array<Record<string, unknown>> }).creation_items
+        : []
+      const categoryNameById = new Map(categories.map((category) => [category.id, category.name]))
+      setRows((current) => current.map((row) => {
+        const snapshot = journal.rowSnapshots!.find((item) => item.rowIndex === row.index)
+        if (!snapshot) return row
+        const clientRowId = `rapid-row-${String(row.index + 1).padStart(3, '0')}`
+        const creationItem = creationItems.find((item) => item.client_row_id === clientRowId)
+        const itemPayload = creationItem?.payload && typeof creationItem.payload === 'object' && !Array.isArray(creationItem.payload)
+          ? creationItem.payload as Record<string, unknown>
+          : {}
+        const imageFileName = snapshot.imageFileName ?? row.imageFileName
+        return {
+          ...row,
+          productName: snapshot.productName,
+          category: snapshot.category ?? categoryNameById.get(String(itemPayload.category_id ?? '')) ?? 'ไม่ระบุหมวดหมู่',
+          price: snapshot.price ?? String(itemPayload.sale_price ?? row.price),
+          stock: snapshot.stock,
+          unit: snapshot.unit,
+          branch: snapshot.branch ?? row.branch,
+          selected: true,
+          nameOverridden: snapshot.productName !== productNameFor(namingTemplate, row.salesCode),
+          imageFileName,
+          imageError: imageFileName ? `กรุณาเลือกภาพ “${imageFileName}” ใหม่หลัง F5` : '',
+        }
+      }))
+      const recoveredImages = Array.isArray(journal.imageRecovery) ? journal.imageRecovery : []
+      setImageRecovery(recoveredImages)
+      setCreationStage('error')
+      setCreationMessage(journal.createdItems?.length
+        ? 'พบงานสร้างที่ยังไม่จบ ข้อมูลสินค้าเดิมถูกเก็บไว้แล้ว เลือกภาพที่ค้างอีกครั้งแล้วกด “ลองอีกครั้ง”'
+        : 'พบงานสร้างที่ยังไม่จบ กด “ลองอีกครั้ง” เพื่อใช้ Command เดิมโดยไม่สร้างรายการซ้ำ')
+    } catch {
+      window.localStorage.removeItem(journalKey)
+    }
+  }, [actorUserId, categories, namingTemplate, organizationId, rows, selectedRange])
 
   useEffect(() => {
     if (!draftHydrated || !selectedRange || rows.length !== ROW_COUNT) return
@@ -348,7 +506,7 @@ export function RapidEntryTable({ organizationId, actorUserId, selectedRange, na
 
   function beginEditing(rowIndex: number, field: EditableField) {
     const row = rows[rowIndex]
-    if (row) setEditingCell({ rowIndex, field, originalValue: row[field] ?? '', originalNameOverridden: row.nameOverridden })
+    if (row && !row.created) setEditingCell({ rowIndex, field, originalValue: row[field] ?? '', originalNameOverridden: row.nameOverridden })
   }
 
   function updateCell(rowIndex: number, field: EditableField, event: ChangeEvent<HTMLInputElement>) {
@@ -367,7 +525,7 @@ export function RapidEntryTable({ organizationId, actorUserId, selectedRange, na
   }
 
   function setRowImage(rowIndex: number, file: File | undefined) {
-    if (!file || !canManage) return
+    if (!file || !canManage || rows[rowIndex]?.created) return
     const validationError = imageValidationError(file)
     if (validationError) {
       setRows((current) => current.map((row, index) => index === rowIndex ? { ...row, imageError: validationError } : row))
@@ -406,6 +564,7 @@ export function RapidEntryTable({ organizationId, actorUserId, selectedRange, na
   }
 
   function imageCell(row: RapidRowDraft) {
+    if (row.created) return <div className="live-sale-rapid-image-cell is-created" aria-label={`รูปภาพรหัส ${row.salesCode} บันทึกแล้ว`}><span aria-hidden="true">✓</span></div>
     const input = <input type="file" accept="image/jpeg,image/png,image/webp" disabled={!canManage} aria-label={`เลือกภาพปกรหัส ${row.salesCode}`}
       onChange={(event) => handleRowImageChange(event, row.index)} />
     return <div id={`rapid-image-${row.index}`} tabIndex={row.imageError ? 0 : -1} className={`live-sale-rapid-image-cell${dragImageRow === row.index ? ' is-dragging' : ''}${row.imageError ? ' is-invalid' : ''}`}
@@ -480,11 +639,11 @@ export function RapidEntryTable({ organizationId, actorUserId, selectedRange, na
   }
 
   function toggleRow(rowIndex: number, selected: boolean) {
-    setRows((current) => current.map((row, index) => index === rowIndex ? { ...row, selected } : row))
+    setRows((current) => current.map((row, index) => index === rowIndex && !row.created ? { ...row, selected } : row))
   }
 
   function toggleAll(selected: boolean) {
-    setRows((current) => current.map((row) => ({ ...row, selected })))
+    setRows((current) => current.map((row) => ({ ...row, selected: row.created ? false : selected })))
   }
 
   function changeStatusFilter(filter: RapidStatusFilter) {
@@ -511,8 +670,8 @@ export function RapidEntryTable({ organizationId, actorUserId, selectedRange, na
   }
 
   function selectReadyRows() {
-    const readyRows = rows.filter((row) => rowIsReady(row, categoryOptions))
-    setRows((current) => current.map((row) => ({ ...row, selected: rowIsReady(row, categoryOptions) })))
+    const readyRows = rows.filter((row) => !row.created && rowIsReady(row, categoryOptions))
+    setRows((current) => current.map((row) => ({ ...row, selected: !row.created && rowIsReady(row, categoryOptions) })))
     setValidationNotice({ tone: 'success', message: `เลือกเฉพาะรายการที่พร้อมสร้างแล้ว ${readyRows.length} รายการ` })
   }
 
@@ -521,7 +680,7 @@ export function RapidEntryTable({ organizationId, actorUserId, selectedRange, na
       setValidationNotice({ tone: 'error', message: 'ช่วงรหัสหมดอายุแล้ว ข้อมูลยังอยู่ครบ กรุณาล้าง Draft และจองช่วงรหัสใหม่ก่อนสร้างสินค้า' })
       return
     }
-    const selectedRows = rows.filter((row) => row.selected)
+    const selectedRows = rows.filter((row) => row.selected && !row.created)
     if (!selectedRows.length) {
       setValidationNotice({ tone: 'error', message: 'กรุณาเลือกรายการที่ต้องการตรวจสอบอย่างน้อย 1 รายการ' })
       return
@@ -542,6 +701,215 @@ export function RapidEntryTable({ organizationId, actorUserId, selectedRange, na
     setReviewOpen(true)
   }
 
+  async function submitSelectedRows() {
+    if (!selectedRange?.reservationBatchId || reservationExpired || creationStage === 'creating' || creationStage === 'images' || creationStage === 'stock') return
+    const pendingExecution = executionRef.current
+    const submissionRows = pendingExecution
+      ? pendingExecution.rowSnapshots.map((snapshot) => rows[snapshot.rowIndex]).filter((row): row is RapidRowDraft => Boolean(row))
+       : rows.filter((row) => row.selected && !row.created && rowIsReady(row, categoryOptions))
+    if (!submissionRows.length) {
+      setReviewOpen(false)
+      setValidationNotice({ tone: 'error', message: 'ไม่มีรายการที่พร้อมสร้าง กรุณาตรวจข้อมูลและเลือกรายการก่อน' })
+      return
+    }
+    const missingRecoveryImage = pendingExecution && submissionRows.find((row) => row.imageError && !row.image
+      && !imageRecovery.some((item) => item.clientRowId === `rapid-row-${String(row.index + 1).padStart(3, '0')}` && item.stage === 'ready'))
+    if (missingRecoveryImage) {
+      setReviewOpen(false)
+      setCreationStage('error')
+      setCreationMessage(`กรุณาเลือกภาพของ ${missingRecoveryImage.salesCode} ใหม่ก่อนลองอีกครั้ง`)
+      return
+    }
+    const defaultCategory = categories[0]
+    if (!defaultCategory) {
+      setReviewOpen(false)
+      setValidationNotice({ tone: 'error', message: 'ยังไม่มีหมวดหมู่สินค้าที่พร้อมใช้งาน กรุณาสร้างหมวดหมู่ก่อนส่งสร้างสินค้า' })
+      return
+    }
+    const categoryByName = new Map(categories.map((category) => [category.name, category.id]))
+    const unresolvedCategory = submissionRows.find((row) => row.category !== 'ไม่ระบุหมวดหมู่' && !categoryByName.has(row.category))
+    if (unresolvedCategory) {
+      setReviewOpen(false)
+      setValidationNotice({ tone: 'error', message: `หมวดหมู่ “${unresolvedCategory.category}” ยังไม่ได้บันทึกใน Master Data` })
+      return
+    }
+
+    const destinations = await loadInitialStockDestinationsAction({ organizationId })
+    if (!destinations.ok) {
+      setReviewOpen(false)
+      setValidationNotice({ tone: 'error', message: 'ตรวจสอบสาขา คลัง และตำแหน่งรับสต็อกไม่สำเร็จ กรุณาลองอีกครั้ง' })
+      return
+    }
+    const firstBranchCode = submissionRows[0].branch
+    if (submissionRows.some((row) => row.branch !== firstBranchCode)) {
+      setReviewOpen(false)
+      setValidationNotice({ tone: 'error', message: 'รายการที่สร้างพร้อมกันต้องอยู่ในสาขาเดียวกัน' })
+      return
+    }
+    const warehouse = destinations.data.warehouses.find((item) => item.code === firstBranchCode)
+    const location = warehouse && (destinations.data.locations.find((item) => item.warehouseId === warehouse.id && item.isDefault)
+      ?? destinations.data.locations.find((item) => item.warehouseId === warehouse.id))
+    if (!warehouse || !location) {
+      setReviewOpen(false)
+      setValidationNotice({ tone: 'error', message: `ยังไม่พบคลังและตำแหน่งรับสต็อกที่พร้อมใช้งานสำหรับสาขา ${firstBranchCode}` })
+      return
+    }
+
+    // Flush the latest edited rows before the first write. The regular
+    // autosave is debounced and may not have run when Create is clicked.
+    if (!pendingExecution) persistBrowserDraft(false)
+    setReviewOpen(false)
+    setCreationMessage('กำลังสร้าง Product และ SKU ทั้งชุด…')
+    setCreationStage('creating')
+    try {
+      if (!executionRef.current) {
+        executionRef.current = {
+          reservationKey: rapidReservationKey(selectedRange),
+          commandId: crypto.randomUUID(),
+          stockWorkflowId: crypto.randomUUID(),
+          stockIdempotencyKey: crypto.randomUUID(),
+          rowSnapshots: submissionRows.map((row) => ({
+            rowIndex: row.index,
+            productName: row.productName,
+            category: row.category,
+            price: row.price,
+            stock: row.stock,
+            unit: row.unit,
+            branch: row.branch,
+            imageFileName: row.image?.file.name ?? row.imageFileName,
+          })),
+          payload: {
+            sales_code_mode: 'reserved_batch',
+            reservation_batch_id: selectedRange.reservationBatchId,
+            creation_items: submissionRows.map((row) => ({
+              client_row_id: `rapid-row-${String(row.index + 1).padStart(3, '0')}`,
+              command_id: crypto.randomUUID(),
+              command_type: 'product.create_with_initial_sku',
+              sales_code: row.salesCode,
+              payload: {
+                name: row.productName.trim(),
+                sku_name: row.productName.trim(),
+                sku_code: row.salesCode,
+                category_id: row.category === 'ไม่ระบุหมวดหมู่' ? defaultCategory.id : categoryByName.get(row.category),
+                structure_type: 'standard',
+                base_unit_code: UNIT_CODE[row.unit] ?? 'piece',
+                sale_price: Number(row.price),
+              },
+              handoff: { branch_id: warehouse.branchId, initial_stock: Number(row.stock) },
+            })),
+          },
+        }
+        persistExecutionJournal(executionRef.current, [])
+      }
+      const execution = executionRef.current
+      if (!execution.createdItems) {
+        // A failed pre-BE-03B browser journal may still contain branch_code.
+        // Repair only the handoff scope while retaining the same retry command.
+        const payload = execution.payload as { creation_items?: Array<Record<string, unknown>> }
+        execution.payload = {
+          ...execution.payload,
+          creation_items: (payload.creation_items ?? []).map((item) => {
+            const handoff = (item.handoff && typeof item.handoff === 'object' && !Array.isArray(item.handoff))
+              ? { ...item.handoff as Record<string, unknown> }
+              : {}
+            delete handoff.branch_code
+            return { ...item, handoff: { ...handoff, branch_id: warehouse.branchId } }
+          }),
+        }
+        persistExecutionJournal(execution)
+        const creation = await executeGlobalSalesCodeCreationAction({
+          commandId: execution.commandId,
+          organizationId,
+          flow: 'rapid',
+          payload: execution.payload,
+        })
+        if (!creation.ok || creation.data.created_count !== submissionRows.length) {
+          throw new Error(creation.ok ? 'rapid_creation_incomplete' : creation.error)
+        }
+        execution.createdItems = creation.data.results
+        persistExecutionJournal(execution)
+      }
+      const createdProducts = submissionRows.map((row) => {
+        const clientRowId = `rapid-row-${String(row.index + 1).padStart(3, '0')}`
+        const created = execution.createdItems!.find((item) => item.client_row_id === clientRowId)
+        if (!created?.product_id || !created?.sku_id || !created?.product_version || !created?.sku_version) throw new Error('rapid_creation_result_invalid')
+        return { row, clientRowId, created }
+      })
+
+      const stagedImages = createdProducts.flatMap(({ row, clientRowId }) => row.image
+        ? [{ clientRowId, file: row.image.file }]
+        : [])
+      if (stagedImages.length) {
+        setCreationStage('images')
+        setCreationMessage(`กำลังอัปโหลดและตรวจรูปภาพ ${stagedImages.length} รายการ…`)
+        const imageResult = await runRapidEntryImagePipeline({
+          organizationId,
+          createdProducts: createdProducts.map(({ row, clientRowId, created }) => ({ clientRowId, productId: String(created.product_id), productName: row.productName })),
+          images: stagedImages,
+          previousItems: imageRecovery,
+          onStage: (item) => setImageRecovery((current) => {
+            const next = [...current.filter((entry) => entry.clientRowId !== item.clientRowId), item]
+            persistExecutionJournal(execution, next)
+            return next
+          }),
+        })
+        setImageRecovery(imageResult.items)
+        persistExecutionJournal(execution, imageResult.items)
+        if (imageResult.status !== 'succeeded') throw new Error(imageResult.compensationPendingCount ? 'rapid_image_cleanup_pending' : 'rapid_image_upload_failed')
+      }
+
+      setCreationStage('stock')
+      setCreationMessage('กำลังเปิดใช้งานสินค้าและรับสต็อกแบบ Atomic Batch…')
+      const snapshotByIndex = new Map(execution.rowSnapshots.map((snapshot) => [snapshot.rowIndex, snapshot]))
+      const stockItems = createdProducts.map(({ row, clientRowId, created }) => {
+        const snapshot = snapshotByIndex.get(row.index)
+        if (!snapshot) throw new Error('rapid_execution_snapshot_missing')
+        execution.activationIds ??= {}
+        execution.activationIds[clientRowId] ??= { product: crypto.randomUUID(), sku: crypto.randomUUID() }
+        return {
+          clientRowId,
+          productId: String(created.product_id),
+          productVersion: Number(created.product_version),
+          productActivationCommandId: execution.activationIds[clientRowId].product,
+          skuId: String(created.sku_id),
+          skuVersion: Number(created.sku_version),
+          skuActivationCommandId: execution.activationIds[clientRowId].sku,
+          locationId: location.id,
+          quantity: Number(snapshot.stock),
+          unitCode: UNIT_CODE[snapshot.unit] ?? 'piece',
+        }
+      })
+      persistExecutionJournal(execution)
+      const stock = await executeRapidInitialStockWorkflowAction({
+        contractVersion: 1,
+        workflowId: execution.stockWorkflowId,
+        organizationId,
+        branchId: warehouse.branchId,
+        idempotencyKey: execution.stockIdempotencyKey,
+        reference: `rapid:${execution.commandId}:initial-stock`,
+        items: stockItems,
+      })
+      if (!stock.ok || stock.data.status !== 'completed') throw new Error(stock.ok ? stock.data.error ?? stock.data.status : stock.error)
+
+      window.localStorage.removeItem(rapidExecutionJournalKey(organizationId, actorUserId))
+      executionRef.current = null
+      const createdIndexes = new Set(submissionRows.map((row) => row.index))
+      setRows((current) => current.map((row) => {
+        if (!createdIndexes.has(row.index)) return row
+        if (row.image) revokeImageUrl(row.image.previewUrl)
+        return { ...row, created: true, selected: false, image: null, imageError: '' }
+      }))
+      setCreationStage('success')
+      setCreationMessage(`สร้างสินค้า ${submissionRows.length} รายการ อัปโหลดรูป ${stagedImages.length} ภาพ และรับสต็อกสำเร็จครบทั้งชุด`)
+      setValidationNotice({ tone: 'success', message: `สร้างสินค้าและสต็อกสำเร็จ ${submissionRows.length} รายการ ไม่มีรายการสำเร็จบางส่วน` })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'rapid_creation_failed'
+      setCreationStage('error')
+      setCreationMessage(`ทำรายการยังไม่สำเร็จ: ${message} · กด “ลองอีกครั้ง” เพื่อใช้ Command และ Batch key เดิม`)
+      setValidationNotice({ tone: 'error', message: `ระบบหยุดที่ขั้นตอนสร้างจริงและเก็บข้อมูลสำหรับลองใหม่: ${message}` })
+    }
+  }
+
   function bulkValueIsValid(action: BulkAction, value: string) {
     if (action === 'restore-name') return true
     if (action === 'price') return /^\d+(\.\d{0,2})?$/.test(value) && Number(value) >= 0
@@ -552,7 +920,7 @@ export function RapidEntryTable({ organizationId, actorUserId, selectedRange, na
   }
 
   function requestBulkApply() {
-    const targetRows = bulkTarget === 'all' ? rows : selectedBulkRows
+    const targetRows = bulkTarget === 'all' ? rows.filter((row) => !row.created) : selectedBulkRows
     const affectedCount = targetRows.length
     if (!affectedCount) { setBulkNoticeTone('error'); setBulkNotice('กรุณาเลือกอย่างน้อย 1 รายการก่อนใช้เครื่องมือแบบกลุ่ม'); return }
     if (!bulkValueIsValid(bulkAction, bulkValue)) { setBulkNoticeTone('error'); setBulkNotice('ค่าที่ต้องการใช้ยังไม่ถูกต้อง กรุณาตรวจอีกครั้ง'); return }
@@ -651,18 +1019,20 @@ export function RapidEntryTable({ organizationId, actorUserId, selectedRange, na
     </th>
   }
 
-  const selectedRows = rows.filter((row) => row.selected)
+  const editableRows = rows.filter((row) => !row.created)
+  const createdRows = rows.filter((row) => row.created)
+  const selectedRows = editableRows.filter((row) => row.selected)
   const selectedCount = selectedRows.length
-  const allSelected = rows.length > 0 && selectedCount === rows.length
-  const readyRows = rows.filter((row) => rowIsReady(row, categoryOptions))
+  const allSelected = editableRows.length > 0 && selectedCount === editableRows.length
+  const readyRows = editableRows.filter((row) => rowIsReady(row, categoryOptions))
   const readyCount = readyRows.length
-  const invalidRows = rows.filter((row) => rowHasEntry(row) && validationIssuesFor(row, categoryOptions).length > 0)
-  const emptyRows = rows.filter((row) => !rowHasEntry(row))
-  const attentionRows = rows.filter((row) => !rowIsReady(row, categoryOptions))
+  const invalidRows = editableRows.filter((row) => rowHasEntry(row) && validationIssuesFor(row, categoryOptions).length > 0)
+  const emptyRows = editableRows.filter((row) => !rowHasEntry(row))
+  const attentionRows = editableRows.filter((row) => !rowIsReady(row, categoryOptions))
   const visibleRows = statusFilter === 'attention' ? attentionRows
     : statusFilter === 'invalid' ? invalidRows
       : statusFilter === 'ready' ? readyRows
-        : rows
+        : [...editableRows, ...createdRows]
   const displayedRows = statusFilter === 'all'
     ? readyRowsAtBottom
       ? [...visibleRows.filter((row) => !rowIsReady(row, categoryOptions)), ...visibleRows.filter((row) => rowIsReady(row, categoryOptions))]
@@ -675,7 +1045,7 @@ export function RapidEntryTable({ organizationId, actorUserId, selectedRange, na
   const selectedReadyRows = selectedRows.filter((row) => rowIsReady(row, categoryOptions))
   const firstInvalidIssue = invalidRows.flatMap((row) => validationIssuesFor(row, categoryOptions))[0]
   const tableWidth = 84 + Object.values(columnWidths).reduce((total, width) => total + width, 0)
-  const bulkScopeCount = bulkTarget === 'all' ? rows.length : selectedBulkRows.length
+  const bulkScopeCount = bulkTarget === 'all' ? editableRows.length : selectedBulkRows.length
   const bulkScopeUnavailable = bulkTarget === 'selected' && selectedBulkRows.length === 0
   const bulkScopeLabel: Record<BulkAction, string> = {
     price: 'ราคานี้', stock: 'จำนวนสต็อกนี้', unit: 'หน่วยนี้', category: 'หมวดหมู่นี้', branch: 'สาขานี้', 'restore-name': 'ชื่อจาก Template นี้',
@@ -718,6 +1088,7 @@ export function RapidEntryTable({ organizationId, actorUserId, selectedRange, na
         <div className="live-sale-rapid-validation-actions"><button type="button" onClick={selectReadyRows} disabled={!canManage || !readyCount}>เลือกเฉพาะรายการพร้อมสร้าง</button><button className="button" type="button" onClick={reviewSelectedRows} disabled={!canManage || !rows.length || reservationExpired} aria-describedby={reservationExpired ? 'rapidReservationStatus' : undefined}>ตรวจรายการที่เลือก</button></div></header>
       <div className="live-sale-rapid-validation-counters" aria-label="สถานะการตรวจรายการ"><span><strong>{readyCount}</strong> พร้อมสร้าง</span><span className="is-danger"><strong>{invalidRows.length}</strong> ต้องแก้ไข</span><span><strong>{emptyRows.length}</strong> ยังไม่กรอก</span><span className="is-accent"><strong>{selectedReadyRows.length}</strong> เลือกพร้อมสร้าง</span></div>
       {validationNotice ? <div className={`live-sale-rapid-validation-notice is-${validationNotice.tone}`} role="status"><span>{validationNotice.message}</span>{validationNotice.tone === 'error' && firstInvalidIssue ? <button type="button" onClick={() => focusValidationIssue(firstInvalidIssue)}>ไปยังจุดแรกที่ต้องแก้</button> : null}</div> : null}
+      {creationStage !== 'idle' ? <div className={`live-sale-rapid-validation-notice is-${creationStage === 'success' ? 'success' : creationStage === 'error' ? 'error' : 'info'}`} role="status" aria-live="polite" aria-busy={creationStage === 'creating' || creationStage === 'images' || creationStage === 'stock'}><span>{creationMessage}</span>{creationStage === 'error' ? <button type="button" onClick={submitSelectedRows}>ลองอีกครั้ง</button> : null}</div> : null}
       {invalidRows.length ? <div className="live-sale-rapid-validation-issues"><strong>รายการที่ต้องตรวจ</strong><div>{invalidRows.slice(0, 3).map((row) => { const issue = validationIssuesFor(row, categoryOptions)[0]; return <button key={row.salesCode} type="button" onClick={() => focusValidationIssue(issue)}><span>{row.salesCode}</span><small>{issue.message}</small></button> })}</div>{invalidRows.length > 3 ? <small>และอีก {invalidRows.length - 3} รายการ</small> : null}</div> : null}
     </section>}
 
@@ -725,8 +1096,8 @@ export function RapidEntryTable({ organizationId, actorUserId, selectedRange, na
       <span>กลับไปกด “ใช้ช่วงที่แนะนำ” แล้วระบบจะแสดงรหัสขายและชื่อสินค้าให้ครบ 50 แถว</span></div> : <div className="live-sale-rapid-table-shell">
       <nav className="live-sale-rapid-status-filter" aria-label="กรองรายการตามสถานะ">
         <div role="group" aria-label="สถานะที่ต้องการแสดง">
-          <button type="button" className={statusFilter === 'attention' ? 'is-active' : ''} onClick={() => changeStatusFilter('attention')} aria-pressed={statusFilter === 'attention'}><span>ต้องกรอก/ต้องแก้</span><strong>{attentionRows.length}</strong></button>
-          <button type="button" className={statusFilter === 'invalid' ? 'is-active' : ''} onClick={() => changeStatusFilter('invalid')} aria-pressed={statusFilter === 'invalid'}><span>ต้องแก้</span><strong>{invalidRows.length}</strong></button>
+          <button type="button" className={statusFilter === 'attention' ? 'is-active' : ''} onClick={() => changeStatusFilter('attention')} aria-pressed={statusFilter === 'attention'}><span>รอดำเนินการ</span><strong>{attentionRows.length}</strong></button>
+          <button type="button" className={statusFilter === 'invalid' ? 'is-active' : ''} onClick={() => changeStatusFilter('invalid')} aria-pressed={statusFilter === 'invalid'}><span>ข้อมูลไม่ครบ</span><strong>{invalidRows.length}</strong></button>
           <button type="button" className={statusFilter === 'ready' ? 'is-active' : ''} onClick={() => changeStatusFilter('ready')} aria-pressed={statusFilter === 'ready'}><span>พร้อมสร้าง</span><strong>{readyCount}</strong></button>
           <button type="button" className={statusFilter === 'all' ? 'is-active' : ''} onClick={() => changeStatusFilter('all')} aria-pressed={statusFilter === 'all'}><span>ทั้งหมด</span><strong>{rows.length}</strong></button>
         </div>
@@ -743,7 +1114,7 @@ export function RapidEntryTable({ organizationId, actorUserId, selectedRange, na
             {resizableHeader('image')}{resizableHeader('name')}{resizableHeader('category')}{resizableHeader('price', 'is-number')}{resizableHeader('stock', 'is-number')}{resizableHeader('unit')}{resizableHeader('branch')}{resizableHeader('status', 'is-pinned-status')}</tr></thead>
           <tbody>{displayedRows.length ? displayedRows.map((row) => { const state = rowState(row, editingCell?.rowIndex === row.index, categoryOptions); return <tr key={row.salesCode} data-rapid-row-index={row.index} className={`${state.className}${row.selected ? ' is-selected' : ''}`}>
             <td className="is-pinned-row"><span className="live-sale-rapid-row-number">{row.index + 1}</span></td>
-            <td className="is-pinned-select"><input type="checkbox" checked={row.selected} onChange={(event) => toggleRow(row.index, event.target.checked)} disabled={!canManage} aria-label={`เลือกรหัส ${row.salesCode}`} /></td>
+            <td className="is-pinned-select"><input type="checkbox" checked={row.selected} onChange={(event) => toggleRow(row.index, event.target.checked)} disabled={!canManage || row.created} aria-label={row.created ? `รหัส ${row.salesCode} สร้างแล้ว` : `เลือกรหัส ${row.salesCode}`} /></td>
             <td className="is-pinned-code"><strong>{row.salesCode}</strong></td>
             <td>{imageCell(row)}</td><td>{editableCell(row, 'productName')}</td><td>{editableCell(row, 'category')}</td>
             <td className="is-number">{editableCell(row, 'price')}</td><td className="is-number">{editableCell(row, 'stock')}</td>
@@ -756,8 +1127,8 @@ export function RapidEntryTable({ organizationId, actorUserId, selectedRange, na
     {reviewOpen && <div className="live-sale-rapid-bulk-dialog-backdrop" role="presentation"><section className="live-sale-rapid-bulk-dialog live-sale-rapid-review-dialog" role="dialog" aria-modal="true" aria-labelledby="rapidReviewTitle">
       <header><div><span className="live-sale-rapid-kicker">ตัวอย่างก่อนส่งสร้าง</span><h4 id="rapidReviewTitle">พร้อมส่งต่อ {selectedReadyRows.length} รายการ</h4></div><button type="button" onClick={() => setReviewOpen(false)} aria-label="ปิดตัวอย่างรายการพร้อมสร้าง">×</button></header>
       <div><p>ตรวจเฉพาะรายการที่เลือกและข้อมูลครบแล้ว แถวว่างจะไม่ถูกนำมารวมในขั้นตอนนี้</p><div className="live-sale-rapid-review-list" role="list">{selectedReadyRows.map((row) => <div key={row.salesCode} role="listitem"><strong>{row.salesCode}</strong><span>{row.productName}</span><small>{row.category} · ฿{row.price} · {row.stock} {row.unit} · {row.branch}</small></div>)}</div>
-        <aside>UI Preview เท่านั้น · ยังไม่มีการสร้าง Product, SKU, อัปโหลดภาพ หรือเพิ่ม Stock จริง</aside></div>
-      <footer><button className="button secondary" type="button" onClick={() => setReviewOpen(false)}>กลับไปแก้ไข</button><button className="button" type="button" onClick={() => { setReviewOpen(false); setValidationNotice({ tone: 'success', message: `ยืนยันรายการพร้อมสร้างแล้ว ${selectedReadyRows.length} รายการ — UI Preview` }) }}>ยืนยันรายการที่เลือก</button></footer>
+        <aside>ระบบจะสร้าง Product/SKU ทั้งชุดก่อน จากนั้นอัปโหลดรูป และรับสต็อกผ่าน Atomic Batch โดยไม่ใช้ผลสำเร็จบางส่วน</aside></div>
+      <footer><button className="button secondary" type="button" onClick={() => setReviewOpen(false)}>กลับไปแก้ไข</button><button className="button" type="button" onClick={submitSelectedRows}>สร้าง {selectedReadyRows.length} รายการ</button></footer>
     </section></div>}
 
     {categoryManagerOpen && <div className="live-sale-rapid-bulk-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setCategoryManagerOpen(false) }}>

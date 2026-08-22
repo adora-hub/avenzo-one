@@ -15,6 +15,7 @@ export type RapidBrowserDraftRow = {
   selected: boolean
   nameOverridden: boolean
   imageFileName: string
+  created?: boolean
 }
 
 export type RapidBrowserDraft = {
@@ -65,6 +66,7 @@ function isSafeRow(value: unknown, index: number, range: RapidRangeSelection): v
     && typeof row.branch === 'string' && row.branch.length <= 40
     && typeof row.selected === 'boolean' && typeof row.nameOverridden === 'boolean'
     && typeof row.imageFileName === 'string' && row.imageFileName.length <= 160
+    && (typeof row.created === 'undefined' || typeof row.created === 'boolean')
 }
 
 export function parseRapidBrowserDraft(raw: string, organizationId: string, actorUserId: string): RapidBrowserDraft | null {

@@ -18,7 +18,7 @@ test('UI-11A exposes accessible status buttons with live counts', async () => {
   const table = await read('src/app/organizations/[id]/products/live-sale/rapid-entry/rapid-entry-table.tsx')
   assert.match(table, /aria-label="กรองรายการตามสถานะ"/)
   assert.match(table, /role="group" aria-label="สถานะที่ต้องการแสดง"/)
-  for (const label of ['ต้องกรอก\/ต้องแก้', 'ต้องแก้', 'พร้อมสร้าง', 'ทั้งหมด']) assert.match(table, new RegExp(label))
+  for (const label of ['รอดำเนินการ', 'ข้อมูลไม่ครบ', 'พร้อมสร้าง', 'ทั้งหมด']) assert.match(table, new RegExp(label))
   assert.match(table, /aria-pressed=\{statusFilter === 'attention'\}/)
   assert.match(table, /aria-pressed=\{statusFilter === 'all'\}/)
   assert.doesNotMatch(table, /live-sale-rapid-status-filter[^\n]*<div><strong>แสดงรายการ/)
@@ -27,8 +27,8 @@ test('UI-11A exposes accessible status buttons with live counts', async () => {
 
 test('UI-11A preserves full-dataset selection while UI-11C safely scopes bulk actions', async () => {
   const table = await read('src/app/organizations/[id]/products/live-sale/rapid-entry/rapid-entry-table.tsx')
-  assert.match(table, /const selectedRows = rows\.filter\(\(row\) => row\.selected\)/)
-  assert.match(table, /const bulkScopeCount = bulkTarget === 'all' \? rows\.length : selectedBulkRows\.length/)
+  assert.match(table, /const selectedRows = editableRows\.filter\(\(row\) => row\.selected\)/)
+  assert.match(table, /const bulkScopeCount = bulkTarget === 'all' \? editableRows\.length : selectedBulkRows\.length/)
   assert.match(table, /const selectedBulkRows = includeHiddenSelected \? selectedRows : visibleSelectedRows/)
   assert.doesNotMatch(table, /selectedRows = visibleRows/)
   assert.match(table, /data-rapid-row-index=\{row\.index\}/)

@@ -8,7 +8,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const FLOW_VALUES = new Set(['normal', 'variant', 'rapid'])
-const MODE_VALUES = new Set(['sequence', 'manual', 'same_as_sku', 'deferred'])
+const MODE_VALUES = new Set(['sequence', 'manual', 'same_as_sku', 'deferred', 'reserved_batch'])
 
 function canonicalJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`
@@ -22,14 +22,14 @@ function canonicalJson(value: unknown): string {
 export type GlobalSalesCodeCreationResult = {
   command_id: string
   flow: 'normal' | 'variant' | 'rapid'
-  sales_code_mode: 'sequence' | 'manual' | 'same_as_sku' | 'deferred'
+  sales_code_mode: 'sequence' | 'manual' | 'same_as_sku' | 'deferred' | 'reserved_batch'
   created_count: number
   sku_count: number
   results: Array<Record<string, unknown>>
   sales_code_batch_id: string | null
   sales_codes: string[]
   inventory_posted: false
-  initial_stock_boundary: 't5-pending'
+  initial_stock_boundary: 't5-pending' | 'rapid-be-05-pending'
 }
 
 export async function executeGlobalSalesCodeCreation(input: unknown): Promise<GlobalSalesCodeCreationResult> {

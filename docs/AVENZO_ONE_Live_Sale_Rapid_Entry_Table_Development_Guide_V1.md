@@ -1,7 +1,7 @@
 # AVENZO ONE — Live Sale Rapid Entry Table Development Guide V1
 
-**Status:** Rapid Entry UI V1 Owner Approved and Frozen · Rapid-UI-01–11C completed · Rapid-UI-11D deferred
-**Updated:** 21 August 2026
+**Status:** Rapid Entry UI V1 Owner Approved and Frozen · Rapid-BE-01–06 complete on Localhost · Owner real-use test pending
+**Updated:** 22 August 2026
 **Authority:** Owner-approved direction after Live-UI-04
 **Scope:** Live Sale product preparation only; normal Product Creation remains unchanged
 
@@ -215,18 +215,31 @@ Stock.
 |---|---|---|
 | Rapid-BE-01 | Prefix availability read contract and Organization-scoped contiguous-range query | Bounded query, permission, no cross-tenant leak and measured index plan |
 | Rapid-BE-02 | Atomic 50-code reservation/claim with expiry, conflict and idempotency | Approved and closed; database contract, trusted reservation action, expiry UI, Browser Draft flush and active-reservation refresh recovery passed |
-| Rapid-BE-03 | Atomic selected-row Product/SKU/Sales Code creation command | 1–50 ready rows; duplicate or invalid row rolls back the complete command |
-| Rapid-BE-04 | Image staging, finalize and compensation | No orphan object/row; retry and partial upload recovery pass |
-| Rapid-BE-05 | Initial Stock integration through approved Phase T inventory boundary | Every created SKU resolves to `sku_id`; one failed Stock item rolls back per approved contract |
-| Rapid-BE-06 | Authenticated API/UI integration, observability and E2E | Double-click, timeout, conflict, permissions, audit and complete user journey pass |
+| Rapid-BE-03 | Atomic selected-row Product/SKU/Sales Code creation command | Approved/closed locally — 1/10/50, rollback, idempotency, permissions, concurrency and normal/variant regressions passed in Rapid-BE-03C |
+| Rapid-BE-04 | Image staging, finalize and compensation | Closed locally — image pipeline 8/8 PASS; trusted prepare/upload/finalize/cleanup, retry and compensation are connected |
+| Rapid-BE-05 | Initial Stock integration through approved Phase T inventory boundary | Closed locally — Rapid-BE-05 + T5.2 suites 41/41 PASS; 1–50 SKUs activate before one Atomic Batch, no partial Stock fallback and stable retry identities |
+| Rapid-BE-06 | Authenticated API/UI integration, observability and E2E | Closed locally — authenticated integration 7/7, Rapid/Live UI 120/120, TypeScript and Build 39/39 PASS; logged-in Localhost journey and confirmation dialog verified, Owner real-use creation pending |
+
+Rapid-BE-03A Design/Preflight was completed and D1–D12 were Owner approved on
+22 August 2026 in
+`AVENZO_ONE_Rapid-BE-03A_Atomic_Selected_Row_Creation_Design_Preflight.md`.
+It proposes a forward-only `reserved_batch` extension of the existing GSC-05
+authority so selected rows consume their exact Rapid-BE-02A reservations
+without allocating a second range. No runtime code or database object was
+changed during BE-03A. Rapid-BE-03B produced the forward-only Migration/Test
+for the approved `reserved_batch` mode. Rapid-BE-03C then passed the isolated
+Local replay, SQL, security, idempotency, concurrency, regression and lint
+gates. Rapid-BE-04 through Rapid-BE-06 now connect image processing, Initial
+Stock and the authenticated Localhost user journey. The Owner's final real-use
+creation test remains pending. PREVIEW/Production Apply and Deploy remain
+separately gated.
 
 ## 8. Explicit Non-goals for the First UI Phase
 
 - No mobile layout below 1,024 CSS pixels
-- Prefix scan and three-hour claim are real server-authoritative operations;
-  Product/SKU creation remains outside this checkpoint
-- No Product/SKU/Stock write
-- No Supabase Storage upload
+- Prefix scan and three-hour claim are server-authoritative operations.
+- Product/SKU creation, private image processing and atomic Initial Stock are
+  connected on Localhost only; PREVIEW and Production remain out of scope.
 - No automatic multi-file filename matching
 - No AI-generated Product name authority
 - No Bundle creation, unit conversion or Live CF parser change

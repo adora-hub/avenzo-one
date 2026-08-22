@@ -7,7 +7,9 @@ import type { FoundationCommandOutcome } from '@/lib/foundation/contracts'
 import {
   executeFoundationServerCommand,
   executeInitialStockServerWorkflow,
+  executeRapidInitialStockServerWorkflow,
 } from '@/lib/foundation/server-service'
+import { parseRapidInitialStockInput } from '@/lib/foundation/rapid-initial-stock-workflow'
 import { executeProductImageCleanupCommand } from '@/lib/foundation/product-image-cleanup.server'
 import { createFoundationReadRepository } from '@/lib/foundation/server-read'
 import { getFoundationActor } from '@/lib/foundation/server-context'
@@ -118,6 +120,15 @@ export async function executeInitialStockWorkflowAction(input: unknown): Promise
   } catch (error) {
     const safeError = mapFoundationError(error)
     return { ok: false, error: safeError.code, status: safeError.status }
+  }
+}
+export async function executeRapidInitialStockWorkflowAction(input: unknown) {
+  try {
+    const command = parseRapidInitialStockInput(input)
+    return { ok: true as const, data: await executeRapidInitialStockServerWorkflow(command) }
+  } catch (error) {
+    const safeError = mapFoundationError(error)
+    return { ok: false as const, error: safeError.code, status: safeError.status }
   }
 }
 export async function loadInitialStockDestinationsAction(input: unknown): Promise<InitialStockDestinationActionResult> {

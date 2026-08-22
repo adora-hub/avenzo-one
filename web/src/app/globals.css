@@ -1243,6 +1243,8 @@ input:focus, select:focus, textarea:focus { border-color: var(--focus-color); bo
 .live-sale-rapid-table .live-sale-rapid-editor input { text-align: center; }
 .live-sale-rapid-row-status.is-ready { border-color: var(--status-success-border); color: var(--status-success-text); background: var(--status-success-surface); }
 .live-sale-rapid-row-status.is-selected-ready { border-color: #aae600; color: #000; background: #aae600; }
+.live-sale-rapid-row-status.is-created { border-color: var(--status-success-border); color: var(--status-success-text); background: var(--status-success-surface); font-weight: 700; }
+.live-sale-rapid-image-cell.is-created { color: var(--status-success-text); border-color: var(--status-success-border); background: var(--status-success-surface); font-size: 16px; font-weight: 800; }
 .live-sale-rapid-row-status.is-editing { border-color: var(--focus-ring); color: var(--text-primary); background: color-mix(in srgb, var(--focus-ring) 9%, var(--surface-elevated)); }
 .live-sale-rapid-row-status.is-invalid { border-color: var(--status-danger-border); color: var(--status-danger-text); background: var(--status-danger-surface); }
 .live-sale-rapid-table-shell > footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 10px; border: 1px solid var(--border-default); border-top: 0; border-radius: 0 0 10px 10px; color: var(--text-secondary); background: var(--surface-elevated); font-size: 9px; }
