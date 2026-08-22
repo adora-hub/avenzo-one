@@ -78,10 +78,12 @@ test('draft save confirmation stays visible at the top center of the viewport', 
 
 test('R7.2.5 production hierarchy matches approved mockup sections and actions', async () => {
   const [form, mockup] = await Promise.all([read(formPath), read(mockupPath)])
-  for (const text of ['ข้อมูลทั่วไป', 'รูปสินค้า', 'SKU แรกและรหัสสินค้า', 'ราคาและภาษี', 'น้ำหนักและขนาด', 'หน่วยบรรจุและ Bundle', 'สาขาและนโยบายสต๊อก', 'ข้อมูลระบบ', 'สรุปก่อนสร้าง', 'ตรวจสอบและสร้าง', 'บันทึกร่าง', 'ยกเลิก']) {
+  for (const text of ['ข้อมูลทั่วไป', 'รูปสินค้า', 'SKU แรกและรหัสสินค้า', 'ราคาและภาษี', 'น้ำหนักและขนาด', 'หน่วยบรรจุและ Bundle', 'สาขาและนโยบายสต๊อก', 'ข้อมูลระบบ', 'สรุปก่อนสร้าง', 'ตรวจสอบและสร้าง', 'บันทึกร่าง']) {
     assert.match(form, new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
     assert.match(mockup, new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
   }
+  assert.match(form, /กลับหน้าสินค้า/)
+  assert.match(mockup, /ยกเลิก/)
 })
 
 test('R7.2.5 keeps prototype-only controls outside the production page', async () => {
@@ -89,7 +91,8 @@ test('R7.2.5 keeps prototype-only controls outside the production page', async (
   assert.doesNotMatch(form, /UI Prototype · Mock data only/)
   assert.doesNotMatch(form, />Reset</)
   assert.doesNotMatch(form, /สลับ Theme/)
-  assert.match(form, /เชื่อมระบบจริงแล้ว/)
+  assert.match(form, /พร้อมสร้างสินค้า/)
+  assert.doesNotMatch(form, /UI Simulation|UI ทดลอง|Local Backend|PREVIEW|Production|Validation &amp; Security Guardrails/)
 })
 
 test('R7.2.5 retains accessible modal, tabs, status, and summary semantics', async () => {

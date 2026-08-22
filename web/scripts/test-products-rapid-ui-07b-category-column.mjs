@@ -53,6 +53,6 @@ test('Rapid-UI-07B opens a local Master Data Manager and adds unique categories'
   assert.match(source, /function addCategory\(/)
   assert.match(source, /มีหมวดหมู่นี้อยู่แล้ว/)
   assert.match(source, /setCategoryOptions\(\(current\) => \[\.\.\.current, normalized\]\)/)
-  assert.match(source, /UI Simulation เท่านั้น · หมวดหมู่ที่เพิ่มยังไม่ถูกบันทึกลงฐานข้อมูล/)
+  assert.match(source, /หมวดหมู่ที่เพิ่มจะใช้กับงานชุดนี้เท่านั้น/)
   assert.match(styles, /\.live-sale-category-manager-dialog \{[^}]*width: min\(560px, 100%\);/)
 })

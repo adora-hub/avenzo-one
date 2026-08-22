@@ -15,7 +15,7 @@ test('R7.2 exposes one governed unified creation route from Products', async () 
   assert.match(page, /current_user_organization_access/)
   assert.match(page, /permissions\.has\('product\.create'\) && permissions\.has\('product\.update'\)/)
   assert.doesNotMatch(page, /permissions\.has\('product\.manage'\)/)
-  assert.match(form, /สร้าง Product, รูปภาพ, SKU แรก และข้อมูลการขายจากหน้าเดียว/)
+  assert.match(form, /สร้างสินค้า รูปภาพ SKU แรก และข้อมูลการขายจากหน้าเดียว/)
 })
 
 test('R7.2 submits Product and first SKU only through the R7.1 atomic command', async () => {
@@ -61,6 +61,8 @@ test('controlled selections persist only after React state hydration and updates
   const form = await read(formPath)
   assert.match(form, /<form id="unified-product-form"[\s\S]*?onChange=\{\(event\) => \{/)
   assert.doesNotMatch(form, /<form id="unified-product-form"[\s\S]*?onInput=\{\(event\) => \{/)
+  assert.match(form, /<a className="product-back-to-top" href="#unified-product-form" aria-label="กลับด้านบน" title="กลับด้านบน"><svg[\s\S]*?<path d="m6 15 6-6 6 6"/)
+  assert.doesNotMatch(form, /window\.scrollTo\(\{ top: 0/)
   assert.match(form, /const \[draftHydrated, setDraftHydrated\] = useState\(false\)/)
   assert.match(form, /finally \{\s*setDraftHydrated\(true\)\s*\}/)
   assert.match(form, /useEffect\(\(\) => \{\s*if \(!draftHydrated\) return\s*saveBrowserDraft\(false\)/)

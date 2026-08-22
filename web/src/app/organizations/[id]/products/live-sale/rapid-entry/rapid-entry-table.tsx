@@ -241,6 +241,15 @@ export function RapidEntryTable({ organizationId, actorUserId, selectedRange, na
     activationIds?: Record<string, { product: string; sku: string }>
   } | null>(null)
 
+  useEffect(() => {
+    if (creationStage !== 'success') return
+    const timeoutId = window.setTimeout(() => {
+      setCreationStage('idle')
+      setCreationMessage('')
+    }, 8_000)
+    return () => window.clearTimeout(timeoutId)
+  }, [creationStage])
+
   const persistExecutionJournal = useCallback((execution = executionRef.current, recovery = imageRecovery) => {
     if (!execution) return
     const journal: RapidExecutionJournal = {
@@ -703,6 +712,7 @@ export function RapidEntryTable({ organizationId, actorUserId, selectedRange, na
 
   async function submitSelectedRows() {
     if (!selectedRange?.reservationBatchId || reservationExpired || creationStage === 'creating' || creationStage === 'images' || creationStage === 'stock') return
+    setValidationNotice(null)
     const pendingExecution = executionRef.current
     const submissionRows = pendingExecution
       ? pendingExecution.rowSnapshots.map((snapshot) => rows[snapshot.rowIndex]).filter((row): row is RapidRowDraft => Boolean(row))
@@ -759,6 +769,7 @@ export function RapidEntryTable({ organizationId, actorUserId, selectedRange, na
     // autosave is debounced and may not have run when Create is clicked.
     if (!pendingExecution) persistBrowserDraft(false)
     setReviewOpen(false)
+    setValidationNotice(null)
     setCreationMessage('กำลังสร้าง Product และ SKU ทั้งชุด…')
     setCreationStage('creating')
     try {
@@ -859,7 +870,7 @@ export function RapidEntryTable({ organizationId, actorUserId, selectedRange, na
       }
 
       setCreationStage('stock')
-      setCreationMessage('กำลังเปิดใช้งานสินค้าและรับสต็อกแบบ Atomic Batch…')
+      setCreationMessage('กำลังเปิดใช้งานสินค้าและบันทึกสต็อกทั้งชุด…')
       const snapshotByIndex = new Map(execution.rowSnapshots.map((snapshot) => [snapshot.rowIndex, snapshot]))
       const stockItems = createdProducts.map(({ row, clientRowId, created }) => {
         const snapshot = snapshotByIndex.get(row.index)
@@ -900,13 +911,13 @@ export function RapidEntryTable({ organizationId, actorUserId, selectedRange, na
         return { ...row, created: true, selected: false, image: null, imageError: '' }
       }))
       setCreationStage('success')
-      setCreationMessage(`สร้างสินค้า ${submissionRows.length} รายการ อัปโหลดรูป ${stagedImages.length} ภาพ และรับสต็อกสำเร็จครบทั้งชุด`)
-      setValidationNotice({ tone: 'success', message: `สร้างสินค้าและสต็อกสำเร็จ ${submissionRows.length} รายการ ไม่มีรายการสำเร็จบางส่วน` })
+      setCreationMessage(`สร้างแล้ว ${submissionRows.length} รายการ · อัปโหลดรูป ${stagedImages.length} ภาพ · รับสต็อกครบทั้งชุด · ไม่มีรายการสำเร็จบางส่วน`)
+      setValidationNotice(null)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'rapid_creation_failed'
       setCreationStage('error')
       setCreationMessage(`ทำรายการยังไม่สำเร็จ: ${message} · กด “ลองอีกครั้ง” เพื่อใช้ Command และ Batch key เดิม`)
-      setValidationNotice({ tone: 'error', message: `ระบบหยุดที่ขั้นตอนสร้างจริงและเก็บข้อมูลสำหรับลองใหม่: ${message}` })
+      setValidationNotice(null)
     }
   }
 
@@ -960,7 +971,7 @@ export function RapidEntryTable({ organizationId, actorUserId, selectedRange, na
     }
     setCategoryOptions((current) => [...current, normalized])
     setNewCategoryName('')
-    setCategoryManagerNotice(`เพิ่มหมวดหมู่ “${normalized}” แล้ว — UI Simulation`)
+    setCategoryManagerNotice(`เพิ่มหมวดหมู่ “${normalized}” สำหรับงานชุดนี้แล้ว`)
   }
 
   function beginColumnResize(event: ReactPointerEvent<HTMLButtonElement>, column: ResizableColumn) {
@@ -1085,10 +1096,10 @@ export function RapidEntryTable({ organizationId, actorUserId, selectedRange, na
 
     {selectedRange && <section className="live-sale-rapid-validation-summary" aria-labelledby="rapidValidationTitle">
       <header className="live-sale-rapid-section-header"><div className="live-sale-rapid-section-title"><span aria-hidden="true">4</span><div><h3 id="rapidValidationTitle">ตรวจสอบก่อนสร้าง</h3><p>แถวที่ยังไม่กรอกจะถูกเว้นไว้ และจะส่งต่อเฉพาะรายการที่เลือกและข้อมูลครบเท่านั้น</p></div></div>
-        <div className="live-sale-rapid-validation-actions"><button type="button" onClick={selectReadyRows} disabled={!canManage || !readyCount}>เลือกเฉพาะรายการพร้อมสร้าง</button><button className="button" type="button" onClick={reviewSelectedRows} disabled={!canManage || !rows.length || reservationExpired} aria-describedby={reservationExpired ? 'rapidReservationStatus' : undefined}>ตรวจรายการที่เลือก</button></div></header>
+        <div className="live-sale-rapid-validation-actions"><button type="button" onClick={selectReadyRows} disabled={!canManage || !readyCount}>เลือกเฉพาะรายการพร้อมสร้าง</button><button className="button" type="button" onClick={reviewSelectedRows} disabled={!canManage || !rows.length || reservationExpired} aria-describedby={reservationExpired ? 'rapidReservationStatus' : undefined}>ตรวจและสร้างรายการ</button></div></header>
       <div className="live-sale-rapid-validation-counters" aria-label="สถานะการตรวจรายการ"><span><strong>{readyCount}</strong> พร้อมสร้าง</span><span className="is-danger"><strong>{invalidRows.length}</strong> ต้องแก้ไข</span><span><strong>{emptyRows.length}</strong> ยังไม่กรอก</span><span className="is-accent"><strong>{selectedReadyRows.length}</strong> เลือกพร้อมสร้าง</span></div>
       {validationNotice ? <div className={`live-sale-rapid-validation-notice is-${validationNotice.tone}`} role="status"><span>{validationNotice.message}</span>{validationNotice.tone === 'error' && firstInvalidIssue ? <button type="button" onClick={() => focusValidationIssue(firstInvalidIssue)}>ไปยังจุดแรกที่ต้องแก้</button> : null}</div> : null}
-      {creationStage !== 'idle' ? <div className={`live-sale-rapid-validation-notice is-${creationStage === 'success' ? 'success' : creationStage === 'error' ? 'error' : 'info'}`} role="status" aria-live="polite" aria-busy={creationStage === 'creating' || creationStage === 'images' || creationStage === 'stock'}><span>{creationMessage}</span>{creationStage === 'error' ? <button type="button" onClick={submitSelectedRows}>ลองอีกครั้ง</button> : null}</div> : null}
+      {creationStage !== 'idle' ? <div className={`live-sale-rapid-validation-notice is-${creationStage === 'success' ? 'success' : creationStage === 'error' ? 'error' : 'info'}`} role="status" aria-live="polite" aria-busy={creationStage === 'creating' || creationStage === 'images' || creationStage === 'stock'}><span>{creationMessage}</span>{creationStage === 'error' ? <button type="button" onClick={submitSelectedRows}>ลองอีกครั้ง</button> : creationStage === 'success' ? <button type="button" onClick={() => { setCreationStage('idle'); setCreationMessage('') }}>ปิด</button> : null}</div> : null}
       {invalidRows.length ? <div className="live-sale-rapid-validation-issues"><strong>รายการที่ต้องตรวจ</strong><div>{invalidRows.slice(0, 3).map((row) => { const issue = validationIssuesFor(row, categoryOptions)[0]; return <button key={row.salesCode} type="button" onClick={() => focusValidationIssue(issue)}><span>{row.salesCode}</span><small>{issue.message}</small></button> })}</div>{invalidRows.length > 3 ? <small>และอีก {invalidRows.length - 3} รายการ</small> : null}</div> : null}
     </section>}
 
@@ -1127,7 +1138,7 @@ export function RapidEntryTable({ organizationId, actorUserId, selectedRange, na
     {reviewOpen && <div className="live-sale-rapid-bulk-dialog-backdrop" role="presentation"><section className="live-sale-rapid-bulk-dialog live-sale-rapid-review-dialog" role="dialog" aria-modal="true" aria-labelledby="rapidReviewTitle">
       <header><div><span className="live-sale-rapid-kicker">ตัวอย่างก่อนส่งสร้าง</span><h4 id="rapidReviewTitle">พร้อมส่งต่อ {selectedReadyRows.length} รายการ</h4></div><button type="button" onClick={() => setReviewOpen(false)} aria-label="ปิดตัวอย่างรายการพร้อมสร้าง">×</button></header>
       <div><p>ตรวจเฉพาะรายการที่เลือกและข้อมูลครบแล้ว แถวว่างจะไม่ถูกนำมารวมในขั้นตอนนี้</p><div className="live-sale-rapid-review-list" role="list">{selectedReadyRows.map((row) => <div key={row.salesCode} role="listitem"><strong>{row.salesCode}</strong><span>{row.productName}</span><small>{row.category} · ฿{row.price} · {row.stock} {row.unit} · {row.branch}</small></div>)}</div>
-        <aside>ระบบจะสร้าง Product/SKU ทั้งชุดก่อน จากนั้นอัปโหลดรูป และรับสต็อกผ่าน Atomic Batch โดยไม่ใช้ผลสำเร็จบางส่วน</aside></div>
+        <aside>ระบบจะสร้างสินค้า อัปโหลดรูป และบันทึกสต็อกให้ครบทั้งชุด หากรายการใดไม่ผ่านจะไม่สร้างเพียงบางรายการ</aside></div>
       <footer><button className="button secondary" type="button" onClick={() => setReviewOpen(false)}>กลับไปแก้ไข</button><button className="button" type="button" onClick={submitSelectedRows}>สร้าง {selectedReadyRows.length} รายการ</button></footer>
     </section></div>}
 
@@ -1137,7 +1148,7 @@ export function RapidEntryTable({ organizationId, actorUserId, selectedRange, na
         <div><form className="live-sale-category-manager-form" onSubmit={addCategory}><label><span>ชื่อหมวดหมู่ใหม่</span><div><input value={newCategoryName} onChange={(event) => { setNewCategoryName(event.target.value.slice(0, 60)); setCategoryManagerNotice('') }} maxLength={60} placeholder="เช่น กำไลทอง" autoFocus /><button className="button" type="submit" disabled={!canManage}>เพิ่มหมวดหมู่</button></div></label></form>
           {categoryManagerNotice ? <p className="live-sale-category-manager-notice" role="status">{categoryManagerNotice}</p> : null}
           <section className="live-sale-category-manager-list" aria-label={`หมวดหมู่ทั้งหมด ${categoryOptions.length} รายการ`}><header><strong>หมวดหมู่ที่ใช้ได้</strong><span>{categoryOptions.length} รายการ</span></header><div>{categoryOptions.map((category) => <span key={category}>{category}</span>)}</div></section>
-          <aside>UI Simulation เท่านั้น · หมวดหมู่ที่เพิ่มยังไม่ถูกบันทึกลงฐานข้อมูล</aside>
+          <aside>หมวดหมู่ที่เพิ่มจะใช้กับงานชุดนี้เท่านั้น หากต้องการใช้ครั้งถัดไปให้เพิ่มในหน้าจัดการหมวดหมู่</aside>
         </div>
         <footer><button className="button secondary" type="button" onClick={() => setCategoryManagerOpen(false)}>เสร็จสิ้น</button></footer>
       </section>

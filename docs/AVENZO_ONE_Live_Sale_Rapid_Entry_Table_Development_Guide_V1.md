@@ -176,6 +176,20 @@ Undo must be available for the latest bulk operation.
   expiry and block final review until the user reserves a new range.
 - Draft format is versioned, bounded and scoped by Organization/reservation.
 - Provide discard-draft confirmation and restore notice.
+- Draft cancellation is local-only: the confirmation states that created
+  Products and received Stock remain unchanged, while unused Sales Codes stay
+  reserved until the authoritative three-hour expiry. The UI must not claim an
+  immediate release until a trusted release command is connected.
+- The user-facing page title is `สร้างสินค้าด่วน` with a lightning icon. Do not
+  expose environment or implementation labels such as UI Simulation, Local
+  Backend, PREVIEW or transaction names in the normal workflow.
+- The review entry action is the section's primary action and uses the label
+  `ตรวจและสร้างรายการ`; automatic row selection remains secondary.
+- Show `จบชุดและคืนรหัสที่เหลือ` as an enabled action only after `batch.release`
+  is connected through an authenticated Server Action, permission guard and
+  confirmation. Never simulate a successful release in UI-only work.
+- Batch completion uses one temporary, dismissible success notice; durable row
+  status remains the source of truth and duplicate success banners are forbidden.
 - Disable duplicate submit while processing.
 - The eventual server command uses one Idempotency Key and atomic rollback.
 - Images require a staged upload/compensation contract before real integration.

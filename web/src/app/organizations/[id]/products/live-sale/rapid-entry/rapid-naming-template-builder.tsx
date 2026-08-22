@@ -89,7 +89,6 @@ export function RapidNamingTemplateBuilder({ selectedRange, canManage, onTemplat
           <p>ชื่อทุกแถวมีรหัสขายกำกับ เพื่อให้นำไปใช้จริงได้ทันทีและไม่ต้องกลับมาแก้ซ้ำ</p>
         </div>
       </div>
-      <span className="live-sale-prefix-simulation-badge">UI Simulation</span>
     </header>
 
     {!selectedRange ? <div className="live-sale-naming-empty" role="status">

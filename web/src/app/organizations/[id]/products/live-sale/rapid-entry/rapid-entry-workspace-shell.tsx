@@ -16,8 +16,16 @@ function ArrowLeftIcon() {
   return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6M9 12h10" /></svg>
 }
 
-function TableIcon() {
-  return <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 9h18M9 9v11M15 9v11" /></svg>
+function ArrowDownIcon() {
+  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+}
+
+function ArrowUpIcon() {
+  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 15 6-6 6 6" /></svg>
+}
+
+function LightningIcon() {
+  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m13 2-8 12h7l-1 8 8-12h-7l1-8Z" /></svg>
 }
 
 function MonitorIcon() {
@@ -28,29 +36,21 @@ export function RapidEntryWorkspaceShell({ organizationId, organizationName, act
   const productsHref = `/organizations/${organizationId}/products`
 
   return <>
-    <div className="live-sale-rapid-supported">
+    <div id="rapidPageTop" className="live-sale-rapid-supported">
       <header className="live-sale-page-heading live-sale-rapid-heading">
         <div className="live-sale-heading-copy">
-          <span className="live-sale-eyebrow">LIVE SALE · RAPID ENTRY</span>
           <div className="live-sale-title-line">
-            <h1>กรอกสินค้าแบบตาราง</h1>
-            <span className="live-sale-preview-badge">LOCAL BACKEND</span>
+            <span className="live-sale-rapid-title-icon"><LightningIcon /></span>
+            <h1>สร้างสินค้าด่วน</h1>
+            <span className="live-sale-preview-badge">สูงสุด 50 รายการ</span>
           </div>
-          <p>เตรียมสินค้าและรหัสขายได้สูงสุด 50 รายการในพื้นที่เดียวสำหรับ {organizationName}</p>
+          <p>เตรียมข้อมูล ตรวจสอบ และสร้างสินค้าหลายรายการในครั้งเดียวสำหรับ {organizationName}</p>
         </div>
         <div className="live-sale-heading-actions">
           <Link className="button secondary" href={productsHref}><ArrowLeftIcon />กลับหน้าสินค้า</Link>
-          {canManage ? <a className="button" href="#rapidValidationTitle">ไปตรวจสอบก่อนสร้าง</a> : null}
+          {canManage ? <a className="button secondary" href="#rapidValidationTitle"><ArrowDownIcon />ไปส่วนตรวจสอบ</a> : null}
         </div>
       </header>
-
-      <section className="live-sale-preview-notice" role="note">
-        <TableIcon />
-        <div>
-          <strong>Rapid Entry · เชื่อม Local Backend แล้ว</strong>
-          <span>ระบบสร้าง Product/SKU แบบทั้งชุด อัปโหลดรูปผ่าน Private Storage และรับสต็อกผ่าน Atomic Batch; PREVIEW และ Production ยังไม่ถูกแก้ไข</span>
-        </div>
-      </section>
 
       {!canManage && <p className="live-sale-permission-note" role="status">บัญชีนี้ดูโครงหน้าจอได้ แต่ไม่มีสิทธิ์สร้างสินค้า เมื่อต่อระบบจริง Action สำหรับสร้างรายการจะถูกปิดไว้</p>}
 
@@ -59,7 +59,7 @@ export function RapidEntryWorkspaceShell({ organizationId, organizationName, act
           <div>
             <span className="live-sale-rapid-kicker">รองรับคอมพิวเตอร์และ Tablet แนวนอน</span>
             <h2 id="rapidWorkspaceTitle">พื้นที่เตรียมสินค้าขายด่วน</h2>
-            <p>Viewport ขั้นต่ำ 1,024px · สูงสุด 50 แถวต่อหนึ่งชุด · Local Backend</p>
+            <p>หน้าจอขั้นต่ำ 1,024px · สูงสุด 50 รายการต่อหนึ่งชุด</p>
           </div>
           <span className="live-sale-rapid-limit-badge">สูงสุด 50 รายการ</span>
         </header>
@@ -75,6 +75,7 @@ export function RapidEntryWorkspaceShell({ organizationId, organizationName, act
           <RapidEntrySetupWorkspace organizationId={organizationId} actorUserId={actorUserId} canManage={canManage} activeReservation={activeReservation} assignedSalesCodes={assignedSalesCodes} categories={categories} />
         </div>
       </section>
+      <a className="product-back-to-top live-sale-rapid-back-to-top" href="#rapidPageTop" aria-label="กลับด้านบน" title="กลับด้านบน"><ArrowUpIcon /></a>
     </div>
 
     <section className="live-sale-rapid-viewport-block" role="status" aria-labelledby="rapidViewportTitle">

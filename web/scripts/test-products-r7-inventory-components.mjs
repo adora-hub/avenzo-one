@@ -15,10 +15,10 @@ test('R7.2.3G renders the approved Section 7 heading and branch selector', async
   assert.match(form, /type="checkbox" value=\{branch\.id\} checked=\{checked\}/)
 })
 
-test('R7.2.3G keeps branch selection in Browser Draft but out of the R7.1 payload', async () => {
+test('R7.2.3G keeps branch selection in the local draft but out of the creation payload', async () => {
   const form = await read(formPath)
   assert.match(form, /selectedBranchIds: branchIds/)
-  assert.match(form, /R7\.1 ยังไม่มี Branch sales-scope contract/)
+  assert.match(form, /สาขาที่เลือกใช้สำหรับเตรียมข้อมูลสินค้าชุดนี้ กรุณาตรวจสอบอีกครั้งก่อนสร้างสินค้า/)
   assert.match(form, /summaryBranches = branches\.filter/)
   const payload = form.slice(form.indexOf('function buildPayload'), form.indexOf('function validationTarget'))
   assert.doesNotMatch(payload, /branch_ids|selectedBranchIds/)
@@ -46,9 +46,9 @@ test('R7.2.3G validates inventory policy cross-field rules', async () => {
   assert.match(form, /inventoryPolicyValidationErrors\(new FormData\(event\.currentTarget\)\)/)
 })
 
-test('R7.2.3G preserves stock authority and Reserved Allocated disclosure', async () => {
+test('R7.2.3G preserves stock authority and explains reserved stock in user language', async () => {
   const form = await read(formPath)
-  assert.match(form, /Reserved\/Allocated จาก Order เป็น Transaction คนละส่วนกับ Safety Stock/)
+  assert.match(form, /ยอดจองจากคำสั่งซื้อแยกจากจำนวนกันสต็อก และยังไม่เปิดใช้ในหน้านี้/)
   assert.match(form, /safety_stock: optionalNumber\(data\.get\('safetyStock'\)\)/)
   assert.match(form, /reorder_min: optionalNumber\(data\.get\('reorderMin'\)\)/)
   assert.match(form, /reorder_max: optionalNumber\(data\.get\('reorderMax'\)\)/)
@@ -113,18 +113,18 @@ test('S3 distinguishes virtual and pre-assembled Bundle stock UI', async () => {
   assert.match(form, /จำนวนชุดที่ประกอบแล้ว/)
   assert.match(form, /bundleInitialStockQuantity, setBundleInitialStockQuantity/)
   assert.match(form, /bundleInitialStockErrors/)
-  assert.match(form, /Bundle ยังไม่เชื่อม Backend/)
-  assert.match(form, /ค่า UI ทดลองจะไม่สร้าง Stock Movement/)
+  assert.match(form, /การรับสต็อกสำหรับ Bundle ยังไม่พร้อมใช้งาน/)
+  assert.match(form, /สามารถสร้างสินค้าแล้วเพิ่มสต็อกภายหลัง/)
 })
-test('S4 marks atomic integration state, preserves toggled values and resets the next product', async () => {
+test('S4 presents all-or-nothing stock behavior in user language and resets the next product', async () => {
   const form = await read(formPath)
-  assert.match(form, /T5\.2 · Atomic Backend/)
+  assert.match(form, /บันทึกทั้งชุด/)
   assert.match(form, /initialStockHasDraftValues/)
   assert.match(form, /ค่าที่กรอกก่อนหน้ายังคงอยู่/)
   assert.match(form, /setInitialStockQuantities\(\{\}\)/)
   assert.match(form, /setBundleInitialStockQuantity\(''\)/)
-  assert.match(form, /บันทึกผ่าน Atomic Batch เท่านั้น/)
-  assert.match(form, /Rollback ทั้ง Batch/)
+  assert.match(form, /บันทึกสต็อกทั้งชุด/)
+  assert.match(form, /หาก SKU ใดไม่ผ่าน ระบบจะยังไม่บันทึกทั้งชุด/)
 })
 test('initial stock uses trusted atomic backend and supports standard and variant rows', async () => {
   const form = await read(formPath)
@@ -133,7 +133,8 @@ test('initial stock uses trusted atomic backend and supports standard and varian
   assert.match(form, /initialStockRows = queueReviewMode[\s\S]{0,700}: structure === 'variant'/)
   assert.match(form, /สาขารับสต็อก/)
   assert.match(form, /executeInitialStockWorkflowAction/)
-  assert.match(form, /T5\.2 · Atomic Backend/)
+  assert.match(form, /บันทึกสต็อกทั้งชุด/)
+  assert.doesNotMatch(form, /T5\.2|Atomic Backend|UI Simulation|UI ทดลอง/)
   assert.doesNotMatch(form, /ยังไม่บันทึกสต็อกจริง/)
   assert.doesNotMatch(form, /name="initialStock/)
 })

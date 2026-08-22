@@ -82,7 +82,7 @@ export function RapidEntrySetupWorkspace({ organizationId, actorUserId, canManag
     setSelectedRange(null)
     setNamingTemplate('PayDay-{code}')
     setDraftSavedAt('')
-    setDraftNotice('ล้าง Browser Draft แล้ว')
+    setDraftNotice('ยกเลิกงานชุดนี้และล้างข้อมูลใน Browser แล้ว · สินค้าที่สร้างสำเร็จไม่ถูกลบ · รหัสที่เหลือยังจองจนหมดเวลา')
     setDiscardOpen(false)
   }
 
@@ -105,6 +105,7 @@ export function RapidEntrySetupWorkspace({ organizationId, actorUserId, canManag
   const pendingReservationExpired = Boolean(pendingDraft && (
     pendingDraft.range.reserved !== true || !pendingDraft.range.expiresAt || pendingReservationWindow?.state === 'expired'
   ))
+  const draftHasActiveReservation = Boolean((selectedRange ?? pendingDraft?.range)?.reserved)
 
   return <div className="live-sale-rapid-setup-stack">
     {pendingDraft ? <section className="live-sale-rapid-draft-notice is-recovery" role="status" aria-labelledby="rapidDraftRecoveryTitle">
@@ -115,7 +116,7 @@ export function RapidEntrySetupWorkspace({ organizationId, actorUserId, canManag
           : pendingReservationWindow
             ? `การจองรหัสเหลือ ${formatRapidReservationRemaining(pendingReservationWindow.remainingMs)}`
             : 'กำลังตรวจสอบเวลาจองรหัส'}</p></div>
-      <div><button className="button secondary" type="button" onClick={() => setDiscardOpen(true)}>ล้าง Draft</button><button className="button" type="button" onClick={restoreDraft}>{pendingReservationExpired ? 'เปิดดู Draft' : 'กู้คืนและทำต่อ'}</button></div>
+      <div><button className="button secondary" type="button" onClick={() => setDiscardOpen(true)}>ยกเลิกงานชุดนี้</button><button className="button" type="button" onClick={restoreDraft}>{pendingReservationExpired ? 'เปิดดู Draft' : 'กู้คืนและทำต่อ'}</button></div>
     </section> : null}
     {!pendingDraft && (selectedRange || draftNotice) ? <section id="rapidReservationStatus" className={`live-sale-rapid-draft-notice is-compact is-${reservationTone}${draftNotice.includes('ไม่สมบูรณ์') ? ' is-warning' : ''}`} role="status" aria-live="polite">
       <div><strong>{selectedRange ? reservationTitle : 'สถานะ Browser Draft'}</strong>
@@ -124,17 +125,23 @@ export function RapidEntrySetupWorkspace({ organizationId, actorUserId, canManag
           : selectedRange?.expiresAt
             ? `หมดอายุ ${new Date(selectedRange.expiresAt).toLocaleString('th-TH')} · Browser Draft บันทึกเงียบอัตโนมัติ${draftSavedAt ? ` · ล่าสุด ${new Date(draftSavedAt).toLocaleTimeString('th-TH')}` : ''}`
             : draftNotice || 'ข้อมูลจะบันทึกอัตโนมัติภายใน Browser เครื่องนี้'}</p></div>
-      {selectedRange ? <button className="button secondary" type="button" onClick={() => setDiscardOpen(true)}>ล้าง Draft</button> : null}
+      {selectedRange ? <button className="button secondary" type="button" onClick={() => setDiscardOpen(true)}>ยกเลิกงานชุดนี้</button> : null}
     </section> : null}
     <RapidPrefixAssistant organizationId={organizationId} canManage={editorEnabled} reservedRange={selectedRange} onRangeSelect={handleRangeSelect} />
     <RapidNamingTemplateBuilder selectedRange={selectedRange} canManage={editorEnabled} onTemplateChange={setNamingTemplate} />
     <RapidEntryTable organizationId={organizationId} actorUserId={actorUserId} selectedRange={selectedRange} namingTemplate={namingTemplate} canManage={editorEnabled} reservationExpired={reservationExpired} assignedSalesCodes={assignedSalesCodes}
       restoredDraft={restoredDraft} onDraftRestored={handleDraftRestored} onDraftSaved={handleDraftSaved} categories={categories} />
     {discardOpen ? <div className="live-sale-rapid-bulk-dialog-backdrop" role="presentation"><section className="live-sale-rapid-bulk-dialog" role="dialog" aria-modal="true" aria-labelledby="rapidDiscardDraftTitle">
-      <header><div><span className="live-sale-rapid-kicker">ยืนยันการล้างข้อมูล</span><h4 id="rapidDiscardDraftTitle">ล้าง Browser Draft ชุดนี้?</h4></div><button type="button" onClick={() => setDiscardOpen(false)} aria-label="ปิดหน้าต่างยืนยันล้าง Draft">×</button></header>
-      <div><p>ข้อมูลที่กรอกในตารางและการเลือกต่าง ๆ จะถูกลบออกจาก Browser เครื่องนี้ และไม่สามารถกู้คืนได้</p>
-        {selectedRange?.reserved ? <p><strong>ช่วงรหัสที่จองจะไม่ถูกคืนทันที</strong> และยังคงถูกกันไว้บนระบบจนกว่าจะครบ 3 ชั่วโมง เพื่อป้องกันผู้ใช้งานหลายคนได้รับรหัสชุดเดียวกัน</p> : null}</div>
-      <footer><button className="button secondary" type="button" onClick={() => setDiscardOpen(false)}>ยกเลิก</button><button className="button" type="button" onClick={discardDraft}>ยืนยันล้าง Draft</button></footer>
+      <header><div><span className="live-sale-rapid-kicker">ตรวจสอบผลกระทบก่อนยกเลิก</span><h4 id="rapidDiscardDraftTitle">ยกเลิกงานชุดนี้และล้างข้อมูลในเครื่อง?</h4></div><button type="button" onClick={() => setDiscardOpen(false)} aria-label="ปิดหน้าต่างยืนยันยกเลิกงานชุดนี้">×</button></header>
+      <div><p>คำสั่งนี้ล้างเฉพาะข้อมูลที่ยังค้างอยู่ใน Browser เครื่องนี้ ไม่ย้อนกลับรายการที่ระบบสร้างสำเร็จแล้ว</p>
+        <dl aria-label="ผลที่จะเกิดขึ้นเมื่อยกเลิกงานชุดนี้">
+          <div><dt>ข้อมูลใน Browser</dt><dd>ลบและกู้คืนไม่ได้</dd></div>
+          <div><dt>สินค้าที่สร้างแล้ว</dt><dd>ไม่ถูกลบ</dd></div>
+          <div><dt>สต็อกที่รับแล้ว</dt><dd>ไม่ถูกย้อนกลับ</dd></div>
+          <div><dt>รหัสที่ยังไม่ได้ใช้</dt><dd>{draftHasActiveReservation ? 'ยังจองไว้จนหมดเวลา 3 ชั่วโมง' : 'ไม่มีช่วงรหัสที่กำลังจอง'}</dd></div>
+        </dl>
+        {draftHasActiveReservation ? <p className="live-sale-rapid-discard-warning"><strong>ขณะนี้ระบบยังไม่คืนรหัสที่เหลือทันที</strong> รหัสจะว่างอีกครั้งเมื่อการจองครบกำหนด</p> : null}</div>
+      <footer><button className="button secondary" type="button" onClick={() => setDiscardOpen(false)}>กลับไปทำต่อ</button><button className="button" type="button" onClick={discardDraft}>ยืนยันยกเลิกงานชุดนี้</button></footer>
     </section></div> : null}
   </div>
 }

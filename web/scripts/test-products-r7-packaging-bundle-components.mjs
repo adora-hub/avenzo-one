@@ -8,8 +8,8 @@ const formPath = '../src/app/organizations/[id]/products/new/unified-product-cre
 test('R7.2.3F renders the approved Section 6 heading and packaging switch', async () => {
   const form = await read(formPath)
   assert.match(form, /<h2>หน่วยบรรจุและ Bundle<\/h2>/)
-  assert.match(form, /ทดลองขายยกแพ็ก\/ลัง หรือรวมหลาย SKU โดย Stock ยัง resolve เป็น Component SKU/)
-  assert.match(form, /<small>Future contract<\/small>/)
+  assert.match(form, /กำหนดการขายยกแพ็ก\/ลัง หรือรวมหลาย SKU เป็นชุด/)
+  assert.match(form, /<small>ยังไม่เปิดใช้<\/small>/)
   assert.match(form, /ขายหลายหน่วยบรรจุ/)
   assert.match(form, /name="packagingEnabled" type="checkbox" checked=\{packagingEnabled\}/)
 })
@@ -25,10 +25,10 @@ test('R7.2.3F renders the approved packaging table, conversion preview and prese
   assert.match(form, /Base Unit คือหน่วยที่ Stock เก็บจริง/)
 })
 
-test('R7.2.3F discloses unsupported per-unit Sales Code and price instead of persisting fake data', async () => {
+test('R7.2.3F explains unsupported per-unit identifiers and price without development labels', async () => {
   const form = await read(formPath)
-  assert.match(form, /R7\.1 ยังไม่รองรับ Sales Code แยกต่อ Sell Unit/)
-  assert.match(form, /R7\.1 ยังไม่รองรับราคาแยกต่อ Sell Unit/)
+  assert.match(form, /บันทึกชื่อ, Unit Code, ตัวคูณและ Barcode ได้/)
+  assert.match(form, /รหัสขายและราคาแยกต่อหน่วยขายยังไม่รองรับ/)
   const sellUnitsPayload = form.slice(form.indexOf('sell_units: packagingEnabled'), form.indexOf('})) : [],', form.indexOf('sell_units: packagingEnabled')) + 8)
   assert.doesNotMatch(sellUnitsPayload, /sales_code:/)
   assert.doesNotMatch(sellUnitsPayload, /sale_price:/)
@@ -41,7 +41,7 @@ test('R7.2.3F renders Virtual and Pre-assembled modes plus a multi-component edi
   assert.match(form, /bundleComponents\.map/)
   assert.match(form, /＋ เพิ่ม Component SKU/)
   assert.match(form, /Bundle ต้องมีอย่างน้อย 2 Components/)
-  assert.match(form, /Pre-assembled Bundle ยังต้องใช้ Assembly Command/)
+  assert.match(form, /Bundle แบบประกอบล่วงหน้ายังไม่รองรับการบันทึก/)
 })
 
 test('R7.2.3F validates unit conversion, identifier duplication and component integrity', async () => {

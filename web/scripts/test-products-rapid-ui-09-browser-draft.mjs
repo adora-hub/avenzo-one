@@ -51,13 +51,16 @@ test('Rapid-BE-02A flushes the latest valid draft when the page is hidden or clo
   assert.match(source, /document\.removeEventListener\('visibilitychange', saveWhenHidden\)/)
 })
 
-test('Rapid-UI-09 requires an explicit restore or confirmed discard', async () => {
+test('Rapid-UI-09 requires an explicit restore or confirmed local-only cancellation', async () => {
   const source = await readFile(setupPath, 'utf8')
   const styles = await readFile(stylesPath, 'utf8')
   assert.match(source, /ต้องการทำงานชุดเดิมต่อหรือไม่/)
   assert.match(source, /กู้คืนและทำต่อ/)
-  assert.match(source, /ล้าง Browser Draft ชุดนี้/)
-  assert.match(source, /ยืนยันล้าง Draft/)
+  assert.match(source, /ยกเลิกงานชุดนี้และล้างข้อมูลในเครื่อง/)
+  assert.match(source, /สินค้าที่สร้างแล้ว<\/dt><dd>ไม่ถูกลบ/)
+  assert.match(source, /สต็อกที่รับแล้ว<\/dt><dd>ไม่ถูกย้อนกลับ/)
+  assert.match(source, /ยังจองไว้จนหมดเวลา 3 ชั่วโมง/)
+  assert.match(source, /ยืนยันยกเลิกงานชุดนี้/)
   assert.match(source, /window\.localStorage\.removeItem/)
   assert.match(styles, /\.live-sale-rapid-draft-notice/)
 })

@@ -43,16 +43,16 @@ test('R7.2.4F preserves pending recovery when any image upload fails', async () 
   assert.match(form, /images\.some\(\(image\) => image\.stage === 'failed'\)/)
   assert.match(form, /setPendingDraft\(recovery\)/)
   assert.match(form, /window\.localStorage\.setItem\(pendingDraftKey, JSON\.stringify\(recovery\)\)/)
-  assert.match(form, /ข้อมูลหลักถูกบันทึกเป็น Draft แล้ว แต่อัปโหลดรูปไม่สำเร็จ/)
+  assert.match(form, /ข้อมูลหลักถูกบันทึกเป็นฉบับร่างแล้ว แต่อัปโหลดรูปไม่สำเร็จ/)
   assert.match(form, /กด “อัปโหลดต่อ” ได้โดยไม่สร้างสินค้าซ้ำ/)
 })
 
 test('R7.2.4F renders an explicit recovery state with retry and safe Product access', async () => {
   const form = await read(formPath)
-  assert.match(form, /กู้คืนงานสร้างสินค้าเดิม/)
-  assert.match(form, /ระบบจะใช้ Product ID, Workflow ID, Command ID และ Batch key เดิมโดยไม่สร้าง Product หรือ Stock ซ้ำ/)
+  assert.match(form, /ทำงานสร้างสินค้าต่อ/)
+  assert.match(form, /ระบบเก็บความคืบหน้ารายการนี้ไว้แล้ว สามารถทำต่อได้โดยไม่สร้างสินค้าและสต็อกซ้ำ/)
   assert.match(form, /onClick=\{focusRecoveryImages\}>ตรวจรูปสินค้า/)
-  assert.match(form, /เปิด Product/)
+  assert.match(form, /เปิดสินค้า/)
 })
 
 test('R7.2.4F opens success only after backend workflow and reports optional image state', async () => {
@@ -62,7 +62,7 @@ test('R7.2.4F opens success only after backend workflow and reports optional ima
   assert.ok(form.indexOf('executeInitialStockWorkflowAction(recovery.initialStockWorkflow)') < form.lastIndexOf('setPendingDraft(null)'))
   assert.match(form, /สร้างสินค้าเรียบร้อยแล้ว/)
   assert.match(form, /พร้อม \$\{creationSuccess\.skuCount\} SKU ถูกสร้างและเปิดใช้งานแล้ว/)
-  assert.match(form, /Initial Stock ถูกบันทึกครบทั้ง Batchและสร้าง Stock Movement แล้ว|Initial Stock ถูกบันทึกครบทั้ง Batch และสร้าง Stock Movement แล้ว/)
+  assert.match(form, /สต็อกเริ่มต้นถูกบันทึกครบทุก SKU แล้ว/)
   assert.match(form, /imageCount: completedImageCount/)
   assert.doesNotMatch(form, /imageCount: images\.length/)
   assert.match(form, /creationSuccess\.imageCount \? ` และอัปโหลดรูปสำเร็จ \$\{creationSuccess\.imageCount\} รูป` : ' โดยยังไม่มีรูปสินค้า สามารถเพิ่มรูปภายหลังได้'/)
@@ -85,7 +85,7 @@ test('R7.2.4F offers truthful post-create destinations without stock side effect
   assert.ok(form.indexOf('product-success-actions') < form.indexOf('product-success-detail-link'))
   assert.match(form, /function createNextProduct\(\)/)
   assert.match(form, /window\.location\.assign\(`\/organizations\/\$\{organizationId\}\/products\/new`\)/)
-  assert.match(form, /ยังไม่เพิ่ม Stock/)
+  assert.match(form, /ยังไม่มีการเพิ่มสต็อก/)
   assert.doesNotMatch(form, /commandType: 'inventory\./)
 })
 

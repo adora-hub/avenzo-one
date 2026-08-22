@@ -137,7 +137,7 @@ test('R7.2.4D maps one staged SKU to the existing atomic initial-SKU payload', a
 test('R7.2.4D prevents silent multi-SKU loss instead of inventing a non-atomic write path', async () => {
   const form = await read(formPath)
   assert.match(form, /if \(skuDrafts\.length > 1\)/)
-  assert.match(form, /Atomic command ปัจจุบันสร้างได้ครั้งละ 1 SKU/)
+  assert.match(form, /ขั้นตอนนี้สร้างได้ครั้งละ 1 SKU/)
   assert.match(form, /จึงยังไม่ส่งข้อมูล เพื่อป้องกันรายการสูญหาย/)
   assert.doesNotMatch(form, /commandType: 'sku\.create'/)
 })
@@ -194,7 +194,7 @@ test('queue review validates then persists every queued product with retry-safe 
   assert.match(form, /queue:\$\{draft\.id\}:command-id/)
   assert.match(form, /commandType: 'product\.create_with_initial_sku'/)
   assert.match(form, /onClick=\{queueReviewMode \? createQueuedProducts : undefined\}/)
-  assert.match(form, /กดสร้างอีกครั้งเพื่อทำต่อโดยไม่สร้าง Product ซ้ำ/)
+  assert.match(form, /กดสร้างอีกครั้งเพื่อทำรายการเดิมต่อโดยไม่สร้างสินค้าซ้ำ/)
 })
 
 test('queue review warns when a new product is still being edited outside the queue', async () => {

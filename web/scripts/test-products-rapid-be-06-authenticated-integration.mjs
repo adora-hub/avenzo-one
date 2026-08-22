@@ -71,11 +71,19 @@ test('Rapid-BE-06 enables the reserved_batch mode without relaxing normal/varian
   assert.match(source, /\(flow === 'normal' \|\| flow === 'variant'\) && items\.length !== 1/)
 })
 
-test('Rapid-BE-06 UI states clearly identify Local Backend and no remote deployment', async () => {
+test('Rapid-BE-06 UI presents the authenticated workflow without development labels', async () => {
   const shell = await readFile(shellPath, 'utf8')
-  assert.match(shell, /LOCAL BACKEND/)
-  assert.match(shell, /PREVIEW และ Production ยังไม่ถูกแก้ไข/)
-  assert.doesNotMatch(shell, /UI PREVIEW/)
+  assert.match(shell, /สร้างสินค้าด่วน/)
+  assert.doesNotMatch(shell, /LOCAL BACKEND|PREVIEW และ Production|UI PREVIEW/)
+})
+
+test('Rapid-BE-06 presents one dismissible success status without duplicating validation feedback', async () => {
+  const table = await readFile(tablePath, 'utf8')
+  assert.match(table, /สร้างแล้ว \$\{submissionRows\.length\} รายการ/)
+  assert.match(table, /creationStage !== 'success'/)
+  assert.match(table, /window\.setTimeout/)
+  assert.match(table, />ปิด<\/button>/)
+  assert.doesNotMatch(table, /สร้างสินค้าและสต็อกสำเร็จ \$\{submissionRows\.length\} รายการ/)
 })
 
 test('Rapid-BE-06 reconciles assigned codes and never submits successful rows twice', async () => {

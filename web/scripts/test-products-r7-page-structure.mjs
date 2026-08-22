@@ -6,15 +6,16 @@ const read = (path) => readFile(new URL(path, import.meta.url), 'utf8')
 const formPath = '../src/app/organizations/[id]/products/new/unified-product-creation-form.tsx'
 const pagePath = '../src/app/organizations/[id]/products/new/page.tsx'
 
-test('R7.2.2 keeps the approved heading, production note and required guide hierarchy', async () => {
+test('R7.2.2 keeps the approved heading, readiness note and required guide hierarchy', async () => {
   const [form, page] = await Promise.all([read(formPath), read(pagePath)])
   assert.doesNotMatch(form, /Part 2\.1\.4A · Unified Product Creation/)
   assert.doesNotMatch(form, /product-creation-eyebrow/)
   assert.match(page, /headerBreadcrumb=\{<ProductHeaderBreadcrumb organizationId=\{organizationId\} currentPage="create-product" \/>\}/)
   assert.doesNotMatch(page, /className="product-breadcrumb"/)
-  assert.match(form, /สร้าง Product, รูปภาพ, SKU แรก และข้อมูลการขายจากหน้าเดียว/)
+  assert.match(form, /สร้างสินค้า รูปภาพ SKU แรก และข้อมูลการขายจากหน้าเดียว/)
   assert.match(form, /product-production-banner/)
-  assert.match(form, /เชื่อมระบบจริงแล้ว/)
+  assert.match(form, /พร้อมสร้างสินค้า/)
+  assert.doesNotMatch(form, /Local Backend|UI Simulation|PREVIEW|Production/)
   assert.match(form, /product-required-guide/)
   assert.match(form, /ช่องที่มีเครื่องหมาย \* จำเป็นต้องกรอก/)
   assert.doesNotMatch(form, /Interaction Prototype เท่านั้น/)
@@ -41,7 +42,12 @@ test('R7.2.2 summary mirrors the approved progress, facts, timeline and action o
   assert.match(form, /เสร็จแล้ว/)
   assert.match(styles, /\.product-section-timeline::before/)
   assert.match(form, /const primaryActionLabel =[\s\S]*'ตรวจสอบและสร้าง'/)
-  assert.match(form, /product-summary-actions[\s\S]*\{primaryActionLabel\}[\s\S]*บันทึกร่าง[\s\S]*ยกเลิก/)
+  assert.match(form, /product-summary-actions[\s\S]*\{primaryActionLabel\}[\s\S]*draftControls\('summary'\)[\s\S]*backToProducts\(\)/)
+  assert.match(form, /product-draft-menu-button[\s\S]*บันทึกร่างและกลับหน้าสินค้า[\s\S]*ล้างข้อมูลร่างนี้/)
+  assert.match(form, /product-back-to-products[\s\S]*viewBox="0 0 24 24"[\s\S]*กลับหน้าสินค้า/)
+  assert.match(form, /window\.localStorage\.removeItem\(localDraftKey\)/)
+  assert.doesNotMatch(form, /function clearBrowserDraft\(\)[\s\S]{0,180}removeItem\(pendingDraftKey\)/)
+  assert.match(form, /ล้างข้อมูลร่างนี้\?[\s\S]*ไม่ลบสินค้าที่สร้างสำเร็จแล้ว[\s\S]*ไม่เปลี่ยนแปลงสต็อกหรือข้อมูลในระบบ/)
 })
 
 test('optional and system-managed timeline sections do not claim user completion', async () => {
@@ -62,4 +68,6 @@ test('R7.2.2 uses the approved responsive canvas and action hierarchy', async ()
   assert.match(styles, /@container product-creation \(max-width: 980px\)/)
   assert.match(styles, /\.product-creation-heading \.button-row \{ display: grid; grid-template-columns: 1fr 1fr; \}/)
   assert.match(styles, /\.product-creation-heading \.button-row \.button:last-child \{ grid-column: 1 \/ -1; \}/)
+  assert.match(styles, /\.product-draft-menu-button > summary \{[^}]*height: 40px;[^}]*border-color: #111;[^}]*color: #fff;[^}]*background: #111;/)
+  assert.match(styles, /\.product-back-to-products \{[^}]*display: inline-flex;[^}]*gap: 7px;/)
 })
